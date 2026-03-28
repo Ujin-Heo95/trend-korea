@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>테스트 피드</title>
+    <link>https://example.com</link>
+    <description>테스트용 RSS 피드</description>
+    <item>
+      <title>첫 번째 기사 제목</title>
+      <link>https://example.com/article/1</link>
+      <dc:creator>홍길동</dc:creator>
+      <pubDate>Fri, 28 Mar 2026 10:00:00 +0900</pubDate>
+      <guid>https://example.com/article/1</guid>
+    </item>
+    <item>
+      <title>두 번째 기사 제목</title>
+      <link>https://example.com/article/2</link>
+      <pubDate>Fri, 28 Mar 2026 11:00:00 +0900</pubDate>
+      <guid>https://example.com/article/2</guid>
+    </item>
+  </channel>
+</rss>
