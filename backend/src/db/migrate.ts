@@ -4,11 +4,19 @@ import { fileURLToPath } from 'url';
 import { pool } from './client.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const sql = readFileSync(join(__dirname, 'migrations/001_init.sql'), 'utf-8');
+
+const migrations = [
+  '001_init.sql',
+  '002_scraper_runs.sql',
+];
 
 try {
-  await pool.query(sql);
-  console.log('Migration complete');
+  for (const file of migrations) {
+    const sql = readFileSync(join(__dirname, 'migrations', file), 'utf-8');
+    await pool.query(sql);
+    console.log(`Migration applied: ${file}`);
+  }
+  console.log('All migrations complete');
 } catch (err) {
   console.error('Migration failed:', err);
   process.exit(1);
