@@ -1,0 +1,32 @@
+{
+  "name": "@trend-korea/backend",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "migrate": "tsx src/db/migrate.ts"
+  },
+  "dependencies": {
+    "fastify": "^5.0.0",
+    "@fastify/cors": "^9.0.0",
+    "@fastify/rate-limit": "^9.0.0",
+    "pg": "^8.11.0",
+    "cheerio": "^1.0.0",
+    "rss-parser": "^3.13.0",
+    "axios": "^1.6.0",
+    "node-cron": "^3.0.3",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "tsx": "^4.0.0",
+    "vitest": "^1.6.0",
+    "nock": "^13.5.0",
+    "@types/pg": "^8.11.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/node": "^20.0.0"
+  }
+}
