@@ -14,17 +14,18 @@ describe('BaseScraper.saveToDb', () => {
     expect(sql).toContain('ON CONFLICT');
   });
 
-  it('returns count of saved posts', async () => {
-    const mockPool = { query: vi.fn().mockResolvedValue({ rowCount: 1 }) } as any;
+  it('single query for multiple posts (batch insert)', async () => {
+    const mockPool = { query: vi.fn().mockResolvedValue({ rowCount: 2 }) } as any;
     const scraper = new MockScraper(mockPool);
-    const result = await scraper.saveToDb([{
-      sourceKey: 'test', sourceName: '테스트',
-      title: '새 글', url: 'https://example.com/2',
-    }]);
-    expect(result).toBe(1);
+    const result = await scraper.saveToDb([
+      { sourceKey: 'test', sourceName: '테스트', title: '글1', url: 'https://example.com/1' },
+      { sourceKey: 'test', sourceName: '테스트', title: '글2', url: 'https://example.com/2' },
+    ]);
+    expect(mockPool.query).toHaveBeenCalledOnce();
+    expect(result).toBe(2);
   });
 
-  it('handles empty post list', async () => {
+  it('handles empty post list without querying', async () => {
     const mockPool = { query: vi.fn() } as any;
     const scraper = new MockScraper(mockPool);
     const result = await scraper.saveToDb([]);
@@ -32,21 +33,18 @@ describe('BaseScraper.saveToDb', () => {
     expect(mockPool.query).not.toHaveBeenCalled();
   });
 
-  it('runs fetch and saves to database', async () => {
-    const mockPool = { query: vi.fn().mockResolvedValue({ rowCount: 1 }) } as any;
+  it('generates correct param count for multi-row batch (9 cols per row)', async () => {
+    const mockPool = { query: vi.fn().mockResolvedValue({ rowCount: 3 }) } as any;
     const scraper = new MockScraper(mockPool);
-    scraper.fetch = vi.fn().mockResolvedValue([{
-      sourceKey: 'test', sourceName: '테스트',
-      title: '글', url: 'https://example.com/3',
-    }]);
-    const result = await scraper.run();
-    expect(result.count).toBe(1);
-    expect(result.error).toBeUndefined();
-    expect(scraper.fetch).toHaveBeenCalled();
-    expect(mockPool.query).toHaveBeenCalled();
+    const posts = Array.from({ length: 3 }, (_, i) => ({
+      sourceKey: 'test', sourceName: '테스트', title: `글${i}`, url: `https://example.com/${i}`,
+    }));
+    await scraper.saveToDb(posts);
+    const [, params] = mockPool.query.mock.calls[0] as [string, unknown[]];
+    expect(params.length).toBe(27); // 3 posts × 9 columns
   });
 
-  it('returns error on fetch failure', async () => {
+  it('run() returns error string on fetch failure', async () => {
     const mockPool = { query: vi.fn() } as any;
     const scraper = new MockScraper(mockPool);
     scraper.fetch = vi.fn().mockRejectedValue(new Error('Fetch failed'));
