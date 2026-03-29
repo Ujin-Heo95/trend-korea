@@ -7,6 +7,7 @@ import { HomePage } from './pages/HomePage';
 import { DailyReportPage } from './pages/DailyReportPage';
 import { WeatherPage } from './pages/WeatherPage';
 import { EntertainmentPage } from './pages/EntertainmentPage';
+import { KeywordsPage } from './pages/KeywordsPage';
 import { fetchLatestReport } from './api/client';
 import type { Category } from './types';
 
@@ -79,6 +80,7 @@ function AppRoutes() {
         <Route path="/daily-report" element={<DailyReportRedirect />} />
         <Route path="/daily-report/:date" element={<DailyReportPage />} />
         <Route path="/entertainment" element={<EntertainmentPage />} />
+        <Route path="/keywords" element={<KeywordsPage />} />
         <Route path="/weather" element={<WeatherPage />} />
       </Routes>
     </Layout>

@@ -15,7 +15,7 @@ export class DcinsideScraper extends BaseScraper {
   }
 
   async fetch(): Promise<ScrapedPost[]> {
-    const { data } = await axios.get('https://www.dcinside.com/', {
+    const { data } = await axios.get('https://gall.dcinside.com/board/lists/?id=dcbest', {
       headers: HEADERS,
       timeout: 15000,
     });
@@ -23,20 +23,27 @@ export class DcinsideScraper extends BaseScraper {
     const $ = cheerio.load(data);
     const posts: ScrapedPost[] = [];
 
-    $('a.main_log[section_code="realtime_best_p"]').each((_, el) => {
-      const url = $(el).attr('href') ?? '';
-      const title =
-        $(el).find('strong.tit').text().trim() ||
-        $(el).find('.besttxt p').text().trim();
-      const thumbnail = $(el).find('img').first().attr('src') || undefined;
+    $('tr.ub-content.us-post').each((_, el) => {
+      const a = $(el).find('td.gall_tit a[href*="/board/view/"]').first();
+      const href = a.attr('href') ?? '';
+      if (!href) return;
 
-      if (title && url) {
+      const title = a.text().replace(/\[.*?\]/g, '').trim();
+      const url = href.startsWith('http') ? href : `https://gall.dcinside.com${href}`;
+      const thumbnail = $(el).find('.thumimg img').attr('src') || undefined;
+      const viewCount = parseInt($(el).find('td.gall_count').text().replace(/,/g, '')) || undefined;
+      const commentMatch = $(el).find('.reply_num').text().match(/\[(\d+)\]/);
+      const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
+
+      if (title) {
         posts.push({
           sourceKey: 'dcinside',
           sourceName: 'DC인사이드',
           title,
           url,
           thumbnail,
+          viewCount,
+          commentCount,
         });
       }
     });

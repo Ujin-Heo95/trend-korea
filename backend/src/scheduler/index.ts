@@ -3,6 +3,7 @@ import { runAllScrapers, runScrapersByPriority } from '../scrapers/index.js';
 import { cleanOldPosts, cleanOldScraperRuns } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
 import { generateDailyReport } from '../services/dailyReport.js';
+import { processNewPosts, calculateStats } from '../services/keywords.js';
 import { pool } from '../db/client.js';
 
 const PRIORITY_INTERVALS = {
@@ -37,6 +38,18 @@ export function startScheduler(): void {
     );
   });
   console.log('[scheduler] daily report: 22:00 UTC (07:00 KST)');
+
+  // 키워드 추출 + 통계 집계: 30분 주기
+  cron.schedule('*/30 * * * *', async () => {
+    try {
+      await processNewPosts(pool);
+      await calculateStats(pool, 3);
+      await calculateStats(pool, 24);
+    } catch (err) {
+      console.error('[keywords] cron error:', err);
+    }
+  });
+  console.log('[scheduler] keywords: every 30 min');
 
   // 자정 + 정오 2회 (Railway 서버 = UTC 기준) — DB 100MB 한도 대응
   cron.schedule('0 0,12 * * *', () => {

@@ -1,10 +1,10 @@
 import axios from 'axios';
-import type { Post, Source, PostsResponse, DailyReport, DailyReportMeta, WeatherResponse, CityInfo } from '../types';
+import type { Post, Source, PostsResponse, DailyReport, DailyReportMeta, WeatherResponse, CityInfo, KeywordStatsResponse } from '../types';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 const api = axios.create({ baseURL });
 
-export const fetchPosts = (params: { source?: string; category?: string; q?: string; page?: number; limit?: number }) =>
+export const fetchPosts = (params: { source?: string; category?: string; q?: string; sort?: string; page?: number; limit?: number }) =>
   api.get<PostsResponse>('/posts', { params }).then(r => r.data);
 
 export const fetchTrending = () =>
@@ -24,3 +24,6 @@ export const fetchWeather = (cityCode: string) =>
 
 export const fetchCities = () =>
   api.get<CityInfo[]>('/weather/cities').then(r => r.data);
+
+export const fetchKeywordStats = (window: number = 3) =>
+  api.get<KeywordStatsResponse>('/keywords', { params: { window } }).then(r => r.data);

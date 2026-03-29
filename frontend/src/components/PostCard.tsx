@@ -1,41 +1,6 @@
 import React, { useState } from 'react';
 import type { Post } from '../types';
-
-const COLORS: Record<string, string> = {
-  dcinside: 'bg-blue-100 text-blue-700',
-  bobaedream: 'bg-green-100 text-green-700',
-  ruliweb: 'bg-orange-100 text-orange-700',
-  theqoo: 'bg-pink-100 text-pink-700',
-  instiz: 'bg-purple-100 text-purple-700',
-  natepann: 'bg-yellow-100 text-yellow-700',
-  todayhumor: 'bg-lime-100 text-lime-700',
-  ppomppu: 'bg-red-100 text-red-700',
-  ppomppu_hot: 'bg-red-100 text-red-700',
-  youtube: 'bg-red-100 text-red-600',
-  yna: 'bg-slate-100 text-slate-600',
-  hani: 'bg-emerald-100 text-emerald-700',
-  sbs: 'bg-blue-100 text-blue-600',
-  donga: 'bg-slate-100 text-slate-600',
-  khan: 'bg-sky-100 text-sky-700',
-  hankyung: 'bg-amber-100 text-amber-700',
-  mk: 'bg-indigo-100 text-indigo-700',
-  seoul: 'bg-slate-100 text-slate-600',
-  kmib: 'bg-slate-100 text-slate-600',
-  geeknews: 'bg-violet-100 text-violet-700',
-  yozm: 'bg-cyan-100 text-cyan-700',
-  kma: 'bg-yellow-100 text-yellow-700',
-  krx: 'bg-emerald-100 text-emerald-700',
-  google_trends: 'bg-blue-100 text-blue-600',
-  naver_datalab: 'bg-green-100 text-green-600',
-  korea_press: 'bg-teal-100 text-teal-700',
-  korea_policy: 'bg-teal-100 text-teal-700',
-  korea_briefing: 'bg-teal-100 text-teal-700',
-  uppity: 'bg-pink-100 text-pink-700',
-  google_news_kr: 'bg-blue-100 text-blue-600',
-  koreaherald: 'bg-rose-100 text-rose-700',
-  koreatimes: 'bg-sky-100 text-sky-700',
-  newsis: 'bg-amber-100 text-amber-700',
-};
+import { SOURCE_COLORS } from '../constants/sourceColors';
 
 function timeAgo(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -64,7 +29,7 @@ export const PostCard: React.FC<{ post: Post }> = ({ post }) => {
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${COLORS[post.source_key] ?? 'bg-slate-100 text-slate-600'}`}>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${SOURCE_COLORS[post.source_key] ?? 'bg-slate-100 text-slate-600'}`}>
               {post.source_name}
             </span>
             {post.view_count > 0 && (
@@ -96,7 +61,7 @@ export const PostCard: React.FC<{ post: Post }> = ({ post }) => {
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-xs text-slate-500 hover:text-blue-500 transition-colors"
             >
-              <span className={`px-1.5 py-0.5 rounded ${COLORS[s.source_key] ?? 'bg-slate-100 text-slate-600'}`}>
+              <span className={`px-1.5 py-0.5 rounded ${SOURCE_COLORS[s.source_key] ?? 'bg-slate-100 text-slate-600'}`}>
                 {s.source_name}
               </span>
             </a>

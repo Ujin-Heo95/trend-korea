@@ -6,6 +6,7 @@ interface PostsFilter {
   source?: string;
   category?: string;
   q?: string;
+  sort?: string;
 }
 
 export const useInfinitePosts = (filter: PostsFilter) =>

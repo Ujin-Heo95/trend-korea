@@ -69,6 +69,21 @@ export interface DailyReportMeta {
   view_count: number;
 }
 
+// ── 키워드/이슈태그 ──────────────────────────────────────
+export interface KeywordStat {
+  rank: number;
+  keyword: string;
+  count: number;
+  rate: number;
+}
+
+export interface KeywordStatsResponse {
+  keywords: KeywordStat[];
+  totalPosts: number;
+  window: number;
+  calculatedAt: string | null;
+}
+
 // ── 날씨 ─────────────────────────────────────────────────
 export interface CityInfo {
   code: string;

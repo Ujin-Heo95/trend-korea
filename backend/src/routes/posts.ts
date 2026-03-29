@@ -13,14 +13,18 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       const offset = (page - 1) * limit;
       const isTrending = sort === 'trending';
 
-      const cacheKey = `posts:${source ?? ''}:${category ?? ''}:${q ?? ''}:${sort ?? ''}:${page}:${limit}`;
+      const sortedSource = source ? source.split(',').sort().join(',') : '';
+      const cacheKey = `posts:${sortedSource}:${category ?? ''}:${q ?? ''}:${sort ?? ''}:${page}:${limit}`;
       const cached = postsCache.get(cacheKey);
       if (cached) return cached;
 
       const conditions: string[] = [];
       const params: unknown[] = [];
 
-      if (source) conditions.push(`p.source_key = $${params.push(source)}`);
+      if (source) {
+        const sources = source.split(',').map(s => s.trim()).filter(Boolean);
+        conditions.push(`p.source_key = ANY($${params.push(sources)}::text[])`);
+      }
       if (category) conditions.push(`p.category = $${params.push(category)}`);
       if (q) conditions.push(`p.title ILIKE $${params.push(`%${q}%`)}`);
 

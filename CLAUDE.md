@@ -93,6 +93,9 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | LRU 캐시 | `backend/src/cache/lru.ts` |
 | 영화 랭킹 테이블 | `frontend/src/components/MovieRankingTable.tsx` |
 | 공연 랭킹 테이블 | `frontend/src/components/PerformanceRankingTable.tsx` |
+| 키워드 추출 서비스 | `backend/src/services/keywords.ts` |
+| 키워드 API | `backend/src/routes/keywords.ts` |
+| 이슈태그 페이지 | `frontend/src/pages/KeywordsPage.tsx` |
 | CSS 엔트리 | `frontend/src/index.css` |
 
 ## Current Phase

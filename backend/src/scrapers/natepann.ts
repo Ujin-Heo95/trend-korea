@@ -16,14 +16,24 @@ export class NatepannScraper extends BaseScraper {
     const $ = cheerio.load(data);
     const posts: ScrapedPost[] = [];
 
-    $('td.subject a[href^="/talk/"]').each((_, el) => {
-      const href = ($(el).attr('href') ?? '').replace(/#.*$/, '').replace(/\?page=\d+/, '');
+    $('tbody tr').each((_, el) => {
+      const subjectTd = $(el).find('td.subject');
+      const a = subjectTd.find('a[href^="/talk/"]').filter((_, link) => {
+        const href = $(link).attr('href') ?? '';
+        return /^\/talk\/\d+/.test(href);
+      }).first();
+      const href = (a.attr('href') ?? '').replace(/#.*$/, '').replace(/\?page=\d+/, '');
       if (!href) return;
-      const title = ($(el).attr('title') ?? $(el).text()).trim();
+      const title = (a.attr('title') ?? a.text()).trim();
       const url = `https://pann.nate.com${href}`;
 
+      const tds = $(el).find('td');
+      const viewCount = parseInt(tds.eq(2).text().replace(/,/g, '')) || undefined;
+      const commentMatch = subjectTd.find('.reple-num').text().match(/\((\d+)\)/);
+      const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
+
       if (title && href) {
-        posts.push({ sourceKey: 'natepann', sourceName: '네이트판', title, url });
+        posts.push({ sourceKey: 'natepann', sourceName: '네이트판', title, url, viewCount, commentCount });
       }
     });
 

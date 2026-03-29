@@ -38,7 +38,9 @@ export function computeScore(
   categoryWeight: number,
   clusterBonus: number = 1.0,
 ): number {
-  const engagement = Math.log1p(viewCount) + Math.log1p(commentCount) * 1.5;
+  const rawEngagement = Math.log1p(viewCount) + Math.log1p(commentCount) * 1.5;
+  // Baseline: 조회수/댓글수 모두 없는 글도 recency × sourceWeight로 순위 결정
+  const engagement = rawEngagement > 0 ? rawEngagement : 2.0;
   const decay = Math.exp(-LN2 * ageMinutes / HALF_LIFE_MINUTES);
   return engagement * decay * sourceWeight * categoryWeight * clusterBonus;
 }

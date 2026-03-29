@@ -1,8 +1,9 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useInfinitePosts } from '../hooks/usePosts';
 import { PostCard } from '../components/PostCard';
 import { TrendingSection } from '../components/TrendingSection';
 import { CategoryTabs } from '../components/CategoryTabs';
+import { SourceFilterChips } from '../components/SourceFilterChips';
 import { MovieRankingTable } from '../components/MovieRankingTable';
 import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
 import type { Category } from '../types';
@@ -14,9 +15,18 @@ interface Props {
 }
 
 export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQuery }) => {
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
+
+  const handleCategoryChange = (cat: Category | undefined) => {
+    onCategoryChange(cat);
+    setSelectedSources([]);
+  };
+
   const filter = {
     ...(category ? { category } : {}),
     ...(searchQuery ? { q: searchQuery } : {}),
+    ...(selectedSources.length > 0 ? { source: selectedSources.join(',') } : {}),
+    ...(category === 'community' ? { sort: 'trending' } : {}),
   };
 
   const {
@@ -55,8 +65,12 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       {!searchQuery && !category && <TrendingSection />}
 
       <div className="flex items-center justify-between mb-3">
-        <CategoryTabs selected={category} onChange={onCategoryChange} />
+        <CategoryTabs selected={category} onChange={handleCategoryChange} />
       </div>
+
+      {category === 'community' && (
+        <SourceFilterChips selected={selectedSources} onChange={setSelectedSources} />
+      )}
 
       {searchQuery && (
         <p className="text-sm text-slate-500 mb-3">

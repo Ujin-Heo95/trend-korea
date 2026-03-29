@@ -13,14 +13,17 @@ export class MlbparkScraper extends BaseScraper {
 
     const posts: ScrapedPost[] = [];
 
-    $('a[href*="b=bullpen"][href*="m=view"]').each((_, el) => {
-      const title = $(el).text().trim();
-      const href = $(el).attr('href') ?? '';
-      if (!title || title.length < 5) return;
+    $('table.tbl_type01 tbody tr').each((_, el) => {
+      const a = $(el).find('.tit a[href*="m=view"]').first();
+      const title = (a.attr('alt') ?? a.text()).trim();
+      const href = a.attr('href') ?? '';
+      if (!title || title.length < 5 || !href) return;
 
-      if (title && href) {
-        posts.push({ sourceKey: 'mlbpark', sourceName: 'MLB파크', title, url: href });
-      }
+      const viewCount = parseInt($(el).find('.viewV').text().replace(/,/g, '')) || undefined;
+      const commentMatch = $(el).find('.replycnt').text().match(/\[(\d+)\]/);
+      const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
+
+      posts.push({ sourceKey: 'mlbpark', sourceName: 'MLB파크', title, url: href, viewCount, commentCount });
     });
 
     return posts.slice(0, 30);
