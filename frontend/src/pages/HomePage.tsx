@@ -3,6 +3,8 @@ import { useInfinitePosts } from '../hooks/usePosts';
 import { PostCard } from '../components/PostCard';
 import { TrendingSection } from '../components/TrendingSection';
 import { CategoryTabs } from '../components/CategoryTabs';
+import { MovieRankingTable } from '../components/MovieRankingTable';
+import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
 import type { Category } from '../types';
 
 interface Props {
@@ -77,11 +79,17 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           <p className="text-sm">다른 키워드로 검색해 보세요</p>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {allPosts.map((post) => (
-            <PostCard key={post.id} post={post} />
-          ))}
-        </div>
+        category === 'movie' ? (
+          <MovieRankingTable posts={allPosts} />
+        ) : category === 'performance' ? (
+          <PerformanceRankingTable posts={allPosts} />
+        ) : (
+          <div className="grid gap-3">
+            {allPosts.map((post) => (
+              <PostCard key={post.id} post={post} />
+            ))}
+          </div>
+        )
       )}
 
       <div ref={sentinelRef} className="h-10" />

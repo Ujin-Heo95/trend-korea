@@ -9,4 +9,5 @@ export interface ScrapedPost {
   commentCount?: number;
   publishedAt?: Date;
   category?: string;
+  metadata?: Record<string, unknown>;
 }

@@ -2,7 +2,7 @@ export type Category =
   | 'community' | 'video' | 'news' | 'tech'
   | 'finance' | 'trend' | 'government' | 'newsletter'
   | 'deals' | 'alert' | 'sports' | 'press' | 'techblog'
-  | 'entertainment';
+  | 'movie' | 'performance';
 
 export interface Post {
   id: number;
@@ -20,6 +20,7 @@ export interface Post {
   cluster_size?: number;
   cluster_id?: number | null;
   related_sources?: { source_name: string; source_key: string; url: string }[];
+  metadata?: Record<string, unknown>;
 }
 
 export interface Source {
@@ -66,4 +67,49 @@ export interface DailyReportMeta {
   generated_at: string;
   status: string;
   view_count: number;
+}
+
+// ── 날씨 ─────────────────────────────────────────────────
+export interface CityInfo {
+  code: string;
+  name: string;
+}
+
+export interface WeatherCurrent {
+  temp: number;
+  sky: number;
+  pty: number;
+  humidity: number;
+  windSpeed: number;
+  precipProb: number;
+  precip: string;
+}
+
+export interface WeatherHourly {
+  fcstDate: string;
+  fcstTime: string;
+  temp: number;
+  sky: number;
+  pty: number;
+  precipProb: number;
+  precip: string;
+  snow: string;
+  humidity: number;
+  windSpeed: number;
+}
+
+export interface WeatherDaily {
+  date: string;
+  min: number | null;
+  max: number | null;
+}
+
+export interface WeatherResponse {
+  city: string;
+  cityCode: string;
+  baseDate: string;
+  baseTime: string;
+  current: WeatherCurrent;
+  hourly: WeatherHourly[];
+  daily: { today: WeatherDaily; tomorrow: WeatherDaily };
 }

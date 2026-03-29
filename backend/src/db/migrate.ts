@@ -14,6 +14,7 @@ const migrations = [
   '006_dedup.sql',
   '007_scoring.sql',
   '008_daily_reports.sql',
+  '009_split_entertainment.sql',
 ];
 
 try {

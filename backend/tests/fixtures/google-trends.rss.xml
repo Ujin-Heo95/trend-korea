@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:ht="https://trends.google.com/trending/rss">
+  <channel>
+    <title>Daily Search Trends</title>
+    <link>https://trends.google.com/trending/rss?geo=KR</link>
+    <item>
+      <title>송지효</title>
+      <link>https://trends.google.com/trending/rss?geo=KR</link>
+      <pubDate>Sun, 29 Mar 2026 02:20:00 -0700</pubDate>
+      <ht:approx_traffic>1000+</ht:approx_traffic>
+      <ht:picture>https://example.com/pic1.jpg</ht:picture>
+      <ht:news_item_url>https://v.daum.net/v/20260329191301959</ht:news_item_url>
+      <ht:news_item_title>"잠깐 사귀자" 성시경, 15세 연하 지예은에 돌직구 플러팅</ht:news_item_title>
+    </item>
+    <item>
+      <title>박보영</title>
+      <link>https://trends.google.com/trending/rss?geo=KR</link>
+      <pubDate>Sun, 29 Mar 2026 03:10:00 -0700</pubDate>
+      <ht:approx_traffic>100+</ht:approx_traffic>
+      <ht:picture>https://example.com/pic2.jpg</ht:picture>
+      <ht:news_item_url>https://v.daum.net/v/20260329160125704</ht:news_item_url>
+      <ht:news_item_title>시청률 3배 치솟으며 다음 기수 확정</ht:news_item_title>
+    </item>
+    <item>
+      <title>서준영</title>
+      <link>https://trends.google.com/trending/rss?geo=KR</link>
+      <pubDate>Sun, 29 Mar 2026 04:20:00 -0700</pubDate>
+      <ht:approx_traffic>200+</ht:approx_traffic>
+    </item>
+  </channel>
+</rss>

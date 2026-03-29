@@ -6,6 +6,10 @@ interface Config {
   youtubeApiKey: string;
   geminiApiKey: string;
   kopisApiKey: string;
+  kobisApiKey: string;
+  kmaApiKey: string;
+  naverClientId: string;
+  naverClientSecret: string;
   discordWebhookUrl: string;
   crawlIntervalMinutes: number;
   postTtlDays: number;
@@ -55,6 +59,10 @@ export const config: Config = {
   youtubeApiKey: process.env.YOUTUBE_API_KEY ?? '',
   geminiApiKey: process.env.GEMINI_API_KEY ?? '',
   kopisApiKey: process.env.KOPIS_API_KEY ?? '',
+  kobisApiKey: process.env.KOBIS_API_KEY ?? '',
+  kmaApiKey: process.env.KMA_API_KEY ?? '',
+  naverClientId: process.env.NAVER_CLIENT_ID ?? '',
+  naverClientSecret: process.env.NAVER_CLIENT_SECRET ?? '',
   discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL ?? '',
   crawlIntervalMinutes,
   postTtlDays,

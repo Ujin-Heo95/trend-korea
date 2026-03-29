@@ -1,0 +1,46 @@
+{
+  "startDate": "2026-03-22",
+  "endDate": "2026-03-29",
+  "timeUnit": "date",
+  "results": [
+    {
+      "title": "부동산",
+      "keywords": ["부동산", "아파트 매매", "전세", "청약"],
+      "data": [
+        { "period": "2026-03-22", "ratio": 45 },
+        { "period": "2026-03-23", "ratio": 40 },
+        { "period": "2026-03-24", "ratio": 42 },
+        { "period": "2026-03-25", "ratio": 48 },
+        { "period": "2026-03-26", "ratio": 60 },
+        { "period": "2026-03-27", "ratio": 72 },
+        { "period": "2026-03-28", "ratio": 80 }
+      ]
+    },
+    {
+      "title": "AI기술",
+      "keywords": ["AI", "인공지능", "ChatGPT", "딥러닝"],
+      "data": [
+        { "period": "2026-03-22", "ratio": 70 },
+        { "period": "2026-03-23", "ratio": 68 },
+        { "period": "2026-03-24", "ratio": 65 },
+        { "period": "2026-03-25", "ratio": 62 },
+        { "period": "2026-03-26", "ratio": 55 },
+        { "period": "2026-03-27", "ratio": 50 },
+        { "period": "2026-03-28", "ratio": 48 }
+      ]
+    },
+    {
+      "title": "여행",
+      "keywords": ["여행", "항공권", "호텔", "해외여행"],
+      "data": [
+        { "period": "2026-03-22", "ratio": 30 },
+        { "period": "2026-03-23", "ratio": 32 },
+        { "period": "2026-03-24", "ratio": 31 },
+        { "period": "2026-03-25", "ratio": 33 },
+        { "period": "2026-03-26", "ratio": 34 },
+        { "period": "2026-03-27", "ratio": 35 },
+        { "period": "2026-03-28", "ratio": 36 }
+      ]
+    }
+  ]
+}

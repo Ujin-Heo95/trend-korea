@@ -15,7 +15,8 @@ const CATEGORIES: { key: Category | undefined; label: string; icon: string }[] =
   { key: 'sports',       label: '스포츠',   icon: '⚽' },
   { key: 'press',        label: '보도자료', icon: '📢' },
   { key: 'techblog',     label: '테크블로그', icon: '🧑‍💻' },
-  { key: 'entertainment', label: '공연/문화', icon: '🎭' },
+  { key: 'movie',         label: '영화',     icon: '🎥' },
+  { key: 'performance',   label: '공연/전시', icon: '🎭' },
 ];
 
 interface Props {

@@ -47,11 +47,12 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 - `registry.ts`가 JSON → 스크래퍼 인스턴스 자동 생성 (RSS/HTML/API)
 - `p-limit(4)` 동시성 제어 — 최대 4개 병렬 실행
 - `BaseScraper.run()`에 retry 2회 (2초, 8초 지수 백오프)
-- `ScrapedPost.category` 필드로 카테고리 분류
+- `ScrapedPost.category` 필드로 카테고리 분류 (movie/performance 전용 탭 지원)
+- `ScrapedPost.metadata` 옵션: API 소스의 구조화 데이터 (JSONB)
 - 우선순위별 스케줄링: high=10분, medium=15분, low=30분
 
 ### Database
-- 배치 INSERT + `ON CONFLICT (url) DO NOTHING` (10 columns incl. category)
+- 배치 INSERT + `ON CONFLICT (url) DO NOTHING` (11 columns incl. category, metadata)
 - `title_hash` GENERATED 컬럼: 정규화 후 MD5 (괄호/특수문자 제거)
 - `post_clusters` + `post_cluster_members`: 중복 게시글 그룹핑
 - `post_scores`: 트렌드 스코어 (5분 주기 배치 갱신)
@@ -90,6 +91,8 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | 일일 리포트 페이지 | `frontend/src/pages/DailyReportPage.tsx` |
 | API 클라이언트 | `frontend/src/api/client.ts` |
 | LRU 캐시 | `backend/src/cache/lru.ts` |
+| 영화 랭킹 테이블 | `frontend/src/components/MovieRankingTable.tsx` |
+| 공연 랭킹 테이블 | `frontend/src/components/PerformanceRankingTable.tsx` |
 | CSS 엔트리 | `frontend/src/index.css` |
 
 ## Current Phase

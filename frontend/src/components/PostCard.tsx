@@ -26,6 +26,7 @@ const COLORS: Record<string, string> = {
   kma: 'bg-yellow-100 text-yellow-700',
   krx: 'bg-emerald-100 text-emerald-700',
   google_trends: 'bg-blue-100 text-blue-600',
+  naver_datalab: 'bg-green-100 text-green-600',
   korea_press: 'bg-teal-100 text-teal-700',
   korea_policy: 'bg-teal-100 text-teal-700',
   korea_briefing: 'bg-teal-100 text-teal-700',

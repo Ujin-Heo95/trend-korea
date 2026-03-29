@@ -417,7 +417,7 @@
     {
       "key": "kopis_boxoffice",
       "name": "KOPIS 예매순위",
-      "category": "entertainment",
+      "category": "performance",
       "type": "api",
       "module": "./kopis.js",
       "className": "KopisBoxofficeScraper",
@@ -427,11 +427,21 @@
     {
       "key": "kobis_boxoffice",
       "name": "KOBIS 박스오피스",
-      "category": "entertainment",
+      "category": "movie",
       "type": "api",
       "module": "./kobis.js",
       "className": "KobisBoxofficeScraper",
       "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "naver_datalab",
+      "name": "네이버 검색 트렌드",
+      "category": "trend",
+      "type": "api",
+      "module": "./naver-datalab.js",
+      "className": "NaverDatalabScraper",
+      "priority": "medium",
       "enabled": true
     },
     {

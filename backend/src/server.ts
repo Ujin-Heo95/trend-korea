@@ -8,6 +8,7 @@ import { postsRoutes } from './routes/posts.js';
 import { sourcesRoutes } from './routes/sources.js';
 import { healthRoutes } from './routes/health.js';
 import { dailyReportRoutes } from './routes/dailyReport.js';
+import { weatherRoutes } from './routes/weather.js';
 import { startScheduler } from './scheduler/index.js';
 
 declare module 'fastify' { interface FastifyInstance { pg: Pool; } }
@@ -21,6 +22,7 @@ export async function buildApp() {
   await app.register(sourcesRoutes);
   await app.register(healthRoutes);
   await app.register(dailyReportRoutes);
+  await app.register(weatherRoutes);
   return app;
 }
 

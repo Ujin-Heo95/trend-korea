@@ -36,7 +36,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       const [rows, count] = await Promise.all([
         app.pg.query(
           `SELECT p.id, p.source_key, p.source_name, p.title, p.url, p.thumbnail,
-                  p.author, p.view_count, p.comment_count, p.published_at, p.scraped_at, p.category
+                  p.author, p.view_count, p.comment_count, p.published_at, p.scraped_at, p.category, p.metadata
            FROM posts p
            LEFT JOIN post_scores ps ON ps.post_id = p.id
            ${where}

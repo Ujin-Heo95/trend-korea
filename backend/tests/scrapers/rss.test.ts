@@ -7,6 +7,7 @@ import { RssScraper } from '../../src/scrapers/rss.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const xml = readFileSync(join(__dirname, '../fixtures/sample.rss.xml'), 'utf-8');
+const googleTrendsXml = readFileSync(join(__dirname, '../fixtures/google-trends.rss.xml'), 'utf-8');
 
 describe('RssScraper', () => {
   beforeAll(() => {
@@ -79,5 +80,112 @@ describe('RssScraper', () => {
     const posts = await scraper.fetch();
     expect(posts).toHaveLength(1);
     expect(posts[0].title).toBe('URL 있는 기사');
+  });
+});
+
+describe('RssScraper — Google Trends', () => {
+  beforeAll(() => {
+    nock('https://trends.google.com')
+      .get('/trending/rss?geo=KR')
+      .reply(200, googleTrendsXml, { 'Content-Type': 'application/rss+xml' });
+  });
+  afterAll(() => nock.cleanAll());
+
+  it('parses Google Trends items with unique URLs', async () => {
+    const scraper = new RssScraper({
+      sourceKey: 'google_trends',
+      sourceName: 'Google 트렌드',
+      feedUrl: 'https://trends.google.com/trending/rss?geo=KR',
+      maxItems: 30,
+      pool: null as any,
+    });
+    const posts = await scraper.fetch();
+
+    expect(posts).toHaveLength(3);
+
+    // Each post should have a unique URL (not the feed URL)
+    const urls = posts.map(p => p.url);
+    const uniqueUrls = new Set(urls);
+    expect(uniqueUrls.size).toBe(3);
+    expect(urls.every(u => u !== 'https://trends.google.com/trending/rss?geo=KR')).toBe(true);
+  });
+
+  it('uses news_item_url when available', async () => {
+    nock('https://trends.google.com')
+      .get('/trending/rss2?geo=KR')
+      .reply(200, googleTrendsXml, { 'Content-Type': 'application/rss+xml' });
+
+    const scraper = new RssScraper({
+      sourceKey: 'google_trends',
+      sourceName: 'Google 트렌드',
+      feedUrl: 'https://trends.google.com/trending/rss2?geo=KR',
+      maxItems: 30,
+      pool: null as any,
+    });
+    const posts = await scraper.fetch();
+
+    // 송지효 has ht:news_item_url
+    const songJihyo = posts.find(p => p.title.includes('송지효'));
+    expect(songJihyo).toBeDefined();
+    expect(songJihyo!.url).toBe('https://v.daum.net/v/20260329191301959');
+    expect(songJihyo!.title).toContain('플러팅');
+  });
+
+  it('falls back to keyword-based URL when news_item_url missing', async () => {
+    nock('https://trends.google.com')
+      .get('/trending/rss3?geo=KR')
+      .reply(200, googleTrendsXml, { 'Content-Type': 'application/rss+xml' });
+
+    const scraper = new RssScraper({
+      sourceKey: 'google_trends',
+      sourceName: 'Google 트렌드',
+      feedUrl: 'https://trends.google.com/trending/rss3?geo=KR',
+      maxItems: 30,
+      pool: null as any,
+    });
+    const posts = await scraper.fetch();
+
+    // 서준영 has no ht:news_item_url
+    const seo = posts.find(p => p.title.includes('서준영'));
+    expect(seo).toBeDefined();
+    expect(seo!.url).toContain('trendingsearches');
+    expect(seo!.url).toContain(encodeURIComponent('서준영'));
+  });
+
+  it('parses traffic into viewCount', async () => {
+    nock('https://trends.google.com')
+      .get('/trending/rss4?geo=KR')
+      .reply(200, googleTrendsXml, { 'Content-Type': 'application/rss+xml' });
+
+    const scraper = new RssScraper({
+      sourceKey: 'google_trends',
+      sourceName: 'Google 트렌드',
+      feedUrl: 'https://trends.google.com/trending/rss4?geo=KR',
+      maxItems: 30,
+      pool: null as any,
+    });
+    const posts = await scraper.fetch();
+
+    const songJihyo = posts.find(p => p.title.includes('송지효'));
+    expect(songJihyo!.viewCount).toBe(1000);
+    expect(songJihyo!.author).toContain('1000+');
+  });
+
+  it('includes thumbnail from ht:picture', async () => {
+    nock('https://trends.google.com')
+      .get('/trending/rss5?geo=KR')
+      .reply(200, googleTrendsXml, { 'Content-Type': 'application/rss+xml' });
+
+    const scraper = new RssScraper({
+      sourceKey: 'google_trends',
+      sourceName: 'Google 트렌드',
+      feedUrl: 'https://trends.google.com/trending/rss5?geo=KR',
+      maxItems: 30,
+      pool: null as any,
+    });
+    const posts = await scraper.fetch();
+
+    const songJihyo = posts.find(p => p.title.includes('송지효'));
+    expect(songJihyo!.thumbnail).toBe('https://example.com/pic1.jpg');
   });
 });

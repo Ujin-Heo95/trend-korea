@@ -68,7 +68,14 @@ export class KopisBoxofficeScraper extends BaseScraper {
             viewCount: parseInt(item.rnum ?? '0', 10),
             commentCount: parseInt(item.prfdtcnt ?? '0', 10),
             publishedAt: new Date(),
-            category: 'entertainment',
+            category: 'performance',
+            metadata: {
+              rank: parseInt(item.rnum ?? '0', 10),
+              genre: item.cate,
+              performanceName: item.prfnm,
+              venue: item.prfplcnm,
+              performanceId: item.mt20id,
+            },
           });
         }
       } catch (err) {

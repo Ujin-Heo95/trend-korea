@@ -33,7 +33,7 @@ describe('BaseScraper.saveToDb', () => {
     expect(mockPool.query).not.toHaveBeenCalled();
   });
 
-  it('generates correct param count for multi-row batch (9 cols per row)', async () => {
+  it('generates correct param count for multi-row batch (11 cols per row)', async () => {
     const mockPool = { query: vi.fn().mockResolvedValue({ rowCount: 3 }) } as any;
     const scraper = new MockScraper(mockPool);
     const posts = Array.from({ length: 3 }, (_, i) => ({
@@ -41,7 +41,7 @@ describe('BaseScraper.saveToDb', () => {
     }));
     await scraper.saveToDb(posts);
     const [, params] = mockPool.query.mock.calls[0] as [string, unknown[]];
-    expect(params.length).toBe(30); // 3 posts × 10 columns
+    expect(params.length).toBe(33); // 3 posts × 11 columns
   });
 
   it('run() returns error string on fetch failure after retries', async () => {

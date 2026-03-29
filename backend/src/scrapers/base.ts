@@ -11,7 +11,7 @@ export abstract class BaseScraper {
   async saveToDb(posts: ScrapedPost[]): Promise<number> {
     if (!posts.length) return 0;
 
-    const COLS = 10;
+    const COLS = 11;
     const values: unknown[] = [];
     const placeholders = posts.map((p, i) => {
       const b = i * COLS;
@@ -20,12 +20,13 @@ export abstract class BaseScraper {
         p.thumbnail ?? null, p.author ?? null,
         p.viewCount ?? 0, p.commentCount ?? 0, p.publishedAt ?? null,
         p.category ?? this.category ?? null,
+        p.metadata ? JSON.stringify(p.metadata) : null,
       );
-      return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10})`;
+      return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11})`;
     });
 
     const result = await this.pool.query(
-      `INSERT INTO posts (source_key,source_name,title,url,thumbnail,author,view_count,comment_count,published_at,category)
+      `INSERT INTO posts (source_key,source_name,title,url,thumbnail,author,view_count,comment_count,published_at,category,metadata)
        VALUES ${placeholders.join(',')} ON CONFLICT (url) DO NOTHING`,
       values
     );
