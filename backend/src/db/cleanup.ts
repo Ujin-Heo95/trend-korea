@@ -15,6 +15,15 @@ export async function cleanOldPosts(): Promise<CleanupResult> {
   return { deleted };
 }
 
+export async function cleanExpiredTrendSignals(): Promise<CleanupResult> {
+  const result = await pool.query<never>(
+    `DELETE FROM trend_signals WHERE expires_at < NOW()`,
+  );
+  const deleted = result.rowCount ?? 0;
+  if (deleted > 0) console.log(`[cleanup] deleted ${deleted} expired trend_signals`);
+  return { deleted };
+}
+
 export async function cleanOldScraperRuns(): Promise<CleanupResult> {
   const result = await pool.query<never>(
     `DELETE FROM scraper_runs WHERE started_at < NOW() - ($1 || ' days')::INTERVAL`,

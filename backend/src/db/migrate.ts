@@ -16,6 +16,7 @@ const migrations = [
   '008_daily_reports.sql',
   '009_split_entertainment.sql',
   '010_keywords.sql',
+  '011_trend_signals.sql',
 ];
 
 try {

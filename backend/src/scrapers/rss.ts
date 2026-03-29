@@ -96,6 +96,7 @@ export class RssScraper extends BaseScraper {
       author: `검색량 ${traffic}`,
       viewCount: parseTraffic(traffic),
       publishedAt: item.pubDate ? new Date(item.pubDate) : undefined,
+      metadata: { keyword, traffic, trafficNum: parseTraffic(traffic) },
     };
   }
 }
