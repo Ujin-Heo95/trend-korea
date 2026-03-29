@@ -44,7 +44,49 @@ export abstract class BaseScraper {
        VALUES ${placeholders.join(',')} ${conflictClause}`,
       values
     );
+
+    // Engagement 스냅샷: 이미 DB에 있는 게시글의 현재 engagement 기록 (velocity 계산용)
+    await this.recordEngagementSnapshots(posts);
+
     return result.rowCount ?? 0;
+  }
+
+  /** 기존 게시글의 engagement 스냅샷을 engagement_snapshots에 배치 기록 */
+  private async recordEngagementSnapshots(posts: ScrapedPost[]): Promise<void> {
+    const withEngagement = posts.filter(p => (p.viewCount ?? 0) > 0 || (p.commentCount ?? 0) > 0);
+    if (!withEngagement.length) return;
+
+    try {
+      const urls = withEngagement.map(p => p.url);
+      const existing = await this.pool.query<{ id: number; url: string }>(
+        `SELECT id, url FROM posts WHERE url = ANY($1::text[])`,
+        [urls]
+      );
+      if (!existing.rows.length) return;
+
+      const urlToPostId = new Map(existing.rows.map(r => [r.url, r.id]));
+      const snapValues: unknown[] = [];
+      const snapPlaceholders: string[] = [];
+
+      for (const p of withEngagement) {
+        const postId = urlToPostId.get(p.url);
+        if (!postId) continue;
+        const i = snapValues.length;
+        snapValues.push(postId, p.viewCount ?? 0, p.commentCount ?? 0);
+        snapPlaceholders.push(`($${i + 1},$${i + 2},$${i + 3})`);
+      }
+
+      if (snapPlaceholders.length > 0) {
+        await this.pool.query(
+          `INSERT INTO engagement_snapshots (post_id, view_count, comment_count)
+           VALUES ${snapPlaceholders.join(',')}`,
+          snapValues
+        );
+      }
+    } catch (err) {
+      // 스냅샷 실패는 스크래핑 자체를 중단시키지 않음
+      console.warn(`[scraper] engagement snapshot failed: ${String(err)}`);
+    }
   }
 
   async run(): Promise<{ count: number; error?: string }> {

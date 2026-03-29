@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { runAllScrapers, runScrapersByPriority } from '../scrapers/index.js';
-import { cleanOldPosts, cleanOldScraperRuns, cleanExpiredTrendSignals } from '../db/cleanup.js';
+import { cleanOldPosts, cleanOldScraperRuns, cleanExpiredTrendSignals, cleanOldEngagementSnapshots } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
 import { generateDailyReport } from '../services/dailyReport.js';
 import { crossValidate } from '../services/trendCrossValidator.js';
@@ -66,5 +66,6 @@ export function startScheduler(): void {
     cleanOldPosts().catch(err => console.error('[cleanup:posts] error:', err));
     cleanOldScraperRuns().catch(err => console.error('[cleanup:scraper_runs] error:', err));
     cleanExpiredTrendSignals().catch(err => console.error('[cleanup:trend_signals] error:', err));
+    cleanOldEngagementSnapshots().catch(err => console.error('[cleanup:engagement_snapshots] error:', err));
   });
 }
