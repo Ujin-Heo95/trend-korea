@@ -1,3 +1,8 @@
+export type Category =
+  | 'community' | 'video' | 'news' | 'tech'
+  | 'finance' | 'trend' | 'government' | 'newsletter'
+  | 'deals' | 'alert';
+
 export interface Post {
   id: number;
   source_key: string;
@@ -10,12 +15,13 @@ export interface Post {
   comment_count: number;
   published_at?: string;
   scraped_at: string;
+  category?: Category;
 }
 
 export interface Source {
   key: string;
   name: string;
-  category: 'community' | 'video' | 'news';
+  category: Category;
   post_count: number;
   last_updated: string | null;
 }

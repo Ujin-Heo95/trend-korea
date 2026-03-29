@@ -1,19 +1,32 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { fetchPosts, fetchTrending, fetchSources } from '../api/client';
+import type { PostsResponse } from '../types';
 
-export const usePosts = (source?: string, page = 1) =>
-  useQuery({
-    queryKey: ['posts', source, page],
-    queryFn: () => fetchPosts({ source, page, limit: 30 }),
-    refetchInterval: 30_000,
-    staleTime: 20_000,
+interface PostsFilter {
+  source?: string;
+  category?: string;
+  q?: string;
+}
+
+export const useInfinitePosts = (filter: PostsFilter) =>
+  useInfiniteQuery<PostsResponse>({
+    queryKey: ['posts', filter],
+    queryFn: ({ pageParam }) =>
+      fetchPosts({ ...filter, page: pageParam as number, limit: 30 }),
+    initialPageParam: 1,
+    getNextPageParam: (last) => {
+      const nextPage = last.page + 1;
+      return nextPage <= Math.ceil(last.total / last.limit) ? nextPage : undefined;
+    },
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 
 export const useTrending = () =>
   useQuery({
     queryKey: ['trending'],
     queryFn: fetchTrending,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
 export const useSources = () =>
