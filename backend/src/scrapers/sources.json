@@ -331,7 +331,7 @@
       "type": "html",
       "module": "./clien.js",
       "className": "ClienScraper",
-      "priority": "high",
+      "priority": "medium",
       "enabled": true
     },
     {
@@ -341,7 +341,7 @@
       "type": "html",
       "module": "./fmkorea.js",
       "className": "FmkoreaScraper",
-      "priority": "high",
+      "priority": "medium",
       "enabled": true
     },
     {
