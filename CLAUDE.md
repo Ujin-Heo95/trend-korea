@@ -56,7 +56,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 - 우선순위별 스케줄링: high=10분, medium=15분, low=30분
 
 ### Database
-- 배치 INSERT + `ON CONFLICT (url) DO NOTHING` (일반), `DO UPDATE` (영화/공연 UPSERT)
+- 배치 INSERT + `ON CONFLICT (url) DO UPDATE` engagement UPSERT (일반), 전체 UPSERT (영화/공연)
 - `title_hash` GENERATED 컬럼: 정규화 후 MD5 (괄호/특수문자 제거)
 - `post_clusters` + `post_cluster_members`: 중복 게시글 그룹핑
 - `post_scores`: 다중 팩터 트렌드 스코어 (5분 주기 배치 갱신, Z-Score+Velocity+Momentum+Trend+Cluster)
@@ -113,7 +113,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 
 ## Current Phase
 
-**Phase 2 완료** (소스 51개 활성 + 3-Layer 중복제거 + **다중 팩터 스코어링 v0.8.0** + 일일 리포트 MVP + Discord 알림 + 핫이슈 키워드 + 영화/공연 종합 개선 + 날씨 + **교차 검증 v0.9.1**: 관련 기사·스파크라인·컨텍스트 + 전체 탭 영화/공연 제외). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Phase 2 완료** (소스 56개 활성 + 3-Layer 중복제거 + **다중 팩터 스코어링 v0.8.0** + 일일 리포트 MVP + Discord 알림 + 핫이슈 키워드 + 영화/공연 종합 개선 + 날씨 + **교차 검증 v0.9.1** + **커뮤니티 순위 동적화 v0.9.2**: engagement UPSERT + velocity 활성화 + 정렬 토글 + 순위 표시). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
@@ -133,8 +133,8 @@ docs/
 > 종합 로드맵: [docs/로드맵.md](docs/로드맵.md) | 기술부채: [docs/dev/기술부채.md](docs/dev/기술부채.md)
 
 **Phase 3 진입:**
-1. 교차 검증 트렌드 데이터 수집 확인 (배포 20분 후 /api/trends/signals 응답 확인)
-2. TrendRadar UI 프로덕션 렌더링 확인
+1. 커뮤니티 탭 velocity 데이터 축적 확인 (배포 20분 후 engagement_snapshots 변동 확인)
+2. 커뮤니티 인기순 순위 변동 확인
 3. Sentry 에러 트래킹 (1시간)
 4. UptimeRobot 설정 (30분)
 5. Phase 3: 사용자 반응 시스템 (좋아요/북마크)
