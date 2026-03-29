@@ -11,6 +11,8 @@ const migrations = [
   '003_add_category.sql',
   '004_backfill_category.sql',
   '005_add_composite_index.sql',
+  '006_dedup.sql',
+  '007_scoring.sql',
 ];
 
 try {

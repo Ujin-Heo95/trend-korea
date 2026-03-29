@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 import type { ScrapedPost } from './types.js';
+import { clusterPosts } from '../services/dedup.js';
 
 export abstract class BaseScraper {
   category?: string;
@@ -37,6 +38,7 @@ export abstract class BaseScraper {
       try {
         const posts = await this.fetch();
         const count = await this.saveToDb(posts);
+        await clusterPosts(this.pool, posts);
         return { count };
       } catch (err) {
         if (attempt < MAX_RETRIES) {

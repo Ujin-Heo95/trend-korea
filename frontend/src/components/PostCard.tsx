@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Post } from '../types';
 
 const COLORS: Record<string, string> = {
@@ -45,29 +45,63 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}일 전`;
 }
 
-export const PostCard: React.FC<{ post: Post }> = ({ post }) => (
-  <a
-    href={post.url}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="flex items-start gap-3 p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-sm transition-all group"
-  >
-    {post.thumbnail && (
-      <img src={post.thumbnail} alt="" loading="lazy" width={64} height={48} className="w-16 h-12 object-cover rounded-lg flex-shrink-0" />
-    )}
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2 mb-1">
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${COLORS[post.source_key] ?? 'bg-slate-100 text-slate-600'}`}>
-          {post.source_name}
-        </span>
-        {post.view_count > 0 && (
-          <span className="text-xs text-slate-400">조회 {post.view_count.toLocaleString()}</span>
+export const PostCard: React.FC<{ post: Post }> = ({ post }) => {
+  const [expanded, setExpanded] = useState(false);
+  const clusterSize = post.cluster_size ?? 1;
+  const hasClusters = clusterSize > 1;
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-sm transition-all">
+      <a
+        href={post.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-start gap-3 p-4 group"
+      >
+        {post.thumbnail && (
+          <img src={post.thumbnail} alt="" loading="lazy" width={64} height={48} className="w-16 h-12 object-cover rounded-lg flex-shrink-0" />
         )}
-      </div>
-      <p className="text-sm font-medium text-slate-800 line-clamp-2 group-hover:text-blue-600">
-        {post.title}
-      </p>
-      <p className="text-xs text-slate-400 mt-1">{timeAgo(post.scraped_at)}</p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${COLORS[post.source_key] ?? 'bg-slate-100 text-slate-600'}`}>
+              {post.source_name}
+            </span>
+            {post.view_count > 0 && (
+              <span className="text-xs text-slate-400">조회 {post.view_count.toLocaleString()}</span>
+            )}
+            {hasClusters && (
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(!expanded); }}
+                className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
+              >
+                외 {clusterSize - 1}개 소스 {expanded ? '▲' : '▼'}
+              </button>
+            )}
+          </div>
+          <p className="text-sm font-medium text-slate-800 line-clamp-2 group-hover:text-blue-600">
+            {post.title}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">{timeAgo(post.scraped_at)}</p>
+        </div>
+      </a>
+      {expanded && post.related_sources && post.related_sources.length > 0 && (
+        <div className="px-4 pb-3 ml-4 space-y-1 border-l-2 border-slate-200 pl-3">
+          {post.related_sources.map((s) => (
+            <a
+              key={s.url}
+              href={s.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-xs text-slate-500 hover:text-blue-500 transition-colors"
+            >
+              <span className={`px-1.5 py-0.5 rounded ${COLORS[s.source_key] ?? 'bg-slate-100 text-slate-600'}`}>
+                {s.source_name}
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
     </div>
-  </a>
-);
+  );
+};

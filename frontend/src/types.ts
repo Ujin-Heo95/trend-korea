@@ -16,6 +16,9 @@ export interface Post {
   published_at?: string;
   scraped_at: string;
   category?: Category;
+  cluster_size?: number;
+  cluster_id?: number | null;
+  related_sources?: { source_name: string; source_key: string; url: string }[];
 }
 
 export interface Source {

@@ -1,6 +1,8 @@
 import cron from 'node-cron';
 import { runAllScrapers, runScrapersByPriority } from '../scrapers/index.js';
 import { cleanOldPosts, cleanOldScraperRuns } from '../db/cleanup.js';
+import { calculateScores } from '../services/scoring.js';
+import { pool } from '../db/client.js';
 
 const PRIORITY_INTERVALS = {
   high: 10,   // 커뮤니티, 트렌딩
@@ -21,6 +23,11 @@ export function startScheduler(): void {
       runScrapersByPriority(priority as keyof typeof PRIORITY_INTERVALS).catch(console.error);
     });
   }
+
+  // 트렌드 스코어 갱신: 5분 주기
+  cron.schedule('*/5 * * * *', () => {
+    calculateScores(pool).catch(err => console.error('[scoring] error:', err));
+  });
 
   // 자정 + 정오 2회 (Railway 서버 = UTC 기준) — DB 100MB 한도 대응
   cron.schedule('0 0,12 * * *', () => {
