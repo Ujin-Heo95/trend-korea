@@ -237,7 +237,7 @@ export async function crossValidate(pool: Pool): Promise<number> {
 
   const { rows: existing } = await pool.query<{ keyword: string }>(
     `SELECT keyword FROM trend_signals
-     WHERE detected_at::date = CURRENT_DATE`,
+     WHERE detected_date = CURRENT_DATE`,
   );
   const existingKeywords = new Set(existing.map(r => r.keyword));
 
@@ -288,7 +288,7 @@ export async function crossValidate(pool: Pool): Promise<number> {
            community_mentions, community_sources,
            convergence_score, signal_type
          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-         ON CONFLICT (keyword, (detected_at::date))
+         ON CONFLICT (keyword, detected_date)
          DO UPDATE SET
            google_traffic = EXCLUDED.google_traffic,
            google_traffic_num = EXCLUDED.google_traffic_num,

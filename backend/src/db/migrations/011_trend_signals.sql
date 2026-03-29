@@ -12,12 +12,13 @@ CREATE TABLE IF NOT EXISTS trend_signals (
   community_sources TEXT[] DEFAULT '{}',
   convergence_score FLOAT DEFAULT 0,
   signal_type       VARCHAR(20) DEFAULT 'google_only',
+  detected_date     DATE NOT NULL DEFAULT CURRENT_DATE,
   detected_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   expires_at        TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '24 hours'
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_trend_signals_kw_date
-  ON trend_signals (keyword, (detected_at::date));
+  ON trend_signals (keyword, detected_date);
 CREATE INDEX IF NOT EXISTS idx_trend_signals_score
   ON trend_signals (convergence_score DESC);
 CREATE INDEX IF NOT EXISTS idx_trend_signals_expires
