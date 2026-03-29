@@ -37,6 +37,6 @@ describe('GET /api/posts', () => {
     expect(res.statusCode).toBe(200);
     const sources = JSON.parse(res.body);
     expect(Array.isArray(sources)).toBe(true);
-    expect(sources.length).toBe(24);
+    expect(sources.length).toBe(28);
   });
 });

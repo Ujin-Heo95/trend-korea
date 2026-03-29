@@ -225,6 +225,42 @@
       "className": "GoogleTrendsScraper",
       "priority": "medium",
       "enabled": true
+    },
+    {
+      "key": "korea_press",
+      "name": "정책브리핑 보도자료",
+      "category": "government",
+      "type": "rss",
+      "feedUrl": "https://www.korea.kr/rss/pressrelease.xml",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "korea_policy",
+      "name": "정책뉴스",
+      "category": "government",
+      "type": "rss",
+      "feedUrl": "https://www.korea.kr/rss/policy.xml",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "korea_briefing",
+      "name": "부처 브리핑",
+      "category": "government",
+      "type": "rss",
+      "feedUrl": "https://www.korea.kr/rss/ebriefing.xml",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "uppity",
+      "name": "어피티",
+      "category": "newsletter",
+      "type": "rss",
+      "feedUrl": "https://uppity.co.kr/feed/",
+      "priority": "low",
+      "enabled": true
     }
   ]
 }
