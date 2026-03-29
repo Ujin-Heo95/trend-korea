@@ -29,8 +29,8 @@ export class KrxScraper extends BaseScraper {
         .slice(0, 30);
 
       return sorted.map(s => this.toPost(s));
-    } catch (error) {
-      throw new Error(`[krx] ${error instanceof Error ? error.message : String(error)}`);
+    } catch {
+      return [];
     }
   }
 
@@ -79,6 +79,7 @@ export class KrxScraper extends BaseScraper {
       title: `${s.ISU_ABBRV} ${rate}% (${s.TDD_CLSPRC}원)`,
       url: `http://data.krx.co.kr/contents/MDC/MDI/mdiLoader/index.cmd?boxid=finder_stkisu0101&input_stkisu=${s.ISU_SRT_CD}`,
       viewCount: parseInt(s.ACC_TRDVOL.replace(/,/g, '')) || 0,
+      category: 'finance',
     };
   }
 }

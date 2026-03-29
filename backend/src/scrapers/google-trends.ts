@@ -47,8 +47,8 @@ export class GoogleTrendsScraper extends BaseScraper {
       const searches = days.flatMap(d => d.trendingSearches);
 
       return searches.slice(0, 30).map(s => this.toPost(s));
-    } catch (error) {
-      throw new Error(`[google-trends] ${error instanceof Error ? error.message : String(error)}`);
+    } catch {
+      return [];
     }
   }
 
@@ -65,6 +65,7 @@ export class GoogleTrendsScraper extends BaseScraper {
       url,
       thumbnail: s.image?.imageUrl,
       author: article?.source,
+      category: 'trend',
     };
   }
 }
