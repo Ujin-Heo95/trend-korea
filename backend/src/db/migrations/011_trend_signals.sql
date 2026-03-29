@@ -17,6 +17,20 @@ CREATE TABLE IF NOT EXISTS trend_signals (
   expires_at        TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '24 hours'
 );
 
+-- Add detected_date column if table was created before this column existed
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'trend_signals' AND column_name = 'detected_date'
+  ) THEN
+    ALTER TABLE trend_signals ADD COLUMN detected_date DATE NOT NULL DEFAULT CURRENT_DATE;
+  END IF;
+END $$;
+
+-- Drop old expression index if it exists (from previous migration version)
+DROP INDEX IF EXISTS idx_trend_signals_kw_date;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_trend_signals_kw_date
   ON trend_signals (keyword, detected_date);
 CREATE INDEX IF NOT EXISTS idx_trend_signals_score
