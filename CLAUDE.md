@@ -33,7 +33,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
                                               ├── 3-Layer 중복제거 (MD5 해시 + Jaccard + Thumbnail)
                                               ├── Gemini Flash: 일일 리포트 LLM 요약 (무료 티어)
                                               ├── Discord 웹훅: 스크래퍼 에러 알림
-                                              ├── 교차 검증: Google Trends × Naver DataLab × 커뮤니티 (20분)
+                                              ├── 교차 검증: Google Trends × Naver DataLab × 커뮤니티 (20분, 관련기사+스파크라인)
                                               ├── Gemini Flash: 핫이슈 키워드 추출 (30분 주기)
                                               ├── KOBIS: Naver Movie Search 연동 (포스터/링크/평점)
                                               ├── KOPIS: 상세 API 연동 (5장르, 공연기간/예매링크)
@@ -113,7 +113,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 
 ## Current Phase
 
-**Phase 2 완료** (소스 51개 활성 + 3-Layer 중복제거 + **다중 팩터 스코어링 v0.8.0** + 일일 리포트 MVP + Discord 알림 + 핫이슈 키워드 + 영화/공연 종합 개선 + 날씨 + 교차 검증). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Phase 2 완료** (소스 51개 활성 + 3-Layer 중복제거 + **다중 팩터 스코어링 v0.8.0** + 일일 리포트 MVP + Discord 알림 + 핫이슈 키워드 + 영화/공연 종합 개선 + 날씨 + **교차 검증 v0.9.0**: 관련 기사·스파크라인·컨텍스트). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
