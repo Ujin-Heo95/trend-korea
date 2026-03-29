@@ -25,9 +25,15 @@
 ## Backend Data Flow
 
 ```
-node-cron 스케줄러
-├── 매 CRAWL_INTERVAL_MINUTES분: runAllScrapers()
-│     └── 13개 스크래퍼 (p-limit 동시성 4, retry 2회)
+sources.json (통합 레지스트리)
+└── registry.ts (로더: RSS 자동생성, HTML/API 동적 import)
+
+node-cron 우선순위 스케줄러
+├── 최초 실행: runAllScrapers() — 전체 22개
+├── 매 10분: high-priority (커뮤니티, 트렌딩)
+├── 매 15분: medium-priority (뉴스 RSS, 테크)
+├── 매 30분: low-priority (정부, 기상)
+│     └── 각 실행: p-limit 동시성 4, retry 2회
 │           ├── logRunStart()  → scraper_runs INSERT
 │           ├── scraper.fetch() → HTML/RSS/API 파싱
 │           ├── saveToDb()     → posts 배치 INSERT
@@ -46,9 +52,10 @@ BaseScraper (base.ts)
 ├── saveToDb(posts)                           — 배치 INSERT (10 cols, ON CONFLICT 무시)
 └── run()                                     — fetch + saveToDb + retry 2회 (2s, 8s 백오프)
 
-구현체:
+구현체 (sources.json 레지스트리에서 로드):
 ├── HTML/Cheerio: dcinside, bobaedream, ruliweb, theqoo, instiz, natepann, todayhumor
-├── RSS:          ppomppu, yna, hani, sbs, donga (RssScraper + RSS_SOURCES 배열)
+├── RSS (14개):   ppomppu, yna, hani, sbs, donga, khan, hankyung, mk, seoul, kmib,
+│                 geeknews, yozm, kma, ppomppu_hot
 └── API:          youtube (YouTube Data API v3)
 ```
 
@@ -92,7 +99,7 @@ Indices: `source_key`, `started_at DESC`
 |--------|------|--------|----------|
 | GET | /api/posts | source?, page=1, limit=30 (max 100) | `{ posts, total, page, limit }` |
 | GET | /api/posts/trending | — | `{ posts }` (1시간 내, view_count 상위 20) |
-| GET | /api/sources | — | `Source[]` (13개, post_count, last_updated, success_rate_24h, avg_posts_per_run) |
+| GET | /api/sources | — | `Source[]` (22개, post_count, last_updated, success_rate_24h, avg_posts_per_run) |
 | GET | /health | — | DB 통계 + 스크래퍼 상태, 503 if DB down |
 
 Rate limit: 100 req/min, CORS: `*`

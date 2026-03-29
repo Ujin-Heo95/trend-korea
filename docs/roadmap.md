@@ -25,12 +25,12 @@
 
 ---
 
-## Scale-Up Phase 2: 레지스트리 + RSS 확장
+## Scale-Up Phase 2: 레지스트리 + RSS 확장 ✅ 완료 (2026-03-29)
 
-- [ ] sources.json 통합 레지스트리 (소스 추가 = JSON 6줄)
-- [ ] registry.ts 로더 (RSS 자동 생성, HTML/API 동적 import)
-- [ ] RSS 9개 추가 (경향/한경/매경/서울/국민/GeekNews/요즘IT/기상청/뽐뿌핫딜)
-- [ ] 우선순위별 스케줄링 (high=10분, medium=15분, low=30분)
+- [x] sources.json 통합 레지스트리 (소스 추가 = JSON 6줄)
+- [x] registry.ts 로더 (RSS 자동 생성, HTML/API 동적 import)
+- [x] RSS 9개 추가 (경향/한경/매경/서울/국민/GeekNews/요즘IT/기상청/뽐뿌핫딜)
+- [x] 우선순위별 스케줄링 (high=10분, medium=15분, low=30분)
 
 → 13개 → 22개 소스
 

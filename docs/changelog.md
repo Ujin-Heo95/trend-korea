@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.5.0 (2026-03-29) — Scale-Up Phase 2: 레지스트리 + RSS 확장
+
+### Added
+- `sources.json` 통합 소스 레지스트리 (22개 소스, 단일 소스 오브 트루스)
+- `registry.ts` 로더 (type=rss 자동생성, type=html/api 동적 import)
+- RSS 9개 신규 추가: 경향신문, 한국경제, 매일경제, 서울신문, 국민일보, GeekNews, 요즘IT, 기상청 특보, 뽐뿌 핫딜
+- 우선순위별 스케줄링: high=10분, medium=15분, low=30분
+- `runScrapersByPriority()` 함수
+
+### Changed
+- `scrapers/index.ts` — 하드코딩 entries → registry 기반 동적 로딩
+- `routes/sources.ts` — SOURCE_META 상수 → `getSourceMeta()` 함수
+- `scheduler/index.ts` — 단일 cron → priority별 3개 cron
+- `scrapers/rss.ts` — RSS_SOURCES 배열 제거 (registry로 이관)
+
+### Migration
+- 소스 추가: `sources.json`에 JSON 6줄 추가만으로 완료 (RSS는 코드 0줄)
+
+---
+
 ## v0.4.0 (2026-03-29) — Scale-Up Phase 1: 수집 인프라 기반
 
 ### Added

@@ -37,11 +37,12 @@ Frontend (React+Vite) ──API──> Backend (Fastify 5) ──> PostgreSQL
 ### Scrapers
 - `BaseScraper` 상속, `fetch(): Promise<ScrapedPost[]>` 구현
 - 최대 30개 반환 (`.slice(0, 30)`)
-- `scrapers/index.ts`의 entries 배열에 등록
-- `routes/sources.ts`의 SOURCE_META에 메타데이터 추가
+- **소스 등록:** `scrapers/sources.json`에 JSON 6줄 추가 (RSS는 코드 0줄)
+- `registry.ts`가 JSON → 스크래퍼 인스턴스 자동 생성 (RSS/HTML/API)
 - `p-limit(4)` 동시성 제어 — 최대 4개 병렬 실행
 - `BaseScraper.run()`에 retry 2회 (2초, 8초 지수 백오프)
 - `ScrapedPost.category` 필드로 카테고리 분류
+- 우선순위별 스케줄링: high=10분, medium=15분, low=30분
 
 ### Database
 - 배치 INSERT + `ON CONFLICT (url) DO NOTHING` (10 columns incl. category)
@@ -63,7 +64,9 @@ Frontend (React+Vite) ──API──> Backend (Fastify 5) ──> PostgreSQL
 | 앱 진입점 | `backend/src/server.ts` |
 | 설정 | `backend/src/config/index.ts` |
 | 스크래퍼 베이스 | `backend/src/scrapers/base.ts` |
-| 스크래퍼 등록 | `backend/src/scrapers/index.ts` |
+| 소스 레지스트리 | `backend/src/scrapers/sources.json` |
+| 레지스트리 로더 | `backend/src/scrapers/registry.ts` |
+| 스크래퍼 실행 | `backend/src/scrapers/index.ts` |
 | DB 정리 | `backend/src/db/cleanup.ts` |
 | 스케줄러 | `backend/src/scheduler/index.ts` |
 | Posts API | `backend/src/routes/posts.ts` |
@@ -73,14 +76,11 @@ Frontend (React+Vite) ──API──> Backend (Fastify 5) ──> PostgreSQL
 
 ## Current Phase
 
-**Scale-Up Phase 2** (소스 레지스트리 + RSS 확장) 진행 예정. 상세: [docs/roadmap.md](docs/roadmap.md)
+**Scale-Up Phase 2** 완료 (22개 소스). **Phase 3** (API 소스) 진행 예정. 상세: [docs/roadmap.md](docs/roadmap.md)
 
-### 다음 세션 작업 (Scale-Up Phase 2)
-1. `sources.json` 통합 레지스트리 구축 (RSS 추가 = JSON 6줄)
-2. `registry.ts` 로더 (RSS 자동 생성, HTML/API 동적 import)
-3. RSS 9개 추가 (경향/한경/매경/서울/국민/GeekNews/요즘IT/기상청/뽐뿌핫딜) → 13→22개
-4. 우선순위별 스케줄링 (high=10분, medium=15분, low=30분)
-5. `routes/sources.ts` SOURCE_META → registry 전환
-6. `scrapers/rss.ts` RSS_SOURCES 배열 → registry 전환
+### 다음 세션 작업 (Scale-Up Phase 3)
+1. Naver DataLab API 스크래퍼 (실시간 검색 트렌드)
+2. KRX 시장 데이터 (공개 API, 일일 등락 상위)
+3. 공공데이터포털 (정부 공지)
 
 계획 상세: `.claude/plans/ancient-swinging-ladybug.md`

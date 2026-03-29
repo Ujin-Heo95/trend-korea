@@ -1,21 +1,7 @@
 import pLimit from 'p-limit';
 import { pool } from '../db/client.js';
-import { config } from '../config/index.js';
-import { RssScraper, RSS_SOURCES } from './rss.js';
-import { DcinsideScraper }    from './dcinside.js';
-import { BobaedreamScraper }  from './bobaedream.js';
-import { RuliwebScraper }     from './ruliweb.js';
-import { TheqooScraper }      from './theqoo.js';
-import { InstizScraper }      from './instiz.js';
-import { NatepannScraper }    from './natepann.js';
-import { TodayhumorScraper }  from './todayhumor.js';
-import { YoutubeScraper }     from './youtube.js';
-import type { BaseScraper } from './base.js';
-
-interface ScraperEntry {
-  sourceKey: string;
-  scraper: BaseScraper;
-}
+import { buildScrapers, getSourcesByPriority } from './registry.js';
+import type { ResolvedScraper, SourcePriority } from './registry.js';
 
 async function logRunStart(sourceKey: string): Promise<number> {
   const r = await pool.query<{ id: number }>(
@@ -32,7 +18,7 @@ async function logRunEnd(runId: number, postsSaved: number, errorMessage: string
   );
 }
 
-async function runScraper(entry: ScraperEntry): Promise<void> {
+async function runScraper(entry: ResolvedScraper): Promise<void> {
   let runId: number | null = null;
   try {
     runId = await logRunStart(entry.sourceKey);
@@ -52,18 +38,24 @@ async function runScraper(entry: ScraperEntry): Promise<void> {
   }
 }
 
+export async function runScrapersByPriority(priority: SourcePriority): Promise<void> {
+  const all = await buildScrapers(pool);
+  const entries = all.filter(s => s.priority === priority);
+  if (entries.length === 0) return;
+
+  console.log(`[scheduler] running ${entries.length} ${priority}-priority scrapers`);
+  const limit = pLimit(4);
+  const results = await Promise.allSettled(entries.map(e => limit(() => runScraper(e))));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      console.error(`[scraper:${entries[i].sourceKey}] unhandled rejection:`, r.reason);
+    }
+  });
+}
+
 export async function runAllScrapers(): Promise<void> {
-  const entries: ScraperEntry[] = [
-    { sourceKey: 'dcinside',   scraper: new DcinsideScraper(pool) },
-    { sourceKey: 'bobaedream', scraper: new BobaedreamScraper(pool) },
-    { sourceKey: 'ruliweb',    scraper: new RuliwebScraper(pool) },
-    { sourceKey: 'theqoo',     scraper: new TheqooScraper(pool) },
-    { sourceKey: 'instiz',     scraper: new InstizScraper(pool) },
-    { sourceKey: 'natepann',   scraper: new NatepannScraper(pool) },
-    { sourceKey: 'todayhumor', scraper: new TodayhumorScraper(pool) },
-    { sourceKey: 'youtube',    scraper: new YoutubeScraper(pool, config.youtubeApiKey) },
-    ...RSS_SOURCES.map(s => ({ sourceKey: s.sourceKey, scraper: new RssScraper({ ...s, pool }) })),
-  ];
+  const entries = await buildScrapers(pool);
+  console.log(`[scheduler] running all ${entries.length} scrapers`);
   const limit = pLimit(4);
   const results = await Promise.allSettled(entries.map(e => limit(() => runScraper(e))));
   results.forEach((r, i) => {

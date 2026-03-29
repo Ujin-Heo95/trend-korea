@@ -38,35 +38,3 @@ export class RssScraper extends BaseScraper {
   }
 }
 
-export const RSS_SOURCES: Omit<RssScraperConfig, 'pool'>[] = [
-  {
-    sourceKey: 'ppomppu',
-    sourceName: '뽐뿌',
-    feedUrl: 'https://www.ppomppu.co.kr/rss.php?id=ppomppu',
-    maxItems: 30,
-  },
-  {
-    sourceKey: 'yna',
-    sourceName: '연합뉴스',
-    feedUrl: 'https://www.yna.co.kr/rss/news.xml',
-    maxItems: 30,
-  },
-  {
-    sourceKey: 'hani',
-    sourceName: '한겨레',
-    feedUrl: 'https://www.hani.co.kr/rss/',
-    maxItems: 30,
-  },
-  {
-    sourceKey: 'sbs',
-    sourceName: 'SBS 뉴스',
-    feedUrl: 'https://news.sbs.co.kr/news/headlineRssFeed.do?plink=RSSREADER',
-    maxItems: 30,
-  },
-  {
-    sourceKey: 'donga',
-    sourceName: '동아일보',
-    feedUrl: 'https://rss.donga.com/total.xml',
-    maxItems: 30,
-  },
-];
