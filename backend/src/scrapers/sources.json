@@ -214,15 +214,32 @@
       "module": "./krx.js",
       "className": "KrxScraper",
       "priority": "low",
+      "enabled": false
+    },
+    {
+      "key": "investing_kr",
+      "name": "Investing.com 한국",
+      "category": "finance",
+      "type": "rss",
+      "feedUrl": "https://kr.investing.com/rss/news.rss",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "sedaily",
+      "name": "서울경제",
+      "category": "finance",
+      "type": "rss",
+      "feedUrl": "https://www.sedaily.com/RSS/Economy",
+      "priority": "medium",
       "enabled": true
     },
     {
       "key": "google_trends",
       "name": "Google 트렌드",
       "category": "trend",
-      "type": "api",
-      "module": "./google-trends.js",
-      "className": "GoogleTrendsScraper",
+      "type": "rss",
+      "feedUrl": "https://trends.google.com/trending/rss?geo=KR",
       "priority": "medium",
       "enabled": true
     },
