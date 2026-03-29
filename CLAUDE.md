@@ -91,7 +91,13 @@ docs/
 └── legal/             법무 (스크래핑 법적 검토)
 ```
 
-### 다음 세션 작업 (SEO + 수익화)
+### 다음 세션 작업
+
+**즉시 확인 (배포 후):**
+1. Railway 프론트엔드 서비스에 `VITE_API_BASE_URL=https://trend-korea-production.up.railway.app/api` 환경변수 추가
+2. 프로덕션 화면 정상 렌더링 확인
+
+**SEO + 수익화:**
 1. SEO (meta, OG tags, sitemap, robots.txt)
 2. GA4 연동
 3. AdSense (ads.txt, AdBanner 컴포넌트)
