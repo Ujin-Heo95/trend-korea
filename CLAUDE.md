@@ -98,12 +98,15 @@ docs/
 
 > 종합 로드맵: [docs/로드맵.md](docs/로드맵.md) | 기술부채: [docs/dev/기술부채.md](docs/dev/기술부채.md)
 
-**Phase 2 — 진행 중 (4-6주차):**
-1. title_hash 기반 중복제거 (30분)
-2. 트렌드 스코어링 시스템 (1일)
-3. Discord 웹훅 에러 알림 (1시간)
-4. Sentry 에러 트래킹 (1시간)
-5. UptimeRobot 설정 (30분)
+**Phase 2 — 소스 확장 완료, 품질 개선 필요 (4-6주차):**
+1. 배포 후 신규 스크래퍼 모니터링 (`/api/sources`에서 success_rate 확인)
+   - fmkorea: 430 봇 차단 간헐적 발생 → 프로덕션에서 실제 동작 확인 필요
+   - 기존 HTML 스크래퍼 셀렉터 정상 여부 확인 (bobaedream, natepann, todayhumor)
+2. title_hash 기반 중복제거 (30분)
+3. 트렌드 스코어링 시스템 (1일)
+4. Discord 웹훅 에러 알림 (1시간)
+5. Sentry 에러 트래킹 (1시간)
+6. UptimeRobot 설정 (30분)
 
 **보류:**
 - Umami Cloud 분석도구 (가입 후 data-website-id를 index.html에 추가)
