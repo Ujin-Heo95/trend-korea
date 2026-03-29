@@ -76,7 +76,7 @@ Frontend (React+Vite) ──API──> Backend (Fastify 5) ──> PostgreSQL
 
 ## Current Phase
 
-**Scale-Up Phase 2** 완료 (22개 소스). **Phase 3** (API 소스) 진행 예정. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Scale-Up Phase 4** 완료 (28개 소스). 다음: 프론트엔드 UI/UX. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
@@ -91,9 +91,8 @@ docs/
 └── legal/             법무 (스크래핑 법적 검토)
 ```
 
-### 다음 세션 작업 (Scale-Up Phase 3)
-1. Naver DataLab API 스크래퍼 (실시간 검색 트렌드)
-2. KRX 시장 데이터 (공개 API, 일일 등락 상위)
-3. 공공데이터포털 (정부 공지)
-
-계획 상세: `.claude/plans/ancient-swinging-ladybug.md`
+### 다음 세션 작업 (프론트엔드 UI/UX)
+1. 트렌딩 섹션 UI
+2. 카테고리 탭 (community/video/news/tech/finance/trend/government/newsletter)
+3. 검색 (`?q=`, `?category=`)
+4. 무한 스크롤
