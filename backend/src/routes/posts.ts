@@ -32,6 +32,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       }
       if (q) conditions.push(`p.title ILIKE $${params.push(`%${q}%`)}`);
 
+      const whereParamCount = params.length;
       const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       // Over-fetch to compensate for cluster dedup filtering
@@ -54,7 +55,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
         ),
         app.pg.query(
           `SELECT COUNT(*)::int AS total FROM posts p ${where}`,
-          params.slice(0, conditions.length)
+          params.slice(0, whereParamCount)
         ),
       ]);
 
