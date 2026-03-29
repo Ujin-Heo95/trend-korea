@@ -47,6 +47,7 @@ export async function buildScrapers(pool: Pool): Promise<readonly ResolvedScrape
   for (const source of enabled) {
     const scraper = await buildOneScraper(source, pool);
     if (scraper) {
+      scraper.category = source.category;
       scrapers.push({ sourceKey: source.key, scraper, priority: source.priority });
     }
   }

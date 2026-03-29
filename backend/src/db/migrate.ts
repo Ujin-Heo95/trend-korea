@@ -9,6 +9,7 @@ const migrations = [
   '001_init.sql',
   '002_scraper_runs.sql',
   '003_add_category.sql',
+  '004_backfill_category.sql',
 ];
 
 try {

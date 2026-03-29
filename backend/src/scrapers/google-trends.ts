@@ -66,7 +66,6 @@ export class GoogleTrendsScraper extends BaseScraper {
       url,
       thumbnail: s.image?.imageUrl,
       author: article?.source,
-      category: 'trend',
     };
   }
 }

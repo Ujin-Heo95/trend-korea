@@ -79,7 +79,6 @@ export class KrxScraper extends BaseScraper {
       sourceName: 'KRX 시장',
       title: `${s.ISU_ABBRV} ${rate}% (${s.TDD_CLSPRC}원)`,
       url: `http://data.krx.co.kr/contents/MDC/MDI/mdiLoader/index.cmd?boxid=finder_stkisu0101&input_stkisu=${s.ISU_SRT_CD}`,
-      category: 'finance',
       viewCount: parseInt(s.ACC_TRDVOL.replace(/,/g, '')) || 0,
     };
   }
