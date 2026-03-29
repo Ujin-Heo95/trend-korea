@@ -26,7 +26,7 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
           <span className="text-sm text-slate-400 hidden sm:inline">한국 주요 커뮤니티 모아보기</span>
           {latestReport && (
             <Link
-              to={`/daily-report/${latestReport.report_date}`}
+              to={`/daily-report/${String(latestReport.report_date).slice(0, 10)}`}
               className="text-xs font-medium px-2 py-1 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors hidden sm:inline-block"
             >
               일일 리포트

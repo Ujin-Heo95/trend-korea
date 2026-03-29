@@ -29,7 +29,8 @@ function DailyReportRedirect() {
   }
 
   if (latest?.report_date) {
-    return <Navigate to={`/daily-report/${latest.report_date}`} replace />;
+    const dateOnly = String(latest.report_date).slice(0, 10);
+    return <Navigate to={`/daily-report/${dateOnly}`} replace />;
   }
 
   return (
