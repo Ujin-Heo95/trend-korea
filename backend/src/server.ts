@@ -5,6 +5,7 @@ import { Pool } from 'pg';
 import { config } from './config/index.js';
 import { postsRoutes } from './routes/posts.js';
 import { sourcesRoutes } from './routes/sources.js';
+import { healthRoutes } from './routes/health.js';
 import { startScheduler } from './scheduler/index.js';
 
 declare module 'fastify' { interface FastifyInstance { pg: Pool; } }
@@ -17,6 +18,7 @@ export async function buildApp() {
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
   await app.register(postsRoutes);
   await app.register(sourcesRoutes);
+  await app.register(healthRoutes);
   return app;
 }
 
