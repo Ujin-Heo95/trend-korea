@@ -2,12 +2,23 @@ import axios from 'axios';
 import type { Pool } from 'pg';
 import { config } from '../config/index.js';
 
+interface TrendArticle {
+  readonly title: string;
+  readonly url: string;
+  readonly source: string;
+}
+
 interface GoogleTrendPost {
   readonly id: number;
   readonly title: string;
   readonly url: string;
   readonly view_count: number;
-  readonly metadata: { keyword?: string; traffic?: string; trafficNum?: number } | null;
+  readonly metadata: {
+    keyword?: string;
+    traffic?: string;
+    trafficNum?: number;
+    articles?: TrendArticle[];
+  } | null;
 }
 
 interface NaverDatalabRatio {
@@ -33,10 +44,13 @@ interface TrendSignal {
   readonly naverRecent: number | null;
   readonly naverPrevious: number | null;
   readonly naverChangePct: number | null;
+  readonly naverTrendData: NaverDatalabRatio[] | null;
   readonly communityMentions: number;
   readonly communitySources: readonly string[];
   readonly convergenceScore: number;
   readonly signalType: 'confirmed' | 'google_only';
+  readonly contextTitle: string | null;
+  readonly relatedPostIds: readonly number[];
 }
 
 // ── 키워드 추출 ──────────────────────────────────────
@@ -65,10 +79,17 @@ function extractTraffic(post: GoogleTrendPost): string {
 
 // ── Naver DataLab 배치 호출 ──────────────────────────
 
+interface NaverResult {
+  readonly recent: number;
+  readonly previous: number;
+  readonly changePct: number;
+  readonly trendData: NaverDatalabRatio[];
+}
+
 async function queryNaverDatalab(
   keywords: readonly string[],
-): Promise<ReadonlyMap<string, { recent: number; previous: number; changePct: number }>> {
-  const results = new Map<string, { recent: number; previous: number; changePct: number }>();
+): Promise<ReadonlyMap<string, NaverResult>> {
+  const results = new Map<string, NaverResult>();
 
   if (!config.naverClientId || !config.naverClientSecret) return results;
   if (keywords.length === 0) return results;
@@ -125,6 +146,7 @@ async function queryNaverDatalab(
           recent: Math.round(recent),
           previous: Math.round(previous),
           changePct,
+          trendData: result.data.map(d => ({ period: d.period, ratio: d.ratio })),
         });
       }
     } catch (err) {
@@ -145,6 +167,7 @@ async function queryNaverDatalab(
 interface CommunityMatch {
   readonly mentions: number;
   readonly sources: readonly string[];
+  readonly postIds: readonly number[];
 }
 
 async function findCommunityMentions(
@@ -155,8 +178,8 @@ async function findCommunityMentions(
   if (keywords.length === 0) return results;
 
   // 최근 6시간 커뮤니티 포스트 (trend 카테고리 제외)
-  const { rows } = await pool.query<{ title: string; source_key: string }>(
-    `SELECT title, source_key FROM posts
+  const { rows } = await pool.query<{ id: number; title: string; source_key: string }>(
+    `SELECT id, title, source_key FROM posts
      WHERE scraped_at > NOW() - INTERVAL '6 hours'
        AND source_key NOT IN ('google_trends', 'naver_datalab')
      ORDER BY scraped_at DESC
@@ -167,9 +190,11 @@ async function findCommunityMentions(
     if (keyword.length < 2) continue;
 
     const matchedSources = new Set<string>();
+    const matchedPostIds: number[] = [];
     for (const row of rows) {
       if (row.title.includes(keyword)) {
         matchedSources.add(row.source_key);
+        if (matchedPostIds.length < 5) matchedPostIds.push(row.id);
       }
     }
 
@@ -177,7 +202,40 @@ async function findCommunityMentions(
       results.set(keyword, {
         mentions: matchedSources.size,
         sources: [...matchedSources],
+        postIds: matchedPostIds,
       });
+    }
+  }
+
+  return results;
+}
+
+// ── keyword_extractions 기반 관련 게시글 조회 ────────
+
+async function findKeywordRelatedPosts(
+  pool: Pool,
+  keywords: readonly string[],
+): Promise<ReadonlyMap<string, readonly number[]>> {
+  const results = new Map<string, readonly number[]>();
+  if (keywords.length === 0) return results;
+
+  for (const keyword of keywords) {
+    try {
+      const { rows } = await pool.query<{ post_id: number }>(
+        `SELECT ke.post_id FROM keyword_extractions ke
+         JOIN posts p ON p.id = ke.post_id
+         WHERE $1 = ANY(ke.keywords)
+           AND p.scraped_at > NOW() - INTERVAL '24 hours'
+           AND p.source_key != 'google_trends'
+         ORDER BY p.scraped_at DESC
+         LIMIT 10`,
+        [keyword],
+      );
+      if (rows.length > 0) {
+        results.set(keyword, rows.map(r => r.post_id));
+      }
+    } catch {
+      // GIN index may not exist yet on first run
     }
   }
 
@@ -253,15 +311,26 @@ export async function crossValidate(pool: Pool): Promise<number> {
   // 4. 커뮤니티 매칭
   const communityResults = await findCommunityMentions(pool, newKeywords);
 
-  // 5. 시그널 생성 + UPSERT
+  // 5. keyword_extractions 기반 관련 게시글 조회
+  const keywordRelated = await findKeywordRelatedPosts(pool, newKeywords);
+
+  // 6. 시그널 생성 + UPSERT
   const signals: TrendSignal[] = newKeywords.map(keyword => {
     const post = keywordPostMap.get(keyword)!;
     const naver = naverResults.get(keyword) ?? null;
-    const community = communityResults.get(keyword) ?? { mentions: 0, sources: [] };
+    const community = communityResults.get(keyword) ?? { mentions: 0, sources: [], postIds: [] };
     const trafficNum = extractTrafficNum(post);
 
     const convergenceScore = computeConvergenceScore(trafficNum, naver, community.mentions);
     const signalType = naver && naver.changePct > 0 ? 'confirmed' as const : 'google_only' as const;
+
+    // 관련 게시글 ID 합산 (커뮤니티 + keyword_extractions, 중복 제거, 최대 5개)
+    const kePostIds = keywordRelated.get(keyword) ?? [];
+    const allPostIds = [...new Set([...community.postIds, ...kePostIds])].slice(0, 5);
+
+    // context_title: Google Trends 원본 기사 제목 → 폴백: 첫 번째 매칭 게시글
+    const articles = post.metadata?.articles ?? [];
+    const contextTitle = articles[0]?.title ?? null;
 
     return {
       keyword,
@@ -271,10 +340,13 @@ export async function crossValidate(pool: Pool): Promise<number> {
       naverRecent: naver?.recent ?? null,
       naverPrevious: naver?.previous ?? null,
       naverChangePct: naver?.changePct ?? null,
+      naverTrendData: naver?.trendData ?? null,
       communityMentions: community.mentions,
       communitySources: community.sources,
       convergenceScore,
       signalType,
+      contextTitle,
+      relatedPostIds: allPostIds,
     };
   });
 
@@ -286,8 +358,9 @@ export async function crossValidate(pool: Pool): Promise<number> {
            keyword, google_traffic, google_traffic_num, google_post_id,
            naver_recent, naver_previous, naver_change_pct,
            community_mentions, community_sources,
-           convergence_score, signal_type
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+           convergence_score, signal_type,
+           context_title, related_post_ids, naver_trend_data
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
          ON CONFLICT (keyword, detected_date)
          DO UPDATE SET
            google_traffic = EXCLUDED.google_traffic,
@@ -299,12 +372,17 @@ export async function crossValidate(pool: Pool): Promise<number> {
            community_mentions = EXCLUDED.community_mentions,
            community_sources = EXCLUDED.community_sources,
            convergence_score = EXCLUDED.convergence_score,
-           signal_type = EXCLUDED.signal_type`,
+           signal_type = EXCLUDED.signal_type,
+           context_title = EXCLUDED.context_title,
+           related_post_ids = EXCLUDED.related_post_ids,
+           naver_trend_data = EXCLUDED.naver_trend_data`,
         [
           s.keyword, s.googleTraffic, s.googleTrafficNum, s.googlePostId,
           s.naverRecent, s.naverPrevious, s.naverChangePct,
           s.communityMentions, s.communitySources,
           s.convergenceScore, s.signalType,
+          s.contextTitle, s.relatedPostIds,
+          s.naverTrendData ? JSON.stringify(s.naverTrendData) : null,
         ],
       );
       upserted++;

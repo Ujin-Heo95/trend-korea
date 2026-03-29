@@ -17,6 +17,9 @@ const migrations = [
   '009_split_entertainment.sql',
   '010_keywords.sql',
   '011_trend_signals.sql',
+  '012_movie_performance_indexes.sql',
+  '013_engagement_snapshots.sql',
+  '014_trend_signal_context.sql',
 ];
 
 try {

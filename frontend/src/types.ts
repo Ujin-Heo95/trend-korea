@@ -85,6 +85,22 @@ export interface KeywordStatsResponse {
 }
 
 // ── 교차 검증 트렌드 시그널 ──────────────────────────────
+export interface GoogleArticle {
+  title: string;
+  url: string;
+  source: string;
+}
+
+export interface RelatedPost {
+  id: number;
+  title: string;
+  url: string;
+  source_name: string;
+  source_key: string;
+  thumbnail: string | null;
+  published_at: string | null;
+}
+
 export interface TrendSignal {
   id: number;
   keyword: string;
@@ -94,11 +110,15 @@ export interface TrendSignal {
   naver_recent: number | null;
   naver_previous: number | null;
   naver_change_pct: number | null;
+  naver_trend_data: { period: string; ratio: number }[] | null;
   community_mentions: number;
   community_sources: string[];
   convergence_score: number;
   signal_type: 'confirmed' | 'google_only';
   detected_at: string;
+  context_title: string | null;
+  google_articles: GoogleArticle[];
+  related_posts: RelatedPost[];
 }
 
 export interface TrendSignalsResponse {

@@ -25,7 +25,11 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
         const sources = source.split(',').map(s => s.trim()).filter(Boolean);
         conditions.push(`p.source_key = ANY($${params.push(sources)}::text[])`);
       }
-      if (category) conditions.push(`p.category = $${params.push(category)}`);
+      if (category) {
+        conditions.push(`p.category = $${params.push(category)}`);
+      } else {
+        conditions.push(`(p.category IS NULL OR p.category NOT IN ('movie', 'performance'))`);
+      }
       if (q) conditions.push(`p.title ILIKE $${params.push(`%${q}%`)}`);
 
       const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

@@ -66,6 +66,25 @@ export class GoogleTrendsScraper extends BaseScraper {
       thumbnail: s.image?.imageUrl,
       author: article?.source,
       category: 'trend',
+      metadata: {
+        keyword: query,
+        traffic: s.formattedTraffic,
+        trafficNum: parseTraffic(s.formattedTraffic),
+        articles: s.articles.slice(0, 5).map(a => ({
+          title: a.title,
+          url: a.url,
+          source: a.source,
+        })),
+      },
     };
   }
+}
+
+function parseTraffic(traffic: string): number {
+  const cleaned = traffic.replace(/[^0-9KkMm+,]/g, '').replace(/,/g, '');
+  const num = parseInt(cleaned, 10);
+  if (isNaN(num)) return 0;
+  if (/[Kk]/.test(traffic)) return num * 1000;
+  if (/[Mm]/.test(traffic)) return num * 1000000;
+  return num;
 }
