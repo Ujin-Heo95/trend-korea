@@ -1,9 +1,24 @@
 import type { FastifyInstance } from 'fastify';
 import { LRUCache } from '../cache/lru.js';
+import { generateDailyReport } from '../services/dailyReport.js';
 
 const cache = new LRUCache<unknown>(30, 5 * 60_000); // 30 entries, 5min TTL
 
 export async function dailyReportRoutes(app: FastifyInstance): Promise<void> {
+  // 수동 리포트 생성 트리거 (프로덕션에서도 사용 가능)
+  app.post('/api/daily-report/generate', async (_req, reply) => {
+    try {
+      const reportId = await generateDailyReport(app.pg);
+      cache.clear();
+      return { ok: true, reportId };
+    } catch (err) {
+      return reply.status(500).send({
+        ok: false,
+        error: (err as Error).message,
+      });
+    }
+  });
+
   // 최신 리포트 메타
   app.get('/api/daily-report/latest', async () => {
     const cached = cache.get('latest');
