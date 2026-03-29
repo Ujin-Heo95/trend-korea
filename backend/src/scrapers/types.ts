@@ -8,4 +8,5 @@ export interface ScrapedPost {
   viewCount?: number;
   commentCount?: number;
   publishedAt?: Date;
+  category?: string;
 }

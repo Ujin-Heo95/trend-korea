@@ -8,7 +8,7 @@ export abstract class BaseScraper {
   async saveToDb(posts: ScrapedPost[]): Promise<number> {
     if (!posts.length) return 0;
 
-    const COLS = 9;
+    const COLS = 10;
     const values: unknown[] = [];
     const placeholders = posts.map((p, i) => {
       const b = i * COLS;
@@ -16,12 +16,13 @@ export abstract class BaseScraper {
         p.sourceKey, p.sourceName, p.title, p.url,
         p.thumbnail ?? null, p.author ?? null,
         p.viewCount ?? 0, p.commentCount ?? 0, p.publishedAt ?? null,
+        p.category ?? null,
       );
-      return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9})`;
+      return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10})`;
     });
 
     const result = await this.pool.query(
-      `INSERT INTO posts (source_key,source_name,title,url,thumbnail,author,view_count,comment_count,published_at)
+      `INSERT INTO posts (source_key,source_name,title,url,thumbnail,author,view_count,comment_count,published_at,category)
        VALUES ${placeholders.join(',')} ON CONFLICT (url) DO NOTHING`,
       values
     );
@@ -29,12 +30,22 @@ export abstract class BaseScraper {
   }
 
   async run(): Promise<{ count: number; error?: string }> {
-    try {
-      const posts = await this.fetch();
-      const count = await this.saveToDb(posts);
-      return { count };
-    } catch (err) {
-      return { count: 0, error: String(err) };
+    const MAX_RETRIES = 2;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const posts = await this.fetch();
+        const count = await this.saveToDb(posts);
+        return { count };
+      } catch (err) {
+        if (attempt < MAX_RETRIES) {
+          const delay = 2000 * Math.pow(4, attempt);
+          console.warn(`[scraper] retry ${attempt + 1}/${MAX_RETRIES} in ${delay}ms: ${String(err)}`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        return { count: 0, error: String(err) };
+      }
     }
+    return { count: 0, error: 'unreachable' };
   }
 }

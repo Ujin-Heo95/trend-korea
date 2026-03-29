@@ -41,15 +41,22 @@ describe('BaseScraper.saveToDb', () => {
     }));
     await scraper.saveToDb(posts);
     const [, params] = mockPool.query.mock.calls[0] as [string, unknown[]];
-    expect(params.length).toBe(27); // 3 posts × 9 columns
+    expect(params.length).toBe(30); // 3 posts × 10 columns
   });
 
-  it('run() returns error string on fetch failure', async () => {
+  it('run() returns error string on fetch failure after retries', async () => {
+    vi.useFakeTimers();
     const mockPool = { query: vi.fn() } as any;
     const scraper = new MockScraper(mockPool);
     scraper.fetch = vi.fn().mockRejectedValue(new Error('Fetch failed'));
-    const result = await scraper.run();
+    const runPromise = scraper.run();
+    // Advance past retry delays (2s + 8s)
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(8000);
+    const result = await runPromise;
     expect(result.count).toBe(0);
     expect(result.error).toContain('Fetch failed');
+    expect(scraper.fetch).toHaveBeenCalledTimes(3); // initial + 2 retries
+    vi.useRealTimers();
   });
 });

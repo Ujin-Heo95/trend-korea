@@ -7,6 +7,9 @@ interface Config {
   crawlIntervalMinutes: number;
   postTtlDays: number;
   scraperRunsTtlDays: number;
+  dbPoolMax: number;
+  dbIdleTimeoutMs: number;
+  dbConnectionTimeoutMs: number;
 }
 
 const dbUrl = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/trend_korea';
@@ -39,6 +42,10 @@ if (scraperRunsTtlDays !== rawScraperRunsTtl) {
   console.warn(`[config] WARNING: SCRAPER_RUNS_TTL_DAYS="${process.env.SCRAPER_RUNS_TTL_DAYS}" invalid — defaulting to 30`);
 }
 
+const dbPoolMax = Math.min(Math.max(Number(process.env.DB_POOL_MAX ?? 10) || 10, 1), 50);
+const dbIdleTimeoutMs = Number(process.env.DB_IDLE_TIMEOUT_MS ?? 30000) || 30000;
+const dbConnectionTimeoutMs = Number(process.env.DB_CONNECTION_TIMEOUT_MS ?? 5000) || 5000;
+
 export const config: Config = {
   port,
   dbUrl,
@@ -46,4 +53,7 @@ export const config: Config = {
   crawlIntervalMinutes,
   postTtlDays,
   scraperRunsTtlDays,
+  dbPoolMax,
+  dbIdleTimeoutMs,
+  dbConnectionTimeoutMs,
 };

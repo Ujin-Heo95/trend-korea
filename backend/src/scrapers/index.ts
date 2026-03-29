@@ -1,3 +1,4 @@
+import pLimit from 'p-limit';
 import { pool } from '../db/client.js';
 import { config } from '../config/index.js';
 import { RssScraper, RSS_SOURCES } from './rss.js';
@@ -63,7 +64,8 @@ export async function runAllScrapers(): Promise<void> {
     { sourceKey: 'youtube',    scraper: new YoutubeScraper(pool, config.youtubeApiKey) },
     ...RSS_SOURCES.map(s => ({ sourceKey: s.sourceKey, scraper: new RssScraper({ ...s, pool }) })),
   ];
-  const results = await Promise.allSettled(entries.map(e => runScraper(e)));
+  const limit = pLimit(4);
+  const results = await Promise.allSettled(entries.map(e => limit(() => runScraper(e))));
   results.forEach((r, i) => {
     if (r.status === 'rejected') {
       console.error(`[scraper:${entries[i].sourceKey}] unhandled rejection:`, r.reason);
