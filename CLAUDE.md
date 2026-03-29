@@ -34,6 +34,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
                                               ├── Gemini Flash: 일일 리포트 LLM 요약 (무료 티어)
                                               ├── Discord 웹훅: 스크래퍼 에러 알림
                                               ├── 교차 검증: Google Trends × Naver DataLab × 커뮤니티 (20분)
+                                              ├── Gemini Flash: 핫이슈 키워드 추출 (30분 주기)
                                               └── LRU 캐시: 60초 TTL, 200 엔트리
 ```
 
@@ -57,6 +58,9 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 - `title_hash` GENERATED 컬럼: 정규화 후 MD5 (괄호/특수문자 제거)
 - `post_clusters` + `post_cluster_members`: 중복 게시글 그룹핑
 - `post_scores`: 트렌드 스코어 (5분 주기 배치 갱신)
+- `keyword_extractions`: 게시글별 고유명사 키워드 (Gemini Flash 추출)
+- `keyword_stats`: 시간 윈도우별 키워드 빈도 집계 (3h, 24h)
+- `trend_signals`: 교차 검증 트렌드 시그널
 - 환경변수는 `config/index.ts`에서 중앙 파싱 + 검증
 - posts TTL: 3일 (기본값), scraper_runs TTL: 30일
 - DB 풀: `DB_POOL_MAX=10`, `DB_IDLE_TIMEOUT_MS=30000`, `DB_CONNECTION_TIMEOUT_MS=5000`
@@ -104,7 +108,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 
 ## Current Phase
 
-**Phase 2 완료** (소스 51개 활성 + 3-Layer 중복제거 + 트렌드 스코어링 + 일일 리포트 MVP + Discord 알림). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Phase 2 완료** (소스 51개 활성 + 3-Layer 중복제거 + 트렌드 스코어링 + 일일 리포트 MVP + Discord 알림 + 핫이슈 키워드 + 영화/공연 전용 탭 + 날씨 + 교차 검증). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
@@ -124,10 +128,11 @@ docs/
 > 종합 로드맵: [docs/로드맵.md](docs/로드맵.md) | 기술부채: [docs/dev/기술부채.md](docs/dev/기술부채.md)
 
 **Phase 3 진입:**
-1. 구글 트렌드 + 네이버 DataLab 프로덕션 데이터 수집 확인
-2. Sentry 에러 트래킹 (1시간)
-3. UptimeRobot 설정 (30분)
-4. Phase 3: 사용자 반응 시스템 (좋아요/북마크)
+1. 교차 검증 트렌드 데이터 수집 확인 (배포 20분 후 /api/trends/signals 응답 확인)
+2. TrendRadar UI 프로덕션 렌더링 확인
+3. Sentry 에러 트래킹 (1시간)
+4. UptimeRobot 설정 (30분)
+5. Phase 3: 사용자 반응 시스템 (좋아요/북마크)
 
 **보류:**
 - Umami Cloud 분석도구 (가입 후 data-website-id를 index.html에 추가)
