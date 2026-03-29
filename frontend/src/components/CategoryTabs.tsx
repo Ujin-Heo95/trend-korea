@@ -12,6 +12,10 @@ const CATEGORIES: { key: Category | undefined; label: string; icon: string }[] =
   { key: 'government',   label: '정부',     icon: '🏛️' },
   { key: 'newsletter',   label: '뉴스레터', icon: '✉️' },
   { key: 'deals',        label: '핫딜',     icon: '🏷️' },
+  { key: 'sports',       label: '스포츠',   icon: '⚽' },
+  { key: 'press',        label: '보도자료', icon: '📢' },
+  { key: 'techblog',     label: '테크블로그', icon: '🧑‍💻' },
+  { key: 'entertainment', label: '공연/문화', icon: '🎭' },
 ];
 
 interface Props {

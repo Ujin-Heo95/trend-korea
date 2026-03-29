@@ -2,6 +2,7 @@ import pLimit from 'p-limit';
 import { pool } from '../db/client.js';
 import { buildScrapers, getSourcesByPriority } from './registry.js';
 import type { ResolvedScraper, SourcePriority } from './registry.js';
+import { notifyScraperErrors, type ScraperError } from '../services/discord.js';
 
 const SCRAPER_TIMEOUT_MS = 30_000;
 const runningLocks = new Map<string, boolean>();
@@ -28,7 +29,7 @@ async function logRunEnd(runId: number, postsSaved: number, errorMessage: string
   );
 }
 
-async function runScraper(entry: ResolvedScraper): Promise<void> {
+async function runScraper(entry: ResolvedScraper): Promise<ScraperError | null> {
   let runId: number | null = null;
   try {
     runId = await logRunStart(entry.sourceKey);
@@ -36,15 +37,17 @@ async function runScraper(entry: ResolvedScraper): Promise<void> {
     await logRunEnd(runId, result.count, result.error ?? null);
     if (result.error) {
       console.error(`[scraper:${entry.sourceKey}] saved: ${result.count} err: ${result.error}`);
-    } else {
-      console.log(`[scraper:${entry.sourceKey}] saved: ${result.count}`);
+      return { sourceKey: entry.sourceKey, error: result.error };
     }
+    console.log(`[scraper:${entry.sourceKey}] saved: ${result.count}`);
+    return null;
   } catch (err) {
     const msg = String(err);
     console.error(`[scraper:${entry.sourceKey}] fatal:`, msg);
     if (runId !== null) {
       await logRunEnd(runId, 0, msg).catch(() => {});
     }
+    return { sourceKey: entry.sourceKey, error: msg };
   }
 }
 
@@ -63,11 +66,19 @@ export async function runScrapersByPriority(priority: SourcePriority): Promise<v
     console.log(`[scheduler] running ${entries.length} ${priority}-priority scrapers`);
     const limit = pLimit(4);
     const results = await Promise.allSettled(entries.map(e => limit(() => runScraper(e))));
+    const errors: ScraperError[] = [];
     results.forEach((r, i) => {
       if (r.status === 'rejected') {
-        console.error(`[scraper:${entries[i].sourceKey}] unhandled rejection:`, r.reason);
+        const msg = String(r.reason);
+        console.error(`[scraper:${entries[i].sourceKey}] unhandled rejection:`, msg);
+        errors.push({ sourceKey: entries[i].sourceKey, error: msg });
+      } else if (r.value) {
+        errors.push(r.value);
       }
     });
+    if (errors.length > 0) {
+      await notifyScraperErrors(priority, errors).catch(() => {});
+    }
   } finally {
     runningLocks.set(priority, false);
   }
@@ -85,11 +96,19 @@ export async function runAllScrapers(): Promise<void> {
     console.log(`[scheduler] running all ${entries.length} scrapers`);
     const limit = pLimit(4);
     const results = await Promise.allSettled(entries.map(e => limit(() => runScraper(e))));
+    const errors: ScraperError[] = [];
     results.forEach((r, i) => {
       if (r.status === 'rejected') {
-        console.error(`[scraper:${entries[i].sourceKey}] unhandled rejection:`, r.reason);
+        const msg = String(r.reason);
+        console.error(`[scraper:${entries[i].sourceKey}] unhandled rejection:`, msg);
+        errors.push({ sourceKey: entries[i].sourceKey, error: msg });
+      } else if (r.value) {
+        errors.push(r.value);
       }
     });
+    if (errors.length > 0) {
+      await notifyScraperErrors('all', errors).catch(() => {});
+    }
   } finally {
     runningLocks.set('all', false);
   }

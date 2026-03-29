@@ -15,11 +15,16 @@ const CATEGORY_META: Record<string, { emoji: string; label: string }> = {
   deals: { emoji: '\ud83d\uded2', label: '\ud56b\ub51c' },
   newsletter: { emoji: '\ud83d\udce7', label: '\ub274\uc2a4\ub808\ud130' },
   alert: { emoji: '\ud83d\udea8', label: '\uc18d\ubcf4' },
+  sports: { emoji: '\u26bd', label: '\uc2a4\ud3ec\uce20' },
+  press: { emoji: '\ud83d\udce2', label: '\ubcf4\ub3c4\uc790\ub8cc' },
+  techblog: { emoji: '\ud83e\uddd1\u200d\ud83d\udcbb', label: '\ud14c\ud06c\ube14\ub85c\uadf8' },
+  entertainment: { emoji: '\ud83c\udfad', label: '\uacf5\uc5f0/\ubb38\ud654' },
 };
 
 const CATEGORY_ORDER: Category[] = [
   'news', 'tech', 'community', 'finance', 'trend',
-  'video', 'government', 'deals', 'newsletter', 'alert',
+  'video', 'sports', 'entertainment', 'government', 'deals',
+  'newsletter', 'press', 'techblog', 'alert',
 ];
 
 function formatNumber(n: number): string {

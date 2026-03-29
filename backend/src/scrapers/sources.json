@@ -28,7 +28,7 @@
       "module": "./ruliweb.js",
       "className": "RuliwebScraper",
       "priority": "high",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "theqoo",
@@ -168,7 +168,7 @@
       "type": "rss",
       "feedUrl": "https://www.kmib.co.kr/rss/data/kmibRssAll.xml",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "geeknews",
@@ -304,7 +304,7 @@
       "type": "rss",
       "feedUrl": "https://feed.koreatimes.co.kr/k/allnews.xml",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "newsis",
@@ -421,6 +421,123 @@
       "type": "api",
       "module": "./kopis.js",
       "className": "KopisBoxofficeScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "chosun",
+      "name": "조선일보",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://www.chosun.com/arc/outboundfeeds/rss/?outputType=xml",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "joins",
+      "name": "중앙일보",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://rss.joins.com/joins_news_list.xml",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "kbs",
+      "name": "KBS 뉴스",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://news.kbs.co.kr/api/rss/rss.xml",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "mbc",
+      "name": "MBC 뉴스",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "http://imnews.imbc.com/rss/news/news_00.xml",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "jtbc",
+      "name": "JTBC 뉴스",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://fs.jtbc.co.kr/RSS/newsflash.xml",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "ytn",
+      "name": "YTN",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://www.ytn.co.kr/rss/headline.xml",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "daum_news",
+      "name": "다음 뉴스",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "http://media.daum.net/rss/today/primary/all/rss2.xml",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "etnews",
+      "name": "전자신문",
+      "category": "tech",
+      "type": "rss",
+      "feedUrl": "https://rss.etnews.com/Section901.xml",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "sports_donga",
+      "name": "스포츠동아",
+      "category": "sports",
+      "type": "rss",
+      "feedUrl": "http://rss.donga.com/stotal.xml",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "newswire",
+      "name": "뉴스와이어",
+      "category": "press",
+      "type": "rss",
+      "feedUrl": "https://api.newswire.co.kr/rss/all",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "naver_d2",
+      "name": "네이버 D2",
+      "category": "techblog",
+      "type": "rss",
+      "feedUrl": "https://d2.naver.com/d2.atom",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "kakao_tech",
+      "name": "카카오 기술블로그",
+      "category": "techblog",
+      "type": "rss",
+      "feedUrl": "https://tech.kakao.com/feed/",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "toss_tech",
+      "name": "토스 기술블로그",
+      "category": "techblog",
+      "type": "rss",
+      "feedUrl": "https://toss.tech/rss.xml",
       "priority": "low",
       "enabled": true
     }

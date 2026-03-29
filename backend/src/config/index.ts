@@ -6,6 +6,7 @@ interface Config {
   youtubeApiKey: string;
   geminiApiKey: string;
   kopisApiKey: string;
+  discordWebhookUrl: string;
   crawlIntervalMinutes: number;
   postTtlDays: number;
   scraperRunsTtlDays: number;
@@ -54,6 +55,7 @@ export const config: Config = {
   youtubeApiKey: process.env.YOUTUBE_API_KEY ?? '',
   geminiApiKey: process.env.GEMINI_API_KEY ?? '',
   kopisApiKey: process.env.KOPIS_API_KEY ?? '',
+  discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL ?? '',
   crawlIntervalMinutes,
   postTtlDays,
   scraperRunsTtlDays,

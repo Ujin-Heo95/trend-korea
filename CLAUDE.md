@@ -32,6 +32,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
                                               ├── node-cron: 매일 07:00 KST 일일 리포트 생성
                                               ├── 3-Layer 중복제거 (MD5 해시 + Jaccard + Thumbnail)
                                               ├── Gemini Flash: 일일 리포트 LLM 요약 (무료 티어)
+                                              ├── Discord 웹훅: 스크래퍼 에러 알림
                                               └── LRU 캐시: 60초 TTL, 200 엔트리
 ```
 
@@ -83,6 +84,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | 트렌드 스코어링 | `backend/src/services/scoring.ts` |
 | 일일 리포트 서비스 | `backend/src/services/dailyReport.ts` |
 | Gemini LLM 서비스 | `backend/src/services/gemini.ts` |
+| Discord 알림 | `backend/src/services/discord.ts` |
 | Daily Report API | `backend/src/routes/dailyReport.ts` |
 | 프론트 홈 | `frontend/src/pages/HomePage.tsx` |
 | 일일 리포트 페이지 | `frontend/src/pages/DailyReportPage.tsx` |
@@ -92,7 +94,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 
 ## Current Phase
 
-**Phase 2 완료** (소스 확장 44개 + 3-Layer 중복제거 + 트렌드 스코어링 + 일일 리포트 MVP). 다음: 모니터링 체계 + 수익화 준비. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Phase 2 완료** (소스 51개 활성 + 3-Layer 중복제거 + 트렌드 스코어링 + 일일 리포트 MVP + Discord 알림). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
@@ -111,14 +113,12 @@ docs/
 
 > 종합 로드맵: [docs/로드맵.md](docs/로드맵.md) | 기술부채: [docs/dev/기술부채.md](docs/dev/기술부채.md)
 
-**Phase 3 준비:**
-1. 배포 후 일일 리포트 + 중복제거/스코어링 동작 확인
-   - `daily_reports` 테이블에 리포트 생성 확인 (UTC 22:00)
-   - Gemini Flash 요약 품질 확인
-   - `GEMINI_API_KEY` Railway 환경변수 설정
-2. Discord 웹훅 에러 알림 (1시간)
+**Phase 2 완료 → Phase 3 진입:**
+1. Discord 웹훅 URL을 Railway 환경변수에 추가 (`DISCORD_WEBHOOK_URL`)
+2. 신규 소스 13개 프로덕션 동작 확인 (배포 후 /health 체크)
 3. Sentry 에러 트래킹 (1시간)
 4. UptimeRobot 설정 (30분)
+5. Phase 3: 사용자 반응 시스템 (좋아요/북마크)
 
 **보류:**
 - Umami Cloud 분석도구 (가입 후 data-website-id를 index.html에 추가)

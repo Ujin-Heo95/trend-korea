@@ -1,7 +1,8 @@
 export type Category =
   | 'community' | 'video' | 'news' | 'tech'
   | 'finance' | 'trend' | 'government' | 'newsletter'
-  | 'deals' | 'alert';
+  | 'deals' | 'alert' | 'sports' | 'press' | 'techblog'
+  | 'entertainment';
 
 export interface Post {
   id: number;
