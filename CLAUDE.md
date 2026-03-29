@@ -30,7 +30,7 @@ Frontend (React+Vite) ──API──> Backend (Fastify 5) ──> PostgreSQL
                                   └── node-cron: 매일 자정 TTL 정리
 ```
 
-상세: [docs/architecture.md](docs/architecture.md)
+상세: [docs/dev/아키텍처.md](docs/dev/아키텍처.md)
 
 ## Conventions
 
@@ -76,7 +76,20 @@ Frontend (React+Vite) ──API──> Backend (Fastify 5) ──> PostgreSQL
 
 ## Current Phase
 
-**Scale-Up Phase 2** 완료 (22개 소스). **Phase 3** (API 소스) 진행 예정. 상세: [docs/roadmap.md](docs/roadmap.md)
+**Scale-Up Phase 2** 완료 (22개 소스). **Phase 3** (API 소스) 진행 예정. 상세: [docs/로드맵.md](docs/로드맵.md)
+
+## 문서 체계
+
+사업부별 하이브리드 구조. 상세: [docs/README.md](docs/README.md)
+
+```
+docs/
+├── 로드맵.md          CEO 레벨 전체 로드맵
+├── planning/          경영기획 (사업계획, 투자, 비용)
+├── dev/               개발 (아키텍처, 변경이력, 기술 결정)
+├── marketing/         마케팅 (SEO, 수익화)
+└── legal/             법무 (스크래핑 법적 검토)
+```
 
 ### 다음 세션 작업 (Scale-Up Phase 3)
 1. Naver DataLab API 스크래퍼 (실시간 검색 트렌드)
