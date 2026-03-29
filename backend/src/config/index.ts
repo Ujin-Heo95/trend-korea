@@ -6,6 +6,7 @@ interface Config {
   youtubeApiKey: string;
   crawlIntervalMinutes: number;
   postTtlDays: number;
+  scraperRunsTtlDays: number;
 }
 
 const dbUrl = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/trend_korea';
@@ -32,10 +33,17 @@ if (postTtlDays !== rawTtl) {
   console.warn(`[config] WARNING: POST_TTL_DAYS="${process.env.POST_TTL_DAYS}" invalid — defaulting to 7`);
 }
 
+const rawScraperRunsTtl = Number(process.env.SCRAPER_RUNS_TTL_DAYS ?? 30);
+const scraperRunsTtlDays = Number.isInteger(rawScraperRunsTtl) && rawScraperRunsTtl >= 1 ? rawScraperRunsTtl : 30;
+if (scraperRunsTtlDays !== rawScraperRunsTtl) {
+  console.warn(`[config] WARNING: SCRAPER_RUNS_TTL_DAYS="${process.env.SCRAPER_RUNS_TTL_DAYS}" invalid — defaulting to 30`);
+}
+
 export const config: Config = {
   port,
   dbUrl,
   youtubeApiKey: process.env.YOUTUBE_API_KEY ?? '',
   crawlIntervalMinutes,
   postTtlDays,
+  scraperRunsTtlDays,
 };

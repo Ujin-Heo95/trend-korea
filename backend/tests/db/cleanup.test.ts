@@ -4,11 +4,11 @@ vi.mock('../../src/db/client.js', () => ({
   pool: { query: vi.fn() },
 }));
 vi.mock('../../src/config/index.js', () => ({
-  config: { postTtlDays: 7 },
+  config: { postTtlDays: 7, scraperRunsTtlDays: 30 },
 }));
 
 import { pool } from '../../src/db/client.js';
-import { cleanOldPosts } from '../../src/db/cleanup.js';
+import { cleanOldPosts, cleanOldScraperRuns } from '../../src/db/cleanup.js';
 
 describe('cleanOldPosts', () => {
   afterEach(() => vi.clearAllMocks());
@@ -31,6 +31,31 @@ describe('cleanOldPosts', () => {
   it('handles null rowCount from pg driver', async () => {
     (pool.query as any).mockResolvedValue({ rowCount: null });
     const result = await cleanOldPosts();
+    expect(result.deleted).toBe(0);
+  });
+});
+
+describe('cleanOldScraperRuns', () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it('executes DELETE with configured TTL', async () => {
+    (pool.query as any).mockResolvedValue({ rowCount: 100 });
+    const result = await cleanOldScraperRuns();
+    expect(result.deleted).toBe(100);
+    const [sql, params] = (pool.query as any).mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain('DELETE FROM scraper_runs');
+    expect(params[0]).toBe(30);
+  });
+
+  it('returns 0 when no runs deleted', async () => {
+    (pool.query as any).mockResolvedValue({ rowCount: 0 });
+    const result = await cleanOldScraperRuns();
+    expect(result.deleted).toBe(0);
+  });
+
+  it('handles null rowCount from pg driver', async () => {
+    (pool.query as any).mockResolvedValue({ rowCount: null });
+    const result = await cleanOldScraperRuns();
     expect(result.deleted).toBe(0);
   });
 });
