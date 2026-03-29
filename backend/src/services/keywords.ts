@@ -16,10 +16,11 @@ function getModel(): GenerativeModel | null {
 }
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-const geminiLimit = pLimit(2);
+const geminiLimit = pLimit(1);
 
-const BATCH_SIZE = 50;
-const MAX_POSTS_PER_RUN = 500;
+const BATCH_SIZE = 15;
+const MAX_POSTS_PER_RUN = 200;
+const BATCH_DELAY_MS = 2000;
 
 const PROMPT_TEMPLATE = `다음은 한국 커뮤니티 게시글 제목 목록이다.
 각 제목에서 고유명사(인물명, 기업명, 지명, 브랜드, 작품명, 이슈 키워드)만 추출하라.
@@ -44,7 +45,6 @@ export async function extractKeywords(titles: readonly string[]): Promise<string
 
   try {
     const result = await m.generateContent(prompt);
-    await delay(250);
 
     const text = result.response.text().trim();
     // JSON 블록 추출: ```json ... ``` 또는 그냥 배열
@@ -91,15 +91,24 @@ export async function processNewPosts(pool: Pool): Promise<void> {
     return;
   }
 
-  console.log(`[keywords] processing ${pending.length} posts`);
+  console.log(`[keywords] processing ${pending.length} posts (batch=${BATCH_SIZE}, delay=${BATCH_DELAY_MS}ms)`);
   let totalExtracted = 0;
+  let quotaExhausted = false;
 
-  // 50개씩 배치 처리
   for (let i = 0; i < pending.length; i += BATCH_SIZE) {
+    if (quotaExhausted) break;
+
     const batch = pending.slice(i, i + BATCH_SIZE);
     const titles = batch.map(p => p.title);
 
     const keywords = await geminiLimit(() => extractKeywords(titles));
+
+    // 전부 빈 배열이면 API 실패 (쿼터 초과 등) — 중단
+    const hasAnyKeywords = keywords.some(k => k.length > 0);
+    if (!hasAnyKeywords && batch.length > 3) {
+      console.warn('[keywords] all empty results — possible quota exhaustion, stopping');
+      quotaExhausted = true;
+    }
 
     // 배치 INSERT
     const values: string[] = [];
@@ -110,7 +119,7 @@ export async function processNewPosts(pool: Pool): Promise<void> {
       params.push(batch[j].id, keywords[j]);
     }
 
-    if (values.length > 0) {
+    if (values.length > 0 && hasAnyKeywords) {
       await pool.query(
         `INSERT INTO keyword_extractions (post_id, keywords)
          VALUES ${values.join(', ')}
@@ -119,9 +128,14 @@ export async function processNewPosts(pool: Pool): Promise<void> {
       );
       totalExtracted += batch.length;
     }
+
+    // 쿼터 보호: 배치 간 딜레이
+    if (i + BATCH_SIZE < pending.length && !quotaExhausted) {
+      await delay(BATCH_DELAY_MS);
+    }
   }
 
-  console.log(`[keywords] extracted keywords for ${totalExtracted} posts`);
+  console.log(`[keywords] extracted keywords for ${totalExtracted} posts${quotaExhausted ? ' (stopped: quota)' : ''}`);
 }
 
 /**
