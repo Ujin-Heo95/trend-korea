@@ -9,12 +9,14 @@ const SOURCE_WEIGHTS: Record<string, number> = {
   dcinside: 1.05, bobaedream: 1.05, ruliweb: 1.05, theqoo: 1.05,
   instiz: 1.05, natepann: 1.05,
   youtube: 1.03, ppomppu: 1.03,
+  kopis_boxoffice: 1.10,
 };
 const DEFAULT_SOURCE_WEIGHT = 0.95;
 
 const CATEGORY_WEIGHTS: Record<string, number> = {
   alert: 1.25, news: 1.20, trend: 1.15, tech: 1.15,
   finance: 1.10, community: 1.00, video: 0.95,
+  entertainment: 1.05,
   deals: 0.90, government: 0.85, newsletter: 0.80,
 };
 const DEFAULT_CATEGORY_WEIGHT = 1.00;

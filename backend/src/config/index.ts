@@ -4,6 +4,8 @@ interface Config {
   port: number;
   dbUrl: string;
   youtubeApiKey: string;
+  geminiApiKey: string;
+  kopisApiKey: string;
   crawlIntervalMinutes: number;
   postTtlDays: number;
   scraperRunsTtlDays: number;
@@ -50,6 +52,8 @@ export const config: Config = {
   port,
   dbUrl,
   youtubeApiKey: process.env.YOUTUBE_API_KEY ?? '',
+  geminiApiKey: process.env.GEMINI_API_KEY ?? '',
+  kopisApiKey: process.env.KOPIS_API_KEY ?? '',
   crawlIntervalMinutes,
   postTtlDays,
   scraperRunsTtlDays,

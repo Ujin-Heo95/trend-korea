@@ -13,6 +13,7 @@ const migrations = [
   '005_add_composite_index.sql',
   '006_dedup.sql',
   '007_scoring.sql',
+  '008_daily_reports.sql',
 ];
 
 try {

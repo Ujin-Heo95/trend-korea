@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { HomePage } from './pages/HomePage';
+import { DailyReportPage } from './pages/DailyReportPage';
 import type { Category } from './types';
 
 const queryClient = new QueryClient({
@@ -49,6 +50,7 @@ function AppRoutes() {
             />
           }
         />
+        <Route path="/daily-report/:date" element={<DailyReportPage />} />
       </Routes>
     </Layout>
   );

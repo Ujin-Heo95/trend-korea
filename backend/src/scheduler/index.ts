@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { runAllScrapers, runScrapersByPriority } from '../scrapers/index.js';
 import { cleanOldPosts, cleanOldScraperRuns } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
+import { generateDailyReport } from '../services/dailyReport.js';
 import { pool } from '../db/client.js';
 
 const PRIORITY_INTERVALS = {
@@ -28,6 +29,14 @@ export function startScheduler(): void {
   cron.schedule('*/5 * * * *', () => {
     calculateScores(pool).catch(err => console.error('[scoring] error:', err));
   });
+
+  // 일일 리포트: 매일 UTC 22:00 = KST 07:00
+  cron.schedule('0 22 * * *', () => {
+    generateDailyReport(pool).catch(err =>
+      console.error('[daily-report] generation failed:', err),
+    );
+  });
+  console.log('[scheduler] daily report: 22:00 UTC (07:00 KST)');
 
   // 자정 + 정오 2회 (Railway 서버 = UTC 기준) — DB 100MB 한도 대응
   cron.schedule('0 0,12 * * *', () => {

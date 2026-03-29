@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Post, Source, PostsResponse } from '../types';
+import type { Post, Source, PostsResponse, DailyReport, DailyReportMeta } from '../types';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 const api = axios.create({ baseURL });
@@ -12,3 +12,9 @@ export const fetchTrending = () =>
 
 export const fetchSources = () =>
   api.get<Source[]>('/sources').then(r => r.data);
+
+export const fetchDailyReport = (date: string) =>
+  api.get<DailyReport>(`/daily-report/${date}`).then(r => r.data);
+
+export const fetchLatestReport = () =>
+  api.get<DailyReportMeta | null>('/daily-report/latest').then(r => r.data);

@@ -35,3 +35,34 @@ export interface PostsResponse {
   page: number;
   limit: number;
 }
+
+export interface DailyReportSection {
+  category: Category;
+  rank: number;
+  summary: string | null;
+  category_summary: string | null;
+  post_id: number | null;
+  title: string | null;
+  url: string | null;
+  source_name: string | null;
+  view_count: number | null;
+  comment_count: number | null;
+  cluster_size: number | null;
+}
+
+export interface DailyReport {
+  id: number;
+  report_date: string;
+  generated_at: string;
+  status: string;
+  view_count: number;
+  sections: DailyReportSection[];
+}
+
+export interface DailyReportMeta {
+  id: number;
+  report_date: string;
+  generated_at: string;
+  status: string;
+  view_count: number;
+}

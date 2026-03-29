@@ -413,6 +413,16 @@
       "className": "EtolandScraper",
       "priority": "high",
       "enabled": true
+    },
+    {
+      "key": "kopis_boxoffice",
+      "name": "KOPIS 예매순위",
+      "category": "entertainment",
+      "type": "api",
+      "module": "./kopis.js",
+      "className": "KopisBoxofficeScraper",
+      "priority": "low",
+      "enabled": true
     }
   ]
 }

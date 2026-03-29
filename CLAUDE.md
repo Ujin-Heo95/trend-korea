@@ -29,7 +29,9 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
                                               ├── node-cron: 우선순위별 스크래핑 (mutex)
                                               ├── node-cron: 5분마다 트렌드 스코어 갱신
                                               ├── node-cron: 2회/일 TTL 정리
+                                              ├── node-cron: 매일 07:00 KST 일일 리포트 생성
                                               ├── 3-Layer 중복제거 (MD5 해시 + Jaccard + Thumbnail)
+                                              ├── Gemini Flash: 일일 리포트 LLM 요약 (무료 티어)
                                               └── LRU 캐시: 60초 TTL, 200 엔트리
 ```
 
@@ -79,14 +81,18 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | Sources API | `backend/src/routes/sources.ts` |
 | 중복제거 서비스 | `backend/src/services/dedup.ts` |
 | 트렌드 스코어링 | `backend/src/services/scoring.ts` |
+| 일일 리포트 서비스 | `backend/src/services/dailyReport.ts` |
+| Gemini LLM 서비스 | `backend/src/services/gemini.ts` |
+| Daily Report API | `backend/src/routes/dailyReport.ts` |
 | 프론트 홈 | `frontend/src/pages/HomePage.tsx` |
+| 일일 리포트 페이지 | `frontend/src/pages/DailyReportPage.tsx` |
 | API 클라이언트 | `frontend/src/api/client.ts` |
 | LRU 캐시 | `backend/src/cache/lru.ts` |
 | CSS 엔트리 | `frontend/src/index.css` |
 
 ## Current Phase
 
-**Phase 2 핵심 완료** (소스 확장 44개 + 3-Layer 중복제거 + 트렌드 스코어링). 다음: 모니터링 체계 + 수익화 준비. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Phase 2 완료** (소스 확장 44개 + 3-Layer 중복제거 + 트렌드 스코어링 + 일일 리포트 MVP). 다음: 모니터링 체계 + 수익화 준비. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
@@ -105,15 +111,14 @@ docs/
 
 > 종합 로드맵: [docs/로드맵.md](docs/로드맵.md) | 기술부채: [docs/dev/기술부채.md](docs/dev/기술부채.md)
 
-**Phase 2 잔여 + Phase 3 준비:**
-1. 배포 후 중복제거/스코어링 동작 모니터링
-   - `post_clusters` 테이블에 실제 클러스터 생성 확인
-   - `post_scores` 테이블에 스코어 갱신 확인
-   - clien (9%), fmkorea (18%) 성공률 변화 추적 (UA 로테이션 효과)
+**Phase 3 준비:**
+1. 배포 후 일일 리포트 + 중복제거/스코어링 동작 확인
+   - `daily_reports` 테이블에 리포트 생성 확인 (UTC 22:00)
+   - Gemini Flash 요약 품질 확인
+   - `GEMINI_API_KEY` Railway 환경변수 설정
 2. Discord 웹훅 에러 알림 (1시간)
 3. Sentry 에러 트래킹 (1시간)
 4. UptimeRobot 설정 (30분)
-5. 일일 리포트 MVP (Phase 2 마무리)
 
 **보류:**
 - Umami Cloud 분석도구 (가입 후 data-website-id를 index.html에 추가)
