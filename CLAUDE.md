@@ -76,7 +76,7 @@ Frontend (React+Vite) ──API──> Backend (Fastify 5) ──> PostgreSQL
 
 ## Current Phase
 
-**Scale-Up Phase 4** 완료 (28개 소스). 다음: 프론트엔드 UI/UX. 상세: [docs/로드맵.md](docs/로드맵.md)
+**프론트엔드 UI/UX** 완료 (트렌딩, 카테고리탭, 검색, 무한스크롤). 다음: SEO + 수익화. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
@@ -91,8 +91,8 @@ docs/
 └── legal/             법무 (스크래핑 법적 검토)
 ```
 
-### 다음 세션 작업 (프론트엔드 UI/UX)
-1. 트렌딩 섹션 UI
-2. 카테고리 탭 (community/video/news/tech/finance/trend/government/newsletter)
-3. 검색 (`?q=`, `?category=`)
-4. 무한 스크롤
+### 다음 세션 작업 (SEO + 수익화)
+1. SEO (meta, OG tags, sitemap, robots.txt)
+2. GA4 연동
+3. AdSense (ads.txt, AdBanner 컴포넌트)
+4. 커스텀 도메인
