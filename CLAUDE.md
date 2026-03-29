@@ -98,17 +98,15 @@ docs/
 
 > 종합 로드맵: [docs/로드맵.md](docs/로드맵.md) | 기술부채: [docs/dev/기술부채.md](docs/dev/기술부채.md)
 
-**배포 확인:**
-1. Railway 배포 후 헬스체크 + 스크래퍼 정상 동작 확인
-2. sitemap.xml / robots.txt 접근 확인
-3. 도메인 확정 후 sitemap/OG 태그에 절대 URL 반영
+**Phase 2 — 진행 중 (4-6주차):**
+1. title_hash 기반 중복제거 (30분)
+2. 트렌드 스코어링 시스템 (1일)
+3. Discord 웹훅 에러 알림 (1시간)
+4. Sentry 에러 트래킹 (1시간)
+5. UptimeRobot 설정 (30분)
 
-**Phase 1 남은 작업:**
-1. Umami/Plausible 분석도구 (GA4 대신 — PIPA 준수)
-2. 개인정보처리방침 작성
-
-**Phase 2 — 소스 확장 + 랭킹 (4-6주차):**
-1. RSS 소스 10-12개 추가
-2. 트렌드 스코어링 시스템
-3. title_hash 기반 중복제거
-4. Discord 웹훅 에러 알림
+**보류:**
+- Umami Cloud 분석도구 (가입 후 data-website-id를 index.html에 추가)
+- 개인정보처리방침 작성
+- 도메인 구매 + Cloudflare DNS → sitemap/OG 절대 URL 반영
+- 개인사업자등록
