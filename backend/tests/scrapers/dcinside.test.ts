@@ -27,17 +27,15 @@ describe('DcinsideScraper', () => {
     expect(posts[0].url).toContain('dcinside.com');
   });
 
-  it('extracts title, url, author, and viewCount', async () => {
+  it('extracts title, url, and thumbnail', async () => {
     const scraper = new DcinsideScraper(null as any);
     const posts = await scraper.fetch();
     expect(posts.length).toBe(2);
     expect(posts[0].title).toBe('첫번째 실시간 베스트 글');
     expect(posts[0].url).toBe('https://gall.dcinside.com/board/view/?id=hit&no=12345');
-    expect(posts[0].author).toBe('닉네임1');
-    expect(posts[0].viewCount).toBe(1234);
+    expect(posts[0].thumbnail).toBe('https://dcimg.dcinside.co.kr/th1.jpg');
     expect(posts[1].title).toBe('두번째 실시간 베스트 글');
-    expect(posts[1].author).toBe('닉네임2');
-    expect(posts[1].viewCount).toBe(5678);
+    expect(posts[1].thumbnail).toBe('https://dcimg.dcinside.co.kr/th2.jpg');
   });
 
   it('includes sourceName in all posts', async () => {

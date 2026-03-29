@@ -9,18 +9,25 @@ const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120
 export class InstizScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
   async fetch(): Promise<ScrapedPost[]> {
-    const { data } = await axios.get('https://www.instiz.net/pt', { headers: UA, timeout: 10000 });
+    const { data } = await axios.get('https://www.instiz.net/pt', { headers: UA, timeout: 15000 });
     const $ = cheerio.load(data);
     const posts: ScrapedPost[] = [];
-    $('.board_list tbody tr').each((_, el) => {
-      const a = $(el).find('a.listsubject').first();
-      const title = a.text().trim();
-      const href = a.attr('href') ?? '';
-      const url = href.startsWith('http') ? href : `https://www.instiz.net${href}`;
-      if (title && url && url !== 'https://www.instiz.net') {
-        posts.push({ sourceKey: 'instiz', sourceName: '인스티즈', title, url });
+
+    $('a[href^="https://www.instiz.net/pt/"]').each((_, el) => {
+      const sbj = $(el).find('.sbj');
+      if (!sbj.length) return;
+
+      const url = $(el).attr('href') ?? '';
+      const title = sbj.text().trim();
+      const viewText = $(el).find('.listno').text();
+      const viewMatch = viewText.match(/조회\s+([\d,]+)/);
+      const viewCount = viewMatch ? parseInt(viewMatch[1].replace(/,/g, '')) : undefined;
+
+      if (title && url) {
+        posts.push({ sourceKey: 'instiz', sourceName: '인스티즈', title, url, viewCount });
       }
     });
+
     return posts.slice(0, 30);
   }
 }

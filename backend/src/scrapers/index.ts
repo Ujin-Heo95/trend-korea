@@ -1,13 +1,14 @@
 import { pool } from '../db/client.js';
 import { config } from '../config/index.js';
 import { RssScraper, RSS_SOURCES } from './rss.js';
-import { DcinsideScraper }  from './dcinside.js';
-import { FmkoreaScraper }   from './fmkorea.js';
-import { RuliwebScraper }   from './ruliweb.js';
-import { TheqooScraper }    from './theqoo.js';
-import { InstizScraper }    from './instiz.js';
-import { NatepannScraper }  from './natepann.js';
-import { YoutubeScraper }   from './youtube.js';
+import { DcinsideScraper }    from './dcinside.js';
+import { BobaedreamScraper }  from './bobaedream.js';
+import { RuliwebScraper }     from './ruliweb.js';
+import { TheqooScraper }      from './theqoo.js';
+import { InstizScraper }      from './instiz.js';
+import { NatepannScraper }    from './natepann.js';
+import { TodayhumorScraper }  from './todayhumor.js';
+import { YoutubeScraper }     from './youtube.js';
 import type { BaseScraper } from './base.js';
 
 interface ScraperEntry {
@@ -53,11 +54,12 @@ async function runScraper(entry: ScraperEntry): Promise<void> {
 export async function runAllScrapers(): Promise<void> {
   const entries: ScraperEntry[] = [
     { sourceKey: 'dcinside',   scraper: new DcinsideScraper(pool) },
-    { sourceKey: 'fmkorea',    scraper: new FmkoreaScraper(pool) },
+    { sourceKey: 'bobaedream', scraper: new BobaedreamScraper(pool) },
     { sourceKey: 'ruliweb',    scraper: new RuliwebScraper(pool) },
     { sourceKey: 'theqoo',     scraper: new TheqooScraper(pool) },
     { sourceKey: 'instiz',     scraper: new InstizScraper(pool) },
     { sourceKey: 'natepann',   scraper: new NatepannScraper(pool) },
+    { sourceKey: 'todayhumor', scraper: new TodayhumorScraper(pool) },
     { sourceKey: 'youtube',    scraper: new YoutubeScraper(pool, config.youtubeApiKey) },
     ...RSS_SOURCES.map(s => ({ sourceKey: s.sourceKey, scraper: new RssScraper({ ...s, pool }) })),
   ];

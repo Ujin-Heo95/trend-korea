@@ -40,21 +40,9 @@ export class RssScraper extends BaseScraper {
 
 export const RSS_SOURCES: Omit<RssScraperConfig, 'pool'>[] = [
   {
-    sourceKey: 'clien',
-    sourceName: '클리앙',
-    feedUrl: 'https://www.clien.net/service/rss',
-    maxItems: 30,
-  },
-  {
     sourceKey: 'ppomppu',
     sourceName: '뽐뿌',
     feedUrl: 'https://www.ppomppu.co.kr/rss.php?id=ppomppu',
-    maxItems: 30,
-  },
-  {
-    sourceKey: 'todayhumor',
-    sourceName: '오늘의유머',
-    feedUrl: 'https://www.todayhumor.co.kr/board/rss.php?table=humorbest',
     maxItems: 30,
   },
   {
@@ -64,21 +52,21 @@ export const RSS_SOURCES: Omit<RssScraperConfig, 'pool'>[] = [
     maxItems: 30,
   },
   {
-    sourceKey: 'chosun',
-    sourceName: '조선일보',
-    feedUrl: 'https://www.chosun.com/arc/outboundfeeds/rss/',
-    maxItems: 30,
-  },
-  {
     sourceKey: 'hani',
     sourceName: '한겨레',
     feedUrl: 'https://www.hani.co.kr/rss/',
     maxItems: 30,
   },
   {
-    sourceKey: 'joins',
-    sourceName: '중앙일보',
-    feedUrl: 'https://rss.joins.com/joins_news_list.xml',
+    sourceKey: 'sbs',
+    sourceName: 'SBS 뉴스',
+    feedUrl: 'https://news.sbs.co.kr/news/headlineRssFeed.do?plink=RSSREADER',
+    maxItems: 30,
+  },
+  {
+    sourceKey: 'donga',
+    sourceName: '동아일보',
+    feedUrl: 'https://rss.donga.com/total.xml',
     maxItems: 30,
   },
 ];

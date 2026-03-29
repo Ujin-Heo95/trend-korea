@@ -17,19 +17,18 @@ export class DcinsideScraper extends BaseScraper {
   async fetch(): Promise<ScrapedPost[]> {
     const { data } = await axios.get('https://www.dcinside.com/', {
       headers: HEADERS,
-      timeout: 10000,
+      timeout: 15000,
     });
 
     const $ = cheerio.load(data);
     const posts: ScrapedPost[] = [];
 
-    $('.best_box li').each((_, el) => {
-      const a = $(el).find('a.besttit');
-      const title = a.text().trim();
-      const url = a.attr('href') ?? '';
-      const author = $(el).find('.bestnick').text().trim() || undefined;
-      const viewCount =
-        parseInt($(el).find('.bestview').text().replace(/,/g, '')) || undefined;
+    $('a.main_log[section_code="realtime_best_p"]').each((_, el) => {
+      const url = $(el).attr('href') ?? '';
+      const title =
+        $(el).find('strong.tit').text().trim() ||
+        $(el).find('.besttxt p').text().trim();
+      const thumbnail = $(el).find('img').first().attr('src') || undefined;
 
       if (title && url) {
         posts.push({
@@ -37,12 +36,11 @@ export class DcinsideScraper extends BaseScraper {
           sourceName: 'DC인사이드',
           title,
           url,
-          author,
-          viewCount,
+          thumbnail,
         });
       }
     });
 
-    return posts;
+    return posts.slice(0, 30);
   }
 }
