@@ -1,10 +1,11 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { HomePage } from './pages/HomePage';
 import { DailyReportPage } from './pages/DailyReportPage';
+import { fetchLatestReport } from './api/client';
 import type { Category } from './types';
 
 const queryClient = new QueryClient({
@@ -15,6 +16,28 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function DailyReportRedirect() {
+  const { data: latest, isLoading } = useQuery({
+    queryKey: ['daily-report-latest'],
+    queryFn: fetchLatestReport,
+    staleTime: 5 * 60_000,
+  });
+
+  if (isLoading) {
+    return <div className="text-center py-20 text-slate-400">로딩 중...</div>;
+  }
+
+  if (latest?.report_date) {
+    return <Navigate to={`/daily-report/${latest.report_date}`} replace />;
+  }
+
+  return (
+    <div className="text-center py-20 text-slate-500">
+      아직 생성된 리포트가 없습니다.
+    </div>
+  );
+}
 
 function AppRoutes() {
   const [params, setParams] = useSearchParams();
@@ -50,6 +73,7 @@ function AppRoutes() {
             />
           }
         />
+        <Route path="/daily-report" element={<DailyReportRedirect />} />
         <Route path="/daily-report/:date" element={<DailyReportPage />} />
       </Routes>
     </Layout>
