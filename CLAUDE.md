@@ -76,7 +76,7 @@ Frontend (React+Vite) ──API──> Backend (Fastify 5) ──> PostgreSQL
 
 ## Current Phase
 
-**프론트엔드 UI/UX** 완료 (트렌딩, 카테고리탭, 검색, 무한스크롤). 다음: SEO + 수익화. 상세: [docs/로드맵.md](docs/로드맵.md)
+**카테고리 버그 수정 완료** (category auto-inject, 소스 교체). 다음: 배포 확인 → SEO + 수익화. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
@@ -91,8 +91,14 @@ docs/
 └── legal/             법무 (스크래핑 법적 검토)
 ```
 
-### 다음 세션 작업
+### 다음 세션 작업 (SEO + 수익화)
 
+**배포 확인 (우선):**
+1. 004 마이그레이션 적용 확인
+2. 카테고리별 데이터 표시 확인 (테크/금융/트렌드/정부/뉴스레터/핫딜)
+3. 서울신문·국민일보·GeekNews 0 posts 지속 시 disable 검토
+
+**SEO + 수익화:**
 1. SEO (meta, OG tags, sitemap, robots.txt)
 2. GA4 연동
 3. AdSense (ads.txt, AdBanner 컴포넌트)
