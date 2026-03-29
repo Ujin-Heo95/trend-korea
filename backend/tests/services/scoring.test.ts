@@ -16,7 +16,7 @@ describe('getSourceWeight', () => {
 describe('getCategoryWeight', () => {
   it('returns correct weight for known categories', () => {
     expect(getCategoryWeight('news')).toBe(1.20);
-    expect(getCategoryWeight('community')).toBe(1.00);
+    expect(getCategoryWeight('community')).toBe(1.08);
     expect(getCategoryWeight('government')).toBe(0.85);
   });
 

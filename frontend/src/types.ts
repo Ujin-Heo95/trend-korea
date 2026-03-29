@@ -1,5 +1,5 @@
 export type Category =
-  | 'community' | 'video' | 'news' | 'tech'
+  | 'community' | 'video' | 'video_popular' | 'news' | 'tech'
   | 'finance' | 'trend' | 'government' | 'newsletter'
   | 'deals' | 'alert' | 'sports' | 'press' | 'techblog'
   | 'movie' | 'performance';

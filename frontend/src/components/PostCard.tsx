@@ -11,7 +11,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}일 전`;
 }
 
-export const PostCard: React.FC<{ post: Post }> = ({ post }) => {
+export const PostCard: React.FC<{ post: Post; rank?: number }> = ({ post, rank }) => {
   const [expanded, setExpanded] = useState(false);
   const clusterSize = post.cluster_size ?? 1;
   const hasClusters = clusterSize > 1;
@@ -24,6 +24,13 @@ export const PostCard: React.FC<{ post: Post }> = ({ post }) => {
         rel="noopener noreferrer"
         className="flex items-start gap-3 p-4 group"
       >
+        {rank != null && (
+          <span className={`flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold ${
+            rank <= 3 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+          }`}>
+            {rank}
+          </span>
+        )}
         {post.thumbnail && (
           <img src={post.thumbnail} alt="" loading="lazy" width={64} height={48} className="w-16 h-12 object-cover rounded-lg flex-shrink-0" />
         )}
@@ -34,6 +41,9 @@ export const PostCard: React.FC<{ post: Post }> = ({ post }) => {
             </span>
             {post.view_count > 0 && (
               <span className="text-xs text-slate-400">조회 {post.view_count.toLocaleString()}</span>
+            )}
+            {post.comment_count > 0 && (
+              <span className="text-xs text-slate-400">댓글 {post.comment_count.toLocaleString()}</span>
             )}
             {hasClusters && (
               <button

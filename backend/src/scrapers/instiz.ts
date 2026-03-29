@@ -19,12 +19,16 @@ export class InstizScraper extends BaseScraper {
 
       const url = $(el).attr('href') ?? '';
       const title = sbj.text().trim();
-      const viewText = $(el).find('.listno').text();
-      const viewMatch = viewText.match(/조회\s+([\d,]+)/);
+      const listnoText = $(el).find('.listno').text();
+      const viewMatch = listnoText.match(/조회\s+([\d,]+)/);
       const viewCount = viewMatch ? parseInt(viewMatch[1].replace(/,/g, '')) : undefined;
+      const cmtEl = $(el).find('.cmt3');
+      const cmtTitle = cmtEl.attr('title') ?? '';
+      const cmtMatch = cmtTitle.match(/([\d,]+)/);
+      const commentCount = cmtMatch ? parseInt(cmtMatch[1].replace(/,/g, '')) || undefined : undefined;
 
       if (title && url) {
-        posts.push({ sourceKey: 'instiz', sourceName: '인스티즈', title, url, viewCount });
+        posts.push({ sourceKey: 'instiz', sourceName: '인스티즈', title, url, viewCount, commentCount });
       }
     });
 

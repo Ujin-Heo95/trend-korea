@@ -37,7 +37,7 @@ export const SourceFilterChips: React.FC<Props> = ({ selected, onChange }) => {
   };
 
   return (
-    <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+    <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
       <button
         onClick={() => onChange([])}
         className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${

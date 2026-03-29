@@ -22,6 +22,20 @@ const defaultParser = new Parser({
   },
 });
 
+const youtubeParser = new Parser({
+  timeout: 10_000,
+  headers: {
+    'User-Agent': UA,
+    Accept: 'application/atom+xml, application/xml, text/xml, */*;q=0.1',
+    'Accept-Language': 'ko-KR,ko;q=0.9',
+  },
+  customFields: {
+    item: [
+      ['media:group', 'mediaGroup'],
+    ],
+  },
+});
+
 const googleTrendsParser = new Parser({
   timeout: 10_000,
   headers: {
@@ -48,7 +62,11 @@ export class RssScraper extends BaseScraper {
   }
 
   async fetch(): Promise<ScrapedPost[]> {
-    const parser = this.cfg.sourceKey === 'google_trends' ? googleTrendsParser : defaultParser;
+    const parser = this.cfg.sourceKey === 'google_trends'
+      ? googleTrendsParser
+      : this.cfg.sourceKey.startsWith('youtube_')
+        ? youtubeParser
+        : defaultParser;
     const feed = await parser.parseURL(this.cfg.feedUrl);
 
     return (feed.items ?? [])
@@ -61,6 +79,9 @@ export class RssScraper extends BaseScraper {
     if (this.cfg.sourceKey === 'google_trends') {
       return this.mapGoogleTrendsItem(item);
     }
+    if (this.cfg.sourceKey.startsWith('youtube_')) {
+      return this.mapYoutubeItem(item);
+    }
 
     return {
       sourceKey: this.cfg.sourceKey,
@@ -69,6 +90,25 @@ export class RssScraper extends BaseScraper {
       url: item.link ?? item.guid ?? '',
       author: item.creator ?? (item as any)['dc:creator'] ?? undefined,
       publishedAt: item.pubDate ? new Date(item.pubDate) : undefined,
+    };
+  }
+
+  private mapYoutubeItem(item: Parser.Item): ScrapedPost {
+    const ext = item as any;
+    const mediaGroup = ext.mediaGroup ?? {};
+    // YouTube Atom: <media:group><media:thumbnail url="..."/></media:group>
+    const thumbnail = mediaGroup['media:thumbnail']?.[0]?.['$']?.url
+      ?? mediaGroup['media:thumbnail']?.['$']?.url
+      ?? undefined;
+
+    return {
+      sourceKey: this.cfg.sourceKey,
+      sourceName: this.cfg.sourceName,
+      title: item.title?.trim() ?? '(제목 없음)',
+      url: item.link ?? item.guid ?? '',
+      thumbnail,
+      author: ext.author ?? item.creator ?? undefined,
+      publishedAt: item.pubDate ?? item.isoDate ? new Date(item.isoDate ?? item.pubDate!) : undefined,
     };
   }
 

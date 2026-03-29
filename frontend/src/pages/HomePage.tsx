@@ -17,17 +17,19 @@ interface Props {
 
 export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQuery }) => {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
+  const [sortMode, setSortMode] = useState<'trending' | 'latest'>('trending');
 
   const handleCategoryChange = (cat: Category | undefined) => {
     onCategoryChange(cat);
     setSelectedSources([]);
+    setSortMode('trending');
   };
 
   const filter = {
     ...(category ? { category } : {}),
     ...(searchQuery ? { q: searchQuery } : {}),
     ...(selectedSources.length > 0 ? { source: selectedSources.join(',') } : {}),
-    ...(category === 'community' ? { sort: 'trending' } : {}),
+    ...(category === 'community' ? { sort: sortMode } : {}),
   };
 
   const {
@@ -75,7 +77,35 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       </div>
 
       {category === 'community' && (
-        <SourceFilterChips selected={selectedSources} onChange={setSelectedSources} />
+        <>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex-1 overflow-hidden">
+              <SourceFilterChips selected={selectedSources} onChange={setSelectedSources} />
+            </div>
+            <div className="flex bg-slate-100 rounded-lg p-0.5 flex-shrink-0 ml-3">
+              <button
+                onClick={() => setSortMode('trending')}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                  sortMode === 'trending'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                인기순
+              </button>
+              <button
+                onClick={() => setSortMode('latest')}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                  sortMode === 'latest'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                최신순
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {searchQuery && (
@@ -105,8 +135,12 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           <PerformanceRankingTable posts={allPosts} />
         ) : (
           <div className="grid gap-3">
-            {allPosts.map((post) => (
-              <PostCard key={post.id} post={post} />
+            {allPosts.map((post, i) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                rank={category === 'community' && sortMode === 'trending' ? i + 1 : undefined}
+              />
             ))}
           </div>
         )

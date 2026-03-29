@@ -16,15 +16,20 @@ export class TodayhumorScraper extends BaseScraper {
     const $ = cheerio.load(data);
     const posts: ScrapedPost[] = [];
 
-    $('td.subject a[href*="view.php"]').each((_, el) => {
-      const href = $(el).attr('href') ?? '';
+    $('tr.view').each((_, el) => {
+      const a = $(el).find('td.subject a[href*="view.php"]').first();
+      const href = a.attr('href') ?? '';
       if (!href.includes('table=humorbest')) return;
 
-      const title = $(el).text().trim();
+      const title = a.text().trim();
       const url = href.startsWith('http') ? href : `https://www.todayhumor.co.kr${href}`;
+      const viewCount = parseInt($(el).find('td.hits').text().replace(/,/g, '')) || undefined;
+      const memoText = $(el).find('.list_memo_count_span').text().trim();
+      const memoMatch = memoText.match(/(\d+)/);
+      const commentCount = memoMatch ? parseInt(memoMatch[1]) || undefined : undefined;
 
       if (title && url) {
-        posts.push({ sourceKey: 'todayhumor', sourceName: '오늘의유머', title, url });
+        posts.push({ sourceKey: 'todayhumor', sourceName: '오늘의유머', title, url, viewCount, commentCount });
       }
     });
 

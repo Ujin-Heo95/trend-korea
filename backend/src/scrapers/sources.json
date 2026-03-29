@@ -72,12 +72,57 @@
     },
     {
       "key": "youtube",
-      "name": "YouTube",
-      "category": "video",
+      "name": "YouTube 인기",
+      "category": "video_popular",
       "type": "api",
       "module": "./youtube.js",
       "className": "YoutubeScraper",
-      "priority": "high",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "youtube_sbs_news",
+      "name": "SBS 뉴스 YouTube",
+      "category": "video",
+      "type": "rss",
+      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCkinYTS9IHqOEwR1Azi2Dpg",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "youtube_ytn",
+      "name": "YTN YouTube",
+      "category": "video",
+      "type": "rss",
+      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UChlgI3UHCOnwUGzWzbJ3H5A",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "youtube_mbc_news",
+      "name": "MBC 뉴스 YouTube",
+      "category": "video",
+      "type": "rss",
+      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCF4Wxdo3inmxP-Y59wXDsFw",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "youtube_kbs_news",
+      "name": "KBS 뉴스 YouTube",
+      "category": "video",
+      "type": "rss",
+      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCcQTRi69dsVYHN3exePtZ1A",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "youtube_jtbc_news",
+      "name": "JTBC 뉴스 YouTube",
+      "category": "video",
+      "type": "rss",
+      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCsU-I-vHLiaMfQ_5gJnwVMw",
+      "priority": "medium",
       "enabled": true
     },
     {

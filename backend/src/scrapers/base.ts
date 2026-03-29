@@ -28,7 +28,8 @@ export abstract class BaseScraper {
     const category = posts[0].category ?? this.category ?? null;
     const isRankedCategory = ['movie', 'performance'].includes(category ?? '');
 
-    // 랭킹 데이터는 UPSERT로 관객수/메타데이터 갱신, 일반 데이터는 DO NOTHING
+    // 랭킹 데이터는 UPSERT로 관객수/메타데이터 갱신
+    // 일반 데이터는 engagement 증가 시에만 업데이트 (velocity 계산 활성화)
     const conflictClause = isRankedCategory
       ? `ON CONFLICT (url) DO UPDATE SET
            title = EXCLUDED.title,
@@ -37,7 +38,11 @@ export abstract class BaseScraper {
            metadata = EXCLUDED.metadata,
            thumbnail = EXCLUDED.thumbnail,
            scraped_at = NOW()`
-      : 'ON CONFLICT (url) DO NOTHING';
+      : `ON CONFLICT (url) DO UPDATE SET
+           view_count = GREATEST(posts.view_count, EXCLUDED.view_count),
+           comment_count = GREATEST(posts.comment_count, EXCLUDED.comment_count)
+         WHERE EXCLUDED.view_count > posts.view_count
+            OR EXCLUDED.comment_count > posts.comment_count`;
 
     const result = await this.pool.query(
       `INSERT INTO posts (source_key,source_name,title,url,thumbnail,author,view_count,comment_count,published_at,category,metadata)
