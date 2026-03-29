@@ -425,6 +425,16 @@
       "enabled": true
     },
     {
+      "key": "kobis_boxoffice",
+      "name": "KOBIS 박스오피스",
+      "category": "entertainment",
+      "type": "api",
+      "module": "./kobis.js",
+      "className": "KobisBoxofficeScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
       "key": "chosun",
       "name": "조선일보",
       "category": "news",
@@ -440,7 +450,7 @@
       "type": "rss",
       "feedUrl": "https://rss.joins.com/joins_news_list.xml",
       "priority": "high",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kbs",
@@ -449,7 +459,7 @@
       "type": "rss",
       "feedUrl": "https://news.kbs.co.kr/api/rss/rss.xml",
       "priority": "high",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "mbc",
@@ -458,7 +468,7 @@
       "type": "rss",
       "feedUrl": "http://imnews.imbc.com/rss/news/news_00.xml",
       "priority": "high",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "jtbc",
@@ -476,7 +486,7 @@
       "type": "rss",
       "feedUrl": "https://www.ytn.co.kr/rss/headline.xml",
       "priority": "high",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "daum_news",
@@ -485,7 +495,7 @@
       "type": "rss",
       "feedUrl": "http://media.daum.net/rss/today/primary/all/rss2.xml",
       "priority": "high",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "etnews",
@@ -503,7 +513,7 @@
       "type": "rss",
       "feedUrl": "http://rss.donga.com/stotal.xml",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "newswire",

@@ -11,7 +11,16 @@ interface RssScraperConfig {
   pool: Pool;
 }
 
-const parser = new Parser({ timeout: 10000 });
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+const parser = new Parser({
+  timeout: 10_000,
+  headers: {
+    'User-Agent': UA,
+    Accept: 'application/rss+xml, application/xml, text/xml, */*;q=0.1',
+    'Accept-Language': 'ko-KR,ko;q=0.9',
+  },
+});
 
 export class RssScraper extends BaseScraper {
   private cfg: RssScraperConfig;
