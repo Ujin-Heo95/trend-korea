@@ -28,13 +28,15 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
                                               │
                                               ├── node-cron: 우선순위별 스크래핑 (mutex)
                                               ├── node-cron: 5분마다 트렌드 스코어 갱신
-                                              ├── node-cron: 2회/일 TTL 정리
+                                              ├── node-cron: 2회/일 TTL 정리 (공연 7일, 기타 3일)
                                               ├── node-cron: 매일 07:00 KST 일일 리포트 생성
                                               ├── 3-Layer 중복제거 (MD5 해시 + Jaccard + Thumbnail)
                                               ├── Gemini Flash: 일일 리포트 LLM 요약 (무료 티어)
                                               ├── Discord 웹훅: 스크래퍼 에러 알림
                                               ├── 교차 검증: Google Trends × Naver DataLab × 커뮤니티 (20분)
                                               ├── Gemini Flash: 핫이슈 키워드 추출 (30분 주기)
+                                              ├── KOBIS: Naver Movie Search 연동 (포스터/링크/평점)
+                                              ├── KOPIS: 상세 API 연동 (5장르, 공연기간/예매링크)
                                               └── LRU 캐시: 60초 TTL, 200 엔트리
 ```
 
@@ -54,7 +56,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 - 우선순위별 스케줄링: high=10분, medium=15분, low=30분
 
 ### Database
-- 배치 INSERT + `ON CONFLICT (url) DO NOTHING` (11 columns incl. category, metadata)
+- 배치 INSERT + `ON CONFLICT (url) DO NOTHING` (일반), `DO UPDATE` (영화/공연 UPSERT)
 - `title_hash` GENERATED 컬럼: 정규화 후 MD5 (괄호/특수문자 제거)
 - `post_clusters` + `post_cluster_members`: 중복 게시글 그룹핑
 - `post_scores`: 트렌드 스코어 (5분 주기 배치 갱신)
@@ -62,7 +64,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 - `keyword_stats`: 시간 윈도우별 키워드 빈도 집계 (3h, 24h)
 - `trend_signals`: 교차 검증 트렌드 시그널
 - 환경변수는 `config/index.ts`에서 중앙 파싱 + 검증
-- posts TTL: 3일 (기본값), scraper_runs TTL: 30일
+- posts TTL: 3일 (기본값), 공연 7일, scraper_runs TTL: 30일
 - DB 풀: `DB_POOL_MAX=10`, `DB_IDLE_TIMEOUT_MS=30000`, `DB_CONNECTION_TIMEOUT_MS=5000`
 
 ### Testing
@@ -104,11 +106,12 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | 교차 검증 서비스 | `backend/src/services/trendCrossValidator.ts` |
 | 교차 검증 API | `backend/src/routes/trendSignals.ts` |
 | 교차 검증 UI | `frontend/src/components/TrendRadar.tsx` |
+| 공유 컴포넌트 | `frontend/src/components/shared/` (RankBadge, PosterImage 등) |
 | CSS 엔트리 | `frontend/src/index.css` |
 
 ## Current Phase
 
-**Phase 2 완료** (소스 51개 활성 + 3-Layer 중복제거 + 트렌드 스코어링 + 일일 리포트 MVP + Discord 알림 + 핫이슈 키워드 + 영화/공연 전용 탭 + 날씨 + 교차 검증). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Phase 2 완료** (소스 51개 활성 + 3-Layer 중복제거 + 트렌드 스코어링 + 일일 리포트 MVP + Discord 알림 + 핫이슈 키워드 + 영화/공연 종합 개선 + 날씨 + 교차 검증). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
