@@ -1,8 +1,9 @@
 import cron from 'node-cron';
 import { runAllScrapers, runScrapersByPriority } from '../scrapers/index.js';
-import { cleanOldPosts, cleanOldScraperRuns } from '../db/cleanup.js';
+import { cleanOldPosts, cleanOldScraperRuns, cleanExpiredTrendSignals } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
 import { generateDailyReport } from '../services/dailyReport.js';
+import { crossValidate } from '../services/trendCrossValidator.js';
 import { processNewPosts, calculateStats } from '../services/keywords.js';
 import { pool } from '../db/client.js';
 
@@ -16,8 +17,11 @@ export function startScheduler(): void {
   console.log(`[scheduler] priority intervals: high=${PRIORITY_INTERVALS.high}min, medium=${PRIORITY_INTERVALS.medium}min, low=${PRIORITY_INTERVALS.low}min`);
   console.log(`[scheduler] cleanup: twice daily (00:00, 12:00 UTC)`);
 
-  // 최초 실행: 전체 스크래퍼 1회
-  runAllScrapers().catch(console.error);
+  // 최초 실행: 전체 스크래퍼 1회 → 키워드 추출도 연이어 실행
+  runAllScrapers()
+    .then(() => processNewPosts(pool))
+    .then(() => Promise.all([calculateStats(pool, 3), calculateStats(pool, 24)]))
+    .catch(console.error);
 
   // 우선순위별 cron
   for (const [priority, minutes] of Object.entries(PRIORITY_INTERVALS)) {
@@ -51,9 +55,16 @@ export function startScheduler(): void {
   });
   console.log('[scheduler] keywords: every 30 min');
 
+  // 교차 검증 트렌드: 20분 주기
+  cron.schedule('*/20 * * * *', () => {
+    crossValidate(pool).catch(err => console.error('[cross-validate] error:', err));
+  });
+  console.log('[scheduler] cross-validate: every 20 min');
+
   // 자정 + 정오 2회 (Railway 서버 = UTC 기준) — DB 100MB 한도 대응
   cron.schedule('0 0,12 * * *', () => {
     cleanOldPosts().catch(err => console.error('[cleanup:posts] error:', err));
     cleanOldScraperRuns().catch(err => console.error('[cleanup:scraper_runs] error:', err));
+    cleanExpiredTrendSignals().catch(err => console.error('[cleanup:trend_signals] error:', err));
   });
 }
