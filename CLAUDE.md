@@ -33,6 +33,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
                                               ├── 3-Layer 중복제거 (MD5 해시 + Jaccard + Thumbnail)
                                               ├── Gemini Flash: 일일 리포트 LLM 요약 (무료 티어)
                                               ├── Discord 웹훅: 스크래퍼 에러 알림
+                                              ├── 교차 검증: Google Trends × Naver DataLab × 커뮤니티 (20분)
                                               └── LRU 캐시: 60초 TTL, 200 엔트리
 ```
 
@@ -96,6 +97,9 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | 키워드 추출 서비스 | `backend/src/services/keywords.ts` |
 | 키워드 API | `backend/src/routes/keywords.ts` |
 | 이슈태그 페이지 | `frontend/src/pages/KeywordsPage.tsx` |
+| 교차 검증 서비스 | `backend/src/services/trendCrossValidator.ts` |
+| 교차 검증 API | `backend/src/routes/trendSignals.ts` |
+| 교차 검증 UI | `frontend/src/components/TrendRadar.tsx` |
 | CSS 엔트리 | `frontend/src/index.css` |
 
 ## Current Phase
