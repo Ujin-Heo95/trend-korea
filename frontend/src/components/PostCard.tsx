@@ -45,6 +45,11 @@ export const PostCard: React.FC<{ post: Post; rank?: number }> = ({ post, rank }
             {post.comment_count > 0 && (
               <span className="text-xs text-slate-400">댓글 {post.comment_count.toLocaleString()}</span>
             )}
+            {Array.isArray(post.metadata?.searchKeywords) && (
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                {String(post.metadata!.searchKeywords[0])} 관련
+              </span>
+            )}
             {hasClusters && (
               <button
                 type="button"

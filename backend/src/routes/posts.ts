@@ -28,7 +28,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       if (category) {
         conditions.push(`p.category = $${params.push(category)}`);
       } else {
-        conditions.push(`(p.category IS NULL OR p.category NOT IN ('movie', 'performance'))`);
+        conditions.push(`(p.category IS NULL OR p.category NOT IN ('movie', 'performance', 'video_popular'))`);
       }
       if (q) conditions.push(`p.title ILIKE $${params.push(`%${q}%`)}`);
 

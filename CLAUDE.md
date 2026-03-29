@@ -108,12 +108,13 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | 교차 검증 서비스 | `backend/src/services/trendCrossValidator.ts` |
 | 교차 검증 API | `backend/src/routes/trendSignals.ts` |
 | 교차 검증 UI | `frontend/src/components/TrendRadar.tsx` |
+| YouTube 키워드 검색 | `backend/src/scrapers/youtube-search.ts` |
 | 공유 컴포넌트 | `frontend/src/components/shared/` (RankBadge, PosterImage 등) |
 | CSS 엔트리 | `frontend/src/index.css` |
 
 ## Current Phase
 
-**Phase 2 완료** (소스 56개 활성 + 3-Layer 중복제거 + **다중 팩터 스코어링 v0.8.0** + 일일 리포트 MVP + Discord 알림 + 핫이슈 키워드 + 영화/공연 종합 개선 + 날씨 + **교차 검증 v0.9.1** + **커뮤니티 순위 동적화 v0.9.2**: engagement UPSERT + velocity 활성화 + 정렬 토글 + 순위 표시). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Phase 2 완료 → Phase 2.5 진입** (소스 62개 + 스코어링 v0.8.0 + 교차 검증 v0.9.1 + 커뮤니티 동적화 v0.9.2 + 영상 탭 v0.9.3). **5개 부서 교차 검증 완료 (2026-03-30)**: 기능 추가 중단, 사업 기반 구축 우선 합의. 다음: 도메인 구매 + Umami + Sentry + 공유 버튼 + 런칭. 상세: [docs/로드맵.md](docs/로드맵.md) | [docs/planning/종합분석-2026Q1.md](docs/planning/종합분석-2026Q1.md)
 
 ## 문서 체계
 
@@ -130,17 +131,20 @@ docs/
 
 ### 다음 세션 작업
 
-> 종합 로드맵: [docs/로드맵.md](docs/로드맵.md) | 기술부채: [docs/dev/기술부채.md](docs/dev/기술부채.md)
+> 종합 로드맵: [docs/로드맵.md](docs/로드맵.md) | 종합 분석: [docs/planning/종합분석-2026Q1.md](docs/planning/종합분석-2026Q1.md)
 
-**Phase 3 진입:**
-1. 커뮤니티 탭 velocity 데이터 축적 확인 (배포 20분 후 engagement_snapshots 변동 확인)
-2. 커뮤니티 인기순 순위 변동 확인
-3. Sentry 에러 트래킹 (1시간)
-4. UptimeRobot 설정 (30분)
-5. Phase 3: 사용자 반응 시스템 (좋아요/북마크)
+**Phase 2.5: 생존 기반 (5개 부서 합의, 사업 인프라 우선)**
+1. **도메인 구매 + Cloudflare DNS** (1시간) — 전 부서 1순위
+2. **Umami Cloud 분석도구 설치** (10분) — DAU 측정 전제
+3. **Sentry 백엔드 통합** (1시간) — 에러 가시성
+4. **UptimeRobot 설정** (30분) — 가동시간 모니터링
+5. **개인정보처리방침 작성** (4시간) — AdSense 전제
+6. **개인사업자등록** (1일) — AdSense 전제
+7. 공유 버튼 (링크 복사 + 카카오톡) (4시간)
+8. PWA manifest + 서비스워커 (2시간)
+9. sitemap/canonical/OG 절대 URL 변경 (도메인 확정 후)
+10. 카테고리 탭 15→8개 통합 (2시간)
 
-**보류:**
-- Umami Cloud 분석도구 (가입 후 data-website-id를 index.html에 추가)
-- 개인정보처리방침 작성
-- 도메인 구매 + Cloudflare DNS → sitemap/OG 절대 URL 반영
-- 개인사업자등록
+**Phase 2.6: 런칭 (위 완료 후)**
+- Disquiet 런칭, GeekNews, 네이버 블로그, 커뮤니티 공유
+- AdSense 신청, GitHub Actions CI

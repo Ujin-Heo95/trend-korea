@@ -126,6 +126,16 @@
       "enabled": true
     },
     {
+      "key": "youtube_search",
+      "name": "YouTube 키워드 검색",
+      "category": "video",
+      "type": "api",
+      "module": "./youtube-search.js",
+      "className": "YoutubeSearchScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
       "key": "ppomppu",
       "name": "뽐뿌",
       "category": "community",
