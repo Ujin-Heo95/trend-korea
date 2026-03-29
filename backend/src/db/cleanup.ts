@@ -6,12 +6,17 @@ export interface CleanupResult {
 }
 
 export async function cleanOldPosts(): Promise<CleanupResult> {
+  // 공연 데이터는 주간 기준이므로 7일 TTL, 나머지는 기본 TTL
+  const PERFORMANCE_TTL_DAYS = 7;
+
   const result = await pool.query<never>(
-    `DELETE FROM posts WHERE scraped_at < NOW() - ($1 || ' days')::INTERVAL`,
-    [config.postTtlDays]
+    `DELETE FROM posts WHERE
+      (category = 'performance' AND scraped_at < NOW() - ($1 || ' days')::INTERVAL) OR
+      (COALESCE(category, '') != 'performance' AND scraped_at < NOW() - ($2 || ' days')::INTERVAL)`,
+    [PERFORMANCE_TTL_DAYS, config.postTtlDays]
   );
   const deleted = result.rowCount ?? 0;
-  console.log(`[cleanup] deleted ${deleted} posts older than ${config.postTtlDays} days`);
+  console.log(`[cleanup] deleted ${deleted} posts (performance: ${PERFORMANCE_TTL_DAYS}d, others: ${config.postTtlDays}d)`);
   return { deleted };
 }
 

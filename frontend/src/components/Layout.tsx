@@ -33,7 +33,7 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
             </Link>
           )}
           <Link
-            to="/entertainment"
+            to="/?category=movie"
             className="text-xs font-medium px-2 py-1 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors hidden sm:inline-block"
           >
             영화/공연

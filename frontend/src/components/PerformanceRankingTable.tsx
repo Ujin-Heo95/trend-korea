@@ -1,12 +1,26 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import type { Post } from '../types';
+import { RankBadge } from './shared/RankBadge';
+import { DataFreshnessLabel } from './shared/DataFreshnessLabel';
+import { ExternalLinkButton } from './shared/ExternalLinkButton';
+import { PosterImage } from './shared/PosterImage';
 
 interface PerformanceMeta {
   rank: number;
   genre: string;
+  genreCode?: string;
   performanceName: string;
   venue: string;
   performanceId: string;
+  posterUrl?: string;
+  startDate?: string;
+  endDate?: string;
+  cast?: string;
+  runtime?: string;
+  priceInfo?: string;
+  ticketUrl?: string;
+  dataWeekStart?: string;
+  dataWeekEnd?: string;
 }
 
 function parsePerformanceMeta(post: Post): PerformanceMeta | null {
@@ -26,32 +40,38 @@ function parsePerformanceMeta(post: Post): PerformanceMeta | null {
   };
 }
 
-const GENRE_ORDER = ['뮤지컬', '연극', '대공연(콘서트)'];
 const GENRE_ICONS: Record<string, string> = {
   '뮤지컬': '🎵',
   '연극': '🎭',
   '대공연(콘서트)': '🎤',
+  '클래식': '🎻',
+  '무용': '💃',
 };
 
-function RankBadge({ rank }: { rank: number }) {
-  const medals = ['🥇', '🥈', '🥉'];
-  if (rank <= 3) {
-    return <span className="text-lg">{medals[rank - 1]}</span>;
-  }
-  return (
-    <span className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 text-sm font-bold">
-      {rank}
-    </span>
-  );
+const GENRE_ORDER = ['뮤지컬', '연극', '대공연(콘서트)', '클래식', '무용'];
+
+function genreIcon(genre: string): string {
+  return GENRE_ICONS[genre] ?? '🎭';
+}
+
+function formatDate(raw?: string): string {
+  if (!raw) return '';
+  // "2026.03.01" or "20260301" → "2026.03.01"
+  if (raw.length === 8) return raw.replace(/(\d{4})(\d{2})(\d{2})/, '$1.$2.$3');
+  return raw;
+}
+
+function interparkSearchUrl(name: string): string {
+  return `https://tickets.interpark.com/search?keyword=${encodeURIComponent(name)}`;
 }
 
 function GenreSection({ genre, items }: { genre: string; items: { post: Post; meta: PerformanceMeta }[] }) {
-  const icon = GENRE_ICONS[genre] ?? '🎭';
+  const icon = genreIcon(genre);
   const sorted = [...items].sort((a, b) => a.meta.rank - b.meta.rank);
 
   return (
-    <div className="mb-4 last:mb-0">
-      <h3 className="text-sm font-semibold text-slate-700 px-4 py-2 bg-slate-50 border-b border-slate-100">
+    <div className="mb-2 last:mb-0">
+      <h3 className="text-sm font-semibold text-slate-700 px-4 py-2 bg-slate-50/70 border-b border-slate-100">
         {icon} {genre}
       </h3>
 
@@ -60,8 +80,11 @@ function GenreSection({ genre, items }: { genre: string; items: { post: Post; me
         <thead>
           <tr className="text-xs text-slate-500 border-b border-slate-100">
             <th className="py-2 px-3 text-center w-14">순위</th>
+            <th className="py-2 px-2 w-14"></th>
             <th className="py-2 px-3 text-left">공연명</th>
-            <th className="py-2 px-3 text-left w-40">공연장</th>
+            <th className="py-2 px-3 text-left w-36">공연장</th>
+            <th className="py-2 px-3 text-center w-32">기간</th>
+            <th className="py-2 px-3 text-center w-24">예매</th>
           </tr>
         </thead>
         <tbody>
@@ -69,6 +92,15 @@ function GenreSection({ genre, items }: { genre: string; items: { post: Post; me
             <tr key={post.id} className="border-b border-slate-50 hover:bg-blue-50/50 transition-colors">
               <td className="py-3 px-3 text-center">
                 <RankBadge rank={meta.rank} />
+              </td>
+              <td className="py-3 px-2">
+                <PosterImage
+                  src={meta.posterUrl || post.thumbnail}
+                  alt={meta.performanceName}
+                  width={40}
+                  height={56}
+                  fallbackIcon={icon}
+                />
               </td>
               <td className="py-3 px-3">
                 <a
@@ -79,8 +111,26 @@ function GenreSection({ genre, items }: { genre: string; items: { post: Post; me
                 >
                   {meta.performanceName}
                 </a>
+                {meta.cast && (
+                  <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{meta.cast}</p>
+                )}
               </td>
               <td className="py-3 px-3 text-sm text-slate-500">{meta.venue}</td>
+              <td className="py-3 px-3 text-center">
+                {meta.startDate && meta.endDate ? (
+                  <span className="text-xs text-slate-500">
+                    {formatDate(meta.startDate)} ~ {formatDate(meta.endDate)}
+                  </span>
+                ) : (
+                  <span className="text-xs text-slate-300">-</span>
+                )}
+              </td>
+              <td className="py-3 px-3 text-center">
+                <ExternalLinkButton
+                  href={meta.ticketUrl || interparkSearchUrl(meta.performanceName)}
+                  label="예매"
+                />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -89,19 +139,38 @@ function GenreSection({ genre, items }: { genre: string; items: { post: Post; me
       {/* Mobile list */}
       <div className="sm:hidden divide-y divide-slate-50">
         {sorted.map(({ post, meta }) => (
-          <a
-            key={post.id}
-            href={post.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50/50 transition-colors"
-          >
+          <div key={post.id} className="flex items-start gap-3 px-4 py-3">
             <RankBadge rank={meta.rank} />
+            <PosterImage
+              src={meta.posterUrl || post.thumbnail}
+              alt={meta.performanceName}
+              width={36}
+              height={50}
+              fallbackIcon={icon}
+            />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-800 truncate">{meta.performanceName}</p>
+              <a
+                href={post.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-medium text-slate-800 hover:text-blue-600 transition-colors line-clamp-1"
+              >
+                {meta.performanceName}
+              </a>
               <p className="text-xs text-slate-400 mt-0.5">{meta.venue}</p>
+              {meta.startDate && meta.endDate && (
+                <p className="text-xs text-slate-400">
+                  {formatDate(meta.startDate)} ~ {formatDate(meta.endDate)}
+                </p>
+              )}
+              <div className="mt-1.5">
+                <ExternalLinkButton
+                  href={meta.ticketUrl || interparkSearchUrl(meta.performanceName)}
+                  label="예매하기"
+                />
+              </div>
             </div>
-          </a>
+          </div>
         ))}
       </div>
     </div>
@@ -109,9 +178,28 @@ function GenreSection({ genre, items }: { genre: string; items: { post: Post; me
 }
 
 export const PerformanceRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
-  const performances = posts
-    .map(p => ({ post: p, meta: parsePerformanceMeta(p) }))
-    .filter((m): m is { post: Post; meta: PerformanceMeta } => m.meta !== null);
+  const [selectedGenre, setSelectedGenre] = useState<string>('all');
+
+  const performances = useMemo(() =>
+    posts
+      .map(p => ({ post: p, meta: parsePerformanceMeta(p) }))
+      .filter((m): m is { post: Post; meta: PerformanceMeta } => m.meta !== null),
+    [posts]
+  );
+
+  // 장르 목록을 데이터에서 동적으로 추출 (GENRE_ORDER 순서 우선)
+  const genres = useMemo(() => {
+    const genreSet = new Set(performances.map(p => p.meta.genre));
+    return [...genreSet].sort((a, b) => {
+      const ai = GENRE_ORDER.indexOf(a);
+      const bi = GENRE_ORDER.indexOf(b);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+  }, [performances]);
+
+  const filteredGenres = selectedGenre === 'all'
+    ? genres
+    : genres.filter(g => g === selectedGenre);
 
   if (performances.length === 0) {
     return (
@@ -130,23 +218,46 @@ export const PerformanceRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) 
     else genreMap.set(item.meta.genre, [item]);
   }
 
-  // Sort genres by predefined order
-  const orderedGenres = [...genreMap.keys()].sort((a, b) => {
-    const ai = GENRE_ORDER.indexOf(a);
-    const bi = GENRE_ORDER.indexOf(b);
-    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-  });
-
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      {/* 헤더 */}
       <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-        <h2 className="text-base font-bold text-slate-800">🎭 공연 예매순위</h2>
-        <p className="text-xs text-slate-400 mt-0.5">KOPIS 공연예술통합전산망 (주간 기준)</p>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h2 className="text-base font-bold text-slate-800">공연 예매순위</h2>
+            <p className="text-xs text-slate-400 mt-0.5">KOPIS 공연예술통합전산망</p>
+          </div>
+          <DataFreshnessLabel label="이번 주 기준 (주간)" />
+        </div>
+        {/* 장르 필터 칩 */}
+        <div className="flex gap-1.5 mt-2 overflow-x-auto scrollbar-hide pb-0.5">
+          <button
+            onClick={() => setSelectedGenre('all')}
+            className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
+              selectedGenre === 'all' ? 'bg-blue-600 text-white' : 'bg-white text-slate-500 border border-slate-200'
+            }`}
+          >
+            전체
+          </button>
+          {genres.map(genre => (
+            <button
+              key={genre}
+              onClick={() => setSelectedGenre(genre)}
+              className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
+                selectedGenre === genre ? 'bg-blue-600 text-white' : 'bg-white text-slate-500 border border-slate-200'
+              }`}
+            >
+              {genreIcon(genre)} {genre}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {orderedGenres.map(genre => (
-        <GenreSection key={genre} genre={genre} items={genreMap.get(genre)!} />
-      ))}
+      {filteredGenres.map(genre => {
+        const items = genreMap.get(genre);
+        if (!items) return null;
+        return <GenreSection key={genre} genre={genre} items={items} />;
+      })}
     </div>
   );
 };

@@ -25,9 +25,23 @@ export abstract class BaseScraper {
       return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11})`;
     });
 
+    const category = posts[0].category ?? this.category ?? null;
+    const isRankedCategory = ['movie', 'performance'].includes(category ?? '');
+
+    // 랭킹 데이터는 UPSERT로 관객수/메타데이터 갱신, 일반 데이터는 DO NOTHING
+    const conflictClause = isRankedCategory
+      ? `ON CONFLICT (url) DO UPDATE SET
+           title = EXCLUDED.title,
+           view_count = EXCLUDED.view_count,
+           comment_count = EXCLUDED.comment_count,
+           metadata = EXCLUDED.metadata,
+           thumbnail = EXCLUDED.thumbnail,
+           scraped_at = NOW()`
+      : 'ON CONFLICT (url) DO NOTHING';
+
     const result = await this.pool.query(
       `INSERT INTO posts (source_key,source_name,title,url,thumbnail,author,view_count,comment_count,published_at,category,metadata)
-       VALUES ${placeholders.join(',')} ON CONFLICT (url) DO NOTHING`,
+       VALUES ${placeholders.join(',')} ${conflictClause}`,
       values
     );
     return result.rowCount ?? 0;
@@ -39,7 +53,11 @@ export abstract class BaseScraper {
       try {
         const posts = await this.fetch();
         const count = await this.saveToDb(posts);
-        await clusterPosts(this.pool, posts);
+        // 랭킹 데이터(영화/공연)는 단일 소스이므로 클러스터 중복제거 불필요
+        const skipDedup = ['movie', 'performance'].includes(this.category ?? '');
+        if (!skipDedup) {
+          await clusterPosts(this.pool, posts);
+        }
         return { count };
       } catch (err) {
         if (attempt < MAX_RETRIES) {

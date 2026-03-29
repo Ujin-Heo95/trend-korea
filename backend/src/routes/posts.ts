@@ -126,7 +126,19 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
         if (posts.length >= limit) break;
       }
 
-      const result = { posts, total: count.rows[0].total, page, limit };
+      // 영화/공연 카테고리: 최근 스크래핑 시각 포함
+      let lastUpdated: string | null = null;
+      if (category === 'movie' || category === 'performance') {
+        const sourceKey = category === 'movie' ? 'kobis_boxoffice' : 'kopis_boxoffice';
+        const luResult = await app.pg.query<{ last_updated: string }>(
+          `SELECT MAX(finished_at)::text AS last_updated FROM scraper_runs
+           WHERE source_key = $1 AND error_message IS NULL`,
+          [sourceKey]
+        );
+        lastUpdated = luResult.rows[0]?.last_updated ?? null;
+      }
+
+      const result = { posts, total: count.rows[0].total, page, limit, lastUpdated };
       postsCache.set(cacheKey, result);
       return result;
     }
