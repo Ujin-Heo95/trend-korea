@@ -1,4 +1,7 @@
 import type { FastifyInstance } from 'fastify';
+import { LRUCache } from '../cache/lru.js';
+
+const postsCache = new LRUCache<unknown>(200, 60_000);
 
 export async function postsRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: { source?: string; category?: string; q?: string; page?: string; limit?: string } }>(
@@ -8,6 +11,10 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       const limit  = Math.min(parseInt(req.query.limit  ?? '30'), 100);
       const page   = Math.max(parseInt(req.query.page   ?? '1'),  1);
       const offset = (page - 1) * limit;
+
+      const cacheKey = `posts:${source ?? ''}:${category ?? ''}:${q ?? ''}:${page}:${limit}`;
+      const cached = postsCache.get(cacheKey);
+      if (cached) return cached;
 
       const conditions: string[] = [];
       const params: unknown[] = [];
@@ -29,14 +36,22 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
           params.slice(0, conditions.length)
         ),
       ]);
-      return { posts: rows.rows, total: count.rows[0].total, page, limit };
+
+      const result = { posts: rows.rows, total: count.rows[0].total, page, limit };
+      postsCache.set(cacheKey, result);
+      return result;
     }
   );
 
   app.get('/api/posts/trending', async () => {
+    const cached = postsCache.get('trending');
+    if (cached) return cached;
+
     const r = await app.pg.query(
       `SELECT * FROM posts WHERE scraped_at > NOW() - INTERVAL '1 hour' ORDER BY view_count DESC LIMIT 20`
     );
-    return { posts: r.rows };
+    const result = { posts: r.rows };
+    postsCache.set('trending', result);
+    return result;
   });
 }

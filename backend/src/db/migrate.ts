@@ -10,6 +10,7 @@ const migrations = [
   '002_scraper_runs.sql',
   '003_add_category.sql',
   '004_backfill_category.sql',
+  '005_add_composite_index.sql',
 ];
 
 try {
