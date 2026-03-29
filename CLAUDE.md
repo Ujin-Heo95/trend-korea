@@ -116,12 +116,11 @@ docs/
 
 > 종합 로드맵: [docs/로드맵.md](docs/로드맵.md) | 기술부채: [docs/dev/기술부채.md](docs/dev/기술부채.md)
 
-**Phase 2 완료 → Phase 3 진입:**
-1. Discord 웹훅 URL을 Railway 환경변수에 추가 (`DISCORD_WEBHOOK_URL`)
-2. 신규 소스 13개 프로덕션 동작 확인 (배포 후 /health 체크)
-3. Sentry 에러 트래킹 (1시간)
-4. UptimeRobot 설정 (30분)
-5. Phase 3: 사용자 반응 시스템 (좋아요/북마크)
+**Phase 3 진입:**
+1. 구글 트렌드 + 네이버 DataLab 프로덕션 데이터 수집 확인
+2. Sentry 에러 트래킹 (1시간)
+3. UptimeRobot 설정 (30분)
+4. Phase 3: 사용자 반응 시스템 (좋아요/북마크)
 
 **보류:**
 - Umami Cloud 분석도구 (가입 후 data-website-id를 index.html에 추가)

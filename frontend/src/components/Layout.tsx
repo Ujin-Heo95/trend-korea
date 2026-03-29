@@ -33,6 +33,12 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
             </Link>
           )}
           <Link
+            to="/entertainment"
+            className="text-xs font-medium px-2 py-1 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors hidden sm:inline-block"
+          >
+            영화/공연
+          </Link>
+          <Link
             to="/weather"
             className="text-xs font-medium px-2 py-1 rounded-full bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors hidden sm:inline-block"
           >
