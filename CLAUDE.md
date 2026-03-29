@@ -113,7 +113,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 
 ## Current Phase
 
-**Phase 2 완료** (소스 51개 활성 + 3-Layer 중복제거 + **다중 팩터 스코어링 v0.8.0** + 일일 리포트 MVP + Discord 알림 + 핫이슈 키워드 + 영화/공연 종합 개선 + 날씨 + **교차 검증 v0.9.0**: 관련 기사·스파크라인·컨텍스트). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Phase 2 완료** (소스 51개 활성 + 3-Layer 중복제거 + **다중 팩터 스코어링 v0.8.0** + 일일 리포트 MVP + Discord 알림 + 핫이슈 키워드 + 영화/공연 종합 개선 + 날씨 + **교차 검증 v0.9.1**: 관련 기사·스파크라인·컨텍스트 + 전체 탭 영화/공연 제외). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
