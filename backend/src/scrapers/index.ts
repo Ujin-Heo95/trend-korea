@@ -31,15 +31,22 @@ async function logRunEnd(runId: number, postsSaved: number, errorMessage: string
 }
 
 async function runScraper(entry: ScraperEntry): Promise<void> {
-  const runId = await logRunStart(entry.sourceKey);
+  let runId: number | null = null;
   try {
+    runId = await logRunStart(entry.sourceKey);
     const result = await entry.scraper.run();
     await logRunEnd(runId, result.count, result.error ?? null);
-    console.log(`[scraper:${entry.sourceKey}] saved: ${result.count}${result.error ? ` err: ${result.error}` : ''}`);
+    if (result.error) {
+      console.error(`[scraper:${entry.sourceKey}] saved: ${result.count} err: ${result.error}`);
+    } else {
+      console.log(`[scraper:${entry.sourceKey}] saved: ${result.count}`);
+    }
   } catch (err) {
     const msg = String(err);
-    await logRunEnd(runId, 0, msg).catch(() => {});
     console.error(`[scraper:${entry.sourceKey}] fatal:`, msg);
+    if (runId !== null) {
+      await logRunEnd(runId, 0, msg).catch(() => {});
+    }
   }
 }
 
@@ -54,5 +61,10 @@ export async function runAllScrapers(): Promise<void> {
     { sourceKey: 'youtube',    scraper: new YoutubeScraper(pool, config.youtubeApiKey) },
     ...RSS_SOURCES.map(s => ({ sourceKey: s.sourceKey, scraper: new RssScraper({ ...s, pool }) })),
   ];
-  await Promise.allSettled(entries.map(e => runScraper(e)));
+  const results = await Promise.allSettled(entries.map(e => runScraper(e)));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      console.error(`[scraper:${entries[i].sourceKey}] unhandled rejection:`, r.reason);
+    }
+  });
 }
