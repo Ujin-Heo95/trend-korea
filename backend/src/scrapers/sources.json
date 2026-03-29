@@ -28,7 +28,7 @@
       "module": "./ruliweb.js",
       "className": "RuliwebScraper",
       "priority": "high",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "theqoo",
@@ -313,6 +313,105 @@
       "type": "rss",
       "feedUrl": "https://www.newsis.com/RSS/society.xml",
       "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "ddanzi",
+      "name": "딴지일보",
+      "category": "community",
+      "type": "rss",
+      "feedUrl": "https://www.ddanzi.com/rss",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "clien",
+      "name": "클리앙",
+      "category": "community",
+      "type": "html",
+      "module": "./clien.js",
+      "className": "ClienScraper",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "fmkorea",
+      "name": "에펨코리아",
+      "category": "community",
+      "type": "html",
+      "module": "./fmkorea.js",
+      "className": "FmkoreaScraper",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "mlbpark",
+      "name": "MLB파크",
+      "category": "community",
+      "type": "html",
+      "module": "./mlbpark.js",
+      "className": "MlbparkScraper",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "cook82",
+      "name": "82쿡",
+      "category": "community",
+      "type": "html",
+      "module": "./cook82.js",
+      "className": "Cook82Scraper",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "inven",
+      "name": "인벤",
+      "category": "community",
+      "type": "html",
+      "module": "./inven.js",
+      "className": "InvenScraper",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "humoruniv",
+      "name": "웃긴대학",
+      "category": "community",
+      "type": "html",
+      "module": "./humoruniv.js",
+      "className": "HumorunivScraper",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "ygosu",
+      "name": "와이고수",
+      "category": "community",
+      "type": "html",
+      "module": "./ygosu.js",
+      "className": "YgosuScraper",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "slrclub",
+      "name": "SLR클럽",
+      "category": "community",
+      "type": "html",
+      "module": "./slrclub.js",
+      "className": "SlrclubScraper",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "etoland",
+      "name": "에토랜드",
+      "category": "community",
+      "type": "html",
+      "module": "./etoland.js",
+      "className": "EtolandScraper",
+      "priority": "high",
       "enabled": true
     }
   ]
