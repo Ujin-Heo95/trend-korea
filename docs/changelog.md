@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.4.0 (2026-03-29) — Scale-Up Phase 1: 수집 인프라 기반
+
+### Added
+- `p-limit(4)` 동시성 제어 (무제한 병렬 → 최대 4개)
+- `BaseScraper.run()` retry 2회 + 지수 백오프 (2초, 8초)
+- DB 풀 설정 (`DB_POOL_MAX`, `DB_IDLE_TIMEOUT_MS`, `DB_CONNECTION_TIMEOUT_MS`)
+- Pool idle error 핸들러
+- `category` 컬럼 (posts 테이블, 마이그레이션 003)
+- `ScrapedPost.category` 필드
+- 프로젝트 문서 체계 (CLAUDE.md, docs/architecture, roadmap, changelog, ADR 4개)
+
+### Removed
+- `fmkorea.ts` dead code 삭제
+
+---
+
 ## v0.3.0 (2026-03-29) — Phase 1: 소스 확장 + DB 관리
 
 ### Added

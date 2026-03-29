@@ -27,7 +27,7 @@
 ```
 node-cron 스케줄러
 ├── 매 CRAWL_INTERVAL_MINUTES분: runAllScrapers()
-│     └── 13개 스크래퍼 병렬 (Promise.allSettled)
+│     └── 13개 스크래퍼 (p-limit 동시성 4, retry 2회)
 │           ├── logRunStart()  → scraper_runs INSERT
 │           ├── scraper.fetch() → HTML/RSS/API 파싱
 │           ├── saveToDb()     → posts 배치 INSERT
@@ -43,8 +43,8 @@ node-cron 스케줄러
 ```
 BaseScraper (base.ts)
 ├── abstract fetch(): Promise<ScrapedPost[]>  — 각 스크래퍼 구현
-├── saveToDb(posts)                           — 배치 INSERT (1쿼리, ON CONFLICT 무시)
-└── run()                                     — fetch + saveToDb + 에러 래핑
+├── saveToDb(posts)                           — 배치 INSERT (10 cols, ON CONFLICT 무시)
+└── run()                                     — fetch + saveToDb + retry 2회 (2s, 8s 백오프)
 
 구현체:
 ├── HTML/Cheerio: dcinside, bobaedream, ruliweb, theqoo, instiz, natepann, todayhumor
@@ -69,8 +69,9 @@ BaseScraper (base.ts)
 | comment_count | INTEGER | DEFAULT 0 |
 | published_at | TIMESTAMPTZ | nullable |
 | scraped_at | TIMESTAMPTZ | DEFAULT NOW() |
+| category | VARCHAR(32) | nullable (community/video/news/tech 등) |
 
-Indices: `source_key`, `scraped_at DESC`, `view_count DESC`
+Indices: `source_key`, `scraped_at DESC`, `view_count DESC`, `category`
 
 ### scraper_runs
 
@@ -125,7 +126,7 @@ App
 |-------|------|
 | Backend | Node.js 20, Fastify 5, TypeScript 5.4 |
 | DB | PostgreSQL 16, pg 8.11 (Pool) |
-| Scraping | cheerio, rss-parser, axios |
+| Scraping | cheerio, rss-parser, axios, p-limit |
 | Scheduling | node-cron |
 | Frontend | React 18, Vite 5, TypeScript 5.4 |
 | State | @tanstack/react-query v5 |
@@ -144,3 +145,6 @@ App
 | SCRAPER_RUNS_TTL_DAYS | 30 | Run log retention |
 | YOUTUBE_API_KEY | (none) | YouTube scraper; empty = skip |
 | NODE_ENV | development | production warns on missing DB URL |
+| DB_POOL_MAX | 10 | Max DB connections (1-50) |
+| DB_IDLE_TIMEOUT_MS | 30000 | Idle connection timeout |
+| DB_CONNECTION_TIMEOUT_MS | 5000 | Connection acquire timeout |

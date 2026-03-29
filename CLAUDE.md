@@ -39,11 +39,15 @@ Frontend (React+Vite) ──API──> Backend (Fastify 5) ──> PostgreSQL
 - 최대 30개 반환 (`.slice(0, 30)`)
 - `scrapers/index.ts`의 entries 배열에 등록
 - `routes/sources.ts`의 SOURCE_META에 메타데이터 추가
+- `p-limit(4)` 동시성 제어 — 최대 4개 병렬 실행
+- `BaseScraper.run()`에 retry 2회 (2초, 8초 지수 백오프)
+- `ScrapedPost.category` 필드로 카테고리 분류
 
 ### Database
-- 배치 INSERT + `ON CONFLICT (url) DO NOTHING`
+- 배치 INSERT + `ON CONFLICT (url) DO NOTHING` (10 columns incl. category)
 - 환경변수는 `config/index.ts`에서 중앙 파싱 + 검증
 - posts TTL: 7일, scraper_runs TTL: 30일
+- DB 풀: `DB_POOL_MAX=10`, `DB_IDLE_TIMEOUT_MS=30000`, `DB_CONNECTION_TIMEOUT_MS=5000`
 
 ### Testing
 - Vitest + axios mock + fixture HTML 파일
@@ -69,4 +73,14 @@ Frontend (React+Vite) ──API──> Backend (Fastify 5) ──> PostgreSQL
 
 ## Current Phase
 
-Phase 2 (SEO + 수익화) 진행 예정. 상세: [docs/roadmap.md](docs/roadmap.md)
+**Scale-Up Phase 2** (소스 레지스트리 + RSS 확장) 진행 예정. 상세: [docs/roadmap.md](docs/roadmap.md)
+
+### 다음 세션 작업 (Scale-Up Phase 2)
+1. `sources.json` 통합 레지스트리 구축 (RSS 추가 = JSON 6줄)
+2. `registry.ts` 로더 (RSS 자동 생성, HTML/API 동적 import)
+3. RSS 9개 추가 (경향/한경/매경/서울/국민/GeekNews/요즘IT/기상청/뽐뿌핫딜) → 13→22개
+4. 우선순위별 스케줄링 (high=10분, medium=15분, low=30분)
+5. `routes/sources.ts` SOURCE_META → registry 전환
+6. `scrapers/rss.ts` RSS_SOURCES 배열 → registry 전환
+
+계획 상세: `.claude/plans/ancient-swinging-ladybug.md`
