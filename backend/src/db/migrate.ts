@@ -8,6 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const migrations = [
   '001_init.sql',
   '002_scraper_runs.sql',
+  '003_add_category.sql',
 ];
 
 try {
