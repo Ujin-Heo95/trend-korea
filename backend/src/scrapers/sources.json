@@ -215,6 +215,16 @@
       "className": "KrxScraper",
       "priority": "low",
       "enabled": true
+    },
+    {
+      "key": "google_trends",
+      "name": "Google 트렌드",
+      "category": "trend",
+      "type": "api",
+      "module": "./google-trends.js",
+      "className": "GoogleTrendsScraper",
+      "priority": "medium",
+      "enabled": true
     }
   ]
 }

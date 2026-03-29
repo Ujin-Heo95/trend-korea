@@ -1,0 +1,36 @@
+{
+  "default": {
+    "trendingSearchesDays": [
+      {
+        "date": "20260329",
+        "formattedDate": "2026년 3월 29일 일요일",
+        "trendingSearches": [
+          {
+            "title": { "query": "손흥민" },
+            "formattedTraffic": "200,000+",
+            "articles": [
+              {
+                "title": "손흥민, 시즌 15호골 폭발",
+                "url": "https://news.example.com/son",
+                "source": "스포츠조선"
+              }
+            ],
+            "image": { "imageUrl": "https://example.com/son.jpg" }
+          },
+          {
+            "title": { "query": "삼성전자 실적" },
+            "formattedTraffic": "100,000+",
+            "articles": [
+              {
+                "title": "삼성전자 1분기 실적 발표",
+                "url": "https://news.example.com/samsung",
+                "source": "한국경제"
+              }
+            ],
+            "image": { "imageUrl": "https://example.com/samsung.jpg" }
+          }
+        ]
+      }
+    ]
+  }
+}
