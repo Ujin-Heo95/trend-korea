@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useInfinitePosts } from '../hooks/usePosts';
 import { PostCard } from '../components/PostCard';
 import { TrendingSection } from '../components/TrendingSection';
+import { TrendRadar } from '../components/TrendRadar';
 import { CategoryTabs } from '../components/CategoryTabs';
 import { SourceFilterChips } from '../components/SourceFilterChips';
 import { MovieRankingTable } from '../components/MovieRankingTable';
@@ -62,7 +63,12 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
 
   return (
     <div>
-      {!searchQuery && !category && <TrendingSection />}
+      {!searchQuery && !category && (
+        <>
+          <TrendRadar />
+          <TrendingSection />
+        </>
+      )}
 
       <div className="flex items-center justify-between mb-3">
         <CategoryTabs selected={category} onChange={handleCategoryChange} />

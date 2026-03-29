@@ -84,6 +84,27 @@ export interface KeywordStatsResponse {
   calculatedAt: string | null;
 }
 
+// ── 교차 검증 트렌드 시그널 ──────────────────────────────
+export interface TrendSignal {
+  id: number;
+  keyword: string;
+  google_traffic: string | null;
+  google_traffic_num: number;
+  google_post_id: number | null;
+  naver_recent: number | null;
+  naver_previous: number | null;
+  naver_change_pct: number | null;
+  community_mentions: number;
+  community_sources: string[];
+  convergence_score: number;
+  signal_type: 'confirmed' | 'google_only';
+  detected_at: string;
+}
+
+export interface TrendSignalsResponse {
+  signals: TrendSignal[];
+}
+
 // ── 날씨 ─────────────────────────────────────────────────
 export interface CityInfo {
   code: string;
