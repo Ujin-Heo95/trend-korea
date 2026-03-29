@@ -205,6 +205,16 @@
       "feedUrl": "https://www.ppomppu.co.kr/rss.php?id=ppomppu4",
       "priority": "medium",
       "enabled": true
+    },
+    {
+      "key": "krx",
+      "name": "KRX 시장",
+      "category": "finance",
+      "type": "api",
+      "module": "./krx.js",
+      "className": "KrxScraper",
+      "priority": "low",
+      "enabled": true
     }
   ]
 }
