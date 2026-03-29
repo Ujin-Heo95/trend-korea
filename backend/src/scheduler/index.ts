@@ -10,7 +10,7 @@ const PRIORITY_INTERVALS = {
 
 export function startScheduler(): void {
   console.log(`[scheduler] priority intervals: high=${PRIORITY_INTERVALS.high}min, medium=${PRIORITY_INTERVALS.medium}min, low=${PRIORITY_INTERVALS.low}min`);
-  console.log(`[scheduler] cleanup: daily at midnight`);
+  console.log(`[scheduler] cleanup: twice daily (00:00, 12:00 UTC)`);
 
   // 최초 실행: 전체 스크래퍼 1회
   runAllScrapers().catch(console.error);
@@ -22,8 +22,8 @@ export function startScheduler(): void {
     });
   }
 
-  // 매일 자정 (Railway 서버 = UTC 기준)
-  cron.schedule('0 0 * * *', () => {
+  // 자정 + 정오 2회 (Railway 서버 = UTC 기준) — DB 100MB 한도 대응
+  cron.schedule('0 0,12 * * *', () => {
     cleanOldPosts().catch(err => console.error('[cleanup:posts] error:', err));
     cleanOldScraperRuns().catch(err => console.error('[cleanup:scraper_runs] error:', err));
   });

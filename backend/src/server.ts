@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { Pool } from 'pg';
 import { config } from './config/index.js';
+import { pool } from './db/client.js';
 import { postsRoutes } from './routes/posts.js';
 import { sourcesRoutes } from './routes/sources.js';
 import { healthRoutes } from './routes/health.js';
@@ -12,8 +13,7 @@ declare module 'fastify' { interface FastifyInstance { pg: Pool; } }
 
 export async function buildApp() {
   const app = Fastify({ logger: true });
-  const pg = new Pool({ connectionString: config.dbUrl });
-  app.decorate('pg', pg);
+  app.decorate('pg', pool);
   await app.register(cors, { origin: '*' });
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
   await app.register(postsRoutes);
@@ -27,4 +27,15 @@ if (isMain) {
   const app = await buildApp();
   startScheduler();
   await app.listen({ port: config.port, host: '0.0.0.0' });
+
+  const shutdown = async (signal: string) => {
+    console.log(`[server] ${signal} received — shutting down gracefully`);
+    await app.close();
+    await pool.end();
+    console.log('[server] shutdown complete');
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
