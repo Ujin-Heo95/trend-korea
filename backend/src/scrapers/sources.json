@@ -28,7 +28,7 @@
       "module": "./ruliweb.js",
       "className": "RuliwebScraper",
       "priority": "high",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "theqoo",
@@ -159,7 +159,7 @@
       "type": "rss",
       "feedUrl": "https://www.seoul.co.kr/xml/rss/rss.xml",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kmib",
@@ -177,7 +177,7 @@
       "type": "rss",
       "feedUrl": "https://news.hada.io/rss",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "yozm",
@@ -195,7 +195,7 @@
       "type": "rss",
       "feedUrl": "https://www.weather.go.kr/w/rss/rss.xml",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "ppomppu_hot",
@@ -277,6 +277,42 @@
       "type": "rss",
       "feedUrl": "https://uppity.co.kr/feed/",
       "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "google_news_kr",
+      "name": "Google 뉴스 한국",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://news.google.com/rss?hl=ko&gl=KR&ceid=KR:ko",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "koreaherald",
+      "name": "Korea Herald",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://www.koreaherald.com/rss/newsAll",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "koreatimes",
+      "name": "Korea Times",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://feed.koreatimes.co.kr/k/allnews.xml",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "newsis",
+      "name": "뉴시스",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://www.newsis.com/RSS/society.xml",
+      "priority": "medium",
       "enabled": true
     }
   ]

@@ -30,8 +30,7 @@ export class KrxScraper extends BaseScraper {
 
       return sorted.map(s => this.toPost(s));
     } catch (error) {
-      console.error('[krx] scraper error:', error);
-      return [];
+      throw new Error(`[krx] ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

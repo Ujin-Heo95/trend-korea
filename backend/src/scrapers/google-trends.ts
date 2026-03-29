@@ -48,8 +48,7 @@ export class GoogleTrendsScraper extends BaseScraper {
 
       return searches.slice(0, 30).map(s => this.toPost(s));
     } catch (error) {
-      console.error('[google-trends] scraper error:', error);
-      return [];
+      throw new Error(`[google-trends] ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

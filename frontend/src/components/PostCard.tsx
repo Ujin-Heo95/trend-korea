@@ -30,6 +30,10 @@ const COLORS: Record<string, string> = {
   korea_policy: 'bg-teal-100 text-teal-700',
   korea_briefing: 'bg-teal-100 text-teal-700',
   uppity: 'bg-pink-100 text-pink-700',
+  google_news_kr: 'bg-blue-100 text-blue-600',
+  koreaherald: 'bg-rose-100 text-rose-700',
+  koreatimes: 'bg-sky-100 text-sky-700',
+  newsis: 'bg-amber-100 text-amber-700',
 };
 
 function timeAgo(iso: string): string {
@@ -49,7 +53,7 @@ export const PostCard: React.FC<{ post: Post }> = ({ post }) => (
     className="flex items-start gap-3 p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-sm transition-all group"
   >
     {post.thumbnail && (
-      <img src={post.thumbnail} alt="" className="w-16 h-12 object-cover rounded-lg flex-shrink-0" />
+      <img src={post.thumbnail} alt="" loading="lazy" width={64} height={48} className="w-16 h-12 object-cover rounded-lg flex-shrink-0" />
     )}
     <div className="flex-1 min-w-0">
       <div className="flex items-center gap-2 mb-1">
