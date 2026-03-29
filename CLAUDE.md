@@ -27,7 +27,7 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포.
 Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> PostgreSQL
                                               │
                                               ├── node-cron: 우선순위별 스크래핑 (mutex)
-                                              ├── node-cron: 5분마다 트렌드 스코어 갱신
+                                              ├── node-cron: 5분마다 다중 팩터 트렌드 스코어 갱신
                                               ├── node-cron: 2회/일 TTL 정리 (공연 7일, 기타 3일)
                                               ├── node-cron: 매일 07:00 KST 일일 리포트 생성
                                               ├── 3-Layer 중복제거 (MD5 해시 + Jaccard + Thumbnail)
@@ -59,7 +59,9 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 - 배치 INSERT + `ON CONFLICT (url) DO NOTHING` (일반), `DO UPDATE` (영화/공연 UPSERT)
 - `title_hash` GENERATED 컬럼: 정규화 후 MD5 (괄호/특수문자 제거)
 - `post_clusters` + `post_cluster_members`: 중복 게시글 그룹핑
-- `post_scores`: 트렌드 스코어 (5분 주기 배치 갱신)
+- `post_scores`: 다중 팩터 트렌드 스코어 (5분 주기 배치 갱신, Z-Score+Velocity+Momentum+Trend+Cluster)
+- `engagement_snapshots`: 스크래핑 시 기존 게시글 조회수/댓글수 이력 (6시간 TTL)
+- `source_engagement_stats`: 소스별 Z-Score 정규화용 통계 캐싱
 - `keyword_extractions`: 게시글별 고유명사 키워드 (Gemini Flash 추출)
 - `keyword_stats`: 시간 윈도우별 키워드 빈도 집계 (3h, 24h)
 - `trend_signals`: 교차 검증 트렌드 시그널
@@ -111,7 +113,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 
 ## Current Phase
 
-**Phase 2 완료** (소스 51개 활성 + 3-Layer 중복제거 + 트렌드 스코어링 + 일일 리포트 MVP + Discord 알림 + 핫이슈 키워드 + 영화/공연 종합 개선 + 날씨 + 교차 검증). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Phase 2 완료** (소스 51개 활성 + 3-Layer 중복제거 + **다중 팩터 스코어링 v0.8.0** + 일일 리포트 MVP + Discord 알림 + 핫이슈 키워드 + 영화/공연 종합 개선 + 날씨 + 교차 검증). 다음: Sentry + UptimeRobot + 사용자 참여. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
