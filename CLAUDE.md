@@ -24,10 +24,11 @@ cd backend && npm run migrate
 npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포.
 
 ```
-Frontend (React+Vite) ──API──> Backend (Fastify 5) ──> PostgreSQL
-                                  │
-                                  ├── node-cron: 매 10분 스크래핑
-                                  └── node-cron: 매일 자정 TTL 정리
+Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> PostgreSQL
+                                              │
+                                              ├── node-cron: 우선순위별 스크래핑 (mutex)
+                                              ├── node-cron: 2회/일 TTL 정리
+                                              └── LRU 캐시: 60초 TTL, 200 엔트리
 ```
 
 상세: [docs/dev/아키텍처.md](docs/dev/아키텍처.md)
@@ -47,7 +48,7 @@ Frontend (React+Vite) ──API──> Backend (Fastify 5) ──> PostgreSQL
 ### Database
 - 배치 INSERT + `ON CONFLICT (url) DO NOTHING` (10 columns incl. category)
 - 환경변수는 `config/index.ts`에서 중앙 파싱 + 검증
-- posts TTL: 7일, scraper_runs TTL: 30일
+- posts TTL: 3일 (기본값), scraper_runs TTL: 30일
 - DB 풀: `DB_POOL_MAX=10`, `DB_IDLE_TIMEOUT_MS=30000`, `DB_CONNECTION_TIMEOUT_MS=5000`
 
 ### Testing
@@ -73,10 +74,12 @@ Frontend (React+Vite) ──API──> Backend (Fastify 5) ──> PostgreSQL
 | Sources API | `backend/src/routes/sources.ts` |
 | 프론트 홈 | `frontend/src/pages/HomePage.tsx` |
 | API 클라이언트 | `frontend/src/api/client.ts` |
+| LRU 캐시 | `backend/src/cache/lru.ts` |
+| CSS 엔트리 | `frontend/src/index.css` |
 
 ## Current Phase
 
-**카테고리 버그 수정 완료** (category auto-inject, 소스 교체). 다음: 배포 확인 → SEO + 수익화. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Phase 0 + Phase 1 코드 작업 완료** (안정성 수정, Tailwind 빌드, URL 필터, SEO, LRU 캐시). 다음: 배포 + 분석도구 + 수익화. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
@@ -91,15 +94,21 @@ docs/
 └── legal/             법무 (스크래핑 법적 검토)
 ```
 
-### 다음 세션 작업 (SEO + 수익화)
+### 다음 세션 작업
 
-**배포 확인 (우선):**
-1. 004 마이그레이션 적용 확인
-2. 카테고리별 데이터 표시 확인 (테크/금융/트렌드/정부/뉴스레터/핫딜)
-3. 서울신문·국민일보·GeekNews 0 posts 지속 시 disable 검토
+> 종합 로드맵: [docs/로드맵.md](docs/로드맵.md) | 기술부채: [docs/dev/기술부채.md](docs/dev/기술부채.md)
 
-**SEO + 수익화:**
-1. SEO (meta, OG tags, sitemap, robots.txt)
-2. GA4 연동
-3. AdSense (ads.txt, AdBanner 컴포넌트)
-4. 커스텀 도메인
+**배포 확인:**
+1. Railway 배포 후 헬스체크 + 스크래퍼 정상 동작 확인
+2. sitemap.xml / robots.txt 접근 확인
+3. 도메인 확정 후 sitemap/OG 태그에 절대 URL 반영
+
+**Phase 1 남은 작업:**
+1. Umami/Plausible 분석도구 (GA4 대신 — PIPA 준수)
+2. 개인정보처리방침 작성
+
+**Phase 2 — 소스 확장 + 랭킹 (4-6주차):**
+1. RSS 소스 10-12개 추가
+2. 트렌드 스코어링 시스템
+3. title_hash 기반 중복제거
+4. Discord 웹훅 에러 알림
