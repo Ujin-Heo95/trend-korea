@@ -9,7 +9,9 @@ import { CategoryTabs } from '../components/CategoryTabs';
 import { SourceFilterChips } from '../components/SourceFilterChips';
 import { MovieRankingTable } from '../components/MovieRankingTable';
 import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
+import { SnsRankingTable } from '../components/SnsRankingTable';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useReadPosts } from '../hooks/useReadPosts';
 
 const CATEGORY_TITLES: Record<string, string> = {
   community: '커뮤니티',
@@ -19,6 +21,7 @@ const CATEGORY_TITLES: Record<string, string> = {
   'deals,sports,trend,government,finance,alert': '생활',
   movie: '박스오피스',
   performance: '공연/전시',
+  sns: 'SNS',
 };
 
 interface Props {
@@ -29,6 +32,7 @@ interface Props {
 
 export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQuery }) => {
   useDocumentTitle(category ? CATEGORY_TITLES[category] : undefined);
+  const { isRead, markAsRead } = useReadPosts();
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<'trending' | 'latest'>('trending');
 
@@ -155,6 +159,8 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           <MovieRankingTable posts={allPosts} />
         ) : category === 'performance' ? (
           <PerformanceRankingTable posts={allPosts} />
+        ) : category === 'sns' ? (
+          <SnsRankingTable posts={allPosts} />
         ) : (
           <div className="grid gap-3">
             {allPosts.map((post, i) => (
@@ -162,6 +168,8 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
                 key={post.id}
                 post={post}
                 rank={category === 'community' && sortMode === 'trending' ? i + 1 : undefined}
+                isRead={isRead(post.url)}
+                onRead={markAsRead}
               />
             ))}
           </div>
@@ -177,7 +185,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           </h3>
           <div className="grid gap-3">
             {popularVideos.posts.map((post, i) => (
-              <PostCard key={post.id} post={post} rank={i + 1} />
+              <PostCard key={post.id} post={post} rank={i + 1} isRead={isRead(post.url)} onRead={markAsRead} />
             ))}
           </div>
         </div>

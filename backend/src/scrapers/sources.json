@@ -615,6 +615,36 @@
       "feedUrl": "https://toss.tech/rss.xml",
       "priority": "low",
       "enabled": true
+    },
+    {
+      "key": "apify_instagram_trending",
+      "name": "Instagram 트렌딩",
+      "category": "sns",
+      "type": "apify",
+      "module": "./apify-instagram.js",
+      "className": "ApifyInstagramScraper",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "apify_x_trending",
+      "name": "X 트렌딩",
+      "category": "sns",
+      "type": "apify",
+      "module": "./apify-x.js",
+      "className": "ApifyXScraper",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "apify_tiktok_trending",
+      "name": "TikTok 트렌딩",
+      "category": "sns",
+      "type": "apify",
+      "module": "./apify-tiktok.js",
+      "className": "ApifyTiktokScraper",
+      "priority": "medium",
+      "enabled": true
     }
   ]
 }

@@ -9,6 +9,7 @@ const CATEGORIES: { key: string | undefined; label: string; icon: string }[] = [
   { key: 'deals,sports,trend,government,finance,alert',           label: '생활',     icon: '🏠' },
   { key: 'movie',                                                 label: '영화',     icon: '🎥' },
   { key: 'performance',                                           label: '공연/전시', icon: '🎭' },
+  { key: 'sns',                                                  label: 'SNS',     icon: '📱' },
 ];
 
 interface Props {

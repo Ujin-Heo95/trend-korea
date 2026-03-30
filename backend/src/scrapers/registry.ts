@@ -10,7 +10,7 @@ export interface SourceEntry {
   key: string;
   name: string;
   category: string;
-  type: 'rss' | 'html' | 'api';
+  type: 'rss' | 'html' | 'api' | 'apify';
   priority: SourcePriority;
   enabled: boolean;
   feedUrl?: string;
@@ -71,7 +71,7 @@ async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<BaseScr
   }
 
   if (!source.module || !source.className) {
-    console.warn(`[registry] ${source.key}: html/api type requires module+className, skipping`);
+    console.warn(`[registry] ${source.key}: html/api/apify type requires module+className, skipping`);
     return null;
   }
 

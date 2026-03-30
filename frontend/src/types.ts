@@ -2,7 +2,7 @@ export type Category =
   | 'community' | 'video' | 'video_popular' | 'news' | 'tech'
   | 'finance' | 'trend' | 'government' | 'newsletter'
   | 'deals' | 'alert' | 'sports' | 'press' | 'techblog'
-  | 'movie' | 'performance';
+  | 'movie' | 'performance' | 'sns';
 
 export interface Post {
   id: number;
@@ -58,6 +58,9 @@ export interface DailyReport {
   generated_at: string;
   status: string;
   view_count: number;
+  editorial_keywords: string | null;
+  editorial_briefing: string | null;
+  editorial_watch_point: string | null;
   sections: DailyReportSection[];
 }
 

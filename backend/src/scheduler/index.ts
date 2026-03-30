@@ -1,11 +1,12 @@
 import cron from 'node-cron';
 import * as Sentry from '@sentry/node';
-import { runAllScrapers, runScrapersByPriority } from '../scrapers/index.js';
+import { runAllScrapers, runScrapersByPriority, runApifyScrapers } from '../scrapers/index.js';
 import { cleanOldPosts, cleanOldScraperRuns, cleanExpiredTrendSignals, cleanOldEngagementSnapshots } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
 import { generateDailyReport } from '../services/dailyReport.js';
 import { crossValidate } from '../services/trendCrossValidator.js';
 import { processNewPosts, calculateStats } from '../services/keywords.js';
+import { checkDbSize } from '../services/dbMonitor.js';
 import { pool } from '../db/client.js';
 
 function captureError(err: unknown): void {
@@ -67,11 +68,18 @@ export function startScheduler(): void {
   });
   console.log('[scheduler] cross-validate: every 20 min');
 
+  // Apify SNS 수집: 09:00, 18:00 KST (= 00:00, 09:00 UTC)
+  cron.schedule('0 0,9 * * *', () => {
+    runApifyScrapers().catch(captureError);
+  });
+  console.log('[scheduler] apify SNS: 00:00, 09:00 UTC (09:00, 18:00 KST)');
+
   // 자정 + 정오 2회 (Railway 서버 = UTC 기준) — DB 100MB 한도 대응
   cron.schedule('0 0,12 * * *', () => {
     cleanOldPosts().catch(captureError);
     cleanOldScraperRuns().catch(captureError);
     cleanExpiredTrendSignals().catch(captureError);
     cleanOldEngagementSnapshots().catch(captureError);
+    checkDbSize(pool).catch(captureError);
   });
 }
