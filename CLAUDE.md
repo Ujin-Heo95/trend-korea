@@ -35,7 +35,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
                                               ├── Discord 웹훅: 스크래퍼 에러 알림
                                               ├── 교차 검증: Google Trends × Naver DataLab × 커뮤니티 (20분, 관련기사+스파크라인)
                                               ├── Gemini Flash: 핫이슈 키워드 추출 (30분 주기)
-                                              ├── KOBIS: Naver Movie Search 연동 (포스터/링크/평점)
+                                              ├── KOBIS: KMDB 연동 (포스터/감독/줄거리)
                                               ├── KOPIS: 상세 API 연동 (5장르, 공연기간/예매링크)
                                               └── LRU 캐시: 60초 TTL, 200 엔트리
 ```
@@ -109,12 +109,12 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | 교차 검증 API | `backend/src/routes/trendSignals.ts` |
 | 교차 검증 UI | `frontend/src/components/TrendRadar.tsx` |
 | YouTube 키워드 검색 | `backend/src/scrapers/youtube-search.ts` |
-| 공유 컴포넌트 | `frontend/src/components/shared/` (RankBadge, PosterImage 등) |
+| 공유 컴포넌트 | `frontend/src/components/shared/` (RankBadge, PosterImage, ErrorRetry 등) |
 | CSS 엔트리 | `frontend/src/index.css` |
 
 ## Current Phase
 
-**Phase 2 완료 → Phase 2.5 진입** (소스 62개 + 스코어링 v0.8.0 + 교차 검증 v0.9.1 + 커뮤니티 동적화 v0.9.2 + 영상 탭 v0.9.3). **5개 부서 교차 검증 완료 (2026-03-30)**: 기능 추가 중단, 사업 기반 구축 우선 합의. 다음: 도메인 구매 + Umami + Sentry + 공유 버튼 + 런칭. 상세: [docs/로드맵.md](docs/로드맵.md) | [docs/planning/종합분석-2026Q1.md](docs/planning/종합분석-2026Q1.md)
+**Phase 2 완료 → Phase 2.5 진입** (소스 62개 + 스코어링 v0.8.0 + 교차 검증 v0.9.1 + 커뮤니티 동적화 v0.9.2 + 영상 탭 v0.9.3 + **KMDB 포스터+줄거리+UX 개선 v0.9.4**). **5개 부서 교차 검증 완료 (2026-03-30)**: 기능 추가 중단, 사업 기반 구축 우선 합의. 다음: 도메인 구매 + Umami + Sentry + 공유 버튼 + 런칭. 상세: [docs/로드맵.md](docs/로드맵.md) | [docs/planning/종합분석-2026Q1.md](docs/planning/종합분석-2026Q1.md)
 
 ## 문서 체계
 
@@ -132,6 +132,9 @@ docs/
 ### 다음 세션 작업
 
 > 종합 로드맵: [docs/로드맵.md](docs/로드맵.md) | 종합 분석: [docs/planning/종합분석-2026Q1.md](docs/planning/종합분석-2026Q1.md)
+
+**즉시: Railway 환경변수**
+- `KMDB_API_KEY` 추가 (kmdb.or.kr 무료 발급) — 영화 포스터+줄거리 활성화
 
 **Phase 2.5: 생존 기반 (5개 부서 합의, 사업 인프라 우선)**
 1. **도메인 구매 + Cloudflare DNS** (1시간) — 전 부서 1순위
