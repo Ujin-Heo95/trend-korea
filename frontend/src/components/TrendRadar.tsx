@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTrendSignals } from '../hooks/usePosts';
 import type { TrendSignal, GoogleArticle, RelatedPost } from '../types';
+import { ErrorRetry } from './shared/ErrorRetry';
 
 function trendIcon(changePct: number | null): string {
   if (changePct === null) return '';
@@ -218,7 +219,7 @@ const SignalCard: React.FC<{
 };
 
 export const TrendRadar: React.FC = () => {
-  const { data, isLoading } = useTrendSignals();
+  const { data, isLoading, error, refetch } = useTrendSignals();
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   if (isLoading) {
@@ -234,8 +235,27 @@ export const TrendRadar: React.FC = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="mb-6">
+        <h2 className="text-sm font-semibold text-slate-500 mb-3">🎯 교차 검증 트렌드</h2>
+        <ErrorRetry message="트렌드 신호를 불러오지 못했습니다." onRetry={refetch} />
+      </div>
+    );
+  }
+
   const signals = data?.signals ?? [];
-  if (signals.length === 0) return null;
+  if (signals.length === 0) {
+    return (
+      <div className="mb-6">
+        <h2 className="text-sm font-semibold text-slate-500 mb-3">🎯 교차 검증 트렌드</h2>
+        <div className="border-2 border-dashed border-slate-200 rounded-xl py-8 text-center">
+          <p className="text-sm text-slate-400">트렌드 데이터를 수집 중입니다</p>
+          <p className="text-xs text-slate-300 mt-1">잠시 후 자동으로 표시됩니다</p>
+        </div>
+      </div>
+    );
+  }
 
   const confirmed = signals.filter(s => s.signal_type === 'confirmed');
   const googleOnly = signals.filter(s => s.signal_type === 'google_only');

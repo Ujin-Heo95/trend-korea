@@ -10,6 +10,14 @@ import { SourceFilterChips } from '../components/SourceFilterChips';
 import { MovieRankingTable } from '../components/MovieRankingTable';
 import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
 import type { Category } from '../types';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+
+const CATEGORY_TITLES: Record<string, string> = {
+  community: '커뮤니티',
+  movie: '박스오피스',
+  performance: '공연/전시',
+  video: 'YouTube',
+};
 
 interface Props {
   category: Category | undefined;
@@ -18,6 +26,7 @@ interface Props {
 }
 
 export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQuery }) => {
+  useDocumentTitle(category ? CATEGORY_TITLES[category] : undefined);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<'trending' | 'latest'>('trending');
 

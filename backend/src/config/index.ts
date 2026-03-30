@@ -7,6 +7,7 @@ interface Config {
   geminiApiKey: string;
   kopisApiKey: string;
   kobisApiKey: string;
+  kmdbApiKey: string;
   kmaApiKey: string;
   naverClientId: string;
   naverClientSecret: string;
@@ -60,6 +61,7 @@ export const config: Config = {
   geminiApiKey: process.env.GEMINI_API_KEY ?? '',
   kopisApiKey: process.env.KOPIS_API_KEY ?? '',
   kobisApiKey: process.env.KOBIS_API_KEY ?? '',
+  kmdbApiKey: process.env.KMDB_API_KEY ?? '',
   kmaApiKey: process.env.KMA_API_KEY ?? '',
   naverClientId: process.env.NAVER_CLIENT_ID ?? '',
   naverClientSecret: process.env.NAVER_CLIENT_SECRET ?? '',

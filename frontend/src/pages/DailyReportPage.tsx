@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchDailyReport } from '../api/client';
 import type { DailyReportSection, Category } from '../types';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const CATEGORY_META: Record<string, { emoji: string; label: string }> = {
   news: { emoji: '\ud83d\udcf0', label: '\ub274\uc2a4' },
@@ -145,6 +146,7 @@ function ReportSkeleton() {
 
 export function DailyReportPage() {
   const { date } = useParams<{ date: string }>();
+  useDocumentTitle(date ? `일일 리포트 ${date}` : '일일 리포트');
 
   const { data: report, isLoading, error } = useQuery({
     queryKey: ['daily-report', date],

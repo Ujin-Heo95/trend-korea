@@ -19,6 +19,7 @@ interface MovieMeta {
   naverMovieUrl?: string;
   director?: string;
   userRating?: number;
+  plotSummary?: string;
 }
 
 function parseMovieMeta(post: Post): MovieMeta | null {
@@ -171,6 +172,9 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
                 >
                   {meta.movieName}
                 </a>
+                {meta.plotSummary && (
+                  <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{meta.plotSummary}</p>
+                )}
                 <div className="flex items-center gap-2 mt-0.5">
                   {meta.openDate && (
                     <span className="text-xs text-slate-400">
@@ -232,6 +236,9 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
               >
                 {meta.movieName}
               </a>
+              {meta.plotSummary && (
+                <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{meta.plotSummary}</p>
+              )}
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                 <RankChangeLabel change={meta.rankChange} isNew={meta.isNew} />
                 {meta.openDate && (

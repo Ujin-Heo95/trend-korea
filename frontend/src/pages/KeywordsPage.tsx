@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { fetchKeywordStats } from '../api/client';
+import { ErrorRetry } from '../components/shared/ErrorRetry';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const WINDOW_OPTIONS = [
   { value: 3, label: '3시간' },
@@ -21,10 +23,11 @@ function formatTime(iso: string | null): string {
 }
 
 export const KeywordsPage: React.FC = () => {
+  useDocumentTitle('핫이슈 태그');
   const [windowHours, setWindowHours] = useState(3);
   const navigate = useNavigate();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['keywords', windowHours],
     queryFn: () => fetchKeywordStats(windowHours),
     refetchInterval: 5 * 60_000,
@@ -76,11 +79,7 @@ export const KeywordsPage: React.FC = () => {
       )}
 
       {/* 에러 */}
-      {error && (
-        <div className="text-center py-10 text-red-500">
-          데이터를 불러오지 못했습니다.
-        </div>
-      )}
+      {error && <ErrorRetry onRetry={refetch} />}
 
       {/* 데이터 없음 */}
       {data && data.keywords.length === 0 && (

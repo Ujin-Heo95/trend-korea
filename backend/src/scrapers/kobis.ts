@@ -24,60 +24,65 @@ interface KobisBoxOfficeResponse {
   };
 }
 
-interface NaverMovieItem {
-  readonly title: string;
-  readonly link: string;
-  readonly image: string;
-  readonly director: string;
-  readonly actor: string;
-  readonly userRating: string;
-}
-
-interface NaverMovieResponse {
-  readonly items?: readonly NaverMovieItem[];
-}
-
-interface NaverEnrichment {
+interface KmdbEnrichment {
   posterUrl?: string;
-  naverMovieUrl?: string;
   director?: string;
-  userRating?: number;
+  plotSummary?: string;
 }
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-async function enrichWithNaver(movieName: string): Promise<NaverEnrichment> {
-  if (!config.naverClientId || !config.naverClientSecret) return {};
+function extractFirstSentence(text: string): string {
+  const cleaned = text.replace(/\s+/g, ' ').trim();
+  const match = cleaned.match(/^(.+?[.!?])(?:\s|$)/);
+  return match ? match[1] : cleaned.slice(0, 100);
+}
+
+function stripKmdbTags(text: string): string {
+  return text.replace(/!HS|!HE/g, '').trim();
+}
+
+async function enrichWithKmdb(movieName: string, openYear?: string): Promise<KmdbEnrichment> {
+  if (!config.kmdbApiKey) return {};
 
   try {
-    const { data } = await axios.get<NaverMovieResponse>(
-      'https://openapi.naver.com/v1/search/movie.json',
-      {
-        params: { query: movieName, display: 1 },
-        headers: {
-          'X-Naver-Client-Id': config.naverClientId,
-          'X-Naver-Client-Secret': config.naverClientSecret,
-        },
-        timeout: 5000,
-      }
+    const params: Record<string, string> = {
+      collection: 'kmdb_new2',
+      detail: 'Y',
+      title: movieName,
+      ServiceKey: config.kmdbApiKey,
+    };
+    if (openYear && openYear.length >= 4) {
+      params.releaseDts = openYear.slice(0, 4);
+    }
+
+    const { data } = await axios.get(
+      'https://api.koreafilm.or.kr/openapi-data2/wisenut/search_api/search_json2.jsp',
+      { params, timeout: 5000 }
     );
 
-    const item = data?.items?.[0];
-    if (!item) return {};
+    const result = data?.Data?.[0]?.Result?.[0];
+    if (!result) return {};
 
-    const director = item.director
-      .replace(/\|$/g, '')
-      .split('|')[0]
-      ?.trim() || undefined;
+    // 포스터: 파이프 구분 첫 번째
+    const posterUrl = result.posters
+      ? result.posters.split('|')[0]?.trim() || undefined
+      : undefined;
 
-    const rating = parseFloat(item.userRating);
+    // 감독
+    const directorObj = result.directors?.director?.[0];
+    const director = directorObj?.directorNm
+      ? stripKmdbTags(directorObj.directorNm)
+      : undefined;
 
-    return {
-      posterUrl: item.image || undefined,
-      naverMovieUrl: item.link || undefined,
-      director,
-      userRating: rating > 0 ? rating : undefined,
-    };
+    // 줄거리: 한국어 우선, 첫 문장만
+    const plots: { plotLang?: string; plotText?: string }[] = result.plots?.plot ?? [];
+    const koreanPlot = plots.find(p => p.plotLang === '한국어') ?? plots[0];
+    const plotSummary = koreanPlot?.plotText
+      ? extractFirstSentence(stripKmdbTags(koreanPlot.plotText))
+      : undefined;
+
+    return { posterUrl, director, plotSummary };
   } catch {
     return {};
   }
@@ -110,13 +115,13 @@ export class KobisBoxofficeScraper extends BaseScraper {
     const items = data?.boxOfficeResult?.dailyBoxOfficeList;
     if (!items?.length) return [];
 
-    // 네이버 영화 검색으로 포스터/링크 보강 (p-limit(2), 200ms 딜레이)
+    // KMDB 영화 검색으로 포스터/줄거리/감독 보강 (p-limit(2), 200ms 딜레이)
     const limit = pLimit(2);
     const enrichments = await Promise.all(
       items.slice(0, 10).map((item, idx) =>
         limit(async () => {
           if (idx > 0) await delay(200);
-          return enrichWithNaver(item.movieNm);
+          return enrichWithKmdb(item.movieNm, item.openDt);
         })
       )
     );
@@ -127,14 +132,14 @@ export class KobisBoxofficeScraper extends BaseScraper {
         ? '🆕'
         : rankChange > 0 ? `▲${rankChange}` : rankChange < 0 ? `▼${Math.abs(rankChange)}` : '-';
 
-      const naver = enrichments[idx] ?? {};
+      const kmdb = enrichments[idx] ?? {};
 
       return {
         sourceKey: 'kobis_boxoffice',
         sourceName: 'KOBIS 박스오피스',
         title: `${item.rank}위 ${item.movieNm} (${rankLabel}) — 일 ${parseInt(item.audiCnt, 10).toLocaleString()}명`,
         url: `https://www.kobis.or.kr/kobis/business/mast/mvie/searchMovieList.do?movieCd=${item.movieCd}`,
-        thumbnail: naver.posterUrl ?? undefined,
+        thumbnail: kmdb.posterUrl ?? undefined,
         author: `누적 ${parseInt(item.audiAcc, 10).toLocaleString()}명`,
         viewCount: parseInt(item.audiAcc, 10),
         commentCount: parseInt(item.audiCnt, 10),
@@ -150,10 +155,9 @@ export class KobisBoxofficeScraper extends BaseScraper {
           rankChange,
           isNew: item.rankOldAndNew === 'NEW',
           dataDate: targetDt,
-          posterUrl: naver.posterUrl,
-          naverMovieUrl: naver.naverMovieUrl,
-          director: naver.director,
-          userRating: naver.userRating,
+          posterUrl: kmdb.posterUrl,
+          director: kmdb.director,
+          plotSummary: kmdb.plotSummary,
         },
       };
     });
