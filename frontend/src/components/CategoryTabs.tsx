@@ -1,27 +1,19 @@
 import React from 'react';
-import type { Category } from '../types';
 
-const CATEGORIES: { key: Category | undefined; label: string; icon: string }[] = [
-  { key: undefined,      label: '전체',     icon: '📋' },
-  { key: 'community',    label: '커뮤니티', icon: '💬' },
-  { key: 'news',         label: '뉴스',     icon: '📰' },
-  { key: 'tech',         label: '테크',     icon: '💻' },
-  { key: 'video',        label: '영상',     icon: '🎬' },
-  { key: 'finance',      label: '금융',     icon: '📈' },
-  { key: 'trend',        label: '트렌드',   icon: '🔍' },
-  { key: 'government',   label: '정부',     icon: '🏛️' },
-  { key: 'newsletter',   label: '뉴스레터', icon: '✉️' },
-  { key: 'deals',        label: '핫딜',     icon: '🏷️' },
-  { key: 'sports',       label: '스포츠',   icon: '⚽' },
-  { key: 'press',        label: '보도자료', icon: '📢' },
-  { key: 'techblog',     label: '테크블로그', icon: '🧑‍💻' },
-  { key: 'movie',         label: '영화',     icon: '🎥' },
-  { key: 'performance',   label: '공연/전시', icon: '🎭' },
+const CATEGORIES: { key: string | undefined; label: string; icon: string }[] = [
+  { key: undefined,                                                label: '전체',     icon: '📋' },
+  { key: 'community',                                             label: '커뮤니티', icon: '💬' },
+  { key: 'news,press,newsletter',                                 label: '뉴스',     icon: '📰' },
+  { key: 'tech,techblog',                                         label: '테크',     icon: '💻' },
+  { key: 'video',                                                 label: '영상',     icon: '🎬' },
+  { key: 'deals,sports,trend,government,finance,alert',           label: '생활',     icon: '🏠' },
+  { key: 'movie',                                                 label: '영화',     icon: '🎥' },
+  { key: 'performance',                                           label: '공연/전시', icon: '🎭' },
 ];
 
 interface Props {
-  selected: Category | undefined;
-  onChange: (cat: Category | undefined) => void;
+  selected: string | undefined;
+  onChange: (cat: string | undefined) => void;
 }
 
 export const CategoryTabs: React.FC<Props> = ({ selected, onChange }) => (

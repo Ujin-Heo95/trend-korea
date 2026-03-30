@@ -12,6 +12,7 @@ interface Config {
   naverClientId: string;
   naverClientSecret: string;
   discordWebhookUrl: string;
+  sentryDsn: string;
   crawlIntervalMinutes: number;
   postTtlDays: number;
   scraperRunsTtlDays: number;
@@ -66,6 +67,7 @@ export const config: Config = {
   naverClientId: process.env.NAVER_CLIENT_ID ?? '',
   naverClientSecret: process.env.NAVER_CLIENT_SECRET ?? '',
   discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL ?? '',
+  sentryDsn: process.env.SENTRY_DSN ?? '',
   crawlIntervalMinutes,
   postTtlDays,
   scraperRunsTtlDays,

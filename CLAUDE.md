@@ -109,12 +109,15 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | 교차 검증 API | `backend/src/routes/trendSignals.ts` |
 | 교차 검증 UI | `frontend/src/components/TrendRadar.tsx` |
 | YouTube 키워드 검색 | `backend/src/scrapers/youtube-search.ts` |
-| 공유 컴포넌트 | `frontend/src/components/shared/` (RankBadge, PosterImage, ErrorRetry 등) |
+| 공유 컴포넌트 | `frontend/src/components/shared/` (RankBadge, PosterImage, ErrorRetry, ShareButton 등) |
+| 서비스 소개 | `frontend/src/pages/AboutPage.tsx` |
+| 개인정보처리방침 | `frontend/src/pages/PrivacyPage.tsx` |
+| 푸터 | `frontend/src/components/Footer.tsx` |
 | CSS 엔트리 | `frontend/src/index.css` |
 
 ## Current Phase
 
-**Phase 2 완료 → Phase 2.5 진입** (소스 62개 + 스코어링 v0.8.0 + 교차 검증 v0.9.1 + 커뮤니티 동적화 v0.9.2 + 영상 탭 v0.9.3 + **KMDB 포스터+줄거리+UX 개선 v0.9.4**). **5개 부서 교차 검증 완료 (2026-03-30)**: 기능 추가 중단, 사업 기반 구축 우선 합의. 다음: 도메인 구매 + Umami + Sentry + 공유 버튼 + 런칭. 상세: [docs/로드맵.md](docs/로드맵.md) | [docs/planning/종합분석-2026Q1.md](docs/planning/종합분석-2026Q1.md)
+**Phase 2.5 진행중** (v0.9.5: Sentry+Umami+PWA+공유+카테고리8탭+About/Privacy). 소스 62개 + 스코어링 v0.8.0 + 교차 검증 + 커뮤니티 동적화 + 영상 탭 + KMDB 포스터. **5개 부서 합의**: 사업 기반 구축 우선. 다음: 도메인 구매 + 환경변수 등록 + 런칭. 상세: [docs/로드맵.md](docs/로드맵.md) | [docs/planning/종합분석-2026Q1.md](docs/planning/종합분석-2026Q1.md)
 
 ## 문서 체계
 
@@ -133,20 +136,15 @@ docs/
 
 > 종합 로드맵: [docs/로드맵.md](docs/로드맵.md) | 종합 분석: [docs/planning/종합분석-2026Q1.md](docs/planning/종합분석-2026Q1.md)
 
-**즉시: Railway 환경변수**
-- `KMDB_API_KEY` 추가 (kmdb.or.kr 무료 발급) — 영화 포스터+줄거리 활성화
-
-**Phase 2.5: 생존 기반 (5개 부서 합의, 사업 인프라 우선)**
-1. **도메인 구매 + Cloudflare DNS** (1시간) — 전 부서 1순위
-2. **Umami Cloud 분석도구 설치** (10분) — DAU 측정 전제
-3. **Sentry 백엔드 통합** (1시간) — 에러 가시성
-4. **UptimeRobot 설정** (30분) — 가동시간 모니터링
-5. **개인정보처리방침 작성** (4시간) — AdSense 전제
-6. **개인사업자등록** (1일) — AdSense 전제
-7. 공유 버튼 (링크 복사 + 카카오톡) (4시간)
-8. PWA manifest + 서비스워커 (2시간)
-9. sitemap/canonical/OG 절대 URL 변경 (도메인 확정 후)
-10. 카테고리 탭 15→8개 통합 (2시간)
+**수동 작업 (사용자 직접):**
+- `KMDB_API_KEY` Railway 환경변수 추가 (kmdb.or.kr 무료 발급)
+- `SENTRY_DSN` Railway 환경변수 추가 (sentry.io 프로젝트 생성 후)
+- Umami Cloud 가입 → `data-website-id` 교체 (`frontend/index.html`)
+- **도메인 구매 + Cloudflare DNS** — 전 부서 1순위
+- UptimeRobot /health 5분 체크 설정
+- 개인사업자등록 (홈택스)
+- sitemap/canonical/OG 절대 URL 변경 (도메인 확정 후)
+- 네이버 서치어드바이저 + Google Search Console (도메인 확정 후)
 
 **Phase 2.6: 런칭 (위 완료 후)**
 - Disquiet 런칭, GeekNews, 네이버 블로그, 커뮤니티 공유

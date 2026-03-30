@@ -13,10 +13,20 @@
   <meta name="twitter:title" content="실시간 이슈 — 한국 커뮤니티 모아보기" />
   <meta name="twitter:description" content="한국 주요 커뮤니티, 뉴스, YouTube에서 실시간 이슈글을 모아보는 트렌드 어그리게이터" />
   <link rel="canonical" href="/" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#2563eb" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script defer src="https://cloud.umami.is/script.js" data-website-id="YOUR_WEBSITE_ID"></script>
 </head>
 <body class="bg-slate-50">
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js');
+      });
+    }
+  </script>
 </body>
 </html>

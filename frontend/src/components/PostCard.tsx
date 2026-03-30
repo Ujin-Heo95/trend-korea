@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Post } from '../types';
 import { SOURCE_COLORS } from '../constants/sourceColors';
+import { ShareButton } from './shared/ShareButton';
 
 function timeAgo(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -63,7 +64,10 @@ export const PostCard: React.FC<{ post: Post; rank?: number }> = ({ post, rank }
           <p className="text-sm font-medium text-slate-800 line-clamp-2 group-hover:text-blue-600">
             {post.title}
           </p>
-          <p className="text-xs text-slate-400 mt-1">{timeAgo(post.scraped_at)}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-xs text-slate-400">{timeAgo(post.published_at ?? post.scraped_at)}</p>
+            <ShareButton url={post.url} title={post.title} />
+          </div>
         </div>
       </a>
       {expanded && post.related_sources && post.related_sources.length > 0 && (

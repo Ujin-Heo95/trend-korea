@@ -26,7 +26,12 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
         conditions.push(`p.source_key = ANY($${params.push(sources)}::text[])`);
       }
       if (category) {
-        conditions.push(`p.category = $${params.push(category)}`);
+        const cats = category.split(',').map(c => c.trim()).filter(Boolean);
+        if (cats.length === 1) {
+          conditions.push(`p.category = $${params.push(cats[0])}`);
+        } else {
+          conditions.push(`p.category = ANY($${params.push(cats)}::text[])`);
+        }
       } else {
         conditions.push(`(p.category IS NULL OR p.category NOT IN ('movie', 'performance', 'video_popular'))`);
       }

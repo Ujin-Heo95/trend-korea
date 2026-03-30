@@ -7,8 +7,9 @@ import { HomePage } from './pages/HomePage';
 import { DailyReportPage } from './pages/DailyReportPage';
 import { WeatherPage } from './pages/WeatherPage';
 import { KeywordsPage } from './pages/KeywordsPage';
+import { AboutPage } from './pages/AboutPage';
+import { PrivacyPage } from './pages/PrivacyPage';
 import { fetchLatestReport } from './api/client';
-import type { Category } from './types';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,10 +45,10 @@ function DailyReportRedirect() {
 
 function AppRoutes() {
   const [params, setParams] = useSearchParams();
-  const category = (params.get('category') as Category) || undefined;
+  const category = params.get('category') || undefined;
   const searchQuery = params.get('q') ?? '';
 
-  const handleCategoryChange = (cat: Category | undefined) => {
+  const handleCategoryChange = (cat: string | undefined) => {
     setParams(prev => {
       const next = new URLSearchParams(prev);
       if (cat) { next.set('category', cat); } else { next.delete('category'); }
@@ -81,6 +82,8 @@ function AppRoutes() {
         <Route path="/entertainment" element={<Navigate to="/?category=movie" replace />} />
         <Route path="/keywords" element={<KeywordsPage />} />
         <Route path="/weather" element={<WeatherPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
       </Routes>
     </Layout>
   );

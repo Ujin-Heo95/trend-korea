@@ -9,19 +9,21 @@ import { CategoryTabs } from '../components/CategoryTabs';
 import { SourceFilterChips } from '../components/SourceFilterChips';
 import { MovieRankingTable } from '../components/MovieRankingTable';
 import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
-import type { Category } from '../types';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const CATEGORY_TITLES: Record<string, string> = {
   community: '커뮤니티',
+  'news,press,newsletter': '뉴스',
+  'tech,techblog': '테크',
+  video: 'YouTube',
+  'deals,sports,trend,government,finance,alert': '생활',
   movie: '박스오피스',
   performance: '공연/전시',
-  video: 'YouTube',
 };
 
 interface Props {
-  category: Category | undefined;
-  onCategoryChange: (cat: Category | undefined) => void;
+  category: string | undefined;
+  onCategoryChange: (cat: string | undefined) => void;
   searchQuery: string;
 }
 
@@ -30,7 +32,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<'trending' | 'latest'>('trending');
 
-  const handleCategoryChange = (cat: Category | undefined) => {
+  const handleCategoryChange = (cat: string | undefined) => {
     onCategoryChange(cat);
     setSelectedSources([]);
     setSortMode('trending');
