@@ -51,7 +51,8 @@ export async function dailyReportRoutes(app: FastifyInstance): Promise<void> {
       if (cached) return cached;
 
       const { rows: [report] } = await app.pg.query(
-        `SELECT id, report_date, generated_at, status, view_count
+        `SELECT id, report_date, generated_at, status, view_count,
+                editorial_keywords, editorial_briefing, editorial_watch_point
          FROM daily_reports
          WHERE report_date = $1 AND status = 'published'`,
         [date],

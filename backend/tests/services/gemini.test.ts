@@ -41,6 +41,33 @@ describe('gemini service', () => {
     expect(result).toBe('mock summary');
   });
 
+  it('generateEditorial returns null when no API key', async () => {
+    vi.doMock('../../src/config/index.js', () => ({
+      config: { geminiApiKey: '' },
+    }));
+    const { generateEditorial } = await import('../../src/services/gemini.js');
+    expect(await generateEditorial({ '뉴스': ['title1'] })).toBeNull();
+  });
+
+  it('generateEditorial returns JSON string when API key is present', async () => {
+    vi.doMock('../../src/config/index.js', () => ({
+      config: { geminiApiKey: 'test-key' },
+    }));
+    vi.doMock('@google/generative-ai', () => ({
+      GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
+        getGenerativeModel: vi.fn().mockReturnValue({
+          generateContent: vi.fn().mockResolvedValue({
+            response: { text: () => '{"keywords":"AI,반도체","briefing":"오늘은 AI 관련","watchPoint":"내일 주목"}' },
+          }),
+        }),
+      })),
+    }));
+
+    const { generateEditorial } = await import('../../src/services/gemini.js');
+    const result = await generateEditorial({ '테크': ['AI 반도체 급등'] });
+    expect(result).toContain('keywords');
+  });
+
   it('returns null on API error without throwing', async () => {
     vi.doMock('../../src/config/index.js', () => ({
       config: { geminiApiKey: 'test-key' },

@@ -200,6 +200,30 @@ export function DailyReportPage() {
             <p className="text-sm text-slate-400 mb-6">
               {report.sections.length}개 포스트 큐레이션 | 조회 {formatNumber(report.view_count)}
             </p>
+
+            {/* Editorial Section */}
+            {report.editorial_briefing && (
+              <div className="mb-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-5">
+                {report.editorial_keywords && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {report.editorial_keywords.split(',').map((kw: string) => (
+                      <span key={kw.trim()} className="px-2.5 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                        #{kw.trim()}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <p className="text-sm text-slate-700 leading-relaxed mb-3">
+                  {report.editorial_briefing}
+                </p>
+                {report.editorial_watch_point && (
+                  <p className="text-xs text-indigo-600 border-t border-blue-100 pt-3">
+                    <span className="font-semibold">주목 포인트</span> {report.editorial_watch_point}
+                  </p>
+                )}
+              </div>
+            )}
+
             {CATEGORY_ORDER.map(cat => {
               const sections = grouped.get(cat);
               if (!sections || sections.length === 0) return null;

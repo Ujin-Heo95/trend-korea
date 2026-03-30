@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { summarizePost, summarizeCategory } from './gemini.js';
+import { summarizePost, summarizeCategory, generateEditorial } from './gemini.js';
 
 const CATEGORIES = [
   'news', 'tech', 'community', 'finance', 'trend',
@@ -195,13 +195,44 @@ export async function generateDailyReport(pool: Pool): Promise<number> {
       insertParams,
     );
 
+    // 에디토리얼 생성
+    const categoryTitles: Record<string, string[]> = {};
+    for (const [cat, posts] of grouped) {
+      categoryTitles[CATEGORY_LABELS[cat] ?? cat] = posts.map(p => p.title);
+    }
+
+    let editorialKeywords: string | null = null;
+    let editorialBriefing: string | null = null;
+    let editorialWatchPoint: string | null = null;
+
+    const editorialRaw = await generateEditorial(categoryTitles);
+    if (editorialRaw) {
+      try {
+        const cleaned = editorialRaw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const parsed = JSON.parse(cleaned) as {
+          keywords?: string;
+          briefing?: string;
+          watchPoint?: string;
+        };
+        editorialKeywords = parsed.keywords ?? null;
+        editorialBriefing = parsed.briefing ?? null;
+        editorialWatchPoint = parsed.watchPoint ?? null;
+      } catch {
+        console.warn('[daily-report] editorial JSON parse failed, using raw text');
+        editorialBriefing = editorialRaw;
+      }
+    }
+
     // published
     await pool.query(
-      `UPDATE daily_reports SET status = 'published', generated_at = NOW() WHERE id = $1`,
-      [reportId],
+      `UPDATE daily_reports
+       SET status = 'published', generated_at = NOW(),
+           editorial_keywords = $2, editorial_briefing = $3, editorial_watch_point = $4
+       WHERE id = $1`,
+      [reportId, editorialKeywords, editorialBriefing, editorialWatchPoint],
     );
 
-    console.log(`[daily-report] ${reportDate} published (${sections.length} sections)`);
+    console.log(`[daily-report] ${reportDate} published (${sections.length} sections, editorial: ${editorialBriefing ? 'yes' : 'no'})`);
     return reportId;
   } catch (err) {
     await pool.query(

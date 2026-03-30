@@ -20,16 +20,12 @@ function formatDate(fcstDate: string): string {
 }
 
 export const HourlyForecast: React.FC<Props> = ({ hourly }) => {
-  // 날짜 변경 시점 감지용
-  let lastDate = '';
-
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-4">
       <h3 className="text-sm font-semibold text-slate-700 mb-3">시간별 예보</h3>
       <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
         {hourly.map((h, i) => {
-          const showDate = h.fcstDate !== lastDate;
-          lastDate = h.fcstDate;
+          const showDate = i === 0 || h.fcstDate !== hourly[i - 1].fcstDate;
 
           return (
             <React.Fragment key={`${h.fcstDate}-${h.fcstTime}`}>

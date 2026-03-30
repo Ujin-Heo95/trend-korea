@@ -12,17 +12,25 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}일 전`;
 }
 
-export const PostCard: React.FC<{ post: Post; rank?: number }> = ({ post, rank }) => {
+interface PostCardProps {
+  post: Post;
+  rank?: number;
+  isRead?: boolean;
+  onRead?: (url: string) => void;
+}
+
+export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead }) => {
   const [expanded, setExpanded] = useState(false);
   const clusterSize = post.cluster_size ?? 1;
   const hasClusters = clusterSize > 1;
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-sm transition-all">
+    <div className={`rounded-xl border hover:border-blue-300 hover:shadow-sm transition-all ${isRead ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-200'}`}>
       <a
         href={post.url}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => onRead?.(post.url)}
         className="flex items-start gap-3 p-4 group"
       >
         {rank != null && (
@@ -61,7 +69,7 @@ export const PostCard: React.FC<{ post: Post; rank?: number }> = ({ post, rank }
               </button>
             )}
           </div>
-          <p className="text-sm font-medium text-slate-800 line-clamp-2 group-hover:text-blue-600">
+          <p className={`text-sm font-medium line-clamp-2 group-hover:text-blue-600 ${isRead ? 'text-slate-400' : 'text-slate-800'}`}>
             {post.title}
           </p>
           <div className="flex items-center gap-2 mt-1">

@@ -1,15 +1,16 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { HomePage } from './pages/HomePage';
-import { DailyReportPage } from './pages/DailyReportPage';
-import { WeatherPage } from './pages/WeatherPage';
-import { KeywordsPage } from './pages/KeywordsPage';
-import { AboutPage } from './pages/AboutPage';
-import { PrivacyPage } from './pages/PrivacyPage';
 import { fetchLatestReport } from './api/client';
+
+const DailyReportPage = lazy(() => import('./pages/DailyReportPage').then(m => ({ default: m.DailyReportPage })));
+const WeatherPage = lazy(() => import('./pages/WeatherPage').then(m => ({ default: m.WeatherPage })));
+const KeywordsPage = lazy(() => import('./pages/KeywordsPage').then(m => ({ default: m.KeywordsPage })));
+const AboutPage = lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,6 +21,10 @@ const queryClient = new QueryClient({
   },
 });
 
+function PageLoader() {
+  return <div className="text-center py-20 text-slate-400 animate-pulse">로딩 중...</div>;
+}
+
 function DailyReportRedirect() {
   const { data: latest, isLoading } = useQuery({
     queryKey: ['daily-report-latest'],
@@ -28,7 +33,7 @@ function DailyReportRedirect() {
   });
 
   if (isLoading) {
-    return <div className="text-center py-20 text-slate-400">로딩 중...</div>;
+    return <PageLoader />;
   }
 
   if (latest?.report_date) {
@@ -66,25 +71,27 @@ function AppRoutes() {
 
   return (
     <Layout searchQuery={searchQuery} onSearchChange={handleSearchChange}>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <HomePage
-              category={category}
-              onCategoryChange={handleCategoryChange}
-              searchQuery={searchQuery}
-            />
-          }
-        />
-        <Route path="/daily-report" element={<DailyReportRedirect />} />
-        <Route path="/daily-report/:date" element={<DailyReportPage />} />
-        <Route path="/entertainment" element={<Navigate to="/?category=movie" replace />} />
-        <Route path="/keywords" element={<KeywordsPage />} />
-        <Route path="/weather" element={<WeatherPage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/privacy" element={<PrivacyPage />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <HomePage
+                category={category}
+                onCategoryChange={handleCategoryChange}
+                searchQuery={searchQuery}
+              />
+            }
+          />
+          <Route path="/daily-report" element={<DailyReportRedirect />} />
+          <Route path="/daily-report/:date" element={<DailyReportPage />} />
+          <Route path="/entertainment" element={<Navigate to="/?category=movie" replace />} />
+          <Route path="/keywords" element={<KeywordsPage />} />
+          <Route path="/weather" element={<WeatherPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+        </Routes>
+      </Suspense>
     </Layout>
   );
 }

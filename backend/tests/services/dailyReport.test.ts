@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../src/services/gemini.js', () => ({
   summarizePost: vi.fn().mockResolvedValue(null),
   summarizeCategory: vi.fn().mockResolvedValue(null),
+  generateEditorial: vi.fn().mockResolvedValue(null),
 }));
 
 function createMockPool(topPosts: any[] = [], existingReport: any = null) {
@@ -31,9 +32,9 @@ function createMockPool(topPosts: any[] = [], existingReport: any = null) {
       return { rowCount: topPosts.length };
     }
     // Update status
-    if (sql.includes('UPDATE daily_reports SET status')) {
-      const statusMatch = sql.match(/status = '(\w+)'/);
-      if (statusMatch) finalStatus = statusMatch[1];
+    if (sql.includes('UPDATE daily_reports')) {
+      if (sql.includes("'published'") || sql.includes('published')) finalStatus = 'published';
+      else if (sql.includes("'failed'") || sql.includes('failed')) finalStatus = 'failed';
       return { rowCount: 1 };
     }
     return { rows: [] };

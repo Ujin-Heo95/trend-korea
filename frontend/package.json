@@ -1,6 +1,7 @@
 {
   "name": "@trend-korea/frontend",
   "version": "0.1.1",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

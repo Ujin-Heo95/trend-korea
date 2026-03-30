@@ -35,7 +35,7 @@ export class YoutubeScraper extends BaseScraper {
         publishedAt: item.snippet.publishedAt ? new Date(item.snippet.publishedAt) : undefined,
       }));
     } catch (error) {
-      throw new Error(`[youtube] ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`[youtube] ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   }
 }
