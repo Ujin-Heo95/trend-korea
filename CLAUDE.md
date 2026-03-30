@@ -97,6 +97,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | 일일 리포트 서비스 | `backend/src/services/dailyReport.ts` |
 | Gemini LLM 서비스 | `backend/src/services/gemini.ts` |
 | Discord 알림 | `backend/src/services/discord.ts` |
+| DB 용량 모니터링 | `backend/src/services/dbMonitor.ts` |
 | Daily Report API | `backend/src/routes/dailyReport.ts` |
 | 프론트 홈 | `frontend/src/pages/HomePage.tsx` |
 | 일일 리포트 페이지 | `frontend/src/pages/DailyReportPage.tsx` |
@@ -117,11 +118,14 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | 서비스 소개 | `frontend/src/pages/AboutPage.tsx` |
 | 개인정보처리방침 | `frontend/src/pages/PrivacyPage.tsx` |
 | 푸터 | `frontend/src/components/Footer.tsx` |
+| 읽음 표시 훅 | `frontend/src/hooks/useReadPosts.ts` |
+| ESLint 설정 | `eslint.config.js` |
+| CI 워크플로우 | `.github/workflows/ci.yml` |
 | CSS 엔트리 | `frontend/src/index.css` |
 
 ## Current Phase
 
-**Phase 2.5 진행중** (v0.9.6: Apify SNS 탭 — Instagram/X/TikTok). 소스 65개 + 스코어링 v0.8.0 + 교차 검증 + 커뮤니티 동적화 + 영상 탭 + KMDB 포스터 + SNS 탭. **5개 부서 합의**: 사업 기반 구축 우선. 다음: 도메인 구매 + 환경변수 등록 + 런칭. 상세: [docs/로드맵.md](docs/로드맵.md) | [docs/planning/종합분석-2026Q1.md](docs/planning/종합분석-2026Q1.md)
+**Phase 2.6 진행중** (v0.9.7: 런칭 준비 — CI+ESLint+DB모니터링+에디토리얼+읽음표시+코드스플리팅+테스트60%). 소스 69개 + GitHub Actions CI + ESLint + 일일 리포트 에디토리얼(Gemini 편집자 브리핑) + 읽음 표시(localStorage) + 코드 스플리팅(lazy routes) + 177 tests (60% coverage). 다음: 도메인 구매 + 환경변수 등록 + 런칭. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
@@ -152,6 +156,18 @@ docs/
 - sitemap/canonical/OG 절대 URL 변경 (도메인 확정 후)
 - 네이버 서치어드바이저 + Google Search Console (도메인 확정 후)
 
-**Phase 2.6: 런칭 (위 완료 후)**
-- Disquiet 런칭, GeekNews, 네이버 블로그, 커뮤니티 공유
-- AdSense 신청, GitHub Actions CI
+**Phase 2.6: 런칭 (수동 작업 완료 후)**
+- AdSense 신청
+- 일일 리포트 에디토리얼 강화 (완료)
+- 읽음 표시 (완료)
+- 코드 스플리팅 (완료)
+- GitHub Actions CI (완료)
+- ESLint (완료)
+- DB 용량 모니터링 알림 (완료)
+- 백엔드 테스트 커버리지 60% (완료)
+
+**Phase 3: 사용자 참여 + 성장**
+- 내부 이슈 상세 페이지 (외부 이탈 방지, 체류시간 핵심)
+- Supabase 무료 마이그레이션 (500MB, 서울)
+- 사용자 반응 시스템 (좋아요/북마크)
+- 카카오톡 채널 + 일일 다이제스트
