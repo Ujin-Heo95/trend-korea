@@ -19,6 +19,8 @@ interface Config {
   dbPoolMax: number;
   dbIdleTimeoutMs: number;
   dbConnectionTimeoutMs: number;
+  apifyApiToken: string;
+  apifyMonthlyBudgetCents: number;
 }
 
 const dbUrl = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/trend_korea';
@@ -51,6 +53,12 @@ if (scraperRunsTtlDays !== rawScraperRunsTtl) {
   console.warn(`[config] WARNING: SCRAPER_RUNS_TTL_DAYS="${process.env.SCRAPER_RUNS_TTL_DAYS}" invalid — defaulting to 30`);
 }
 
+const rawApifyBudget = Number(process.env.APIFY_MONTHLY_BUDGET_CENTS ?? 2000);
+const apifyMonthlyBudgetCents = Number.isInteger(rawApifyBudget) && rawApifyBudget >= 0 ? rawApifyBudget : 2000;
+if (apifyMonthlyBudgetCents !== rawApifyBudget) {
+  console.warn(`[config] WARNING: APIFY_MONTHLY_BUDGET_CENTS="${process.env.APIFY_MONTHLY_BUDGET_CENTS}" invalid — defaulting to 2000`);
+}
+
 const dbPoolMax = Math.min(Math.max(Number(process.env.DB_POOL_MAX ?? 10) || 10, 1), 50);
 const dbIdleTimeoutMs = Number(process.env.DB_IDLE_TIMEOUT_MS ?? 30000) || 30000;
 const dbConnectionTimeoutMs = Number(process.env.DB_CONNECTION_TIMEOUT_MS ?? 5000) || 5000;
@@ -74,4 +82,6 @@ export const config: Config = {
   dbPoolMax,
   dbIdleTimeoutMs,
   dbConnectionTimeoutMs,
+  apifyApiToken: process.env.APIFY_API_TOKEN ?? '',
+  apifyMonthlyBudgetCents,
 };

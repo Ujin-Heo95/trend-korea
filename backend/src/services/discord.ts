@@ -39,3 +39,37 @@ export async function notifyScraperErrors(
     console.error('[discord] webhook error:', err);
   }
 }
+
+export async function notifyBudgetAlert(
+  usedCents: number,
+  budgetCents: number,
+): Promise<void> {
+  if (!config.discordWebhookUrl) return;
+
+  const usedUsd = (usedCents / 100).toFixed(2);
+  const budgetUsd = (budgetCents / 100).toFixed(2);
+
+  const body = {
+    embeds: [
+      {
+        title: '💰 Apify 월간 예산 한도 도달',
+        description: `사용: $${usedUsd} / 한도: $${budgetUsd}\nApify 스크래퍼가 이번 달 나머지 기간 동안 중단됩니다.`,
+        color: 0xff8800,
+        footer: { text: new Date().toISOString() },
+      },
+    ],
+  };
+
+  try {
+    const res = await fetch(config.discordWebhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      console.error(`[discord] budget alert webhook failed: ${res.status}`);
+    }
+  } catch (err) {
+    console.error('[discord] budget alert webhook error:', err);
+  }
+}
