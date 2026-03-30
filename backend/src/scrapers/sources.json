@@ -645,6 +645,26 @@
       "className": "ApifyTiktokScraper",
       "priority": "medium",
       "enabled": true
+    },
+    {
+      "key": "daum_cafe",
+      "name": "다음 카페 검색",
+      "category": "community",
+      "type": "api",
+      "module": "./daum-search.js",
+      "className": "DaumCafeScraper",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "daum_blog",
+      "name": "다음 블로그 검색",
+      "category": "blog",
+      "type": "api",
+      "module": "./daum-search.js",
+      "className": "DaumBlogScraper",
+      "priority": "low",
+      "enabled": true
     }
   ]
 }

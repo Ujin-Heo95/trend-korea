@@ -112,8 +112,11 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | 교차 검증 API | `backend/src/routes/trendSignals.ts` |
 | 교차 검증 UI | `frontend/src/components/TrendRadar.tsx` |
 | YouTube 키워드 검색 | `backend/src/scrapers/youtube-search.ts` |
+| Daum 검색 스크래퍼 | `backend/src/scrapers/daum-search.ts` |
 | Apify 베이스 | `backend/src/scrapers/apify-base.ts` |
+| API 키 헬스체크 | `backend/src/services/apiKeyHealth.ts` |
 | SNS 랭킹 테이블 | `frontend/src/components/SnsRankingTable.tsx` |
+| 카카오 SDK 초기화 | `frontend/src/lib/kakao.ts` |
 | 공유 컴포넌트 | `frontend/src/components/shared/` (RankBadge, PosterImage, ErrorRetry, ShareButton 등) |
 | 서비스 소개 | `frontend/src/pages/AboutPage.tsx` |
 | 개인정보처리방침 | `frontend/src/pages/PrivacyPage.tsx` |
@@ -125,7 +128,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 
 ## Current Phase
 
-**Phase 2.6 진행중** (v0.9.7: 런칭 준비 — CI+ESLint+DB모니터링+에디토리얼+읽음표시+코드스플리팅+테스트60%). 소스 69개 + GitHub Actions CI + ESLint + 일일 리포트 에디토리얼(Gemini 편집자 브리핑) + 읽음 표시(localStorage) + 코드 스플리팅(lazy routes) + 177 tests (60% coverage). 다음: 도메인 구매 + 환경변수 등록 + 런칭. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Phase 2.6 진행중** (v0.9.8: 카카오 API 통합 + API 모니터링). 소스 71개 + 카카오톡 공유(Feed 템플릿) + Daum 카페/블로그 검색 스크래퍼 + API 키 헬스체크(/health 확장) + Discord 알림 + 177 tests. 다음: 도메인 구매 + 환경변수 등록 + 런칭. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 
@@ -145,6 +148,9 @@ docs/
 > 종합 로드맵: [docs/로드맵.md](docs/로드맵.md) | 종합 분석: [docs/planning/종합분석-2026Q1.md](docs/planning/종합분석-2026Q1.md)
 
 **수동 작업 (사용자 직접):**
+- `KAKAO_REST_API_KEY` Railway 환경변수 추가 (Daum 카페/블로그 스크래퍼)
+- `VITE_KAKAO_JS_KEY` Railway 환경변수 추가 (카카오톡 공유 SDK)
+- 카카오 개발자 콘솔 > 플랫폼 > Web에 프로덕션 도메인 + localhost:5173 등록
 - `KMDB_API_KEY` Railway 환경변수 추가 (kmdb.or.kr 무료 발급)
 - `APIFY_API_TOKEN` Railway 환경변수 추가 (SNS 스크래핑 활성화)
 - `APIFY_MONTHLY_BUDGET_CENTS=2000` Railway 환경변수 추가 (월 $20 상한)

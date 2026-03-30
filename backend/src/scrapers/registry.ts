@@ -83,9 +83,12 @@ async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<BaseScr
       return null;
     }
 
-    // YouTube scrapers need extra apiKey argument
+    // API scrapers that need extra apiKey argument
     if (source.key === 'youtube' || source.key === 'youtube_search') {
       return new ScraperClass(pool, config.youtubeApiKey);
+    }
+    if (source.key === 'daum_cafe' || source.key === 'daum_blog') {
+      return new ScraperClass(pool, config.kakaoRestApiKey);
     }
     return new ScraperClass(pool);
   } catch (err) {

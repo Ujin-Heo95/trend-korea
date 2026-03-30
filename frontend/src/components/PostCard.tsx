@@ -74,7 +74,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead }
           </p>
           <div className="flex items-center gap-2 mt-1">
             <p className="text-xs text-slate-400">{timeAgo(post.published_at ?? post.scraped_at)}</p>
-            <ShareButton url={post.url} title={post.title} />
+            <ShareButton url={post.url} title={post.title} thumbnail={post.thumbnail} />
           </div>
         </div>
       </a>

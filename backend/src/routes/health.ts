@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { checkApiKeys } from '../services/apiKeyHealth.js';
 
 interface ScraperRunRow {
   source_key: string;
@@ -52,8 +53,11 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
 
     const failedLastRun = sources.filter(s => s.last_error !== null).length;
 
+    const apiKeys = await checkApiKeys();
+    const hasInvalidKey = apiKeys.some(k => k.valid === false);
+
     return reply.status(200).send({
-      status: failedLastRun === 0 ? 'ok' : 'degraded',
+      status: failedLastRun === 0 && !hasInvalidKey ? 'ok' : 'degraded',
       db: {
         connected: true,
         post_count: dbStats.post_count ?? 0,
@@ -66,6 +70,7 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
         failed_last_run: failedLastRun,
         sources,
       },
+      api_keys: apiKeys,
     });
   });
 }

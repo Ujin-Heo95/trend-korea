@@ -40,6 +40,45 @@ export async function notifyScraperErrors(
   }
 }
 
+const apiKeyAlertCooldowns = new Map<string, number>();
+const API_KEY_ALERT_COOLDOWN_MS = 60 * 60 * 1000; // 1시간
+
+export async function notifyApiKeyFailure(
+  apiKey: string,
+  error: string,
+): Promise<void> {
+  if (!config.discordWebhookUrl) return;
+
+  const lastAlerted = apiKeyAlertCooldowns.get(apiKey) ?? 0;
+  if (Date.now() - lastAlerted < API_KEY_ALERT_COOLDOWN_MS) return;
+
+  const body = {
+    embeds: [
+      {
+        title: `🔑 API 키 검증 실패: ${apiKey}`,
+        description: error.slice(0, 500),
+        color: 0xff8800,
+        footer: { text: new Date().toISOString() },
+      },
+    ],
+  };
+
+  try {
+    const res = await fetch(config.discordWebhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      apiKeyAlertCooldowns.set(apiKey, Date.now());
+    } else {
+      console.error(`[discord] api key alert webhook failed: ${res.status}`);
+    }
+  } catch (err) {
+    console.error('[discord] api key alert webhook error:', err);
+  }
+}
+
 export async function notifyBudgetAlert(
   usedCents: number,
   budgetCents: number,

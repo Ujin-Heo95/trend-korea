@@ -9,6 +9,7 @@ interface Config {
   kobisApiKey: string;
   kmdbApiKey: string;
   kmaApiKey: string;
+  kakaoRestApiKey: string;
   naverClientId: string;
   naverClientSecret: string;
   discordWebhookUrl: string;
@@ -72,6 +73,7 @@ export const config: Config = {
   kobisApiKey: process.env.KOBIS_API_KEY ?? '',
   kmdbApiKey: process.env.KMDB_API_KEY ?? '',
   kmaApiKey: process.env.KMA_API_KEY ?? '',
+  kakaoRestApiKey: process.env.KAKAO_REST_API_KEY ?? '',
   naverClientId: process.env.NAVER_CLIENT_ID ?? '',
   naverClientSecret: process.env.NAVER_CLIENT_SECRET ?? '',
   discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL ?? '',
