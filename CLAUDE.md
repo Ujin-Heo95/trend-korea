@@ -37,6 +37,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
                                               ├── Gemini Flash: 핫이슈 키워드 추출 (30분 주기)
                                               ├── KOBIS: KMDB 연동 (포스터/감독/줄거리)
                                               ├── KOPIS: 상세 API 연동 (5장르, 공연기간/예매링크)
+                                              ├── Apify: SNS 트렌딩 수집 (Instagram/X/TikTok, 일 2회, 월 $20 상한)
                                               └── LRU 캐시: 60초 TTL, 200 엔트리
 ```
 
@@ -48,7 +49,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 - `BaseScraper` 상속, `fetch(): Promise<ScrapedPost[]>` 구현
 - 최대 30개 반환 (`.slice(0, 30)`)
 - **소스 등록:** `scrapers/sources.json`에 JSON 6줄 추가 (RSS는 코드 0줄)
-- `registry.ts`가 JSON → 스크래퍼 인스턴스 자동 생성 (RSS/HTML/API)
+- `registry.ts`가 JSON → 스크래퍼 인스턴스 자동 생성 (RSS/HTML/API/Apify)
 - `p-limit(4)` 동시성 제어 — 최대 4개 병렬 실행
 - `BaseScraper.run()`에 retry 2회 (2초, 8초 지수 백오프)
 - `ScrapedPost.category` 필드로 카테고리 분류 (movie/performance 전용 탭 지원)
@@ -65,6 +66,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 - `keyword_extractions`: 게시글별 고유명사 키워드 (Gemini Flash 추출)
 - `keyword_stats`: 시간 윈도우별 키워드 빈도 집계 (3h, 24h)
 - `trend_signals`: 교차 검증 트렌드 시그널
+- `apify_usage`: Apify Actor 실행 비용 추적 (월간 예산 제어)
 - 환경변수는 `config/index.ts`에서 중앙 파싱 + 검증
 - posts TTL: 3일 (기본값), 공연 7일, scraper_runs TTL: 30일
 - DB 풀: `DB_POOL_MAX=10`, `DB_IDLE_TIMEOUT_MS=30000`, `DB_CONNECTION_TIMEOUT_MS=5000`
@@ -109,6 +111,8 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | 교차 검증 API | `backend/src/routes/trendSignals.ts` |
 | 교차 검증 UI | `frontend/src/components/TrendRadar.tsx` |
 | YouTube 키워드 검색 | `backend/src/scrapers/youtube-search.ts` |
+| Apify 베이스 | `backend/src/scrapers/apify-base.ts` |
+| SNS 랭킹 테이블 | `frontend/src/components/SnsRankingTable.tsx` |
 | 공유 컴포넌트 | `frontend/src/components/shared/` (RankBadge, PosterImage, ErrorRetry, ShareButton 등) |
 | 서비스 소개 | `frontend/src/pages/AboutPage.tsx` |
 | 개인정보처리방침 | `frontend/src/pages/PrivacyPage.tsx` |
@@ -117,7 +121,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 
 ## Current Phase
 
-**Phase 2.5 진행중** (v0.9.5: Sentry+Umami+PWA+공유+카테고리8탭+About/Privacy). 소스 62개 + 스코어링 v0.8.0 + 교차 검증 + 커뮤니티 동적화 + 영상 탭 + KMDB 포스터. **5개 부서 합의**: 사업 기반 구축 우선. 다음: 도메인 구매 + 환경변수 등록 + 런칭. 상세: [docs/로드맵.md](docs/로드맵.md) | [docs/planning/종합분석-2026Q1.md](docs/planning/종합분석-2026Q1.md)
+**Phase 2.5 진행중** (v0.9.6: Apify SNS 탭 — Instagram/X/TikTok). 소스 65개 + 스코어링 v0.8.0 + 교차 검증 + 커뮤니티 동적화 + 영상 탭 + KMDB 포스터 + SNS 탭. **5개 부서 합의**: 사업 기반 구축 우선. 다음: 도메인 구매 + 환경변수 등록 + 런칭. 상세: [docs/로드맵.md](docs/로드맵.md) | [docs/planning/종합분석-2026Q1.md](docs/planning/종합분석-2026Q1.md)
 
 ## 문서 체계
 
@@ -138,6 +142,8 @@ docs/
 
 **수동 작업 (사용자 직접):**
 - `KMDB_API_KEY` Railway 환경변수 추가 (kmdb.or.kr 무료 발급)
+- `APIFY_API_TOKEN` Railway 환경변수 추가 (SNS 스크래핑 활성화)
+- `APIFY_MONTHLY_BUDGET_CENTS=2000` Railway 환경변수 추가 (월 $20 상한)
 - `SENTRY_DSN` Railway 환경변수 추가 (sentry.io 프로젝트 생성 후)
 - Umami Cloud 가입 → `data-website-id` 교체 (`frontend/index.html`)
 - **도메인 구매 + Cloudflare DNS** — 전 부서 1순위
