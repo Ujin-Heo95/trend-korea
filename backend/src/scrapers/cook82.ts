@@ -12,6 +12,7 @@ export class Cook82Scraper extends BaseScraper {
     });
 
     const posts: ScrapedPost[] = [];
+    const seenUrls = new Set<string>();
 
     $('a[href*="read.php"]').each((_, el) => {
       const href = $(el).attr('href') ?? '';
@@ -22,7 +23,8 @@ export class Cook82Scraper extends BaseScraper {
         ? href
         : `https://www.82cook.com/entiz/${href.replace(/^\.\.\//, '')}`;
 
-      if (title && url) {
+      if (title && url && !seenUrls.has(url)) {
+        seenUrls.add(url);
         posts.push({ sourceKey: 'cook82', sourceName: '82쿡', title, url });
       }
     });

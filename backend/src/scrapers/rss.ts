@@ -53,6 +53,12 @@ const googleTrendsParser = new Parser({
   },
 });
 
+function safeDate(value: string | undefined): Date | undefined {
+  if (!value) return undefined;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? undefined : d;
+}
+
 export class RssScraper extends BaseScraper {
   private cfg: RssScraperConfig;
 
@@ -89,7 +95,7 @@ export class RssScraper extends BaseScraper {
       title: item.title?.trim() ?? '(제목 없음)',
       url: item.link ?? item.guid ?? '',
       author: item.creator ?? (item as any)['dc:creator'] ?? undefined,
-      publishedAt: item.pubDate ? new Date(item.pubDate) : undefined,
+      publishedAt: safeDate(item.pubDate),
     };
   }
 
@@ -108,7 +114,7 @@ export class RssScraper extends BaseScraper {
       url: item.link ?? item.guid ?? '',
       thumbnail,
       author: ext.author ?? item.creator ?? undefined,
-      publishedAt: item.pubDate ?? item.isoDate ? new Date(item.isoDate ?? item.pubDate!) : undefined,
+      publishedAt: safeDate(item.isoDate ?? item.pubDate),
     };
   }
 
@@ -135,7 +141,7 @@ export class RssScraper extends BaseScraper {
       thumbnail: picture,
       author: `검색량 ${traffic}`,
       viewCount: parseTraffic(traffic),
-      publishedAt: item.pubDate ? new Date(item.pubDate) : undefined,
+      publishedAt: safeDate(item.pubDate),
       metadata: { keyword, traffic, trafficNum: parseTraffic(traffic) },
     };
   }
