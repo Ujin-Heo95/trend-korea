@@ -35,7 +35,12 @@ describe('ApifyTiktokScraper.mapResult', () => {
   });
 
   it('uses fallback title for empty text', () => {
-    const post = scraper.mapResult({ text: '', webVideoUrl: 'https://tiktok.com/1', playCount: 0, commentCount: 0 });
+    const post = scraper.mapResult({ text: '', webVideoUrl: 'https://tiktok.com/1', diggCount: 200, playCount: 0, commentCount: 0 });
     expect(post!.title).toBe('(TikTok 영상)');
+  });
+
+  it('filters out low-engagement videos', () => {
+    const post = scraper.mapResult({ text: 'low', webVideoUrl: 'https://tiktok.com/2', diggCount: 10 });
+    expect(post).toBeNull();
   });
 });

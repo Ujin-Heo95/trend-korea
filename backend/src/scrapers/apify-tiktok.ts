@@ -6,10 +6,12 @@ function truncate(text: string, max: number): string {
   return text.length > max ? text.slice(0, max) + '...' : text;
 }
 
+const MIN_LIKES = 100;
+
 export class ApifyTiktokScraper extends ApifyBaseScraper {
   constructor(pool: Pool) {
     super(pool, 'clockworks/tiktok-scraper', {
-      hashtags: ['한국', '핫플', '맛집'],
+      hashtags: ['핫플레이스', '서울맛집', '요즘핫한'],
       resultsPerPage: 30,
     });
   }
@@ -23,6 +25,8 @@ export class ApifyTiktokScraper extends ApifyBaseScraper {
     const videoMeta = item.videoMeta as Record<string, unknown> | undefined;
     const likes = Number(item.diggCount ?? 0);
     const shares = Number(item.shareCount ?? 0);
+
+    if (likes < MIN_LIKES) return null;
 
     return {
       sourceKey: 'apify_tiktok_trending',

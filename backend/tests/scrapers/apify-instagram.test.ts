@@ -31,7 +31,7 @@ describe('ApifyInstagramScraper.mapResult', () => {
 
   it('truncates long captions to 100 chars', () => {
     const longCaption = '가'.repeat(150);
-    const item = { caption: longCaption, url: 'https://www.instagram.com/p/XYZ/', ownerUsername: 'user', likesCount: 0, commentsCount: 0 };
+    const item = { caption: longCaption, url: 'https://www.instagram.com/p/XYZ/', ownerUsername: 'user', likesCount: 200, commentsCount: 0 };
     const post = scraper.mapResult(item);
     expect(post!.title.length).toBeLessThanOrEqual(103);
   });
@@ -42,7 +42,12 @@ describe('ApifyInstagramScraper.mapResult', () => {
   });
 
   it('uses fallback title for empty caption', () => {
-    const post = scraper.mapResult({ caption: '', url: 'https://www.instagram.com/p/1/', likesCount: 0, commentsCount: 0 });
-    expect(post!.title).toBe('(이미지 게시물)');
+    const post = scraper.mapResult({ caption: '', url: 'https://www.instagram.com/p/1/', likesCount: 200, commentsCount: 0 });
+    expect(post!.title).toBe('(릴스)');
+  });
+
+  it('filters out low-engagement posts', () => {
+    const post = scraper.mapResult({ caption: '스팸', url: 'https://www.instagram.com/p/2/', likesCount: 10, commentsCount: 0 });
+    expect(post).toBeNull();
   });
 });

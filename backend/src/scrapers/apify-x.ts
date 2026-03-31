@@ -6,6 +6,8 @@ function truncate(text: string, max: number): string {
   return text.length > max ? text.slice(0, max) + '...' : text;
 }
 
+const MIN_LIKES = 50;
+
 export class ApifyXScraper extends ApifyBaseScraper {
   constructor(pool: Pool) {
     super(pool, 'apidojo/tweet-scraper', {
@@ -26,6 +28,8 @@ export class ApifyXScraper extends ApifyBaseScraper {
     const likes = Number(item.favorite_count ?? 0);
     const views = Number(item.views_count ?? 0);
     const replies = Number(item.reply_count ?? 0);
+
+    if (likes < MIN_LIKES) return null;
 
     const entities = item.entities as Record<string, unknown> | undefined;
     const media = Array.isArray(entities?.media) ? entities.media : [];

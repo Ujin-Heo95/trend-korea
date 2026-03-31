@@ -634,7 +634,7 @@
       "module": "./apify-x.js",
       "className": "ApifyXScraper",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "apify_tiktok_trending",
@@ -644,7 +644,7 @@
       "module": "./apify-tiktok.js",
       "className": "ApifyTiktokScraper",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "daum_cafe",

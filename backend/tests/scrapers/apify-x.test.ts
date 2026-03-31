@@ -30,7 +30,7 @@ describe('ApifyXScraper.mapResult', () => {
 
   it('truncates long tweets to 100 chars', () => {
     const longText = 'A'.repeat(150);
-    const item = { full_text: longText, url: 'https://twitter.com/u/status/1', user: { screen_name: 'u' }, retweet_count: 0, favorite_count: 0, views_count: 0, reply_count: 0 };
+    const item = { full_text: longText, url: 'https://twitter.com/u/status/1', user: { screen_name: 'u' }, retweet_count: 0, favorite_count: 100, views_count: 0, reply_count: 0 };
     const post = scraper.mapResult(item);
     expect(post!.title.length).toBeLessThanOrEqual(103);
   });
@@ -41,8 +41,14 @@ describe('ApifyXScraper.mapResult', () => {
   });
 
   it('handles missing media gracefully', () => {
-    const item = { full_text: 'no media', url: 'https://twitter.com/u/status/2', user: { screen_name: 'u' }, retweet_count: 0, favorite_count: 0, views_count: 0, reply_count: 0 };
+    const item = { full_text: 'no media', url: 'https://twitter.com/u/status/2', user: { screen_name: 'u' }, retweet_count: 0, favorite_count: 100, views_count: 0, reply_count: 0 };
     const post = scraper.mapResult(item);
     expect(post!.thumbnail).toBeUndefined();
+  });
+
+  it('filters out low-engagement tweets', () => {
+    const item = { full_text: 'low engagement', url: 'https://twitter.com/u/status/3', favorite_count: 10 };
+    const post = scraper.mapResult(item);
+    expect(post).toBeNull();
   });
 });

@@ -6,11 +6,14 @@ function truncate(text: string, max: number): string {
   return text.length > max ? text.slice(0, max) + '...' : text;
 }
 
+const MIN_LIKES = 100;
+
 export class ApifyInstagramScraper extends ApifyBaseScraper {
   constructor(pool: Pool) {
     super(pool, 'apify/instagram-hashtag-scraper', {
-      hashtags: ['한국', '핫플', '맛집', '서울'],
+      hashtags: ['핫플레이스', '서울핫플', '인스타핫플', '서울맛집'],
       resultsLimit: 30,
+      resultsType: 'reels',
     });
   }
 
@@ -22,10 +25,12 @@ export class ApifyInstagramScraper extends ApifyBaseScraper {
     const likes = Number(item.likesCount ?? 0);
     const comments = Number(item.commentsCount ?? 0);
 
+    if (likes >= 0 && likes < MIN_LIKES) return null;
+
     return {
       sourceKey: 'apify_instagram_trending',
       sourceName: 'Instagram',
-      title: truncate(caption, 100) || '(이미지 게시물)',
+      title: truncate(caption, 100) || '(릴스)',
       url,
       thumbnail: item.displayUrl ? String(item.displayUrl) : undefined,
       author: item.ownerUsername ? String(item.ownerUsername) : undefined,
