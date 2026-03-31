@@ -20,6 +20,9 @@ const migrations = [
   '012_movie_performance_indexes.sql',
   '013_engagement_snapshots.sql',
   '014_trend_signal_context.sql',
+  '015_apify_usage.sql',
+  '016_editorial.sql',
+  '017_post_votes.sql',
 ];
 
 try {

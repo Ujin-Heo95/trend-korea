@@ -8,4 +8,5 @@ CREATE TABLE IF NOT EXISTS apify_usage (
   executed_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_apify_usage_month ON apify_usage (date_trunc('month', executed_at));
+-- Use a simple column index instead of expression index (date_trunc is not IMMUTABLE with timestamptz)
+CREATE INDEX IF NOT EXISTS idx_apify_usage_executed ON apify_usage (executed_at);

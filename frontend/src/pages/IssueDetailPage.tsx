@@ -2,9 +2,11 @@ import React, { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useIssueDetail } from '../hooks/usePosts';
 import { useReadPosts } from '../hooks/useReadPosts';
+import { useVotes } from '../hooks/useVotes';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { SOURCE_COLORS } from '../constants/sourceColors';
 import { ShareButton } from '../components/shared/ShareButton';
+import { VoteButton } from '../components/shared/VoteButton';
 import { ErrorRetry } from '../components/shared/ErrorRetry';
 import { Sparkline } from '../components/shared/Sparkline';
 import { EngagementChart } from '../components/shared/EngagementChart';
@@ -39,6 +41,7 @@ export const IssueDetailPage: React.FC = () => {
   const id = parseInt(postId ?? '0');
   const { data, isLoading, isError, refetch } = useIssueDetail(id);
   const { markAsRead } = useReadPosts();
+  const { hasVoted, vote } = useVotes();
 
   useDocumentTitle(data?.post.title ?? '이슈 상세');
 
@@ -122,6 +125,7 @@ export const IssueDetailPage: React.FC = () => {
           {post.author && <span>{post.author}</span>}
           {post.view_count > 0 && <span>조회 {formatCount(post.view_count)}</span>}
           {post.comment_count > 0 && <span>댓글 {formatCount(post.comment_count)}</span>}
+          <VoteButton postId={post.id} voteCount={post.vote_count} hasVoted={hasVoted(post.id)} onVote={vote} size="md" />
         </div>
       </article>
 

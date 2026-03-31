@@ -14,6 +14,7 @@ export interface Post {
   author?: string;
   view_count: number;
   comment_count: number;
+  vote_count: number;
   published_at?: string;
   scraped_at: string;
   category?: Category;

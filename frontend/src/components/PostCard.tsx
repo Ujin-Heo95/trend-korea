@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { Post } from '../types';
 import { SOURCE_COLORS } from '../constants/sourceColors';
 import { ShareButton } from './shared/ShareButton';
+import { VoteButton } from './shared/VoteButton';
 
 function timeAgo(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -18,9 +19,11 @@ interface PostCardProps {
   rank?: number;
   isRead?: boolean;
   onRead?: (url: string) => void;
+  hasVoted?: boolean;
+  onVote?: (postId: number, onCountUpdate?: (count: number) => void) => void;
 }
 
-export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead }) => {
+export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, hasVoted, onVote }) => {
   const [expanded, setExpanded] = useState(false);
   const clusterSize = post.cluster_size ?? 1;
   const hasClusters = clusterSize > 1;
@@ -73,6 +76,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead }
           </p>
           <div className="flex items-center gap-2 mt-1">
             <p className="text-xs text-slate-400">{timeAgo(post.published_at ?? post.scraped_at)}</p>
+            {onVote && (
+              <VoteButton postId={post.id} voteCount={post.vote_count} hasVoted={hasVoted ?? false} onVote={onVote} />
+            )}
             <ShareButton url={post.url} title={post.title} thumbnail={post.thumbnail} />
           </div>
         </div>

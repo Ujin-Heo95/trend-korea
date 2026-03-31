@@ -67,6 +67,8 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 - `keyword_stats`: 시간 윈도우별 키워드 빈도 집계 (3h, 24h)
 - `trend_signals`: 교차 검증 트렌드 시그널
 - `apify_usage`: Apify Actor 실행 비용 추적 (월간 예산 제어)
+- `post_votes`: Upvote 기록 (post_id + ip_hash 유니크, 중복 방지)
+- `posts.vote_count`: 비정규화된 투표 수 (JOIN 없이 조회)
 - 환경변수는 `config/index.ts`에서 중앙 파싱 + 검증
 - posts TTL: 3일 (기본값), 공연 7일, scraper_runs TTL: 30일
 - DB 풀: `DB_POOL_MAX=10`, `DB_IDLE_TIMEOUT_MS=30000`, `DB_CONNECTION_TIMEOUT_MS=5000`
@@ -126,13 +128,16 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | 개인정보처리방침 | `frontend/src/pages/PrivacyPage.tsx` |
 | 푸터 | `frontend/src/components/Footer.tsx` |
 | 읽음 표시 훅 | `frontend/src/hooks/useReadPosts.ts` |
+| 투표 훅 | `frontend/src/hooks/useVotes.ts` |
+| 투표 API | `backend/src/routes/votes.ts` |
+| 투표 버튼 | `frontend/src/components/shared/VoteButton.tsx` |
 | ESLint 설정 | `eslint.config.js` |
 | CI 워크플로우 | `.github/workflows/ci.yml` |
 | CSS 엔트리 | `frontend/src/index.css` |
 
 ## Current Phase
 
-**Phase 3 진행중** (v0.10.0: 이슈 상세 페이지). 소스 71개 + 내부 이슈 상세 페이지(/issue/:postId, 클러스터+트렌드신호+참여추이+관련기사) + PostCard/TrendingSection/TrendRadar 내부 링크 전환(외부 이탈 방지) + Sparkline 공유 컴포넌트 추출 + 177 tests. 다음: 도메인 구매 + Supabase 마이그레이션 + 사용자 반응. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Phase 3 진행중** (v0.10.1: Upvote 시스템). 소스 71개 + Upvote(하이브리드: localStorage 즉시반영 + 백엔드 IP 중복방지) + PostCard/IssueDetailPage 투표 UI + 이슈 상세 페이지 + 177 tests. 다음: 도메인 구매 + Supabase 마이그레이션. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 

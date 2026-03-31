@@ -12,6 +12,7 @@ import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
 import { SnsRankingTable } from '../components/SnsRankingTable';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useReadPosts } from '../hooks/useReadPosts';
+import { useVotes } from '../hooks/useVotes';
 
 const CATEGORY_TITLES: Record<string, string> = {
   community: '커뮤니티',
@@ -33,6 +34,7 @@ interface Props {
 export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQuery }) => {
   useDocumentTitle(category ? CATEGORY_TITLES[category] : undefined);
   const { isRead, markAsRead } = useReadPosts();
+  const { hasVoted, vote } = useVotes();
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<'trending' | 'latest'>('trending');
 
@@ -170,6 +172,8 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
                 rank={category === 'community' && sortMode === 'trending' ? i + 1 : undefined}
                 isRead={isRead(post.url)}
                 onRead={markAsRead}
+                hasVoted={hasVoted(post.id)}
+                onVote={vote}
               />
             ))}
           </div>

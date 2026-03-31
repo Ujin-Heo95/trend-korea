@@ -22,7 +22,7 @@ export async function issueDetailRoutes(app: FastifyInstance): Promise<void> {
         metadata: Record<string, unknown> | null; trend_score: number | null;
       }>(
         `SELECT p.id, p.source_key, p.source_name, p.title, p.url, p.thumbnail,
-                p.author, p.view_count, p.comment_count, p.published_at, p.scraped_at,
+                p.author, p.view_count, p.comment_count, p.vote_count, p.published_at, p.scraped_at,
                 p.category, p.metadata, ps.trend_score
          FROM posts p
          LEFT JOIN post_scores ps ON ps.post_id = p.id
