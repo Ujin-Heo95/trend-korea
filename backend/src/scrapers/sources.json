@@ -624,7 +624,7 @@
       "module": "./apify-instagram.js",
       "className": "ApifyInstagramScraper",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "apify_x_trending",
