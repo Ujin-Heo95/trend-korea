@@ -88,45 +88,33 @@ export interface KeywordStatsResponse {
   calculatedAt: string | null;
 }
 
-// ── 교차 검증 트렌드 시그널 ──────────────────────────────
-export interface GoogleArticle {
-  title: string;
-  url: string;
-  source: string;
-}
-
-export interface RelatedPost {
+// ── 빅카인즈 오늘의 이슈 ────────────────────────────────
+export interface BigKindsRelatedPost {
   id: number;
   title: string;
   url: string;
   source_name: string;
   source_key: string;
-  thumbnail: string | null;
-  published_at: string | null;
 }
 
-export interface TrendSignal {
-  id: number;
+export interface BigKindsIssue {
+  rank: number;
   keyword: string;
-  google_traffic: string | null;
-  google_traffic_num: number;
-  google_post_id: number | null;
-  naver_recent: number | null;
-  naver_previous: number | null;
-  naver_change_pct: number | null;
-  naver_trend_data: { period: string; ratio: number }[] | null;
-  community_mentions: number;
-  community_sources: string[];
-  convergence_score: number;
-  signal_type: 'confirmed' | 'google_only';
-  detected_at: string;
-  context_title: string | null;
-  google_articles: GoogleArticle[];
-  related_posts: RelatedPost[];
+  articleCount: number;
+  period: string;
+  bigkindsUrl: string;
+  relatedPosts: BigKindsRelatedPost[];
 }
 
 export interface TrendSignalsResponse {
-  signals: TrendSignal[];
+  issues: BigKindsIssue[];
+}
+
+// ── 레거시 교차 검증 (이슈 상세에서 사용) ────────────────
+export interface GoogleArticle {
+  title: string;
+  url: string;
+  source: string;
 }
 
 // ── 이슈 상세 ───────────────────────────────────────────

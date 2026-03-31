@@ -1,177 +1,97 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTrendSignals } from '../hooks/usePosts';
-import type { TrendSignal, GoogleArticle, RelatedPost } from '../types';
+import type { BigKindsIssue, BigKindsRelatedPost } from '../types';
 import { ErrorRetry } from './shared/ErrorRetry';
-import { Sparkline } from './shared/Sparkline';
 
-function trendIcon(changePct: number | null): string {
-  if (changePct === null) return '';
-  if (changePct > 10) return '🔥';
-  if (changePct > 0) return '📈';
-  if (changePct < -10) return '📉';
-  if (changePct < 0) return '↘️';
-  return '➡️';
-}
+// ── 관련 게시글 행 ──────────────────────────────────────
 
-function changeLabel(changePct: number | null): string {
-  if (changePct === null) return '';
-  return changePct > 0 ? `+${changePct}%` : `${changePct}%`;
-}
+const RelatedPostRow: React.FC<{ post: BigKindsRelatedPost }> = ({ post }) => (
+  <Link
+    to={`/issue/${post.id}`}
+    className="flex items-start gap-2 py-1.5 px-1 rounded hover:bg-indigo-50 transition-colors group/rel"
+  >
+    <span className="text-xs text-indigo-300 mt-0.5 shrink-0">💬</span>
+    <span className="text-xs text-slate-700 group-hover/rel:text-indigo-600 line-clamp-1 flex-1">
+      {post.title}
+    </span>
+    <span className="text-[10px] text-slate-400 shrink-0 mt-0.5">
+      {post.source_name}
+    </span>
+  </Link>
+);
 
-// ── 기사 아이템 (google_articles + related_posts 공용) ──
+// ── 이슈 카드 ───────────────────────────────────────────
 
-interface ArticleItem {
-  title: string;
-  url: string;
-  source: string;
-  postId?: number;
-}
-
-function mergeArticles(googleArticles: GoogleArticle[], relatedPosts: RelatedPost[]): ArticleItem[] {
-  const seen = new Set<string>();
-  const items: ArticleItem[] = [];
-
-  for (const a of googleArticles) {
-    if (!seen.has(a.url)) {
-      seen.add(a.url);
-      items.push({ title: a.title, url: a.url, source: a.source });
-    }
-  }
-  for (const p of relatedPosts) {
-    if (!seen.has(p.url)) {
-      seen.add(p.url);
-      items.push({ title: p.title, url: p.url, source: p.source_name, postId: p.id });
-    }
-  }
-
-  return items.slice(0, 5);
-}
-
-const ArticleRow: React.FC<{ item: ArticleItem }> = ({ item }) => {
-  const className = "flex items-start gap-2 py-1.5 px-1 rounded hover:bg-slate-100 transition-colors group/article";
-  const content = (
-    <>
-      <span className="text-xs text-slate-400 mt-0.5 shrink-0">📰</span>
-      <span className="text-xs text-slate-700 group-hover/article:text-blue-600 line-clamp-1 flex-1">
-        {item.title}
-      </span>
-      <span className="text-[10px] text-slate-400 shrink-0 mt-0.5">
-        {item.source}
-      </span>
-    </>
-  );
-
-  if (item.postId) {
-    return <Link to={`/issue/${item.postId}`} className={className}>{content}</Link>;
-  }
-  return (
-    <a href={item.url} target="_blank" rel="noopener noreferrer" className={className}>{content}</a>
-  );
-};
-
-// ── 시그널 카드 ──────────────────────────────────────
-
-const SignalCard: React.FC<{
-  signal: TrendSignal;
-  rank: number;
+const IssueCard: React.FC<{
+  issue: BigKindsIssue;
   isExpanded: boolean;
   onToggle: () => void;
-}> = ({ signal, rank, isExpanded, onToggle }) => {
-  const isConfirmed = signal.signal_type === 'confirmed';
-  const hasNaver = signal.naver_change_pct !== null;
-  const hasCommunity = signal.community_mentions > 0;
+}> = ({ issue, isExpanded, onToggle }) => {
+  const isTop3 = issue.rank <= 3;
+  const hasRelated = issue.relatedPosts.length > 0;
 
-  const borderClass = isConfirmed
-    ? 'border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-50'
-    : 'border-blue-200 bg-gradient-to-br from-blue-50 to-slate-50';
+  const borderClass = isTop3
+    ? 'border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50'
+    : 'border-indigo-200 bg-gradient-to-br from-indigo-50 to-slate-50';
 
-  const hoverBorderClass = isConfirmed
+  const hoverBorderClass = isTop3
     ? 'hover:border-amber-400 hover:shadow-amber-100'
-    : 'hover:border-blue-300 hover:shadow-blue-100';
-
-  const articles = mergeArticles(signal.google_articles ?? [], signal.related_posts ?? []);
-  const hasArticles = articles.length > 0;
+    : 'hover:border-indigo-300 hover:shadow-indigo-100';
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={hasArticles ? onToggle : undefined}
-      onKeyDown={hasArticles ? (e) => { if (e.key === 'Enter' || e.key === ' ') onToggle(); } : undefined}
-      className={`flex-shrink-0 w-56 p-3 rounded-xl border-2 ${borderClass} ${hoverBorderClass} hover:shadow-md transition-all ${hasArticles ? 'cursor-pointer' : ''} ${isExpanded ? 'w-72' : ''}`}
+      onClick={hasRelated ? onToggle : undefined}
+      onKeyDown={hasRelated ? (e) => { if (e.key === 'Enter' || e.key === ' ') onToggle(); } : undefined}
+      className={`flex-shrink-0 w-56 p-3 rounded-xl border-2 ${borderClass} ${hoverBorderClass} hover:shadow-md transition-all ${hasRelated ? 'cursor-pointer' : ''} ${isExpanded ? 'w-72' : ''}`}
     >
-      {/* 상단: 랭크 + 검증 뱃지 + 스파크라인 */}
+      {/* 상단: 순위 + 기사 건수 */}
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5">
-          <span className={`text-xs font-bold ${isConfirmed ? 'text-amber-600' : 'text-blue-500'}`}>
-            #{rank}
+          <span className={`text-sm font-bold ${isTop3 ? 'text-amber-600' : 'text-indigo-500'}`}>
+            #{issue.rank}
           </span>
-          <div className="flex gap-0.5">
-            <span className="text-xs" title="Google 트렌드">
-              {isConfirmed ? '✅' : '🔍'}
+          {issue.period && (
+            <span className="text-[10px] text-slate-400">
+              {issue.period}
             </span>
-            <span className="text-xs" title="Naver DataLab">
-              {hasNaver ? '✅' : '⬜'}
-            </span>
-            <span className="text-xs" title="커뮤니티 언급">
-              {hasCommunity ? '✅' : '⬜'}
-            </span>
-          </div>
+          )}
         </div>
-        {signal.naver_trend_data && signal.naver_trend_data.length >= 2 && (
-          <Sparkline data={signal.naver_trend_data} />
-        )}
+        <span className="text-xs text-slate-500">
+          📰 {issue.articleCount}건
+        </span>
       </div>
 
-      {/* 키워드 */}
-      <p className={`text-sm font-semibold mb-0.5 truncate ${isConfirmed ? 'text-amber-900' : 'text-slate-800'}`}>
-        {signal.keyword}
+      {/* 키워드 (이슈 제목) */}
+      <p className={`text-sm font-semibold mb-1.5 line-clamp-2 ${isTop3 ? 'text-amber-900' : 'text-slate-800'}`}>
+        {issue.keyword}
       </p>
 
-      {/* 대표 뉴스 제목 1줄 */}
-      {signal.context_title && (
-        <p className="text-[11px] text-slate-500 mb-1.5 line-clamp-1" title={signal.context_title}>
-          {signal.context_title}
-        </p>
-      )}
-
-      {/* 메트릭스 */}
-      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-slate-500">
-        {signal.google_traffic && (
-          <span>🔍 {signal.google_traffic}</span>
-        )}
-        {hasNaver && (
-          <span>{trendIcon(signal.naver_change_pct)} {changeLabel(signal.naver_change_pct)}</span>
-        )}
-        {hasCommunity && (
-          <span>💬 {signal.community_mentions}곳</span>
-        )}
-      </div>
-
-      {/* 시그널 타입 라벨 */}
-      <div className="mt-1.5 flex items-center gap-1.5">
-        {isConfirmed ? (
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800">
-            확인된 트렌드
-          </span>
-        ) : (
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
-            Google 트렌드
-          </span>
-        )}
-        {hasArticles && (
+      {/* 하단: BigKinds 링크 + 관련글 토글 */}
+      <div className="flex items-center justify-between">
+        <a
+          href={issue.bigkindsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="text-[10px] text-indigo-500 hover:text-indigo-700 underline underline-offset-2"
+        >
+          뉴스 검색 →
+        </a>
+        {hasRelated && (
           <span className="text-[10px] text-slate-400">
-            {isExpanded ? '▲' : `▼ ${articles.length}건`}
+            {isExpanded ? '▲' : `💬 ${issue.relatedPosts.length}건`}
           </span>
         )}
       </div>
 
-      {/* 펼친 상태: 추가 기사 목록 */}
-      {isExpanded && articles.length > 0 && (
+      {/* 펼친 상태: 관련 커뮤니티 게시글 */}
+      {isExpanded && issue.relatedPosts.length > 0 && (
         <div className="mt-2 pt-2 border-t border-slate-200/60 space-y-0">
-          {articles.map((item, i) => (
-            <ArticleRow key={i} item={item} />
+          {issue.relatedPosts.map(post => (
+            <RelatedPostRow key={post.id} post={post} />
           ))}
         </div>
       )}
@@ -179,14 +99,16 @@ const SignalCard: React.FC<{
   );
 };
 
+// ── 메인 컴포넌트 ───────────────────────────────────────
+
 export const TrendRadar: React.FC = () => {
   const { data, isLoading, error, refetch } = useTrendSignals();
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expandedRank, setExpandedRank] = useState<number | null>(null);
 
   if (isLoading) {
     return (
       <div className="mb-6">
-        <h2 className="text-sm font-semibold text-slate-500 mb-3">🎯 교차 검증 트렌드</h2>
+        <h2 className="text-sm font-semibold text-slate-500 mb-3">📰 오늘의 뉴스 이슈</h2>
         <div className="flex gap-3 overflow-x-auto pb-2">
           {Array.from({ length: 4 }, (_, i) => (
             <div key={i} className="flex-shrink-0 w-56 h-28 bg-white rounded-xl border-2 border-slate-200 animate-pulse" />
@@ -199,47 +121,41 @@ export const TrendRadar: React.FC = () => {
   if (error) {
     return (
       <div className="mb-6">
-        <h2 className="text-sm font-semibold text-slate-500 mb-3">🎯 교차 검증 트렌드</h2>
-        <ErrorRetry message="트렌드 신호를 불러오지 못했습니다." onRetry={refetch} />
+        <h2 className="text-sm font-semibold text-slate-500 mb-3">📰 오늘의 뉴스 이슈</h2>
+        <ErrorRetry message="뉴스 이슈를 불러오지 못했습니다." onRetry={refetch} />
       </div>
     );
   }
 
-  const signals = data?.signals ?? [];
-  if (signals.length === 0) {
+  const issues = data?.issues ?? [];
+  if (issues.length === 0) {
     return (
       <div className="mb-6">
-        <h2 className="text-sm font-semibold text-slate-500 mb-3">🎯 교차 검증 트렌드</h2>
+        <h2 className="text-sm font-semibold text-slate-500 mb-3">📰 오늘의 뉴스 이슈</h2>
         <div className="border-2 border-dashed border-slate-200 rounded-xl py-8 text-center">
-          <p className="text-sm text-slate-400">트렌드 데이터를 수집 중입니다</p>
+          <p className="text-sm text-slate-400">뉴스 이슈를 수집 중입니다</p>
           <p className="text-xs text-slate-300 mt-1">잠시 후 자동으로 표시됩니다</p>
         </div>
       </div>
     );
   }
 
-  const confirmed = signals.filter(s => s.signal_type === 'confirmed');
-  const googleOnly = signals.filter(s => s.signal_type === 'google_only');
-  const sorted = [...confirmed, ...googleOnly];
-
   return (
     <div className="mb-6">
       <div className="flex items-center gap-2 mb-3">
-        <h2 className="text-sm font-semibold text-slate-500">🎯 교차 검증 트렌드</h2>
-        {confirmed.length > 0 && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
-            {confirmed.length}개 확인됨
-          </span>
-        )}
+        <h2 className="text-sm font-semibold text-slate-500">📰 오늘의 뉴스 이슈</h2>
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">
+          Top {issues.length}
+        </span>
+        <span className="text-[10px] text-slate-300 ml-auto">빅카인즈 제공</span>
       </div>
       <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-        {sorted.slice(0, 15).map((signal, i) => (
-          <SignalCard
-            key={signal.id}
-            signal={signal}
-            rank={i + 1}
-            isExpanded={expandedId === signal.id}
-            onToggle={() => setExpandedId(prev => prev === signal.id ? null : signal.id)}
+        {issues.map(issue => (
+          <IssueCard
+            key={issue.rank}
+            issue={issue}
+            isExpanded={expandedRank === issue.rank}
+            onToggle={() => setExpandedRank(prev => prev === issue.rank ? null : issue.rank)}
           />
         ))}
       </div>

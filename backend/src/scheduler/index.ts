@@ -4,7 +4,8 @@ import { runAllScrapers, runScrapersByPriority, runApifyScrapers } from '../scra
 import { cleanOldPosts, cleanOldScraperRuns, cleanExpiredTrendSignals, cleanOldEngagementSnapshots } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
 import { generateDailyReport } from '../services/dailyReport.js';
-import { crossValidate } from '../services/trendCrossValidator.js';
+// BigKinds Top 10 전환으로 비활성화 — 추후 재활용 가능
+// import { crossValidate } from '../services/trendCrossValidator.js';
 import { processNewPosts, calculateStats } from '../services/keywords.js';
 import { checkDbSize } from '../services/dbMonitor.js';
 import { pool } from '../db/client.js';
@@ -62,11 +63,11 @@ export function startScheduler(): void {
   });
   console.log('[scheduler] keywords: every 30 min');
 
-  // 교차 검증 트렌드: 20분 주기
-  cron.schedule('*/20 * * * *', () => {
-    crossValidate(pool).catch(err => captureError(err));
-  });
-  console.log('[scheduler] cross-validate: every 20 min');
+  // 교차 검증 트렌드: BigKinds Top 10 전환으로 비활성화
+  // cron.schedule('*/20 * * * *', () => {
+  //   crossValidate(pool).catch(err => captureError(err));
+  // });
+  // console.log('[scheduler] cross-validate: every 20 min');
 
   // Apify SNS 수집: 09:00, 18:00 KST (= 00:00, 09:00 UTC)
   cron.schedule('0 0,9 * * *', () => {

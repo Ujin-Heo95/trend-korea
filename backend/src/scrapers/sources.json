@@ -28,7 +28,7 @@
       "module": "./ruliweb.js",
       "className": "RuliwebScraper",
       "priority": "high",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "theqoo",
@@ -223,7 +223,7 @@
       "type": "rss",
       "feedUrl": "https://www.kmib.co.kr/rss/data/kmibRssAll.xml",
       "priority": "medium",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "geeknews",
@@ -359,7 +359,7 @@
       "type": "rss",
       "feedUrl": "https://feed.koreatimes.co.kr/k/allnews.xml",
       "priority": "medium",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "newsis",
@@ -663,6 +663,16 @@
       "type": "api",
       "module": "./daum-search.js",
       "className": "DaumBlogScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "bigkinds_issues",
+      "name": "빅카인즈 오늘의 이슈",
+      "category": "news",
+      "type": "api",
+      "module": "./bigkinds.js",
+      "className": "BigKindsScraper",
       "priority": "low",
       "enabled": true
     }

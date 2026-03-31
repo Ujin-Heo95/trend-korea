@@ -12,6 +12,7 @@ const SOURCE_WEIGHTS: Record<string, number> = {
   instiz: 1.05, natepann: 1.05,
   youtube: 1.03, ppomppu: 1.03,
   kopis_boxoffice: 1.10,
+  bigkinds_issues: 1.15,
 };
 const DEFAULT_SOURCE_WEIGHT = 0.95;
 

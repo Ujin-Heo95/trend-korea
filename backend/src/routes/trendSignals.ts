@@ -1,136 +1,122 @@
 import type { FastifyInstance } from 'fastify';
 import { LRUCache } from '../cache/lru.js';
 
-interface TrendSignalRow {
-  id: number;
-  keyword: string;
-  google_traffic: string | null;
-  google_traffic_num: number;
-  google_post_id: number | null;
-  naver_recent: number | null;
-  naver_previous: number | null;
-  naver_change_pct: number | null;
-  naver_trend_data: { period: string; ratio: number }[] | null;
-  community_mentions: number;
-  community_sources: string[];
-  convergence_score: number;
-  signal_type: string;
-  detected_at: string;
-  context_title: string | null;
-  related_post_ids: number[];
-}
-
-interface GoogleArticle {
-  title: string;
-  url: string;
-  source: string;
-}
-
 interface RelatedPost {
   id: number;
   title: string;
   url: string;
   source_name: string;
   source_key: string;
-  thumbnail: string | null;
-  published_at: string | null;
 }
 
-interface PostRow {
+interface BigKindsIssue {
+  rank: number;
+  keyword: string;
+  articleCount: number;
+  period: string;
+  bigkindsUrl: string;
+  relatedPosts: RelatedPost[];
+}
+
+interface BigKindsPostRow {
   id: number;
   title: string;
   url: string;
-  source_name: string;
-  source_key: string;
-  thumbnail: string | null;
-  published_at: string | null;
-  metadata: { articles?: GoogleArticle[] } | null;
+  view_count: number;
+  metadata: {
+    rank?: number;
+    articleCount?: number;
+    keyword?: string;
+    period?: string;
+  } | null;
 }
 
-type SignalResponse = Omit<TrendSignalRow, 'related_post_ids'> & {
-  google_articles: GoogleArticle[];
-  related_posts: RelatedPost[];
-};
-
-const cache = new LRUCache<{ signals: SignalResponse[] }>(50, 60_000);
+const cache = new LRUCache<{ issues: BigKindsIssue[] }>(10, 60_000);
 
 export async function trendSignalsRoutes(app: FastifyInstance): Promise<void> {
-  app.get<{
-    Querystring: { type?: string };
-  }>('/api/trends/signals', async (request, reply) => {
-    const { type } = request.query;
-
-    const cacheKey = `trend-signals:${type ?? 'all'}`;
-    const cached = cache.get(cacheKey);
+  app.get('/api/trends/signals', async (_request, reply) => {
+    const cached = cache.get('bigkinds');
     if (cached) return reply.send(cached);
 
-    let query = `
-      SELECT id, keyword, google_traffic, google_traffic_num, google_post_id,
-             naver_recent, naver_previous, naver_change_pct, naver_trend_data,
-             community_mentions, community_sources,
-             convergence_score, signal_type, detected_at,
-             context_title, related_post_ids
-      FROM trend_signals
-      WHERE expires_at > NOW()
-    `;
-    const params: string[] = [];
+    // 1. BigKinds posts 조회 (최근 24시간, rank 순)
+    const { rows: bkPosts } = await app.pg.query<BigKindsPostRow>(
+      `SELECT id, title, url, view_count, metadata
+       FROM posts
+       WHERE source_key = 'bigkinds_issues'
+         AND scraped_at > NOW() - INTERVAL '24 hours'
+       ORDER BY (metadata->>'rank')::int ASC NULLS LAST
+       LIMIT 10`,
+    );
 
-    if (type && ['confirmed', 'google_only'].includes(type)) {
-      params.push(type);
-      query += ` AND signal_type = $${params.length}`;
+    if (bkPosts.length === 0) {
+      const result = { issues: [] };
+      cache.set('bigkinds', result);
+      return reply.send(result);
     }
 
-    query += ' ORDER BY convergence_score DESC LIMIT 30';
+    // 2. 각 이슈 키워드로 커뮤니티 매칭 게시글 조회
+    const issues: BigKindsIssue[] = [];
 
-    const { rows } = await app.pg.query<TrendSignalRow>(query, params);
+    for (const post of bkPosts) {
+      const keyword = post.metadata?.keyword ?? post.title;
+      const rank = post.metadata?.rank ?? 0;
+      const articleCount = post.metadata?.articleCount ?? post.view_count;
+      const period = post.metadata?.period ?? '';
 
-    // Batch resolve: google_post_ids + related_post_ids → posts
-    const allGooglePostIds = rows
-      .map(r => r.google_post_id)
-      .filter((id): id is number => id !== null);
-    const allRelatedPostIds = rows.flatMap(r => r.related_post_ids ?? []);
-    const allPostIds = [...new Set([...allGooglePostIds, ...allRelatedPostIds])];
+      // 키워드에서 핵심 단어 추출 (2글자 이상 단어 기준 매칭)
+      const searchTerms = extractSearchTerms(keyword);
+      let relatedPosts: RelatedPost[] = [];
 
-    const postMap = new Map<number, PostRow>();
-    if (allPostIds.length > 0) {
-      const { rows: posts } = await app.pg.query<PostRow>(
-        `SELECT id, title, url, source_name, source_key, thumbnail, published_at, metadata
-         FROM posts WHERE id = ANY($1)`,
-        [allPostIds],
-      );
-      for (const p of posts) postMap.set(p.id, p);
+      if (searchTerms.length > 0) {
+        const conditions = searchTerms.map((_, i) => `title ILIKE $${i + 1}`).join(' AND ');
+        const params = searchTerms.map(t => `%${t}%`);
+
+        const { rows } = await app.pg.query<RelatedPost>(
+          `SELECT id, title, url, source_name, source_key
+           FROM posts
+           WHERE source_key != 'bigkinds_issues'
+             AND scraped_at > NOW() - INTERVAL '6 hours'
+             AND (${conditions})
+           ORDER BY scraped_at DESC
+           LIMIT 3`,
+          params,
+        );
+        relatedPosts = rows;
+      }
+
+      issues.push({
+        rank,
+        keyword,
+        articleCount,
+        period,
+        bigkindsUrl: post.url,
+        relatedPosts,
+      });
     }
 
-    // Build response with resolved posts + google articles
-    const signals: SignalResponse[] = rows.map(row => {
-      // Extract google articles from the original Google Trends post metadata
-      const googlePost = row.google_post_id ? postMap.get(row.google_post_id) : null;
-      const googleArticles: GoogleArticle[] = googlePost?.metadata?.articles ?? [];
-
-      // Resolve related community/keyword posts
-      const relatedPosts: RelatedPost[] = (row.related_post_ids ?? [])
-        .map(id => postMap.get(id))
-        .filter((p): p is PostRow => p !== undefined)
-        .map(p => ({
-          id: p.id,
-          title: p.title,
-          url: p.url,
-          source_name: p.source_name,
-          source_key: p.source_key,
-          thumbnail: p.thumbnail,
-          published_at: p.published_at,
-        }));
-
-      const { related_post_ids: _, ...rest } = row;
-      return {
-        ...rest,
-        google_articles: googleArticles,
-        related_posts: relatedPosts,
-      };
-    });
-
-    const result = { signals };
-    cache.set(cacheKey, result);
+    const result = { issues };
+    cache.set('bigkinds', result);
     return reply.send(result);
   });
 }
+
+/** 키워드에서 검색용 핵심 단어 추출 (2글자 이상, 최대 3개) */
+function extractSearchTerms(keyword: string): string[] {
+  // 따옴표/괄호/특수문자 제거, 공백 기준 분리
+  const words = keyword
+    .replace(/[''""'"「」…·,.:;!?%]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 2)
+    // 불용어 제거
+    .filter(w => !STOP_WORDS.has(w));
+
+  // 고유명사/핵심 단어 우선 (3글자 이상)
+  const sorted = [...words].sort((a, b) => b.length - a.length);
+  return sorted.slice(0, 3);
+}
+
+const STOP_WORDS = new Set([
+  '오늘', '내일', '어제', '관련', '발표', '이번', '대한', '통해',
+  '위해', '이후', '현재', '지난', '올해', '작년', '것으로', '하는',
+  '있는', '되는', '한다', '한편', '이날', '해당', '최근', '전날',
+]);

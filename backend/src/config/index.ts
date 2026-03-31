@@ -22,6 +22,7 @@ interface Config {
   dbConnectionTimeoutMs: number;
   apifyApiToken: string;
   apifyMonthlyBudgetCents: number;
+  bigkindsApiKey: string;
 }
 
 const dbUrl = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/trend_korea';
@@ -86,4 +87,5 @@ export const config: Config = {
   dbConnectionTimeoutMs,
   apifyApiToken: process.env.APIFY_API_TOKEN ?? '',
   apifyMonthlyBudgetCents,
+  bigkindsApiKey: process.env.BIGKINDS_API_KEY ?? '',
 };
