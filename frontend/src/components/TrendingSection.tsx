@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useTrending } from '../hooks/usePosts';
 
 export const TrendingSection: React.FC = () => {
@@ -25,11 +26,9 @@ export const TrendingSection: React.FC = () => {
       <h2 className="text-sm font-semibold text-slate-500 mb-3">🔥 지금 뜨는 글</h2>
       <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
         {posts.slice(0, 10).map((post, i) => (
-          <a
+          <Link
             key={post.id}
-            href={post.url}
-            target="_blank"
-            rel="noopener noreferrer"
+            to={`/issue/${post.id}`}
             className="flex-shrink-0 w-64 p-3 bg-white rounded-xl border border-slate-200 hover:border-orange-300 hover:shadow-sm transition-all group"
           >
             <div className="flex items-center gap-2 mb-1.5">
@@ -42,7 +41,7 @@ export const TrendingSection: React.FC = () => {
             <p className="text-sm font-medium text-slate-800 line-clamp-2 group-hover:text-orange-600">
               {post.title}
             </p>
-          </a>
+          </Link>
         ))}
       </div>
     </div>

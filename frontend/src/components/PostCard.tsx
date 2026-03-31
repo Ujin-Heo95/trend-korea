@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { Post } from '../types';
 import { SOURCE_COLORS } from '../constants/sourceColors';
 import { ShareButton } from './shared/ShareButton';
@@ -26,10 +27,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead }
 
   return (
     <div className={`rounded-xl border hover:border-blue-300 hover:shadow-sm transition-all ${isRead ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-200'}`}>
-      <a
-        href={post.url}
-        target="_blank"
-        rel="noopener noreferrer"
+      <Link
+        to={`/issue/${post.id}`}
         onClick={() => onRead?.(post.url)}
         className="flex items-start gap-3 p-4 group"
       >
@@ -77,21 +76,19 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead }
             <ShareButton url={post.url} title={post.title} thumbnail={post.thumbnail} />
           </div>
         </div>
-      </a>
+      </Link>
       {expanded && post.related_sources && post.related_sources.length > 0 && (
         <div className="px-4 pb-3 ml-4 space-y-1 border-l-2 border-slate-200 pl-3">
           {post.related_sources.map((s) => (
-            <a
+            <Link
               key={s.url}
-              href={s.url}
-              target="_blank"
-              rel="noopener noreferrer"
+              to={`/issue/${s.id}`}
               className="flex items-center gap-2 text-xs text-slate-500 hover:text-blue-500 transition-colors"
             >
               <span className={`px-1.5 py-0.5 rounded ${SOURCE_COLORS[s.source_key] ?? 'bg-slate-100 text-slate-600'}`}>
                 {s.source_name}
               </span>
-            </a>
+            </Link>
           ))}
         </div>
       )}

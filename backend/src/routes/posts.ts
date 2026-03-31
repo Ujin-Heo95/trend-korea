@@ -96,12 +96,12 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
           .map(ci => ci.cluster_id)
       )];
 
-      const relatedMap = new Map<number, { source_name: string; source_key: string; url: string }[]>();
+      const relatedMap = new Map<number, { id: number; source_name: string; source_key: string; url: string }[]>();
       if (canonicalClusterIds.length > 0) {
         const related = await app.pg.query<{
-          cluster_id: number; source_name: string; source_key: string; url: string;
+          cluster_id: number; id: number; source_name: string; source_key: string; url: string;
         }>(
-          `SELECT pcm.cluster_id, p.source_name, p.source_key, p.url
+          `SELECT pcm.cluster_id, p.id, p.source_name, p.source_key, p.url
            FROM post_cluster_members pcm
            JOIN posts p ON p.id = pcm.post_id
            JOIN post_clusters pc ON pc.id = pcm.cluster_id
@@ -111,7 +111,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
         );
         for (const r of related.rows) {
           const arr = relatedMap.get(r.cluster_id) ?? [];
-          arr.push({ source_name: r.source_name, source_key: r.source_key, url: r.url });
+          arr.push({ id: r.id, source_name: r.source_name, source_key: r.source_key, url: r.url });
           relatedMap.set(r.cluster_id, arr);
         }
       }

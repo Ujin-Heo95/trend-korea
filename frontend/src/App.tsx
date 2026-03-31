@@ -11,6 +11,7 @@ const WeatherPage = lazy(() => import('./pages/WeatherPage').then(m => ({ defaul
 const KeywordsPage = lazy(() => import('./pages/KeywordsPage').then(m => ({ default: m.KeywordsPage })));
 const AboutPage = lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
+const IssueDetailPage = lazy(() => import('./pages/IssueDetailPage').then(m => ({ default: m.IssueDetailPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,6 +89,7 @@ function AppRoutes() {
           <Route path="/entertainment" element={<Navigate to="/?category=movie" replace />} />
           <Route path="/keywords" element={<KeywordsPage />} />
           <Route path="/weather" element={<WeatherPage />} />
+          <Route path="/issue/:postId" element={<IssueDetailPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
         </Routes>

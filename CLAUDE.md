@@ -99,7 +99,9 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | Discord 알림 | `backend/src/services/discord.ts` |
 | DB 용량 모니터링 | `backend/src/services/dbMonitor.ts` |
 | Daily Report API | `backend/src/routes/dailyReport.ts` |
+| 이슈 상세 API | `backend/src/routes/issueDetail.ts` |
 | 프론트 홈 | `frontend/src/pages/HomePage.tsx` |
+| 이슈 상세 페이지 | `frontend/src/pages/IssueDetailPage.tsx` |
 | 일일 리포트 페이지 | `frontend/src/pages/DailyReportPage.tsx` |
 | API 클라이언트 | `frontend/src/api/client.ts` |
 | LRU 캐시 | `backend/src/cache/lru.ts` |
@@ -111,6 +113,8 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 | 교차 검증 서비스 | `backend/src/services/trendCrossValidator.ts` |
 | 교차 검증 API | `backend/src/routes/trendSignals.ts` |
 | 교차 검증 UI | `frontend/src/components/TrendRadar.tsx` |
+| 스파크라인 (공유) | `frontend/src/components/shared/Sparkline.tsx` |
+| 참여 추이 차트 | `frontend/src/components/shared/EngagementChart.tsx` |
 | YouTube 키워드 검색 | `backend/src/scrapers/youtube-search.ts` |
 | Daum 검색 스크래퍼 | `backend/src/scrapers/daum-search.ts` |
 | Apify 베이스 | `backend/src/scrapers/apify-base.ts` |
@@ -128,7 +132,7 @@ Frontend (React+Vite+Tailwind v4) ──API──> Backend (Fastify 5) ──> P
 
 ## Current Phase
 
-**Phase 2.6 진행중** (v0.9.8: 카카오 API 통합 + API 모니터링). 소스 71개 + 카카오톡 공유(Feed 템플릿) + Daum 카페/블로그 검색 스크래퍼 + API 키 헬스체크(/health 확장) + Discord 알림 + 177 tests. 다음: 도메인 구매 + 환경변수 등록 + 런칭. 상세: [docs/로드맵.md](docs/로드맵.md)
+**Phase 3 진행중** (v0.10.0: 이슈 상세 페이지). 소스 71개 + 내부 이슈 상세 페이지(/issue/:postId, 클러스터+트렌드신호+참여추이+관련기사) + PostCard/TrendingSection/TrendRadar 내부 링크 전환(외부 이탈 방지) + Sparkline 공유 컴포넌트 추출 + 177 tests. 다음: 도메인 구매 + Supabase 마이그레이션 + 사용자 반응. 상세: [docs/로드맵.md](docs/로드맵.md)
 
 ## 문서 체계
 

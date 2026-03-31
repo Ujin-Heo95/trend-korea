@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTrendSignals } from '../hooks/usePosts';
 import type { TrendSignal, GoogleArticle, RelatedPost } from '../types';
 import { ErrorRetry } from './shared/ErrorRetry';
+import { Sparkline } from './shared/Sparkline';
 
 function trendIcon(changePct: number | null): string {
   if (changePct === null) return '';
@@ -17,59 +19,13 @@ function changeLabel(changePct: number | null): string {
   return changePct > 0 ? `+${changePct}%` : `${changePct}%`;
 }
 
-// ── 미니 스파크라인 (SVG) ─────────────────────────────
-
-const Sparkline: React.FC<{ data: { ratio: number }[]; className?: string }> = ({ data, className }) => {
-  if (data.length < 2) return null;
-
-  const width = 72;
-  const height = 20;
-  const padding = 2;
-
-  const ratios = data.map(d => d.ratio);
-  const min = Math.min(...ratios);
-  const max = Math.max(...ratios);
-  const range = max - min || 1;
-
-  const points = ratios
-    .map((r, i) => {
-      const x = padding + (i / (ratios.length - 1)) * (width - padding * 2);
-      const y = height - padding - ((r - min) / range) * (height - padding * 2);
-      return `${x},${y}`;
-    })
-    .join(' ');
-
-  // 마지막 값이 첫 값보다 높으면 상승색, 아니면 하락색
-  const isUp = ratios[ratios.length - 1] >= ratios[0];
-  const color = isUp ? '#f59e0b' : '#94a3b8';
-
-  return (
-    <svg width={width} height={height} className={className} viewBox={`0 0 ${width} ${height}`}>
-      <polyline
-        points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* 마지막 점 강조 */}
-      <circle
-        cx={padding + ((ratios.length - 1) / (ratios.length - 1)) * (width - padding * 2)}
-        cy={height - padding - ((ratios[ratios.length - 1] - min) / range) * (height - padding * 2)}
-        r="2"
-        fill={color}
-      />
-    </svg>
-  );
-};
-
 // ── 기사 아이템 (google_articles + related_posts 공용) ──
 
 interface ArticleItem {
   title: string;
   url: string;
   source: string;
+  postId?: number;
 }
 
 function mergeArticles(googleArticles: GoogleArticle[], relatedPosts: RelatedPost[]): ArticleItem[] {
@@ -85,29 +41,34 @@ function mergeArticles(googleArticles: GoogleArticle[], relatedPosts: RelatedPos
   for (const p of relatedPosts) {
     if (!seen.has(p.url)) {
       seen.add(p.url);
-      items.push({ title: p.title, url: p.url, source: p.source_name });
+      items.push({ title: p.title, url: p.url, source: p.source_name, postId: p.id });
     }
   }
 
   return items.slice(0, 5);
 }
 
-const ArticleRow: React.FC<{ item: ArticleItem }> = ({ item }) => (
-  <a
-    href={item.url}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="flex items-start gap-2 py-1.5 px-1 rounded hover:bg-slate-100 transition-colors group/article"
-  >
-    <span className="text-xs text-slate-400 mt-0.5 shrink-0">📰</span>
-    <span className="text-xs text-slate-700 group-hover/article:text-blue-600 line-clamp-1 flex-1">
-      {item.title}
-    </span>
-    <span className="text-[10px] text-slate-400 shrink-0 mt-0.5">
-      {item.source}
-    </span>
-  </a>
-);
+const ArticleRow: React.FC<{ item: ArticleItem }> = ({ item }) => {
+  const className = "flex items-start gap-2 py-1.5 px-1 rounded hover:bg-slate-100 transition-colors group/article";
+  const content = (
+    <>
+      <span className="text-xs text-slate-400 mt-0.5 shrink-0">📰</span>
+      <span className="text-xs text-slate-700 group-hover/article:text-blue-600 line-clamp-1 flex-1">
+        {item.title}
+      </span>
+      <span className="text-[10px] text-slate-400 shrink-0 mt-0.5">
+        {item.source}
+      </span>
+    </>
+  );
+
+  if (item.postId) {
+    return <Link to={`/issue/${item.postId}`} className={className}>{content}</Link>;
+  }
+  return (
+    <a href={item.url} target="_blank" rel="noopener noreferrer" className={className}>{content}</a>
+  );
+};
 
 // ── 시그널 카드 ──────────────────────────────────────
 

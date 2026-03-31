@@ -12,6 +12,7 @@ import { dailyReportRoutes } from './routes/dailyReport.js';
 import { weatherRoutes } from './routes/weather.js';
 import { keywordsRoutes } from './routes/keywords.js';
 import { trendSignalsRoutes } from './routes/trendSignals.js';
+import { issueDetailRoutes } from './routes/issueDetail.js';
 import { startScheduler } from './scheduler/index.js';
 
 if (config.sentryDsn) {
@@ -37,6 +38,7 @@ export async function buildApp() {
   await app.register(weatherRoutes);
   await app.register(keywordsRoutes);
   await app.register(trendSignalsRoutes);
+  await app.register(issueDetailRoutes);
 
   app.addHook('onError', (_req, _reply, error, done) => {
     if (config.sentryDsn) Sentry.captureException(error);

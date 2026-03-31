@@ -19,7 +19,7 @@ export interface Post {
   category?: Category;
   cluster_size?: number;
   cluster_id?: number | null;
-  related_sources?: { source_name: string; source_key: string; url: string }[];
+  related_sources?: { id: number; source_name: string; source_key: string; url: string }[];
   metadata?: Record<string, unknown>;
 }
 
@@ -126,6 +126,25 @@ export interface TrendSignal {
 
 export interface TrendSignalsResponse {
   signals: TrendSignal[];
+}
+
+// ── 이슈 상세 ───────────────────────────────────────────
+export interface IssueDetailResponse {
+  post: Omit<Post, 'cluster_size' | 'cluster_id' | 'related_sources'>;
+  trend_score: number | null;
+  cluster_members: {
+    id: number; source_key: string; source_name: string; title: string; url: string;
+    view_count: number; comment_count: number; published_at: string | null;
+  }[];
+  trend_signals: {
+    id: number; keyword: string; google_traffic: string | null;
+    naver_change_pct: number | null;
+    naver_trend_data: { period: string; ratio: number }[] | null;
+    convergence_score: number; signal_type: string;
+    google_articles: GoogleArticle[];
+  }[];
+  engagement_history: { view_count: number; comment_count: number; captured_at: string }[];
+  related_articles: { id: number; title: string; url: string; source_name: string; source_key: string; thumbnail: string | null }[];
 }
 
 // ── 날씨 ─────────────────────────────────────────────────
