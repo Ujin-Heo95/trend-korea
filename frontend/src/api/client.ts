@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Post, Source, PostsResponse, DailyReport, DailyReportMeta, WeatherResponse, CityInfo, KeywordStatsResponse, TrendSignalsResponse, IssueDetailResponse } from '../types';
+import type { Post, Source, PostsResponse, DailyReport, DailyReportMeta, WeatherResponse, CityInfo, KeywordStatsResponse, TrendSignalsResponse, TopicsResponse, IssueDetailResponse } from '../types';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 const api = axios.create({ baseURL });
@@ -30,6 +30,9 @@ export const fetchKeywordStats = (window: number = 3) =>
 
 export const fetchTrendSignals = () =>
   api.get<TrendSignalsResponse>('/trends/signals').then(r => r.data);
+
+export const fetchTopics = () =>
+  api.get<TopicsResponse>('/topics').then(r => r.data);
 
 export const fetchIssueDetail = (postId: number) =>
   api.get<IssueDetailResponse>(`/posts/${postId}`).then(r => r.data);

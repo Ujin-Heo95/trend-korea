@@ -14,6 +14,7 @@ import { keywordsRoutes } from './routes/keywords.js';
 import { trendSignalsRoutes } from './routes/trendSignals.js';
 import { issueDetailRoutes } from './routes/issueDetail.js';
 import { votesRoutes } from './routes/votes.js';
+import { topicsRoutes } from './routes/topics.js';
 import { startScheduler } from './scheduler/index.js';
 
 if (config.sentryDsn) {
@@ -41,6 +42,7 @@ export async function buildApp() {
   await app.register(trendSignalsRoutes);
   await app.register(issueDetailRoutes);
   await app.register(votesRoutes);
+  await app.register(topicsRoutes);
 
   app.addHook('onError', (_req, _reply, error, done) => {
     if (config.sentryDsn) Sentry.captureException(error);

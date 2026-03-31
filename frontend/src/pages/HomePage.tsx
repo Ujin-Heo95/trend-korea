@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useInfinitePosts } from '../hooks/usePosts';
 import { fetchPosts } from '../api/client';
 import { PostCard } from '../components/PostCard';
-import { TrendingSection } from '../components/TrendingSection';
 import { TrendRadar } from '../components/TrendRadar';
+const TrendHero = React.lazy(() => import('../components/TrendHero').then(m => ({ default: m.TrendHero })));
 import { CategoryTabs } from '../components/CategoryTabs';
 import { SourceFilterChips } from '../components/SourceFilterChips';
 import { MovieRankingTable } from '../components/MovieRankingTable';
@@ -95,8 +95,10 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     <div>
       {!searchQuery && !category && (
         <>
+          <React.Suspense fallback={<div className="h-40 animate-pulse bg-slate-100 rounded-xl mb-6" />}>
+            <TrendHero />
+          </React.Suspense>
           <TrendRadar />
-          <TrendingSection />
         </>
       )}
 

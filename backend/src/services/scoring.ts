@@ -3,6 +3,24 @@ import type { Pool } from 'pg';
 const LN2 = Math.LN2;
 const HALF_LIFE_MINUTES = 360; // 6시간 반감기
 
+// ─── Channel Mapping ───
+
+export type Channel = 'community' | 'news' | 'video' | 'sns' | 'specialized';
+
+const CATEGORY_TO_CHANNEL: Record<string, Channel> = {
+  community: 'community', blog: 'community',
+  news: 'news', press: 'news', newsletter: 'news', government: 'news',
+  video: 'video', video_popular: 'video',
+  sns: 'sns',
+  tech: 'specialized', techblog: 'specialized', finance: 'specialized',
+  deals: 'specialized', alert: 'specialized', trend: 'specialized',
+  sports: 'specialized', movie: 'specialized', performance: 'specialized',
+};
+
+export function getChannel(category: string | null): Channel {
+  return (category ? CATEGORY_TO_CHANNEL[category] : undefined) ?? 'specialized';
+}
+
 // ─── Source & Category Weights (기존 유지) ───
 
 const SOURCE_WEIGHTS: Record<string, number> = {
@@ -147,30 +165,89 @@ async function calculateSourceStats(pool: Pool): Promise<Map<string, SourceStats
   return map;
 }
 
-/** Z-Score 정규화된 engagement 계산 */
+/** 채널별 통계 계산 (소스 샘플 부족 시 fallback) */
+async function calculateChannelStats(pool: Pool): Promise<Map<Channel, SourceStats>> {
+  const { rows } = await pool.query<{
+    channel: string;
+    mean_log_views: number;
+    stddev_log_views: number;
+    mean_log_comments: number;
+    stddev_log_comments: number;
+    sample_count: number;
+  }>(`
+    SELECT
+      CASE
+        WHEN category IN ('community','blog') THEN 'community'
+        WHEN category IN ('news','press','newsletter','government') THEN 'news'
+        WHEN category IN ('video','video_popular') THEN 'video'
+        WHEN category = 'sns' THEN 'sns'
+        ELSE 'specialized'
+      END AS channel,
+      AVG(ln(1 + view_count))::float AS mean_log_views,
+      GREATEST(STDDEV(ln(1 + view_count)), 0.1)::float AS stddev_log_views,
+      AVG(ln(1 + comment_count))::float AS mean_log_comments,
+      GREATEST(STDDEV(ln(1 + comment_count)), 0.1)::float AS stddev_log_comments,
+      COUNT(*)::int AS sample_count
+    FROM posts
+    WHERE scraped_at > NOW() - INTERVAL '24 hours' AND view_count > 0
+    GROUP BY channel
+  `);
+
+  const map = new Map<Channel, SourceStats>();
+  for (const r of rows) {
+    map.set(r.channel as Channel, {
+      meanLogViews: r.mean_log_views,
+      stddevLogViews: r.stddev_log_views,
+      meanLogComments: r.mean_log_comments,
+      stddevLogComments: r.stddev_log_comments,
+      sampleCount: r.sample_count,
+    });
+  }
+  return map;
+}
+
+/** 채널별 댓글 가중치 */
+const CHANNEL_COMMENT_WEIGHT: Record<Channel, number> = {
+  community: 1.5,    // 커뮤니티 댓글은 참여 지표로 중요
+  news: 0.5,         // 뉴스 댓글은 덜 의미 있음
+  video: 1.0,        // 영상 댓글은 보통
+  sns: 1.0,          // SNS 댓글은 보통
+  specialized: 1.0,  // 테크블로그 등
+};
+
+/** Z-Score 정규화된 engagement 계산 (채널 인식) */
 function normalizeEngagement(
   viewCount: number,
   commentCount: number,
   sourceKey: string,
   sourceStatsMap: Map<string, SourceStats>,
+  channelStatsMap: Map<Channel, SourceStats>,
+  channel: Channel,
   categoryBaseline: number,
 ): number {
-  // engagement 데이터가 없으면 Bayesian Prior 사용 (Phase C)
+  const commentWeight = CHANNEL_COMMENT_WEIGHT[channel];
+
+  // engagement 데이터가 없으면 Bayesian Prior 사용
   if (viewCount === 0 && commentCount === 0) {
+    // 뉴스는 engagement 없이 스크랩되는 경우가 많으므로 baseline 상향
+    if (channel === 'news') return categoryBaseline * 1.2;
     return categoryBaseline;
   }
 
-  const stats = sourceStatsMap.get(sourceKey);
-  // 통계 부족 시 (sample < 10) log1p fallback
+  // 소스별 통계 우선, 부족하면 채널 통계 fallback
+  let stats = sourceStatsMap.get(sourceKey);
   if (!stats || stats.sampleCount < 10) {
-    const raw = Math.log1p(viewCount) + Math.log1p(commentCount) * 1.5;
+    stats = channelStatsMap.get(channel);
+  }
+  if (!stats || stats.sampleCount < 10) {
+    const raw = Math.log1p(viewCount) + Math.log1p(commentCount) * commentWeight;
     return Math.max(raw, 0.5);
   }
 
   const zViews = (Math.log1p(viewCount) - stats.meanLogViews) / stats.stddevLogViews;
   const zComments = (Math.log1p(commentCount) - stats.meanLogComments) / stats.stddevLogComments;
   // z-score를 양수 범위로 시프트: 평균 = 2.0, 1시그마 위 = 3.0
-  return Math.max(2.0 + zViews + zComments * 1.5, 0.5);
+  return Math.max(2.0 + zViews + zComments * commentWeight, 0.5);
 }
 
 /** Engagement 스냅샷 기반 velocity 계산 */
@@ -349,6 +426,7 @@ export async function calculateScores(pool: Pool): Promise<number> {
   // Step 1: 서브 계산 병렬 실행
   const [
     sourceStatsMap,
+    channelStatsMap,
     velocityMap,
     keywordMomentumMap,
     trendConfirmationMap,
@@ -357,6 +435,7 @@ export async function calculateScores(pool: Pool): Promise<number> {
     postsResult,
   ] = await Promise.all([
     calculateSourceStats(pool),
+    calculateChannelStats(pool),
     calculateVelocityMap(pool).catch(() => new Map<number, VelocityData>()),
     calculateKeywordMomentumMap(pool).catch(() => new Map<number, number>()),
     calculateTrendConfirmationMap(pool).catch(() => new Map<number, number>()),
@@ -386,6 +465,8 @@ export async function calculateScores(pool: Pool): Promise<number> {
 
   // 스코어 분포 추적용
   const scores: number[] = [];
+  // 채널별 백분위 정규화용
+  const rawScoreEntries: { postId: number; score: number; srcW: number; catW: number; channel: Channel }[] = [];
 
   for (const row of rows) {
     const ageMinutes = (now - new Date(row.scraped_at).getTime()) / 60_000;
@@ -404,10 +485,13 @@ export async function calculateScores(pool: Pool): Promise<number> {
       else if (hasCluster) credibilityFactor = 1.15;
     }
 
+    const channel = getChannel(row.category);
+
     const factors: ScoreFactors = {
       normalizedEngagement: normalizeEngagement(
         row.view_count, row.comment_count, row.source_key,
-        sourceStatsMap, catBaseline * credibilityFactor,
+        sourceStatsMap, channelStatsMap, channel,
+        catBaseline * credibilityFactor,
       ),
       decay: Math.exp(-LN2 * ageMinutes / HALF_LIFE_MINUTES),
       sourceWeight: srcW,
@@ -420,9 +504,28 @@ export async function calculateScores(pool: Pool): Promise<number> {
 
     const score = computeScore(factors);
     scores.push(score);
+    rawScoreEntries.push({ postId: row.id, score, srcW, catW, channel });
+  }
 
+  // Step 3: 채널 내 백분위 정규화 (0-10 스케일)
+  const byChannel = new Map<Channel, typeof rawScoreEntries>();
+  for (const entry of rawScoreEntries) {
+    const arr = byChannel.get(entry.channel) ?? [];
+    arr.push(entry);
+    byChannel.set(entry.channel, arr);
+  }
+  for (const group of byChannel.values()) {
+    group.sort((a, b) => a.score - b.score);
+    const len = group.length;
+    for (let i = 0; i < len; i++) {
+      group[i].score = len > 1 ? (i / (len - 1)) * 10 : 5.0;
+    }
+  }
+
+  // Step 4: UPSERT 준비
+  for (const entry of rawScoreEntries) {
     const i = params.length;
-    params.push(row.id, score, srcW, catW);
+    params.push(entry.postId, entry.score, entry.srcW, entry.catW);
     values.push(`($${i + 1}, $${i + 2}, $${i + 3}, $${i + 4}, NOW())`);
   }
 
@@ -445,12 +548,13 @@ export async function calculateScores(pool: Pool): Promise<number> {
     updated += result.rowCount ?? 0;
   }
 
-  // 스코어 분포 로깅
-  if (scores.length > 0) {
-    scores.sort((a, b) => a - b);
-    const p = (pct: number) => scores[Math.floor(scores.length * pct / 100)]?.toFixed(2) ?? '?';
+  // 스코어 분포 로깅 (백분위 정규화 후)
+  if (rawScoreEntries.length > 0) {
+    const finalScores = rawScoreEntries.map(e => e.score).sort((a, b) => a - b);
+    const p = (pct: number) => finalScores[Math.floor(finalScores.length * pct / 100)]?.toFixed(2) ?? '?';
+    const channelCounts = [...byChannel.entries()].map(([ch, g]) => `${ch}=${g.length}`).join(', ');
     console.log(
-      `[scoring] ${scores.length} posts scored. p10=${p(10)}, p50=${p(50)}, p90=${p(90)}, max=${scores[scores.length - 1]?.toFixed(2)}`
+      `[scoring] ${finalScores.length} posts scored (0-10 scale). p10=${p(10)}, p50=${p(50)}, p90=${p(90)} | channels: ${channelCounts}`
     );
   }
 

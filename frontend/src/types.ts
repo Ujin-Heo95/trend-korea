@@ -22,6 +22,7 @@ export interface Post {
   cluster_id?: number | null;
   related_sources?: { id: number; source_name: string; source_key: string; url: string }[];
   metadata?: Record<string, unknown>;
+  keywords?: string[];
 }
 
 export interface Source {
@@ -86,6 +87,30 @@ export interface KeywordStatsResponse {
   totalPosts: number;
   window: number;
   calculatedAt: string | null;
+}
+
+// ── 토픽 종합 ──────────────────────────────────────────
+export interface TopicPost {
+  id: number;
+  title: string;
+  sourceKey: string;
+  sourceName: string;
+}
+
+export interface Topic {
+  id: string;
+  headline: string;
+  keywords: string[];
+  channels: string[];
+  postCount: number;
+  momentum: 'rising' | 'steady' | 'falling';
+  momentumValue: number;
+  convergenceScore: number;
+  representativePosts: TopicPost[];
+}
+
+export interface TopicsResponse {
+  topics: Topic[];
 }
 
 // ── 빅카인즈 오늘의 이슈 ────────────────────────────────
