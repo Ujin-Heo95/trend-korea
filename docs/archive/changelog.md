@@ -1,4 +1,6 @@
-# Changelog
+# Changelog (역사 기록)
+
+> **유지보수 중단.** 현재 변경 이력은 `git log --oneline`으로 확인하세요.
 
 ## v0.9.6 (2026-03-31) — Apify SNS 탭 (Instagram/X/TikTok)
 

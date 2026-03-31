@@ -50,7 +50,7 @@
 
 | 작업 | 공수 | 상세 |
 |------|------|------|
-| [x] Dual Pool 버그 수정 (server.ts + db/client.ts) | 30분 | [기술부채.md](dev/기술부채.md) §1.1 |
+| [x] Dual Pool 버그 수정 (server.ts + db/client.ts) | 30분 | [기술부채.md](../docs/archive/tech-debt-resolved.md) §1.1 |
 | [x] POST_TTL_DAYS=3 + cleanup 2회/일 | 30분 | DB 100MB 한도 대응 |
 | [x] 스크래퍼 mutex + 30초 타임아웃 | 30분 | 중복 실행 방지 |
 | [x] Graceful shutdown 핸들러 | 30분 | Railway 재배포 안정성 |
@@ -61,10 +61,10 @@
 
 | 작업 | 공수 | 상세 |
 |------|------|------|
-| [x] Tailwind CDN → PostCSS 빌드 (300KB→17KB) | 1시간 | [기술부채.md](dev/기술부채.md) §2 |
+| [x] Tailwind CDN → PostCSS 빌드 (300KB→17KB) | 1시간 | [기술부채.md](../docs/archive/tech-debt-resolved.md) §2 |
 | [x] 필터 상태 URL 반영 (useSearchParams) | 2시간 | SEO 크롤링 필수 |
-| [x] meta/OG 태그 + sitemap.xml + robots.txt | 3시간 | [마케팅](marketing/) |
-| [x] 인메모리 LRU 캐시 | 2시간 | [인프라-스케일링.md](dev/인프라-스케일링.md) |
+| [x] meta/OG 태그 + sitemap.xml + robots.txt | 3시간 | [마케팅](business/marketing.md) |
+| [x] 인메모리 LRU 캐시 | 2시간 | [인프라-스케일링.md](scaling.md) |
 | [x] 복합 인덱스 (category, scraped_at DESC) | 5분 | DB 쿼리 최적화 |
 | [x] Umami Cloud 분석도구 스크립트 삽입 | 10분 | PIPA 준수 (ID 교체 필요) |
 | [x] 개인정보처리방침 + /privacy 페이지 | 3시간 | [법무](legal/) |
@@ -79,7 +79,7 @@
 | [x] 트렌드 스코어링 시스템 | 2시간 | ~~시간 감쇠 + 소스/카테고리 가중치 + 클러스터 보너스~~ → v0.8.0에서 다중 팩터로 개편 |
 | [x] 스코어링 엔진 개편 (다중 팩터) | 3시간 | Z-Score 정규화 + Velocity + Keyword Momentum + Trend Confirmation + 클러스터 보너스 개편 |
 | [x] UA 로테이션 + 랜덤 딜레이 (봇 차단 대응) | 30분 | clien/fmkorea 성공률 개선 |
-| [x] 일일 리포트 MVP (웹 + Gemini Flash 요약) | 2일 | [콘텐츠-랭킹.md](dev/콘텐츠-랭킹.md) §4 |
+| [x] 일일 리포트 MVP (웹 + Gemini Flash 요약) | 2일 | [콘텐츠-랭킹.md](scoring.md) §4 |
 | [x] Discord 웹훅 에러 알림 | 1시간 | 스크래퍼 에러 배치 알림 |
 | [x] Tier 1 RSS 소스 확장 (44→51 활성) | 1시간 | 방송4+일간지2+다음뉴스+테크+스포츠+보도자료+테크블로그3 |
 | [x] 고장 소스 정리 (kmib/koreatimes/ruliweb disable) | 10분 | 406/DNS/timeout |
@@ -90,7 +90,7 @@
 ### Phase 2.5: 생존 기반 — 사업 인프라 (즉시, 1-2주차)
 
 > 2026-03-30 5개 부서 교차 검증 결과, **기능 추가보다 사업 기반 구축이 우선**으로 합의.
-> 상세: [planning/종합분석-2026Q1.md](planning/종합분석-2026Q1.md)
+> 상세: [business/analysis-2026Q1.md](business/analysis-2026Q1.md)
 
 | 작업 | 공수 | 상세 | 블로킹 |
 |------|------|------|--------|
@@ -188,8 +188,8 @@
 
 | 문서 | 내용 |
 |------|------|
-| [dev/기술부채.md](dev/기술부채.md) | 코드 리뷰 결과, 버그, 프론트엔드 이슈 |
-| [dev/인프라-스케일링.md](dev/인프라-스케일링.md) | DB/호스팅/캐싱/비용 스케일링 경로 |
-| [dev/소스-확장-가이드.md](dev/소스-확장-가이드.md) | 소스 카탈로그, 실패 아카이브, 확장 우선순위 |
-| [dev/콘텐츠-랭킹.md](dev/콘텐츠-랭킹.md) | 스코어링, 중복제거, 피드백, 일일 리포트 |
-| [planning/비용-수익-예측.md](planning/비용-수익-예측.md) | DAU별 비용·수익 모델 |
+| [tech-debt.md](tech-debt.md) | 미해결 기술 부채 |
+| [scaling.md](scaling.md) | DB/호스팅/캐싱/비용 스케일링 경로 |
+| [sources.md](sources.md) | 소스 카탈로그, 실패 아카이브, 확장 우선순위 |
+| [scoring.md](scoring.md) | 스코어링, 중복제거, 피드백, 일일 리포트 |
+| [business/financials.md](business/financials.md) | DAU별 비용·수익 모델 |

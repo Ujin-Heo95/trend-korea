@@ -1,69 +1,37 @@
-# Trend Korea 문서 체계
+# Trend Korea 문서
 
-한국 실시간 트렌드 어그리게이터 프로젝트의 사업부별 문서 구조.
+> 2026-03-31 구조 개편. 구경로 매핑은 하단 참조.
 
-## 네비게이션
+## 문서 목록
 
-| 부서 | 경로 | 역할 |
-|------|------|------|
-| **CEO** | [로드맵.md](로드맵.md) | 전체 로드맵, 사업부 횡단 계획 |
-| **경영기획** | [planning/](planning/) | 사업계획, 비용구조, 투자유치 |
-| **개발** | [dev/](dev/) | 아키텍처, 변경이력, 기술 의사결정 |
-| **마케팅** | [marketing/](marketing/) | SEO, 수익화, 트래픽 전략 |
-| **법무** | [legal/](legal/) | 스크래핑 법적 검토, 개인정보 |
-
-## ���사결정 기록 체계
-
-각 부서에 `decisions/` 폴더가 있으며, ��서별 접두사로 구분합니다:
-
-| 접두사 | 부서 | 예시 |
-|--------|------|------|
-| BD- | 경영기획 (Business Decision) | BD-001-수익모델-AdSense.md |
-| TD- | 개발 (Technical Decision) | TD-001-모노레포.md |
-| MD- | 마케팅 (Marketing Decision) | — |
-| LD- | 법무 (Legal Decision) | — |
-
-### 의사결정 기록 포맷
-
-```markdown
-# XX-NNN: 제목
-
-- 상태: 승인 | 검토중 | 폐기
-- 일자: YYYY-MM-DD
-- 부서: 경영기획 | 개발 | 마케팅 | 법무
-
-## 맥락
-## 결정
-## 대안
-## 결과
-```
-
-## 최근 업데이트
-
-### 2026-03-30: 5개 부서 교차 검증
-
-CEO, 서비스기획, 개발, 사업, 마케팅 5개 에이전트 독립 분석 + 교차 챌린지:
-
-| 문서 | 내용 |
+| 문서 | 설명 |
 |------|------|
-| **[planning/종합분석-2026Q1.md](planning/종합분석-2026Q1.md)** | **종합 분석 보고서 (신규)** — 5개 부서 점수, 교차 쟁점, 리스크 매트릭스, 90일 KPI |
-| [로드맵.md](로드맵.md) | Phase 2.5/2.6 생존 기반 추가, Phase 3-4 재구성 |
-| [planning/README.md](planning/README.md) | 리스크 매트릭스 합산, 대안 수익 모델, 경쟁 전략 |
-| [marketing/README.md](marketing/README.md) | 준비도 25/100, 런칭 전략, 바이럴 분석, KPI 합의 |
+| [roadmap.md](roadmap.md) | 전체 로드맵 (Phases 0-5) |
+| [architecture.md](architecture.md) | 시스템 아키텍처, DB 스키마, API 엔드포인트 |
+| [scoring.md](scoring.md) | 트렌드 스코어링, 중복제거, 일일 리포트 설계 |
+| [sources.md](sources.md) | 스크래퍼 추가 가이드 + 소스 카탈로그 + 확장 후보 |
+| [scaling.md](scaling.md) | DAU별 인프라 스케일링 전략 |
+| [tech-debt.md](tech-debt.md) | 미해결 기술 부채 |
+| [business/financials.md](business/financials.md) | 비용-수익 예측 모델 |
+| [business/marketing.md](business/marketing.md) | 마케팅 전략, SEO, 수익화 |
+| [business/legal.md](business/legal.md) | 스크래핑 법적 검토, 개인정보, 사업자등록 |
+| [business/analysis-2026Q1.md](business/analysis-2026Q1.md) | 2026 Q1 종합 분석 (5개 부서 교차 검증) |
+| [decisions/](decisions/) | 의사결정 기록 (TD-기술, BD-경영) |
+| [archive/](archive/) | 변경이력, 해결된 기술부채, 과거 계획서 |
 
-### 2026-03-29: 6개 에이전트 종합 분석
+## 구경로 → 신경로 매핑
 
-| 문서 | 내용 |
-|------|------|
-| [dev/기술부채.md](dev/기술부채.md) | 코드 리뷰 결과 (백엔드 5건, 프론트 8건+) |
-| [dev/인프라-스케일링.md](dev/인프라-스케일링.md) | DB/호스팅/캐싱/모니터링 경로 |
-| [dev/소스-확장-가이드.md](dev/소스-확장-가이드.md) | 60+ 잠재 소스 카탈로그 |
-| [dev/콘텐츠-랭킹.md](dev/콘텐츠-랭킹.md) | 스코어링·중복제거·리포트 설계 |
-| [planning/비용-수익-예측.md](planning/비용-수익-예측.md) | DAU별 비용·수익 모델 |
-
-## 문서 작성 원칙
-
-1. **디렉토리명:** 영어 (`dev/`, `legal/`)
-2. **파일명/내용:** 한글 (`아키텍처.md`)
-3. **각 부서 README.md:** 해당 부서의 현황과 운영 가이드 역할
-4. **하위 팀 폴더:** 실제 인원이 배치될 때 생성 (예: `dev/frontend/`)
+| 구경로 | 신경로 |
+|--------|--------|
+| `docs/로드맵.md` | `docs/roadmap.md` |
+| `docs/dev/아키텍처.md` | `docs/architecture.md` |
+| `docs/dev/콘텐츠-랭킹.md` | `docs/scoring.md` |
+| `docs/dev/인프라-스케일링.md` | `docs/scaling.md` |
+| `docs/dev/기술부채.md` | `docs/tech-debt.md` (미해결만) |
+| `docs/dev/소스-확장-가이드.md` | `docs/sources.md` |
+| `docs/dev/스크래퍼-추가-가이드.md` | `docs/sources.md` (병합) |
+| `docs/dev/변경이력.md` | `docs/archive/changelog.md` |
+| `docs/planning/비용-수익-예측.md` | `docs/business/financials.md` |
+| `docs/planning/종합분석-2026Q1.md` | `docs/business/analysis-2026Q1.md` |
+| `docs/marketing/README.md` | `docs/business/marketing.md` |
+| `docs/legal/README.md` | `docs/business/legal.md` |

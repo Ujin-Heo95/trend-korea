@@ -9,11 +9,11 @@
 | 구성요소 | 현재 | 제약 |
 |----------|------|------|
 | 백엔드 | Railway (US-West) | 한국 사용자 150-200ms RTT |
-| DB | PostgreSQL 16 on Railway | **100MB 한도 (free tier)** |
+| DB | **PostgreSQL 17.6 on Supabase (서울)** | 500MB 한도 (free tier) |
 | 프론트엔드 | Railway 정적 빌드 | CDN 없음 |
-| 캐싱 | 없음 | 모든 요청이 DB 직접 히트 |
-| 모니터링 | `/health` 엔드포인트만 | 알림 없음, 로그 유실 |
-| CI/CD | Railway auto-deploy | 테스트/린트 게이트 없음 |
+| 캐싱 | LRU 캐시 (60초 TTL, 200엔트리) | 서버 재시작 시 소실 |
+| 모니터링 | `/health` + Discord 알림 + DB 용량 모니터링 | Sentry 미설정 |
+| CI/CD | GitHub Actions + Railway auto-deploy | 린트 + 테스트 게이트 |
 
 ---
 
@@ -183,7 +183,7 @@ CREATE INDEX idx_posts_title_hash ON posts(title_hash);
 
 ---
 
-## 8. 비용 예측 (상세는 planning/비용-수익-예측.md)
+## 8. 비용 예측 (상세는 business/financials.md)
 
 | DAU | 인프라 비용 | 주요 구성 |
 |-----|-----------|-----------|

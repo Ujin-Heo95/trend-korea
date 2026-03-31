@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"https://trend-korea-production.up.railway.app/api/posts?category=tech&limit=5\")",
+      "Bash(curl -s https://trend-korea-production.up.railway.app/api/sources)",
+      "Bash(curl -s \"https://trend-korea-production.up.railway.app/api/posts?category=tech&limit=3\")",
+      "Bash(curl -s \"https://trend-korea-production.up.railway.app/api/posts?category=government&limit=3\")",
+      "Bash(curl -s \"https://trend-korea-production.up.railway.app/api/posts?category=newsletter&limit=3\")",
+      "Bash(curl -s \"https://trend-korea-production.up.railway.app/api/posts?category=deals&limit=3\")",
+      "Bash(npx tsc:*)",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(f\"\"{s[''''key'''']:20s} cat={s[''''category'''']:12s} posts={s[''''post_count'''']:>4d} rate={s[''''success_rate_24h'''']:.0%} avg={s[''''avg_posts_per_run'''']}\"\"\\) for s in data if s[''''category''''] in \\(''''trend'''',''''finance''''\\)]\")",
+      "Bash(node -e \":*)",
+      "WebSearch",
+      "WebFetch(domain:autoincomeai.blogspot.com)",
+      "WebFetch(domain:gist.github.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:kenees.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:taking.kr)",
+      "WebFetch(domain:www.newswire.co.kr)",
+      "Bash(curl -s -X POST https://trend-korea-production.up.railway.app/api/daily-report/generate)",
+      "Bash(grep -n \"BIGSERIAL\\\\|id.*INTEGER\\\\|id.*BIGINT\" /c/dev/trend-korea/backend/src/db/migrations/*.sql)",
+      "Bash(ls src/services/trendCross*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(python3:*)",
+      "Bash(curl -s \"https://api.koreafilm.or.kr/openapi-data2/wisenut/search_api/search_json2.jsp?collection=kmdb_new2&detail=Y&title=기생충&ServiceKey=demo&listCount=1\")",
+      "Bash(curl -s \"https://api.koreafilm.or.kr/openapi-data2/wisenut/search_api/search_json2.jsp?collection=kmdb_new2&detail=Y&title=%EA%B8%B0%EC%83%9D%EC%B6%A9&ServiceKey=demo&listCount=1\")",
+      "WebFetch(domain:www.kmdb.or.kr)",
+      "WebFetch(domain:velog.io)",
+      "WebFetch(domain:www.kobis.or.kr)",
+      "WebFetch(domain:wikidocs.net)",
+      "Bash(npx vitest:*)",
+      "Bash(npm run:*)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\허우진\\.claude\\sessions"
+    ]
+  }
+}

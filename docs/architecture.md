@@ -12,14 +12,13 @@
 │  │  (정적 빌드)    │        │  :4000                      │  │
 │  └────────────────┘        └────────────┬───────────────┘  │
 │                                         │                   │
-│                            ┌────────────▼───────────────┐  │
-│                            │  PostgreSQL 16              │  │
-│                            │  (Railway, 100MB 한도)      │  │
-│                            │                             │  │
-│                            │  posts        (수집 데이터) │  │
-│                            │  scraper_runs (실행 이력)   │  │
-│                            └─────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────│───────────────────┘
+                                          │
+                             ┌────────────▼───────────────┐
+                             │  PostgreSQL 17.6            │
+                             │  Supabase (서울, 500MB)     │
+                             │  Session pooler (IPv4)      │
+                             └─────────────────────────────┘
 ```
 
 ## Backend Data Flow
@@ -29,7 +28,7 @@ sources.json (통합 레지스트리)
 └── registry.ts (로더: RSS 자동생성, HTML/API 동적 import)
 
 node-cron 우선순위 스케줄러
-├── 최초 실행: runAllScrapers() — 전체 62개
+├── 최초 실행: runAllScrapers() — 전체 71개
 ├── 매 10분: high-priority (커뮤니티, 트렌딩)
 ├── 매 15분: medium-priority (뉴스 RSS, 테크)
 ├── 매 30분: low-priority (정부, 기상)
@@ -197,10 +196,12 @@ Indices: `(keyword, detected_date)` UNIQUE, `convergence_score DESC`, `expires_a
 |--------|------|--------|----------|
 | GET | /api/posts | source?, category?, q?, page=1, limit=30 (max 100) | `{ posts, total, page, limit, lastUpdated? }` — category 미지정 시 movie/performance 제외 |
 | GET | /api/posts/trending | — | `{ posts }` (1시간 내, view_count 상위 20) |
-| GET | /api/sources | — | `Source[]` (51개, post_count, last_updated, success_rate_24h, avg_posts_per_run) |
+| GET | /api/sources | — | `Source[]` (71개, post_count, last_updated, success_rate_24h, avg_posts_per_run) |
 | GET | /api/trends/signals | type? | `{ signals }` 교차 검증 트렌드 (convergence_score DESC, 24h) |
 | GET | /api/keywords/hot | hours?=3 | `{ keywords }` 핫이슈 키워드 (빈도순) |
 | GET | /api/daily-report | date? | `{ report }` 일일 리포트 (Gemini 요약 포함) |
+| POST | /api/posts/:id/vote | — | `{ vote_count, voted }` Upvote 토글 (IP 중복 방지) |
+| GET | /api/posts/:id/detail | — | `{ post, relatedPosts, engagementHistory }` 이슈 상세 |
 | GET | /health | — | DB 통계 + 스크래퍼 상태, 503 if DB down |
 
 Rate limit: 100 req/min, CORS: `*`
@@ -248,14 +249,14 @@ shared/
 | Layer | Tech |
 |-------|------|
 | Backend | Node.js 20, Fastify 5, TypeScript 5.4 |
-| DB | PostgreSQL 16, pg 8.11 (Pool) |
+| DB | PostgreSQL 17.6 (Supabase 서울), pg 8.11 (Pool) |
 | Scraping | cheerio, rss-parser, axios, p-limit |
 | Scheduling | node-cron |
 | Frontend | React 18, Vite 5, TypeScript 5.4 |
 | State | @tanstack/react-query v5 |
-| Styling | Tailwind CSS (CDN) |
+| Styling | Tailwind CSS v4 (PostCSS) |
 | Testing | Vitest, axios mock |
-| Deploy | Railway (auto-detect, no Dockerfile) |
+| Deploy | Railway (auto-detect) + Supabase DB (서울) |
 
 ## Environment Variables
 
