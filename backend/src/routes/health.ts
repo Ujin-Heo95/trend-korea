@@ -1,4 +1,5 @@
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { config } from '../config/index.js';
 import { checkApiKeys } from '../services/apiKeyHealth.js';
 
 interface ScraperRunRow {
@@ -9,19 +10,30 @@ interface ScraperRunRow {
 }
 
 export async function healthRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/health', async (_req, reply: FastifyReply) => {
+  app.get('/health', async (req: FastifyRequest, reply: FastifyReply) => {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    // ADMIN_TOKEN 미설정 시 기존 동작 유지 (상세 공개), 설정 시 인증 필요
+    const isAdmin = config.adminToken === '' || token === config.adminToken;
+
     // 1. DB 연결 확인
     try {
       await app.pg.query('SELECT 1');
     } catch {
+      const minimal = { status: 'degraded', db: { connected: false } };
+      if (!isAdmin) return reply.status(503).send(minimal);
       return reply.status(503).send({
-        status: 'degraded',
+        ...minimal,
         db: { connected: false, post_count: 0, db_size_mb: 0, oldest_post_age_days: 0 },
         scrapers: { total: 0, last_run_at: null, failed_last_run: 0, sources: [] },
       });
     }
 
-    // 2. DB 통계
+    // 공개 응답: 상태만 반환
+    if (!isAdmin) {
+      return reply.status(200).send({ status: 'ok', db: { connected: true } });
+    }
+
+    // 인증된 요청: 상세 정보 반환
     const { rows: [dbStats] } = await app.pg.query<{
       post_count: number; db_size_mb: number; oldest_post_age_days: number;
     }>(`
@@ -35,7 +47,6 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
       FROM posts
     `);
 
-    // 3. 소스별 최신 실행 결과
     const { rows: sources } = await app.pg.query<ScraperRunRow>(`
       SELECT DISTINCT ON (source_key)
         source_key,

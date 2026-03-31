@@ -29,9 +29,9 @@ if (config.sentryDsn) {
 declare module 'fastify' { interface FastifyInstance { pg: Pool; } }
 
 export async function buildApp() {
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: true, trustProxy: true });
   app.decorate('pg', pool);
-  await app.register(cors, { origin: '*' });
+  await app.register(cors, { origin: config.corsOrigin });
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
   await app.register(postsRoutes);
   await app.register(sourcesRoutes);

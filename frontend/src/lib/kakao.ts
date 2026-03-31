@@ -1,6 +1,7 @@
-const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_JS_KEY || 'de388a2b9aac9a66307a36482a7a3b9c';
+const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_JS_KEY ?? '';
 
 export function initKakao(): void {
+  if (!KAKAO_JS_KEY) return;
   if (typeof Kakao === 'undefined') return;
   if (Kakao.isInitialized()) return;
   Kakao.init(KAKAO_JS_KEY);

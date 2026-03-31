@@ -1,20 +1,27 @@
 import type { FastifyInstance } from 'fastify';
 import { LRUCache } from '../cache/lru.js';
+import { config } from '../config/index.js';
 import { generateDailyReport } from '../services/dailyReport.js';
 
 const cache = new LRUCache<unknown>(30, 5 * 60_000); // 30 entries, 5min TTL
 
 export async function dailyReportRoutes(app: FastifyInstance): Promise<void> {
-  // 수동 리포트 생성 트리거 (프로덕션에서도 사용 가능)
-  app.post('/api/daily-report/generate', async (_req, reply) => {
+  // 수동 리포트 생성 트리거 (ADMIN_TOKEN 필수)
+  app.post('/api/daily-report/generate', async (req, reply) => {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!config.adminToken || token !== config.adminToken) {
+      return reply.status(401).send({ ok: false, error: 'Unauthorized' });
+    }
+
     try {
       const reportId = await generateDailyReport(app.pg);
       cache.clear();
       return { ok: true, reportId };
     } catch (err) {
+      app.log.error(err);
       return reply.status(500).send({
         ok: false,
-        error: (err as Error).message,
+        error: 'Internal server error',
       });
     }
   });

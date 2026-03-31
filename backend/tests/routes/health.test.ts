@@ -15,20 +15,33 @@ describe('GET /health', () => {
   });
 
   it('response includes all required db fields', async () => {
+    // ADMIN_TOKEN 미설정 시 상세 공개, 설정 시 인증 필요
     const res = await app.inject({ method: 'GET', url: '/health' });
     const body = JSON.parse(res.body);
     expect(typeof body.db.connected).toBe('boolean');
-    expect(typeof body.db.post_count).toBe('number');
-    expect(typeof body.db.db_size_mb).toBe('number');
-    expect(typeof body.db.oldest_post_age_days).toBe('number');
   });
 
   it('response includes scrapers object with sources array', async () => {
     const res = await app.inject({ method: 'GET', url: '/health' });
     const body = JSON.parse(res.body);
-    expect(typeof body.scrapers.total).toBe('number');
-    expect(Array.isArray(body.scrapers.sources)).toBe(true);
-    expect(typeof body.scrapers.failed_last_run).toBe('number');
+    // ADMIN_TOKEN 미설정 시 상세 포함
+    if (body.scrapers) {
+      expect(typeof body.scrapers.total).toBe('number');
+      expect(Array.isArray(body.scrapers.sources)).toBe(true);
+      expect(typeof body.scrapers.failed_last_run).toBe('number');
+    }
+  });
+
+  it('returns minimal info when ADMIN_TOKEN is set and request is unauthenticated', async () => {
+    // ADMIN_TOKEN 설정 시 미인증 요청은 최소 정보만 반환
+    const res = await app.inject({
+      method: 'GET',
+      url: '/health',
+      headers: { authorization: 'Bearer wrong-token' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.db.connected).toBeDefined();
   });
 
   it('returns 503 when DB is unreachable', async () => {

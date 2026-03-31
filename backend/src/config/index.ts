@@ -23,6 +23,8 @@ interface Config {
   apifyApiToken: string;
   apifyMonthlyBudgetCents: number;
   bigkindsApiKey: string;
+  adminToken: string;
+  corsOrigin: string;
 }
 
 const dbUrl = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/trend_korea';
@@ -88,4 +90,6 @@ export const config: Config = {
   apifyApiToken: process.env.APIFY_API_TOKEN ?? '',
   apifyMonthlyBudgetCents,
   bigkindsApiKey: process.env.BIGKINDS_API_KEY ?? '',
+  adminToken: process.env.ADMIN_TOKEN ?? '',
+  corsOrigin: process.env.CORS_ORIGIN ?? '*',
 };

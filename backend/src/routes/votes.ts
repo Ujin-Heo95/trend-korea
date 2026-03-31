@@ -13,10 +13,7 @@ export async function votesRoutes(app: FastifyInstance): Promise<void> {
       const postId = parseInt(req.params.postId);
       if (isNaN(postId)) return reply.status(400).send({ error: 'Invalid post ID' });
 
-      const clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim()
-        ?? req.ip
-        ?? 'unknown';
-      const ipHash = hashIp(clientIp);
+      const ipHash = hashIp(req.ip);
 
       // Atomic: insert vote if not duplicate, then conditionally increment
       const result = await app.pg.query<{ inserted: boolean }>(
