@@ -49,5 +49,5 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포 + Supabas
 
 ## Current Phase
 
-v0.10.2 — Phase 3 진행중. 소스 71개 + Upvote + 이슈 상세 + Supabase + 177 tests.
+v0.10.3 — Phase 3 진행중. 소스 72개 + 빅카인즈 뉴스 이슈 Top 10 + Upvote + 이슈 상세 + Supabase + 177 tests.
 다음 우선순위: 도메인 구매 → 상세는 `docs/roadmap.md` 참조.

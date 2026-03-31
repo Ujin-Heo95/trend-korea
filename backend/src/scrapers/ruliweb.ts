@@ -16,19 +16,24 @@ export class RuliwebScraper extends BaseScraper {
     const $ = cheerio.load(data);
     const posts: ScrapedPost[] = [];
 
-    $('td.subject a.subject_link').each((_, el) => {
-      const href = $(el).attr('href') ?? '';
-      if (href.startsWith('/market')) return;
+    $('tr.table_body').each((_, row) => {
+      const $row = $(row);
+      const $link = $row.find('td.subject a.subject_link');
+      const href = $link.attr('href') ?? '';
+      if (!href || href.startsWith('/market')) return;
 
       const title =
-        $(el).find('strong.text_over').text().trim() ||
-        $(el).find('span.text_over').text().trim();
-      const url = `https://bbs.ruliweb.com${href}`;
-      const author = $(el).closest('tr').find('td.writer').text().trim() || undefined;
+        $link.find('strong.text_over').text().trim() ||
+        $link.find('span.text_over').text().trim();
+      if (!title) return;
 
-      if (title && href) {
-        posts.push({ sourceKey: 'ruliweb', sourceName: '루리웹', title, url, author });
-      }
+      const url = href.startsWith('http') ? href : `https://bbs.ruliweb.com${href}`;
+      const author = $row.find('td.writer').text().trim() || undefined;
+      const viewCount = parseInt($row.find('td.hit').text().trim(), 10) || 0;
+      const replyText = $link.find('span.num_reply').text().trim();
+      const commentCount = parseInt(replyText.replace(/[()]/g, ''), 10) || 0;
+
+      posts.push({ sourceKey: 'ruliweb', sourceName: '루리웹', title, url, author, viewCount, commentCount });
     });
 
     return posts.slice(0, 30);

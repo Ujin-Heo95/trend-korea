@@ -408,29 +408,40 @@ describe('NatepannScraper', () => {
 // ─── Ruliweb ─────────────────────────────────────────────────
 describe('RuliwebScraper', () => {
   const html = `<html><body><table>
-    <tr>
+    <tr class="table_body blocktarget">
       <td class="subject">
-        <a class="subject_link" href="/best/board/12345">
+        <a class="subject_link deco flex center" href="/best/board/12345">
           <strong class="text_over">루리웹 인기글</strong>
+          <span class="num_reply flex_item_1"> (15)</span>
         </a>
       </td>
       <td class="writer">작성자R</td>
+      <td class="recomd">42</td>
+      <td class="hit">3200</td>
+      <td class="time">14:30</td>
     </tr>
-    <tr>
+    <tr class="table_body blocktarget">
       <td class="subject">
-        <a class="subject_link" href="/best/board/67890">
+        <a class="subject_link deco flex center" href="/best/board/67890">
           <span class="text_over">두번째 글</span>
+          <span class="num_reply flex_item_1"> (8)</span>
         </a>
       </td>
       <td class="writer">작성자S</td>
+      <td class="recomd">20</td>
+      <td class="hit">1500</td>
+      <td class="time">13:10</td>
     </tr>
-    <tr>
+    <tr class="table_body blocktarget">
       <td class="subject">
-        <a class="subject_link" href="/market/12345">
+        <a class="subject_link deco flex center" href="/market/12345">
           <strong class="text_over">마켓 글</strong>
         </a>
       </td>
       <td class="writer">작성자T</td>
+      <td class="recomd">5</td>
+      <td class="hit">800</td>
+      <td class="time">12:00</td>
     </tr>
   </table></body></html>`;
 
@@ -448,10 +459,14 @@ describe('RuliwebScraper', () => {
       title: '루리웹 인기글',
       url: 'https://bbs.ruliweb.com/best/board/12345',
       author: '작성자R',
+      viewCount: 3200,
+      commentCount: 15,
     });
     expect(posts[1]).toMatchObject({
       title: '두번째 글',
       author: '작성자S',
+      viewCount: 1500,
+      commentCount: 8,
     });
   });
 });

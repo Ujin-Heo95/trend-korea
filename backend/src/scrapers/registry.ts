@@ -40,15 +40,43 @@ export function getSourcesByPriority(priority: SourcePriority): readonly SourceE
   return getEnabledSources().filter(s => s.priority === priority);
 }
 
+const API_KEY_REQUIREMENTS: Record<string, { key: keyof typeof config; label: string }> = {
+  youtube:        { key: 'youtubeApiKey',    label: 'YOUTUBE_API_KEY' },
+  youtube_search: { key: 'youtubeApiKey',    label: 'YOUTUBE_API_KEY' },
+  daum_cafe:      { key: 'kakaoRestApiKey',  label: 'KAKAO_REST_API_KEY' },
+  daum_blog:      { key: 'kakaoRestApiKey',  label: 'KAKAO_REST_API_KEY' },
+  naver_datalab:  { key: 'naverClientId',    label: 'NAVER_CLIENT_ID' },
+  kobis_boxoffice:{ key: 'kobisApiKey',      label: 'KOBIS_API_KEY' },
+  kopis_boxoffice:{ key: 'kopisApiKey',      label: 'KOPIS_API_KEY' },
+};
+
 export async function buildScrapers(pool: Pool): Promise<readonly ResolvedScraper[]> {
   const enabled = getEnabledSources();
   const scrapers: ResolvedScraper[] = [];
+  const missingKeys: string[] = [];
 
   for (const source of enabled) {
+    const req = API_KEY_REQUIREMENTS[source.key];
+    if (req && !config[req.key]) {
+      missingKeys.push(`${source.name} (${source.key}): ${req.label} 미설정`);
+    }
+
+    // Apify scrapers need APIFY_API_TOKEN
+    if (source.type === 'apify' && !config.apifyApiToken) {
+      missingKeys.push(`${source.name} (${source.key}): APIFY_API_TOKEN 미설정`);
+    }
+
     const scraper = await buildOneScraper(source, pool);
     if (scraper) {
       scraper.category = source.category;
       scrapers.push({ sourceKey: source.key, scraper, priority: source.priority });
+    }
+  }
+
+  if (missingKeys.length > 0) {
+    console.warn(`[registry] ⚠️ API 키 누락으로 무음 실패 예상 (${missingKeys.length}개):`);
+    for (const msg of missingKeys) {
+      console.warn(`  - ${msg}`);
     }
   }
 
