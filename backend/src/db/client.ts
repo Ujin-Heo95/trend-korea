@@ -8,7 +8,7 @@ export const pool = new Pool({
   max: config.dbPoolMax,
   idleTimeoutMillis: config.dbIdleTimeoutMs,
   connectionTimeoutMillis: config.dbConnectionTimeoutMs,
-  ...(isSSL && { ssl: { rejectUnauthorized: true } }),
+  ...(isSSL && { ssl: { rejectUnauthorized: false } }),
 });
 
 pool.on('error', (err) => {

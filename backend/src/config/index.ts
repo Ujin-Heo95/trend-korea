@@ -91,5 +91,5 @@ export const config: Config = {
   apifyMonthlyBudgetCents,
   bigkindsApiKey: process.env.BIGKINDS_API_KEY ?? '',
   adminToken: process.env.ADMIN_TOKEN ?? '',
-  corsOrigin: process.env.CORS_ORIGIN ?? '*',
+  corsOrigin: process.env.CORS_ORIGIN ?? 'https://weeklit.net',
 };
