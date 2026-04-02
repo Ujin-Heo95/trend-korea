@@ -24,7 +24,7 @@ interface Config {
   apifyMonthlyBudgetCents: number;
   bigkindsApiKey: string;
   adminToken: string;
-  corsOrigin: string;
+  corsOrigin: string[];
 }
 
 const dbUrl = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/trend_korea';
@@ -91,5 +91,6 @@ export const config: Config = {
   apifyMonthlyBudgetCents,
   bigkindsApiKey: process.env.BIGKINDS_API_KEY ?? '',
   adminToken: process.env.ADMIN_TOKEN ?? '',
-  corsOrigin: process.env.CORS_ORIGIN ?? 'https://weeklit.net',
+  corsOrigin: (process.env.CORS_ORIGIN ?? 'https://weeklit.net,https://www.weeklit.net')
+    .split(',').map(s => s.trim()),
 };
