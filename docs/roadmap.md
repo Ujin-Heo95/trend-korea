@@ -40,11 +40,26 @@
 - 공유 컴포넌트 추출 (RankBadge, PosterImage, ExternalLinkButton)
 - 실패 테스트 3건 수정 (dcinside/google-trends/krx) → 103/103 통과
 
+### P0 보안 강화 (2026-04-02)
+- API 키 로테이션, 미인증 엔드포인트 ADMIN_TOKEN 적용, Kakao JS Key 하드코딩 제거
+- X-Forwarded-For IP 스푸핑 차단 (trustProxy + req.ip), SSL rejectUnauthorized 복원
+- CORS 기본값 weeklit.net 제한
+
+### P1 성능·무결성 개선 (2026-04-02)
+- schema_migrations 추적 테이블 + 트랜잭션 래핑 (마이그레이션 중복 실행 방지)
+- dedup 배치 pre-fetch (포스트당 4-8 쿼리 → 3 배치 + 메모리 인덱싱)
+- keywords NOT IN → LEFT JOIN IS NULL (풀스캔 제거)
+- trendSignals 10개 순차 ILIKE → 1 배치 fetch + JS 매칭
+- dbMonitor 임계값 80/95MB → 400/475MB (Supabase 500MB 기준)
+- keyword_extractions·post_votes post_id INTEGER → BIGINT FK 정합
+- posts·votes Fastify JSON Schema 검증 + ILIKE 와일드카드 이스케이프
+
 ---
 
 ## 진행 예정: 종합 스케일업 로드맵
 
 > 2026-03-29 6개 에이전트 분석 기반 (정보소스/인프라/콘텐츠랭킹/사업·마케팅·법무/개발아키텍트/프론트엔드리뷰)
+> 2026-03-31 6개 전문 에이전트 P0-P4 우선순위 분석 → P0 완료 (2026-04-02), P1 완료 (2026-04-02)
 
 ### Phase 0: 생존 — 즉시 (1주차)
 
@@ -84,7 +99,7 @@
 | [x] Tier 1 RSS 소스 확장 (44→51 활성) | 1시간 | 방송4+일간지2+다음뉴스+테크+스포츠+보도자료+테크블로그3 |
 | [x] 고장 소스 정리 (kmib/koreatimes/ruliweb disable) | 10분 | 406/DNS/timeout |
 | [x] Sentry 에러 트래킹 | 1시간 | 에러 가시성 (DSN 환경변수 필요) |
-| [x] DB 용량 모니터링 알림 (Discord) | 30분 | pg_database_size 80/95MB 경고 |
+| [x] DB 용량 모니터링 알림 (Discord) | 30분 | pg_database_size 400/475MB 경고 (P1에서 Supabase 500MB 기준으로 수정) |
 | [ ] UptimeRobot 설정 | 30분 | 가동시간 모니터링 |
 
 ### Phase 2.5: 생존 기반 — 사업 인프라 (즉시, 1-2주차)

@@ -202,9 +202,9 @@ Indices: `(keyword, detected_date)` UNIQUE, `convergence_score DESC`, `expires_a
 | GET | /api/daily-report | date? | `{ report }` 일일 리포트 (Gemini 요약 포함) |
 | POST | /api/posts/:id/vote | — | `{ vote_count, voted }` Upvote 토글 (IP 중복 방지) |
 | GET | /api/posts/:id/detail | — | `{ post, relatedPosts, engagementHistory }` 이슈 상세 |
-| GET | /health | — | DB 통계 + 스크래퍼 상태, 503 if DB down |
+| GET | /health | — | 공개: `{status:'ok'}`, 인증 시 상세 (DB 통계 등), 503 if DB down |
 
-Rate limit: 100 req/min, CORS: `*`
+Rate limit: 100 req/min, CORS: weeklit.net (프로덕션)
 
 ## Frontend Architecture
 
@@ -255,7 +255,7 @@ shared/
 | Frontend | React 18, Vite 5, TypeScript 5.4 |
 | State | @tanstack/react-query v5 |
 | Styling | Tailwind CSS v4 (PostCSS) |
-| Testing | Vitest, axios mock |
+| Testing | Vitest (181 tests), axios mock |
 | Deploy | Railway (auto-detect) + Supabase DB (서울) |
 
 ## Environment Variables
