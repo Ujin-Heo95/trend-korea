@@ -1,8 +1,8 @@
 import type { Pool } from 'pg';
 import { config } from '../config/index.js';
 
-const DB_WARN_BYTES = 80 * 1024 * 1024;  // 80MB
-const DB_CRIT_BYTES = 95 * 1024 * 1024;  // 95MB
+const DB_WARN_BYTES = 400 * 1024 * 1024;  // 400MB
+const DB_CRIT_BYTES = 475 * 1024 * 1024;  // 475MB
 
 interface DbSizeInfo {
   sizeBytes: number;
@@ -43,7 +43,7 @@ async function sendDiscordAlert(level: 'warn' | 'critical', info: DbSizeInfo): P
 
   const body = {
     embeds: [{
-      title: `${emoji} DB 용량 ${level === 'critical' ? '위험' : '경고'} — ${info.sizeMB}MB / 100MB`,
+      title: `${emoji} DB 용량 ${level === 'critical' ? '위험' : '경고'} — ${info.sizeMB}MB / 500MB`,
       description: `**테이블별 사용량 (상위 5개):**\n${breakdown}`,
       color,
       footer: { text: new Date().toISOString() },

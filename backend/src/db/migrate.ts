@@ -23,13 +23,44 @@ const migrations = [
   '015_apify_usage.sql',
   '016_editorial.sql',
   '017_post_votes.sql',
+  '018_bigint_fk.sql',
 ];
 
 try {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      filename TEXT PRIMARY KEY,
+      applied_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
   for (const file of migrations) {
+    const { rows } = await pool.query(
+      'SELECT 1 FROM schema_migrations WHERE filename = $1',
+      [file],
+    );
+    if (rows.length > 0) {
+      console.log(`Migration already applied, skipping: ${file}`);
+      continue;
+    }
+
     const sql = readFileSync(join(__dirname, 'migrations', file), 'utf-8');
-    await pool.query(sql);
-    console.log(`Migration applied: ${file}`);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(sql);
+      await client.query(
+        'INSERT INTO schema_migrations (filename) VALUES ($1)',
+        [file],
+      );
+      await client.query('COMMIT');
+      console.log(`Migration applied: ${file}`);
+    } catch (migrationErr) {
+      await client.query('ROLLBACK');
+      throw migrationErr;
+    } finally {
+      client.release();
+    }
   }
   console.log('All migrations complete');
 } catch (err) {

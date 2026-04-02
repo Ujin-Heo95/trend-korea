@@ -18,12 +18,27 @@ async function attachKeywords(pg: FastifyInstance['pg'], posts: any[]): Promise<
 }
 
 export async function postsRoutes(app: FastifyInstance): Promise<void> {
-  app.get<{ Querystring: { source?: string; category?: string; q?: string; page?: string; limit?: string; sort?: string } }>(
+  app.get<{ Querystring: { source?: string; category?: string; q?: string; page?: number; limit?: number; sort?: string } }>(
     '/api/posts',
+    {
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            page: { type: 'integer', minimum: 1, default: 1 },
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: 30 },
+            category: { type: 'string' },
+            source: { type: 'string' },
+            q: { type: 'string', maxLength: 200 },
+            sort: { type: 'string', enum: ['trending', 'latest', 'views'] },
+          },
+        },
+      },
+    },
     async (req) => {
       const { source, category, q, sort } = req.query;
-      const limit  = Math.min(parseInt(req.query.limit  ?? '30'), 100);
-      const page   = Math.max(parseInt(req.query.page   ?? '1'),  1);
+      const limit  = req.query.limit ?? 30;
+      const page   = req.query.page ?? 1;
       const offset = (page - 1) * limit;
       const isTrending = sort === 'trending';
 
@@ -49,7 +64,10 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       } else {
         conditions.push(`(p.category IS NULL OR p.category NOT IN ('movie', 'performance', 'video_popular'))`);
       }
-      if (q) conditions.push(`p.title ILIKE $${params.push(`%${q}%`)}`);
+      if (q) {
+        const escapedQ = q.replace(/[%_\\]/g, '\\$&');
+        conditions.push(`p.title ILIKE $${params.push(`%${escapedQ}%`)}`);
+      }
 
       const whereParamCount = params.length;
       const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

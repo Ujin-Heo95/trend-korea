@@ -79,9 +79,10 @@ export async function extractKeywords(titles: readonly string[]): Promise<string
  */
 export async function processNewPosts(pool: Pool): Promise<void> {
   const { rows: pending } = await pool.query<{ id: number; title: string }>(
-    `SELECT id, title FROM posts
-     WHERE id NOT IN (SELECT post_id FROM keyword_extractions)
-     ORDER BY scraped_at DESC
+    `SELECT p.id, p.title FROM posts p
+     LEFT JOIN keyword_extractions ke ON ke.post_id = p.id
+     WHERE ke.post_id IS NULL
+     ORDER BY p.scraped_at DESC
      LIMIT $1`,
     [MAX_POSTS_PER_RUN],
   );

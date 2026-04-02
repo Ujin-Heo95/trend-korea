@@ -27,16 +27,16 @@ describe('checkDbSize', () => {
   beforeEach(() => { mockFetch.mockReset(); });
   afterEach(() => { vi.restoreAllMocks(); });
 
-  it('does not alert when under 80MB', async () => {
-    const pool = createMockPool(50 * 1024 * 1024);
+  it('does not alert when under 400MB', async () => {
+    const pool = createMockPool(300 * 1024 * 1024);
     await checkDbSize(pool);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('sends warn alert when 80-95MB', async () => {
+  it('sends warn alert when 400-475MB', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true });
-    const pool = createMockPool(85 * 1024 * 1024, [
-      { relname: 'posts', size: '60 MB' },
+    const pool = createMockPool(420 * 1024 * 1024, [
+      { relname: 'posts', size: '300 MB' },
     ]);
     await checkDbSize(pool);
     expect(mockFetch).toHaveBeenCalledOnce();
@@ -44,10 +44,10 @@ describe('checkDbSize', () => {
     expect(body.embeds[0].title).toContain('경고');
   });
 
-  it('sends critical alert when >= 95MB', async () => {
+  it('sends critical alert when >= 475MB', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true });
-    const pool = createMockPool(96 * 1024 * 1024, [
-      { relname: 'posts', size: '80 MB' },
+    const pool = createMockPool(480 * 1024 * 1024, [
+      { relname: 'posts', size: '400 MB' },
     ]);
     await checkDbSize(pool);
     expect(mockFetch).toHaveBeenCalledOnce();

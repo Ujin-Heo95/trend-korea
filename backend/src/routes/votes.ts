@@ -7,11 +7,21 @@ function hashIp(ip: string): string {
 
 export async function votesRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/posts/:postId/vote — upvote a post (IP-deduplicated)
-  app.post<{ Params: { postId: string } }>(
+  app.post<{ Params: { postId: number } }>(
     '/api/posts/:postId/vote',
-    async (req, reply) => {
-      const postId = parseInt(req.params.postId);
-      if (isNaN(postId)) return reply.status(400).send({ error: 'Invalid post ID' });
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['postId'],
+          properties: {
+            postId: { type: 'integer', minimum: 1 },
+          },
+        },
+      },
+    },
+    async (req) => {
+      const postId = req.params.postId;
 
       const ipHash = hashIp(req.ip);
 

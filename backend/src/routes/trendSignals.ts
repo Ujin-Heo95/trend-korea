@@ -54,45 +54,40 @@ export async function trendSignalsRoutes(app: FastifyInstance): Promise<void> {
       return reply.send(result);
     }
 
-    // 2. 각 이슈 키워드로 커뮤니티 매칭 게시글 조회
-    const issues: BigKindsIssue[] = [];
+    // 2. 최근 커뮤니티 게시글 1회 조회 후 JS에서 키워드 매칭
+    const { rows: recentPosts } = await app.pg.query<RelatedPost & { scraped_at: string }>(
+      `SELECT id, title, url, source_name, source_key, scraped_at
+       FROM posts
+       WHERE source_key != 'bigkinds_issues'
+         AND scraped_at > NOW() - INTERVAL '6 hours'
+       ORDER BY scraped_at DESC
+       LIMIT 500`,
+    );
 
-    for (const post of bkPosts) {
+    const issues: BigKindsIssue[] = bkPosts.map(post => {
       const keyword = post.metadata?.keyword ?? post.title;
       const rank = post.metadata?.rank ?? 0;
       const articleCount = post.metadata?.articleCount ?? post.view_count;
       const period = post.metadata?.period ?? '';
 
-      // 키워드에서 핵심 단어 추출 (2글자 이상 단어 기준 매칭)
       const searchTerms = extractSearchTerms(keyword);
       let relatedPosts: RelatedPost[] = [];
 
       if (searchTerms.length > 0) {
-        const conditions = searchTerms.map((_, i) => `title ILIKE $${i + 1}`).join(' AND ');
-        const params = searchTerms.map(t => `%${t}%`);
-
-        const { rows } = await app.pg.query<RelatedPost>(
-          `SELECT id, title, url, source_name, source_key
-           FROM posts
-           WHERE source_key != 'bigkinds_issues'
-             AND scraped_at > NOW() - INTERVAL '6 hours'
-             AND (${conditions})
-           ORDER BY scraped_at DESC
-           LIMIT 3`,
-          params,
-        );
-        relatedPosts = rows;
+        const lowerTerms = searchTerms.map(t => t.toLowerCase());
+        relatedPosts = recentPosts
+          .filter(p => {
+            const lowerTitle = p.title.toLowerCase();
+            return lowerTerms.every(term => lowerTitle.includes(term));
+          })
+          .slice(0, 3)
+          .map(({ id, title, url, source_name, source_key }) => ({
+            id, title, url, source_name, source_key,
+          }));
       }
 
-      issues.push({
-        rank,
-        keyword,
-        articleCount,
-        period,
-        bigkindsUrl: post.url,
-        relatedPosts,
-      });
-    }
+      return { rank, keyword, articleCount, period, bigkindsUrl: post.url, relatedPosts };
+    });
 
     const result = { issues };
     cache.set('bigkinds', result);
