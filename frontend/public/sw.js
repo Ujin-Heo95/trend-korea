@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trend-korea-v1';
+const CACHE_NAME = 'weeklit-v2';
 const SHELL_ASSETS = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {

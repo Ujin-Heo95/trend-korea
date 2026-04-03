@@ -10,7 +10,7 @@ export const PrivacyPage: React.FC = () => {
 
       <div className="space-y-6 text-sm text-slate-700 leading-relaxed">
         <p>
-          실시간 이슈(이하 &quot;서비스&quot;)는 이용자의 개인정보를 중요시하며,
+          위클릿(이하 &quot;서비스&quot;)는 이용자의 개인정보를 중요시하며,
           &laquo;개인정보 보호법&raquo;을 준수합니다. 본 개인정보처리방침은 서비스가
           수집하는 정보의 종류, 이용 목적, 보유 기간 및 이용자의 권리에 대해 안내합니다.
         </p>

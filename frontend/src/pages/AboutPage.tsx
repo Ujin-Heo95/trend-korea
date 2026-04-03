@@ -10,9 +10,9 @@ export const AboutPage: React.FC = () => {
 
       <section className="space-y-6 text-sm text-slate-700 leading-relaxed">
         <div>
-          <h2 className="text-lg font-semibold text-slate-800 mb-2">실시간 이슈란?</h2>
+          <h2 className="text-lg font-semibold text-slate-800 mb-2">위클릿이란?</h2>
           <p>
-            실시간 이슈는 한국 주요 커뮤니티, 뉴스, YouTube에서 지금 가장 뜨거운 이슈를 자동으로 수집하고
+            위클릿은 한국 주요 커뮤니티, 뉴스, YouTube에서 지금 가장 뜨거운 이슈를 자동으로 수집하고
             한눈에 보여주는 트렌드 어그리게이터입니다. 매 10분마다 60개 이상의 소스에서 새 글을 수집하여
             중복을 제거하고, 트렌드 스코어를 계산해 인기도 순으로 정렬합니다.
           </p>

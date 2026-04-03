@@ -2,8 +2,8 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { Pool } from 'pg';
 
 const BASE_URL = 'https://weeklit.net';
-const SITE_NAME = '실시간 이슈 — 한국 커뮤니티 모아보기';
-const DEFAULT_DESC = '한국 주요 커뮤니티, 뉴스, YouTube에서 실시간 이슈글을 모아보는 트렌드 어그리게이터';
+const SITE_NAME = 'WeekLit — 실시간 트렌드 모아보기';
+const DEFAULT_DESC = '위클릿은 한국 주요 커뮤니티, 뉴스, YouTube에서 실시간 이슈를 모아보는 트렌드 어그리게이터입니다';
 
 const BOT_UA_PATTERN = /googlebot|yeti|bingbot|duckduckbot|kakaotalk-scrap|facebookexternalhit|twitterbot|slackbot|linkedinbot|telegrambot|whatsapp|line-poker|pinterestbot/i;
 

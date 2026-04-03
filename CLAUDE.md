@@ -1,4 +1,4 @@
-# Trend Korea
+# WeekLit (위클릿)
 
 한국 주요 커뮤니티 + YouTube + 뉴스에서 실시간 이슈글을 10분마다 수집하는 웹앱.
 목표: AdSense 수익화 + 트래픽 확보.

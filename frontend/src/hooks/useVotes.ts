@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
 import { postVote } from '../api/client';
 
-const STORAGE_KEY = 'trend-korea:votes';
+const STORAGE_KEY = 'weeklit:votes';
+const OLD_STORAGE_KEY = 'trend-korea:votes';
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 interface VoteEntry {
@@ -10,6 +11,12 @@ interface VoteEntry {
 
 function loadStore(): Record<string, VoteEntry> {
   try {
+    // Migrate from old key once
+    const old = localStorage.getItem(OLD_STORAGE_KEY);
+    if (old) {
+      if (!localStorage.getItem(STORAGE_KEY)) localStorage.setItem(STORAGE_KEY, old);
+      localStorage.removeItem(OLD_STORAGE_KEY);
+    }
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
     const store = JSON.parse(raw) as Record<string, VoteEntry>;

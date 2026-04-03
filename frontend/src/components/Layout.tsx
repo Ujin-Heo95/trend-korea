@@ -24,8 +24,8 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
     <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Link to="/" className="text-xl font-bold text-slate-900 hover:text-blue-600 transition-colors">실시간 이슈</Link>
-          <span className="text-sm text-slate-400 hidden sm:inline">한국 주요 커뮤니티 모아보기</span>
+          <Link to="/" className="text-xl font-bold text-slate-900 hover:text-blue-600 transition-colors">WeekLit</Link>
+          <span className="text-sm text-slate-400 hidden sm:inline">실시간 트렌드 모아보기</span>
           {latestReport && (
             <Link
               to={`/daily-report/${String(latestReport.report_date).slice(0, 10)}`}
