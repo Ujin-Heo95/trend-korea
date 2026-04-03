@@ -10,7 +10,7 @@ export const ErrorRetry: React.FC<Props> = ({
   onRetry,
 }) => (
   <div className="text-center py-10">
-    <p className="text-red-500 mb-3">{message}</p>
+    <p className="text-red-500 dark:text-red-400 mb-3">{message}</p>
     <button
       type="button"
       onClick={onRetry}

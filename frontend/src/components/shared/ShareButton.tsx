@@ -58,7 +58,7 @@ export const ShareButton: React.FC<Props> = ({ url, title, description, thumbnai
       <button
         type="button"
         onClick={handleCopy}
-        className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-500 transition-colors px-1.5 py-0.5 rounded hover:bg-slate-100"
+        className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 hover:text-blue-500 transition-colors px-1.5 py-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700"
         aria-label="링크 공유"
         title="링크 공유"
       >

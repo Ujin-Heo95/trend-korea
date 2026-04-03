@@ -6,11 +6,11 @@ export const AboutPage: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold text-slate-900 mb-6">서비스 소개</h1>
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">서비스 소개</h1>
 
-      <section className="space-y-6 text-sm text-slate-700 leading-relaxed">
+      <section className="space-y-6 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
         <div>
-          <h2 className="text-lg font-semibold text-slate-800 mb-2">위클릿이란?</h2>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">위클릿이란?</h2>
           <p>
             위클릿은 한국 주요 커뮤니티, 뉴스, YouTube에서 지금 가장 뜨거운 이슈를 자동으로 수집하고
             한눈에 보여주는 트렌드 어그리게이터입니다. 매 10분마다 60개 이상의 소스에서 새 글을 수집하여
@@ -19,7 +19,7 @@ export const AboutPage: React.FC = () => {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-slate-800 mb-2">주요 기능</h2>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">주요 기능</h2>
           <ul className="list-disc pl-5 space-y-1.5">
             <li><strong>실시간 수집</strong> — 커뮤니티(디시인사이드, FM코리아, 에펨코리아 등), 뉴스(종합지, 방송, 통신), YouTube 등 60개 이상 소스</li>
             <li><strong>트렌드 스코어링</strong> — 조회수, 댓글, 시간 가속도, 키워드 모멘텀, 교차 검증 등 다중 팩터 기반 랭킹</li>
@@ -32,7 +32,7 @@ export const AboutPage: React.FC = () => {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-slate-800 mb-2">데이터 수집 방식</h2>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">데이터 수집 방식</h2>
           <p>
             모든 데이터는 공개된 웹 페이지, 공공 API, RSS 피드에서 자동으로 수집됩니다.
             개인정보는 수집하지 않으며, 원본 게시글의 제목, URL, 조회수, 댓글수 등
@@ -41,7 +41,7 @@ export const AboutPage: React.FC = () => {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-slate-800 mb-2">업데이트 주기</h2>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">업데이트 주기</h2>
           <ul className="list-disc pl-5 space-y-1.5">
             <li>커뮤니티 / 트렌딩 소스: 10분마다</li>
             <li>뉴스 / RSS 소스: 15분마다</li>
@@ -53,11 +53,11 @@ export const AboutPage: React.FC = () => {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-slate-800 mb-2">문의</h2>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">문의</h2>
           <p>
             서비스 관련 문의사항은 아래로 연락 주시기 바랍니다.
           </p>
-          <p className="mt-2 text-slate-500">
+          <p className="mt-2 text-slate-500 dark:text-slate-400">
             이메일: contact@example.com
           </p>
         </div>

@@ -3,7 +3,7 @@ import { config } from '../config/index.js';
 
 let model: GenerativeModel | null = null;
 
-function getModel(): GenerativeModel | null {
+export function getModel(): GenerativeModel | null {
   if (!config.geminiApiKey) return null;
   if (!model) {
     const genAI = new GoogleGenerativeAI(config.geminiApiKey);
@@ -12,7 +12,7 @@ function getModel(): GenerativeModel | null {
   return model;
 }
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+export const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function summarizePost(
   title: string,
@@ -49,6 +49,122 @@ export async function summarizeCategory(
     return result.response.text().trim() || null;
   } catch (err) {
     console.error('[gemini] category summary failed:', (err as Error).message);
+    return null;
+  }
+}
+
+/**
+ * 여러 게시글 제목을 한 번의 API 호출로 배치 요약
+ */
+export async function summarizePostsBatch(
+  items: readonly { title: string; sourceName: string }[],
+): Promise<(string | null)[]> {
+  const m = getModel();
+  if (!m || items.length === 0) return items.map(() => null);
+
+  try {
+    const numbered = items.map((it, i) => `${i + 1}. "${it.title}" (${it.sourceName})`).join('\n');
+    const result = await m.generateContent(
+      `다음 게시글 제목들을 각각 한국어로 한 줄 요약해줘.
+규칙: 50자 이내, 마침표로 끝내기, 제목 순서 유지.
+
+응답 형식 (JSON 문자열 배열):
+["요약1", "요약2", ...]
+
+게시글 목록:
+${numbered}`,
+    );
+    await delay(50);
+
+    const text = result.response.text().trim();
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      console.error('[gemini] batch summary: no JSON array:', text.slice(0, 200));
+      return items.map(() => null);
+    }
+
+    const parsed: unknown = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(parsed)) return items.map(() => null);
+
+    return items.map((_, i) => {
+      const s = parsed[i];
+      return typeof s === 'string' && s.length > 0 ? s.trim() : null;
+    });
+  } catch (err) {
+    console.error('[gemini] batch summary failed:', (err as Error).message);
+    return items.map(() => null);
+  }
+}
+
+/**
+ * 급상승 키워드의 이유를 설명
+ */
+export async function explainBurst(
+  keyword: string,
+  zScore: number,
+  relatedTitles: readonly string[],
+): Promise<string | null> {
+  const m = getModel();
+  if (!m) return null;
+
+  try {
+    const titleList = relatedTitles.map((t, i) => `${i + 1}. ${t}`).join('\n');
+    const result = await m.generateContent(
+      `키워드 "${keyword}"가 최근 급상승 중이다 (z-score: ${zScore.toFixed(1)}).
+관련 게시글 제목:
+${titleList}
+
+이 키워드가 왜 급상승하는지 1-2문장(80자 이내)으로 한국어로 설명하라. 마침표로 끝낼 것.`,
+    );
+    await delay(50);
+    return result.response.text().trim() || null;
+  } catch (err) {
+    console.error('[gemini] burst explain failed:', (err as Error).message);
+    return null;
+  }
+}
+
+/**
+ * 실시간 미니 이슈 브리핑 생성
+ */
+export async function generateMiniBriefing(
+  topics: readonly { headline: string; keywords: string[]; postCount: number }[],
+): Promise<{ briefing: string; keywords: string[] } | null> {
+  const m = getModel();
+  if (!m || topics.length === 0) return null;
+
+  try {
+    const topicList = topics
+      .map((t, i) => `${i + 1}. ${t.headline} (키워드: ${t.keywords.join(', ')}, 게시글 ${t.postCount}건)`)
+      .join('\n');
+
+    const result = await m.generateContent(
+      `당신은 실시간 뉴스 큐레이터입니다. 지금 화제인 토픽 목록입니다:
+
+${topicList}
+
+다음을 한국어로 작성하세요:
+1. 핵심 키워드 3-5개 (쉼표 구분)
+2. 실시간 이슈 브리핑 2-3문장 (150자 이내): 지금 무엇이 화제이고 왜 중요한지 분석.
+
+JSON 형식: {"keywords":["kw1","kw2",...],"briefing":"..."}`,
+    );
+    await delay(50);
+
+    const text = result.response.text().trim();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]) as { keywords?: unknown; briefing?: unknown };
+    const keywords = Array.isArray(parsed.keywords)
+      ? parsed.keywords.filter((k: unknown): k is string => typeof k === 'string')
+      : [];
+    const briefing = typeof parsed.briefing === 'string' ? parsed.briefing.trim() : '';
+
+    if (!briefing) return null;
+    return { briefing, keywords };
+  } catch (err) {
+    console.error('[gemini] mini briefing failed:', (err as Error).message);
     return null;
   }
 }

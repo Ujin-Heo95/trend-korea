@@ -82,7 +82,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       const [rows, count] = await Promise.all([
         app.pg.query(
           `SELECT p.id, p.source_key, p.source_name, p.title, p.url, p.thumbnail,
-                  p.author, p.view_count, p.comment_count, p.vote_count, p.published_at, p.scraped_at, p.category, p.metadata
+                  p.author, p.view_count, p.comment_count, p.vote_count, p.published_at, p.scraped_at, p.category, p.metadata, p.ai_summary
            FROM posts p
            LEFT JOIN post_scores ps ON ps.post_id = p.id
            ${where}
@@ -197,7 +197,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
     const r = await app.pg.query(
       `SELECT p.id, p.source_key, p.source_name, p.title, p.url, p.thumbnail,
               p.author, p.view_count, p.comment_count, p.vote_count, p.published_at,
-              p.scraped_at, p.category, p.metadata, COALESCE(ps.trend_score, 0) AS trend_score
+              p.scraped_at, p.category, p.metadata, p.ai_summary, COALESCE(ps.trend_score, 0) AS trend_score
        FROM posts p
        LEFT JOIN post_scores ps ON ps.post_id = p.id
        WHERE p.scraped_at > NOW() - INTERVAL '6 hours'

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { fetchKeywordStats } from '../api/client';
 import { ErrorRetry } from '../components/shared/ErrorRetry';
+import { WordCloud } from '../components/WordCloud';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const WINDOW_OPTIONS = [
@@ -25,6 +26,7 @@ function formatTime(iso: string | null): string {
 export const KeywordsPage: React.FC = () => {
   useDocumentTitle('핫이슈 태그');
   const [windowHours, setWindowHours] = useState(3);
+  const [viewMode, setViewMode] = useState<'list' | 'cloud'>('list');
   const navigate = useNavigate();
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -51,21 +53,49 @@ export const KeywordsPage: React.FC = () => {
           </p>
         </div>
 
-        {/* 윈도우 토글 */}
-        <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-          {WINDOW_OPTIONS.map(opt => (
+        <div className="flex gap-2">
+          {/* 뷰 모드 토글 */}
+          <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
             <button
-              key={opt.value}
-              onClick={() => setWindowHours(opt.value)}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                windowHours === opt.value
-                  ? 'bg-rose-600 text-white'
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-2 text-sm font-medium transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-slate-700 dark:bg-slate-200 text-white dark:text-slate-900'
                   : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
+              title="리스트 보기"
             >
-              {opt.label}
+              목록
             </button>
-          ))}
+            <button
+              onClick={() => setViewMode('cloud')}
+              className={`px-3 py-2 text-sm font-medium transition-colors ${
+                viewMode === 'cloud'
+                  ? 'bg-slate-700 dark:bg-slate-200 text-white dark:text-slate-900'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+              title="클라우드 보기"
+            >
+              클라우드
+            </button>
+          </div>
+
+          {/* 윈도우 토글 */}
+          <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            {WINDOW_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setWindowHours(opt.value)}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  windowHours === opt.value
+                    ? 'bg-rose-600 text-white'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -88,8 +118,15 @@ export const KeywordsPage: React.FC = () => {
         </div>
       )}
 
+      {/* 워드 클라우드 뷰 */}
+      {data && data.keywords.length > 0 && viewMode === 'cloud' && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+          <WordCloud keywords={data.keywords} onKeywordClick={handleKeywordClick} />
+        </div>
+      )}
+
       {/* 태그 랭킹 리스트 */}
-      {data && data.keywords.length > 0 && (
+      {data && data.keywords.length > 0 && viewMode === 'list' && (
         <div className="space-y-2">
           {data.keywords.map(kw => {
             const isTop3 = kw.rank <= 3;
@@ -123,10 +160,22 @@ export const KeywordsPage: React.FC = () => {
                   {kw.rank}
                 </span>
 
-                {/* 키워드명 */}
-                <span className={`flex-1 truncate ${isTop3 ? 'text-lg font-bold' : isTop10 ? 'font-semibold dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}>
-                  {kw.keyword}
-                </span>
+                {/* 키워드명 + 버스트 설명 */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`truncate ${isTop3 ? 'text-lg font-bold' : isTop10 ? 'font-semibold dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}>
+                      {kw.keyword}
+                    </span>
+                    {kw.zScore != null && kw.zScore >= 2.0 && (
+                      <span className="flex-shrink-0 text-xs font-medium px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400" title={`z-score: ${kw.zScore}`}>
+                        급상승
+                      </span>
+                    )}
+                  </div>
+                  {kw.burstExplanation && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{kw.burstExplanation}</p>
+                  )}
+                </div>
 
                 {/* 언급 수 + Rate */}
                 <div className="flex items-center gap-2 flex-shrink-0">

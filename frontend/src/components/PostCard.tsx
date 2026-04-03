@@ -92,6 +92,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
           <p className={`text-sm font-medium line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 ${isRead ? 'text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
             {post.title}
           </p>
+          {post.ai_summary && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{post.ai_summary}</p>
+          )}
           <div className="flex items-center gap-2 mt-1">
             <p className="text-xs text-slate-400 dark:text-slate-500">{timeAgo(post.published_at ?? post.scraped_at)}</p>
             {onVote && (

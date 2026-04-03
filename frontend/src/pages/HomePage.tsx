@@ -7,6 +7,7 @@ import { AdSlot } from '../components/shared/AdSlot';
 import { PostCard } from '../components/PostCard';
 import { PostCardSkeleton } from '../components/shared/PostCardSkeleton';
 import { TrendRadar } from '../components/TrendRadar';
+import { MiniBriefing } from '../components/MiniBriefing';
 const TrendHero = React.lazy(() => import('../components/TrendHero').then(m => ({ default: m.TrendHero })));
 import { CategoryTabs } from '../components/CategoryTabs';
 import { SourceFilterChips } from '../components/SourceFilterChips';
@@ -130,6 +131,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
             <TrendHero />
           </React.Suspense>
           <TrendRadar />
+          <MiniBriefing />
         </>
       )}
 

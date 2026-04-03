@@ -69,10 +69,10 @@ function cgvSearchUrl(movieName: string): string {
 }
 
 function RankChangeLabel({ change, isNew }: { change: number; isNew: boolean }) {
-  if (isNew) return <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">NEW</span>;
+  if (isNew) return <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded">NEW</span>;
   if (change > 0) return <span className="text-xs text-red-500 font-medium">▲{change}</span>;
   if (change < 0) return <span className="text-xs text-blue-500 font-medium">▼{Math.abs(change)}</span>;
-  return <span className="text-xs text-slate-400">-</span>;
+  return <span className="text-xs text-slate-400 dark:text-slate-500">-</span>;
 }
 
 type SortMode = 'rank' | 'accumulated';
@@ -92,7 +92,7 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
 
   if (movies.length === 0) {
     return (
-      <div className="text-center py-16 text-slate-400">
+      <div className="text-center py-16 text-slate-400 dark:text-slate-500">
         <p className="text-lg mb-1">영화 박스오피스 데이터가 없습니다</p>
         <p className="text-sm">데이터 수집 후 표시됩니다</p>
       </div>
@@ -102,13 +102,13 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
   const dataDateStr = formatDataDate(movies[0].meta.dataDate, movies[0].post.published_at);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
       {/* 헤더 */}
-      <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="text-base font-bold text-slate-800">일일 박스오피스</h2>
-            <p className="text-xs text-slate-400 mt-0.5">KOBIS 영화진흥위원회</p>
+            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">일일 박스오피스</h2>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">KOBIS 영화진흥위원회</p>
           </div>
           <div className="flex items-center gap-2">
             {dataDateStr && <DataFreshnessLabel label={`${dataDateStr} 기준 (어제)`} />}
@@ -119,7 +119,7 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
           <button
             onClick={() => setSortMode('rank')}
             className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
-              sortMode === 'rank' ? 'bg-blue-600 text-white' : 'bg-white text-slate-500 border border-slate-200'
+              sortMode === 'rank' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
             }`}
           >
             관객순
@@ -127,7 +127,7 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
           <button
             onClick={() => setSortMode('accumulated')}
             className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
-              sortMode === 'accumulated' ? 'bg-blue-600 text-white' : 'bg-white text-slate-500 border border-slate-200'
+              sortMode === 'accumulated' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
             }`}
           >
             누적순
@@ -137,8 +137,8 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
 
       {/* Desktop table */}
       <table className="w-full hidden sm:table">
-        <thead className="sticky top-0 bg-white z-[5]">
-          <tr className="text-xs text-slate-500 border-b border-slate-100">
+        <thead className="sticky top-0 bg-white dark:bg-slate-800 z-[5]">
+          <tr className="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
             <th className="py-2 px-3 text-center w-14">순위</th>
             <th className="py-2 px-2 w-14"></th>
             <th className="py-2 px-3 text-left">영화명</th>
@@ -150,7 +150,7 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
         </thead>
         <tbody>
           {movies.map(({ post, meta }) => (
-            <tr key={post.id} className="border-b border-slate-50 hover:bg-blue-50/50 transition-colors">
+            <tr key={post.id} className="border-b border-slate-50 dark:border-slate-700 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors">
               <td className="py-3 px-3 text-center">
                 <RankBadge rank={meta.rank} />
               </td>
@@ -168,21 +168,21 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
                   href={meta.naverMovieUrl || naverSearchUrl(meta.movieName)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm font-medium text-slate-800 hover:text-blue-600 transition-colors"
+                  className="text-sm font-medium text-slate-800 dark:text-slate-100 hover:text-blue-600 transition-colors"
                 >
                   {meta.movieName}
                 </a>
                 {meta.plotSummary && (
-                  <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{meta.plotSummary}</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 line-clamp-1">{meta.plotSummary}</p>
                 )}
                 <div className="flex items-center gap-2 mt-0.5">
                   {meta.openDate && (
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-slate-400 dark:text-slate-500">
                       {formatOpenDate(meta.openDate)} 개봉
                     </span>
                   )}
                   {meta.director && (
-                    <span className="text-xs text-slate-400">· {meta.director}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">· {meta.director}</span>
                   )}
                   {meta.userRating != null && meta.userRating > 0 && (
                     <span className="text-xs text-amber-500 font-medium">★ {meta.userRating.toFixed(1)}</span>
@@ -192,10 +192,10 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
               <td className="py-3 px-3 text-center">
                 <RankChangeLabel change={meta.rankChange} isNew={meta.isNew} />
               </td>
-              <td className="py-3 px-3 text-right text-sm tabular-nums text-slate-700">
+              <td className="py-3 px-3 text-right text-sm tabular-nums text-slate-700 dark:text-slate-300">
                 {meta.dailyAudience.toLocaleString()}명
               </td>
-              <td className="py-3 px-3 text-right text-sm tabular-nums text-slate-500">
+              <td className="py-3 px-3 text-right text-sm tabular-nums text-slate-500 dark:text-slate-400">
                 {meta.accumulatedAudience.toLocaleString()}명
               </td>
               <td className="py-3 px-3 text-center">
@@ -216,7 +216,7 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
       </table>
 
       {/* Mobile list */}
-      <div className="sm:hidden divide-y divide-slate-50">
+      <div className="sm:hidden divide-y divide-slate-50 dark:divide-slate-700">
         {movies.map(({ post, meta }) => (
           <div key={post.id} className="flex items-start gap-3 px-4 py-3">
             <RankBadge rank={meta.rank} />
@@ -232,12 +232,12 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
                 href={meta.naverMovieUrl || naverSearchUrl(meta.movieName)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm font-medium text-slate-800 hover:text-blue-600 transition-colors line-clamp-1"
+                className="text-sm font-medium text-slate-800 dark:text-slate-100 hover:text-blue-600 transition-colors line-clamp-1"
               >
                 {meta.movieName}
               </a>
               {meta.plotSummary && (
-                <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{meta.plotSummary}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 line-clamp-1">{meta.plotSummary}</p>
               )}
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                 <RankChangeLabel change={meta.rankChange} isNew={meta.isNew} />
@@ -248,7 +248,7 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
                   <span className="text-xs text-amber-500 font-medium">★ {meta.userRating.toFixed(1)}</span>
                 )}
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                 일 {meta.dailyAudience.toLocaleString()}명 · 누적 {meta.accumulatedAudience.toLocaleString()}명
               </p>
               <div className="flex gap-1.5 mt-1.5">

@@ -2,9 +2,9 @@ import React from 'react';
 import type { Post } from '../types';
 
 const PLATFORM_BADGES: Record<string, { label: string; color: string }> = {
-  instagram: { label: 'Instagram', color: 'bg-pink-100 text-pink-700' },
-  x: { label: 'X', color: 'bg-slate-100 text-slate-700' },
-  tiktok: { label: 'TikTok', color: 'bg-cyan-100 text-cyan-700' },
+  instagram: { label: 'Instagram', color: 'bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300' },
+  x: { label: 'X', color: 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300' },
+  tiktok: { label: 'TikTok', color: 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300' },
 };
 
 function formatCount(n: number): string {
@@ -20,7 +20,7 @@ interface Props {
 export const SnsRankingTable: React.FC<Props> = ({ posts }) => {
   if (posts.length === 0) {
     return (
-      <div className="text-center py-16 text-slate-400">
+      <div className="text-center py-16 text-slate-400 dark:text-slate-500">
         <p className="text-lg mb-1">SNS 데이터를 수집 중입니다</p>
         <p className="text-sm">잠시 후 다시 확인해 주세요</p>
       </div>
@@ -39,7 +39,7 @@ export const SnsRankingTable: React.FC<Props> = ({ posts }) => {
             href={post.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex gap-3 bg-white rounded-xl border border-slate-200 p-3 hover:border-blue-300 hover:shadow-sm transition-all"
+            className="flex gap-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-sm transition-all"
           >
             {post.thumbnail && (
               <img
@@ -58,15 +58,15 @@ export const SnsRankingTable: React.FC<Props> = ({ posts }) => {
                   </span>
                 )}
                 {post.author && (
-                  <span className="text-xs text-slate-400 truncate">{post.author}</span>
+                  <span className="text-xs text-slate-400 dark:text-slate-500 truncate">{post.author}</span>
                 )}
               </div>
 
-              <p className="text-sm font-medium text-slate-800 line-clamp-2 leading-snug">
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-100 line-clamp-2 leading-snug">
                 {post.title}
               </p>
 
-              <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400">
+              <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400 dark:text-slate-500">
                 {post.view_count > 0 && (
                   <span>{platform === 'instagram' ? '❤️' : '👁'} {formatCount(post.view_count)}</span>
                 )}

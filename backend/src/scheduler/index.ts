@@ -5,7 +5,9 @@ import { cleanOldPosts, cleanOldScraperRuns, cleanExpiredTrendSignals, cleanOldE
 import { calculateScores } from '../services/scoring.js';
 import { generateDailyReport } from '../services/dailyReport.js';
 import { crossValidate } from '../services/trendCrossValidator.js';
-import { processNewPosts, calculateStats, updateBaselines } from '../services/keywords.js';
+import { processNewPosts, calculateStats, updateBaselines, generateBurstExplanations } from '../services/keywords.js';
+import { summarizeNewPosts } from '../services/summaries.js';
+import { generateMiniEditorial } from '../services/miniEditorial.js';
 import { checkDbSize } from '../services/dbMonitor.js';
 import { pool } from '../db/client.js';
 
@@ -24,9 +26,10 @@ export function startScheduler(): void {
   console.log(`[scheduler] priority intervals: high=${PRIORITY_INTERVALS.high}min, medium=${PRIORITY_INTERVALS.medium}min, low=${PRIORITY_INTERVALS.low}min`);
   console.log(`[scheduler] cleanup: twice daily (00:00, 12:00 UTC)`);
 
-  // 최초 실행: 전체 스크래퍼 1회 → 키워드 추출도 연이어 실행
+  // 최초 실행: 전체 스크래퍼 1회 → 키워드 추출 + AI 요약
   runAllScrapers()
     .then(() => processNewPosts(pool))
+    .then(() => summarizeNewPosts(pool))
     .then(async () => {
       await calculateStats(pool, 1);
       await calculateStats(pool, 3);
@@ -55,19 +58,27 @@ export function startScheduler(): void {
   });
   console.log('[scheduler] daily report: 22:00 UTC (07:00 KST)');
 
-  // 키워드 추출 + 통계 집계: 30분 주기
+  // 키워드 추출 + AI 요약 + 통계 집계: 30분 주기
   cron.schedule('*/30 * * * *', async () => {
     try {
       await processNewPosts(pool);
+      await summarizeNewPosts(pool);
       await calculateStats(pool, 1);
       await calculateStats(pool, 3);
       await updateBaselines(pool);
+      await generateBurstExplanations(pool);
       await calculateStats(pool, 24);
     } catch (err) {
       captureError(err);
     }
   });
-  console.log('[scheduler] keywords: every 30 min');
+  console.log('[scheduler] keywords + summaries + bursts: every 30 min');
+
+  // 미니 에디토리얼: 3시간마다 실시간 이슈 브리핑
+  cron.schedule('0 */3 * * *', () => {
+    generateMiniEditorial(pool).catch(captureError);
+  });
+  console.log('[scheduler] mini-editorial: every 3 hours');
 
   // 교차 검증 트렌드: BigKinds와 병행 (검색+커뮤니티 수렴 신호)
   cron.schedule('*/20 * * * *', () => {

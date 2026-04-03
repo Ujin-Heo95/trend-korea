@@ -19,11 +19,16 @@ export async function keywordsRoutes(app: FastifyInstance): Promise<void> {
         rate: number;
         total_posts: number;
         calculated_at: string;
+        burst_explanation: string | null;
+        z_score: number | null;
       }>(
-        `SELECT keyword, mention_count, rate, total_posts, calculated_at
-         FROM keyword_stats
-         WHERE window_hours = $1
-         ORDER BY mention_count DESC
+        `SELECT ks.keyword, ks.mention_count, ks.rate, ks.total_posts, ks.calculated_at,
+                kbe.explanation AS burst_explanation, kbe.z_score
+         FROM keyword_stats ks
+         LEFT JOIN keyword_burst_explanations kbe
+           ON kbe.keyword = ks.keyword AND kbe.expires_at > NOW()
+         WHERE ks.window_hours = $1
+         ORDER BY ks.mention_count DESC
          LIMIT 100`,
         [windowHours],
       );
@@ -37,6 +42,8 @@ export async function keywordsRoutes(app: FastifyInstance): Promise<void> {
           keyword: r.keyword,
           count: r.mention_count,
           rate: Number(r.rate),
+          burstExplanation: r.burst_explanation ?? undefined,
+          zScore: r.z_score != null ? Number(r.z_score) : undefined,
         })),
         totalPosts,
         window: windowHours,

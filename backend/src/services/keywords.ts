@@ -1,21 +1,7 @@
-import { GoogleGenerativeAI, type GenerativeModel } from '@google/generative-ai';
 import { Pool } from 'pg';
 import pLimit from 'p-limit';
-import { config } from '../config/index.js';
 import { notifyScraperErrors } from './discord.js';
-
-let model: GenerativeModel | null = null;
-
-function getModel(): GenerativeModel | null {
-  if (!config.geminiApiKey) return null;
-  if (!model) {
-    const genAI = new GoogleGenerativeAI(config.geminiApiKey);
-    model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-  }
-  return model;
-}
-
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+import { getModel, delay, explainBurst } from './gemini.js';
 const geminiLimit = pLimit(3);
 
 const BATCH_SIZE = 25;
@@ -299,4 +285,64 @@ export async function calculateStats(pool: Pool, windowHours: number): Promise<v
   );
 
   console.log(`[keywords] stats updated: ${stats.length} keywords for ${windowHours}h window (${total} posts)`);
+}
+
+const MAX_BURST_EXPLANATIONS = 20;
+
+/**
+ * 급상승 키워드에 대해 AI 설명 생성 → keyword_burst_explanations 저장
+ */
+export async function generateBurstExplanations(pool: Pool): Promise<void> {
+  const bursts = await detectBursts(pool);
+  if (bursts.size === 0) return;
+
+  // 이미 활성 설명이 있는 키워드 제외
+  const { rows: existing } = await pool.query<{ keyword: string }>(
+    `SELECT keyword FROM keyword_burst_explanations WHERE expires_at > NOW()`,
+  );
+  const existingSet = new Set(existing.map(r => r.keyword));
+
+  const newBursts = [...bursts.entries()]
+    .filter(([kw]) => !existingSet.has(kw))
+    .slice(0, MAX_BURST_EXPLANATIONS);
+
+  if (newBursts.length === 0) return;
+
+  console.log(`[keywords] generating burst explanations for ${newBursts.length} keywords`);
+  let generated = 0;
+
+  for (const [keyword, zScore] of newBursts) {
+    // 관련 포스트 제목 5개 조회
+    const { rows: related } = await pool.query<{ title: string }>(
+      `SELECT p.title FROM keyword_extractions ke
+       JOIN posts p ON p.id = ke.post_id
+       WHERE $1 = ANY(ke.keywords)
+         AND p.scraped_at > NOW() - INTERVAL '6 hours'
+       ORDER BY p.scraped_at DESC LIMIT 5`,
+      [keyword],
+    );
+
+    if (related.length === 0) continue;
+
+    const titles = related.map(r => r.title);
+    const explanation = await geminiLimit(() => explainBurst(keyword, zScore, titles));
+    if (!explanation) continue;
+
+    await pool.query(
+      `INSERT INTO keyword_burst_explanations (keyword, z_score, explanation, related_titles, expires_at)
+       VALUES ($1, $2, $3, $4::text[], NOW() + INTERVAL '6 hours')
+       ON CONFLICT (keyword)
+       DO UPDATE SET z_score = EXCLUDED.z_score, explanation = EXCLUDED.explanation,
+                     related_titles = EXCLUDED.related_titles, expires_at = EXCLUDED.expires_at,
+                     created_at = NOW()`,
+      [keyword, zScore, explanation, titles],
+    );
+    generated++;
+    await delay(100);
+  }
+
+  // 만료된 항목 정리
+  await pool.query(`DELETE FROM keyword_burst_explanations WHERE expires_at < NOW()`);
+
+  console.log(`[keywords] burst explanations: ${generated}/${newBursts.length} generated`);
 }

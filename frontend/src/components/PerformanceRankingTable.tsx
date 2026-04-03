@@ -71,14 +71,14 @@ function GenreSection({ genre, items }: { genre: string; items: { post: Post; me
 
   return (
     <div className="mb-2 last:mb-0">
-      <h3 className="text-sm font-semibold text-slate-700 px-4 py-2 bg-slate-50/70 border-b border-slate-100">
+      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 px-4 py-2 bg-slate-50/70 dark:bg-slate-900/70 border-b border-slate-100 dark:border-slate-700">
         {icon} {genre}
       </h3>
 
       {/* Desktop table */}
       <table className="w-full hidden sm:table">
         <thead>
-          <tr className="text-xs text-slate-500 border-b border-slate-100">
+          <tr className="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
             <th className="py-2 px-3 text-center w-14">순위</th>
             <th className="py-2 px-2 w-14"></th>
             <th className="py-2 px-3 text-left">공연명</th>
@@ -89,7 +89,7 @@ function GenreSection({ genre, items }: { genre: string; items: { post: Post; me
         </thead>
         <tbody>
           {sorted.map(({ post, meta }) => (
-            <tr key={post.id} className="border-b border-slate-50 hover:bg-blue-50/50 transition-colors">
+            <tr key={post.id} className="border-b border-slate-50 dark:border-slate-700 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors">
               <td className="py-3 px-3 text-center">
                 <RankBadge rank={meta.rank} />
               </td>
@@ -107,22 +107,22 @@ function GenreSection({ genre, items }: { genre: string; items: { post: Post; me
                   href={post.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm font-medium text-slate-800 hover:text-blue-600 transition-colors"
+                  className="text-sm font-medium text-slate-800 dark:text-slate-100 hover:text-blue-600 transition-colors"
                 >
                   {meta.performanceName}
                 </a>
                 {meta.cast && (
-                  <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{meta.cast}</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 line-clamp-1">{meta.cast}</p>
                 )}
               </td>
-              <td className="py-3 px-3 text-sm text-slate-500">{meta.venue}</td>
+              <td className="py-3 px-3 text-sm text-slate-500 dark:text-slate-400">{meta.venue}</td>
               <td className="py-3 px-3 text-center">
                 {meta.startDate && meta.endDate ? (
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
                     {formatDate(meta.startDate)} ~ {formatDate(meta.endDate)}
                   </span>
                 ) : (
-                  <span className="text-xs text-slate-300">-</span>
+                  <span className="text-xs text-slate-300 dark:text-slate-600">-</span>
                 )}
               </td>
               <td className="py-3 px-3 text-center">
@@ -137,7 +137,7 @@ function GenreSection({ genre, items }: { genre: string; items: { post: Post; me
       </table>
 
       {/* Mobile list */}
-      <div className="sm:hidden divide-y divide-slate-50">
+      <div className="sm:hidden divide-y divide-slate-50 dark:divide-slate-700">
         {sorted.map(({ post, meta }) => (
           <div key={post.id} className="flex items-start gap-3 px-4 py-3">
             <RankBadge rank={meta.rank} />
@@ -153,13 +153,13 @@ function GenreSection({ genre, items }: { genre: string; items: { post: Post; me
                 href={post.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm font-medium text-slate-800 hover:text-blue-600 transition-colors line-clamp-1"
+                className="text-sm font-medium text-slate-800 dark:text-slate-100 hover:text-blue-600 transition-colors line-clamp-1"
               >
                 {meta.performanceName}
               </a>
-              <p className="text-xs text-slate-400 mt-0.5">{meta.venue}</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{meta.venue}</p>
               {meta.startDate && meta.endDate && (
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-400 dark:text-slate-500">
                   {formatDate(meta.startDate)} ~ {formatDate(meta.endDate)}
                 </p>
               )}
@@ -203,7 +203,7 @@ export const PerformanceRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) 
 
   if (performances.length === 0) {
     return (
-      <div className="text-center py-16 text-slate-400">
+      <div className="text-center py-16 text-slate-400 dark:text-slate-500">
         <p className="text-lg mb-1">공연/전시 데이터가 없습니다</p>
         <p className="text-sm">데이터 수집 후 표시됩니다</p>
       </div>
@@ -219,13 +219,13 @@ export const PerformanceRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) 
   }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
       {/* 헤더 */}
-      <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="text-base font-bold text-slate-800">공연 예매순위</h2>
-            <p className="text-xs text-slate-400 mt-0.5">KOPIS 공연예술통합전산망</p>
+            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">공연 예매순위</h2>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">KOPIS 공연예술통합전산망</p>
           </div>
           <DataFreshnessLabel label="이번 주 기준 (주간)" />
         </div>
@@ -234,7 +234,7 @@ export const PerformanceRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) 
           <button
             onClick={() => setSelectedGenre('all')}
             className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
-              selectedGenre === 'all' ? 'bg-blue-600 text-white' : 'bg-white text-slate-500 border border-slate-200'
+              selectedGenre === 'all' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
             }`}
           >
             전체
@@ -244,7 +244,7 @@ export const PerformanceRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) 
               key={genre}
               onClick={() => setSelectedGenre(genre)}
               className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
-                selectedGenre === genre ? 'bg-blue-600 text-white' : 'bg-white text-slate-500 border border-slate-200'
+                selectedGenre === genre ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
               }`}
             >
               {genreIcon(genre)} {genre}

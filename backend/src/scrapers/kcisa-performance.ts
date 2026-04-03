@@ -1,39 +1,74 @@
 import axios from 'axios';
 import type { Pool } from 'pg';
+import { parseStringPromise } from 'xml2js';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
 import { config } from '../config/index.js';
 
-interface KcisaItem {
+/*
+  문화체육관광부 공연전시정보조회서비스 (data.go.kr)
+  엔드포인트: /B553457/nopenapi/rest/publicperformancedisplays/period
+  응답: XML
+  파라미터: from, to, cPage, rows, place, keyword, sortStdr, serviceKey
+*/
+
+interface PerformanceItem {
   readonly title?: string;
-  readonly type?: string;
-  readonly period?: string;
-  readonly eventPeriod?: string;
-  readonly eventSite?: string;
-  readonly charge?: string;
-  readonly contactPoint?: string;
-  readonly duration?: string;
-  readonly url?: string;
-  readonly imageObject?: string;
-  readonly description?: string;
-  readonly viewCount?: number;
+  readonly place?: string;
+  readonly startDate?: string;
+  readonly endDate?: string;
+  readonly realmName?: string;  // 장르 (연극, 뮤지컬, 전시 등)
+  readonly area?: string;       // 지역
+  readonly thumbnail?: string;
+  readonly gpsX?: string;
+  readonly gpsY?: string;
+  readonly seq?: string;        // 고유번호
+  readonly phone?: string;
 }
 
-interface KcisaResponse {
-  readonly header: { readonly resultCode: string; readonly resultMsg: string };
-  readonly body: {
-    readonly items: { readonly item: readonly KcisaItem[] } | null;
-    readonly totalCount: number;
-    readonly numOfRows: number;
-    readonly pageNo: number;
-  };
-}
-
-// KOPIS가 이미 커버하는 장르 (뮤지컬, 연극, 콘서트, 클래식, 무용)
+// KOPIS가 이미 커버하는 장르
 const KOPIS_GENRES = new Set(['뮤지컬', '연극', '콘서트', '클래식', '무용']);
 
-// KCISA에서 가져올 장르 (KOPIS 미커버)
-const TARGET_DTYPES = ['전시', '국악', '기타'] as const;
+function formatDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}${m}${day}`;
+}
+
+function extractText(val: unknown): string {
+  if (typeof val === 'string') return val.trim();
+  if (Array.isArray(val) && val.length > 0) return String(val[0]).trim();
+  return '';
+}
+
+async function parseXmlItems(xml: string): Promise<readonly PerformanceItem[]> {
+  const result = await parseStringPromise(xml, { explicitArray: false, trim: true });
+
+  // 응답 구조: <response><msgBody><perforList>...</perforList></msgBody></response>
+  // 또는 <response><msgBody><perforInfo>...</perforInfo></msgBody></response>
+  const msgBody = result?.response?.msgBody;
+  if (!msgBody) return [];
+
+  const rawList = msgBody.perforList ?? msgBody.perforInfo;
+  if (!rawList) return [];
+
+  const items = Array.isArray(rawList) ? rawList : [rawList];
+
+  return items.map((item: Record<string, unknown>): PerformanceItem => ({
+    seq: extractText(item.seq),
+    title: extractText(item.title),
+    place: extractText(item.place),
+    startDate: extractText(item.startDate),
+    endDate: extractText(item.endDate),
+    realmName: extractText(item.realmName),
+    area: extractText(item.area),
+    thumbnail: extractText(item.thumbnail),
+    gpsX: extractText(item.gpsX),
+    gpsY: extractText(item.gpsY),
+    phone: extractText(item.phone),
+  }));
+}
 
 export class KcisaPerformanceScraper extends BaseScraper {
   constructor(pool: Pool) {
@@ -41,96 +76,87 @@ export class KcisaPerformanceScraper extends BaseScraper {
   }
 
   async fetch(): Promise<ScrapedPost[]> {
-    if (!config.kcisaApiKey) return [];
+    if (!config.dataGoKrApiKey) return [];
 
-    const allPosts: ScrapedPost[] = [];
+    const today = new Date();
+    const from = formatDate(today);
+    const toDate = new Date(today);
+    toDate.setDate(toDate.getDate() + 30); // 향후 30일 공연
+    const to = formatDate(toDate);
 
-    for (const dtype of TARGET_DTYPES) {
-      const posts = await this.fetchByType(dtype);
-      allPosts.push(...posts);
-    }
-
-    return allPosts.slice(0, 30);
-  }
-
-  private async fetchByType(dtype: string): Promise<ScrapedPost[]> {
-    try {
-      const { data } = await axios.get<KcisaResponse>(
-        'https://api.kcisa.kr/openapi/CNV_060/request',
-        {
-          params: {
-            serviceKey: config.kcisaApiKey,
-            numOfRows: 15,
-            pageNo: 1,
-          },
-          timeout: 15000,
+    const { data } = await axios.get(
+      'https://apis.data.go.kr/B553457/nopenapi/rest/publicperformancedisplays/period',
+      {
+        params: {
+          serviceKey: config.dataGoKrApiKey,
+          from,
+          to,
+          cPage: 1,
+          rows: 50,
+          sortStdr: 1, // 등록일순
         },
-      );
+        timeout: 15000,
+        responseType: 'text',
+      },
+    );
 
-      if (data.header?.resultCode !== '0000') {
-        console.warn(`[kcisa_performance] API warning for ${dtype}: ${data.header?.resultMsg}`);
-        return [];
-      }
+    const items = await parseXmlItems(data);
+    if (items.length === 0) return [];
 
-      const items = data.body?.items?.item;
-      if (!items || !Array.isArray(items)) return [];
+    // KOPIS와 겹치는 장르 제외
+    const filtered = items.filter(item => {
+      const genre = item.realmName ?? '';
+      return !KOPIS_GENRES.has(genre);
+    });
 
-      // KOPIS와 겹치는 장르 제외
-      const filtered = items.filter(item => {
-        const type = item.type?.trim() ?? '';
-        return !KOPIS_GENRES.has(type);
-      });
+    return filtered.slice(0, 30).map((item): ScrapedPost => {
+      const genre = item.realmName || '공연';
+      const venue = item.place || '';
+      const title = item.title || '';
 
-      return filtered.map((item): ScrapedPost => {
-        const type = item.type?.trim() ?? dtype;
-        const venue = item.eventSite?.trim() ?? '';
-        const title = item.title?.trim() ?? '';
+      const displayTitle = venue
+        ? `[${genre}] ${title} — ${venue}`
+        : `[${genre}] ${title}`;
 
-        const displayTitle = venue
-          ? `[${type}] ${title} — ${venue}`
-          : `[${type}] ${title}`;
+      const postUrl = item.seq
+        ? `https://www.culture.go.kr/search/search.do?keyword=${encodeURIComponent(title)}`
+        : `https://www.culture.go.kr/search/search.do?keyword=${encodeURIComponent(title)}`;
 
-        const postUrl = item.url?.trim()
-          || `https://www.culture.go.kr/search/search.do?keyword=${encodeURIComponent(title)}`;
-
-        return {
-          sourceKey: 'kcisa_performance',
-          sourceName: '문화예술공연(통합)',
-          title: displayTitle,
-          url: postUrl,
-          thumbnail: item.imageObject || undefined,
-          viewCount: item.viewCount ?? 0,
-          commentCount: 0,
-          publishedAt: this.parsePeriodDate(item.period ?? item.eventPeriod),
-          category: 'performance',
-          metadata: {
-            dataSource: 'kcisa',
-            type,
-            period: item.period,
-            eventPeriod: item.eventPeriod,
-            venue,
-            charge: item.charge,
-            duration: item.duration,
-            viewCount: item.viewCount,
-          },
-        };
-      });
-    } catch (error) {
-      throw new Error(
-        `[kcisa_performance] ${dtype}: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+      return {
+        sourceKey: 'kcisa_performance',
+        sourceName: '문화예술공연(통합)',
+        title: displayTitle,
+        url: postUrl,
+        thumbnail: item.thumbnail || undefined,
+        author: item.area || undefined,
+        viewCount: 0,
+        commentCount: 0,
+        publishedAt: this.parseDateStr(item.startDate),
+        category: 'performance',
+        metadata: {
+          dataSource: 'culture_data_go_kr',
+          genre,
+          venue,
+          area: item.area,
+          startDate: item.startDate,
+          endDate: item.endDate,
+          seq: item.seq,
+          phone: item.phone,
+        },
+      };
+    });
   }
 
-  private parsePeriodDate(period: string | undefined): Date {
-    if (!period) return new Date();
-    // "2026-04-01 ~ 2026-04-30" 또는 "20260401" 형태
-    const match = period.match(/(\d{4})-?(\d{2})-?(\d{2})/);
-    if (match) {
-      const d = new Date(`${match[1]}-${match[2]}-${match[3]}`);
+  private parseDateStr(dateStr: string | undefined): Date {
+    if (!dateStr) return new Date();
+    // "20260401" 형태
+    if (dateStr.length === 8) {
+      const d = new Date(`${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`);
       if (!isNaN(d.getTime())) return d;
     }
+    // "2026-04-01" 형태
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) return d;
     return new Date();
   }
 }

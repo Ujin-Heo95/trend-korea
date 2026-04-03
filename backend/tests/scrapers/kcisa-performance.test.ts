@@ -1,14 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import axios from 'axios';
 import { KcisaPerformanceScraper } from '../../src/scrapers/kcisa-performance.js';
-import fixture from '../fixtures/kcisa-performance-response.json';
 
 vi.mock('axios');
 vi.mock('../../src/config/index.js', () => ({
-  config: { kcisaApiKey: 'test-key' },
+  config: { dataGoKrApiKey: 'test-key' },
 }));
 
 const mockPool = { query: vi.fn() } as any;
+
+const fixtureXml = readFileSync(
+  join(__dirname, '../fixtures/kcisa-performance-response.xml'),
+  'utf-8',
+);
 
 describe('KcisaPerformanceScraper', () => {
   beforeEach(() => {
@@ -16,7 +22,7 @@ describe('KcisaPerformanceScraper', () => {
   });
 
   it('should fetch and return performances as ScrapedPost[]', async () => {
-    vi.mocked(axios.get).mockResolvedValue({ data: fixture });
+    vi.mocked(axios.get).mockResolvedValue({ data: fixtureXml });
 
     const scraper = new KcisaPerformanceScraper(mockPool);
     const posts = await scraper.fetch();
@@ -30,7 +36,7 @@ describe('KcisaPerformanceScraper', () => {
   });
 
   it('should filter out KOPIS genres (뮤지컬)', async () => {
-    vi.mocked(axios.get).mockResolvedValue({ data: fixture });
+    vi.mocked(axios.get).mockResolvedValue({ data: fixtureXml });
 
     const scraper = new KcisaPerformanceScraper(mockPool);
     const posts = await scraper.fetch();
@@ -40,7 +46,7 @@ describe('KcisaPerformanceScraper', () => {
   });
 
   it('should include non-KOPIS genres (전시, 국악)', async () => {
-    vi.mocked(axios.get).mockResolvedValue({ data: fixture });
+    vi.mocked(axios.get).mockResolvedValue({ data: fixtureXml });
 
     const scraper = new KcisaPerformanceScraper(mockPool);
     const posts = await scraper.fetch();
@@ -52,8 +58,8 @@ describe('KcisaPerformanceScraper', () => {
     expect(gugakPosts.length).toBeGreaterThan(0);
   });
 
-  it('should format title as [type] name — venue', async () => {
-    vi.mocked(axios.get).mockResolvedValue({ data: fixture });
+  it('should format title as [genre] name — venue', async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: fixtureXml });
 
     const scraper = new KcisaPerformanceScraper(mockPool);
     const posts = await scraper.fetch();
@@ -63,37 +69,54 @@ describe('KcisaPerformanceScraper', () => {
     expect(monet!.title).toBe('[전시] 모네: 빛의 여행 — 서울시립미술관');
   });
 
-  it('should include kcisa metadata with dataSource field', async () => {
-    vi.mocked(axios.get).mockResolvedValue({ data: fixture });
+  it('should include metadata with dataSource field', async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: fixtureXml });
 
     const scraper = new KcisaPerformanceScraper(mockPool);
     const posts = await scraper.fetch();
 
     expect(posts[0].metadata).toMatchObject({
-      dataSource: 'kcisa',
+      dataSource: 'culture_data_go_kr',
     });
     expect(posts[0].metadata).toHaveProperty('venue');
-    expect(posts[0].metadata).toHaveProperty('type');
+    expect(posts[0].metadata).toHaveProperty('genre');
+    expect(posts[0].metadata).toHaveProperty('seq');
   });
 
-  it('should use provided URL or fallback to culture.go.kr search', async () => {
-    vi.mocked(axios.get).mockResolvedValue({ data: fixture });
+  it('should set thumbnail from XML', async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: fixtureXml });
 
     const scraper = new KcisaPerformanceScraper(mockPool);
     const posts = await scraper.fetch();
 
     const monet = posts.find(p => p.title.includes('모네'));
-    expect(monet!.url).toBe('https://example.com/monet');
+    expect(monet!.thumbnail).toBe('https://example.com/monet.jpg');
+  });
 
-    const modernArt = posts.find(p => p.title.includes('현대미술전'));
-    if (modernArt) {
-      expect(modernArt.url).toContain('culture.go.kr');
-    }
+  it('should use area as author', async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: fixtureXml });
+
+    const scraper = new KcisaPerformanceScraper(mockPool);
+    const posts = await scraper.fetch();
+
+    expect(posts[0].author).toBe('서울');
+  });
+
+  it('should call data.go.kr API with correct params', async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: fixtureXml });
+
+    const scraper = new KcisaPerformanceScraper(mockPool);
+    await scraper.fetch();
+
+    const call = vi.mocked(axios.get).mock.calls[0];
+    expect(call[0]).toContain('publicperformancedisplays/period');
+    expect(call[1]?.params?.serviceKey).toBe('test-key');
+    expect(call[1]?.params?.rows).toBe(50);
   });
 
   it('should return empty array when API key is missing', async () => {
     const configMock = await import('../../src/config/index.js');
-    (configMock.config as any).kcisaApiKey = '';
+    (configMock.config as any).dataGoKrApiKey = '';
 
     const scraper = new KcisaPerformanceScraper(mockPool);
     const posts = await scraper.fetch();
@@ -101,16 +124,27 @@ describe('KcisaPerformanceScraper', () => {
     expect(posts).toEqual([]);
     expect(axios.get).not.toHaveBeenCalled();
 
-    (configMock.config as any).kcisaApiKey = 'test-key';
+    (configMock.config as any).dataGoKrApiKey = 'test-key';
   });
 
-  it('should map viewCount from API response', async () => {
-    vi.mocked(axios.get).mockResolvedValue({ data: fixture });
+  it('should handle empty XML response', async () => {
+    vi.mocked(axios.get).mockResolvedValue({
+      data: '<?xml version="1.0" encoding="UTF-8"?><response><msgBody></msgBody></response>',
+    });
+
+    const scraper = new KcisaPerformanceScraper(mockPool);
+    const posts = await scraper.fetch();
+
+    expect(posts).toEqual([]);
+  });
+
+  it('should parse YYYYMMDD dates correctly', async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: fixtureXml });
 
     const scraper = new KcisaPerformanceScraper(mockPool);
     const posts = await scraper.fetch();
 
     const monet = posts.find(p => p.title.includes('모네'));
-    expect(monet!.viewCount).toBe(1500);
+    expect(monet!.publishedAt).toEqual(new Date('2026-03-01'));
   });
 });

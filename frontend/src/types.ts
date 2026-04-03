@@ -23,6 +23,7 @@ export interface Post {
   related_sources?: { id: number; source_name: string; source_key: string; url: string }[];
   metadata?: Record<string, unknown>;
   keywords?: string[];
+  ai_summary?: string | null;
 }
 
 export interface Source {
@@ -80,6 +81,8 @@ export interface KeywordStat {
   keyword: string;
   count: number;
   rate: number;
+  burstExplanation?: string;
+  zScore?: number;
 }
 
 export interface KeywordStatsResponse {
@@ -87,6 +90,15 @@ export interface KeywordStatsResponse {
   totalPosts: number;
   window: number;
   calculatedAt: string | null;
+}
+
+// ── 미니 에디토리얼 ──────────────────────────────────────
+export interface MiniEditorial {
+  id: number;
+  briefing: string;
+  keywords: string[];
+  topic_count: number;
+  created_at: string;
 }
 
 // ── 토픽 종합 ──────────────────────────────────────────

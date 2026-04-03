@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <msgBody>
+    <perforList>
+      <seq>12345</seq>
+      <title>모네: 빛의 여행</title>
+      <place>서울시립미술관</place>
+      <realmName>전시</realmName>
+      <area>서울</area>
+      <startDate>20260301</startDate>
+      <endDate>20260630</endDate>
+      <thumbnail>https://example.com/monet.jpg</thumbnail>
+      <phone>02-1234-5678</phone>
+    </perforList>
+    <perforList>
+      <seq>23456</seq>
+      <title>뮤지컬 위키드</title>
+      <place>블루스퀘어</place>
+      <realmName>뮤지컬</realmName>
+      <area>서울</area>
+      <startDate>20260401</startDate>
+      <endDate>20260531</endDate>
+    </perforList>
+    <perforList>
+      <seq>34567</seq>
+      <title>국립국악원 정기공연</title>
+      <place>국립국악원 예악당</place>
+      <realmName>국악</realmName>
+      <area>서울</area>
+      <startDate>20260405</startDate>
+      <endDate>20260405</endDate>
+      <phone>02-5678-1234</phone>
+    </perforList>
+    <perforList>
+      <seq>45678</seq>
+      <title>서울 현대미술전</title>
+      <place>국립현대미술관</place>
+      <realmName>전시</realmName>
+      <area>서울</area>
+      <startDate>20260215</startDate>
+      <endDate>20260515</endDate>
+      <thumbnail>https://example.com/modern-art.jpg</thumbnail>
+    </perforList>
+  </msgBody>
+</response>

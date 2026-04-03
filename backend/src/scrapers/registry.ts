@@ -51,7 +51,7 @@ const API_KEY_REQUIREMENTS: Record<string, { key: keyof typeof config; label: st
   kopis_boxoffice:{ key: 'kopisApiKey',      label: 'KOPIS_API_KEY' },
   tour_festival:  { key: 'dataGoKrApiKey',   label: 'DATA_GO_KR_API_KEY' },
   tour_visitor:   { key: 'dataGoKrApiKey',   label: 'DATA_GO_KR_API_KEY' },
-  kcisa_performance:{ key: 'kcisaApiKey',    label: 'KCISA_API_KEY' },
+  kcisa_performance:{ key: 'dataGoKrApiKey',  label: 'DATA_GO_KR_API_KEY' },
 };
 
 export async function buildScrapers(pool: Pool): Promise<readonly ResolvedScraper[]> {

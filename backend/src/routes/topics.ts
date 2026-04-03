@@ -74,6 +74,7 @@ function classifyConfidence(channels: string[], convergence: number): 'high' | '
 // ─── Cache ───
 
 const topicsCache = new LRUCache<{ topics: Topic[] }>(5, 60_000);
+const editorialCache = new LRUCache<unknown>(5, 5 * 60_000); // 5분 TTL
 
 // ─── Route ───
 
@@ -373,6 +374,29 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
 
     const result = { topics: finalTopics };
     topicsCache.set('topics', result);
+    return reply.send(result);
+  });
+
+  // 미니 에디토리얼 최신 조회
+  app.get('/api/mini-editorial/latest', async (_req, reply) => {
+    const cached = editorialCache.get('mini-editorial');
+    if (cached) return reply.send(cached);
+
+    const { rows } = await app.pg.query<{
+      id: number;
+      briefing: string;
+      keywords: string[];
+      topic_count: number;
+      created_at: string;
+    }>(
+      `SELECT id, briefing, keywords, topic_count, created_at
+       FROM mini_editorials
+       ORDER BY created_at DESC
+       LIMIT 1`,
+    );
+
+    const result = rows[0] ?? null;
+    if (result) editorialCache.set('mini-editorial', result);
     return reply.send(result);
   });
 }

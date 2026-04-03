@@ -9,10 +9,10 @@ import { DailySummary } from '../components/weather/DailySummary';
 
 function WeatherSkeleton() {
   return (
-    <div className="space-y-4 animate-pulse">
-      <div className="h-48 bg-sky-50 rounded-2xl" />
-      <div className="h-32 bg-slate-100 rounded-2xl" />
-      <div className="h-24 bg-slate-100 rounded-2xl" />
+    <div className="space-y-4 animate-shimmer">
+      <div className="h-48 bg-sky-50 dark:bg-sky-900/30 rounded-2xl" />
+      <div className="h-32 bg-slate-100 dark:bg-slate-700 rounded-2xl" />
+      <div className="h-24 bg-slate-100 dark:bg-slate-700 rounded-2xl" />
     </div>
   );
 }
@@ -34,7 +34,7 @@ export const WeatherPage: React.FC = () => {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-slate-900 mb-4">날씨 예보</h1>
+      <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-4">날씨 예보</h1>
 
       <CitySelector selected={cityCode} onChange={handleCityChange} />
 
@@ -42,7 +42,7 @@ export const WeatherPage: React.FC = () => {
 
       {isError && (
         <div className="text-center py-16">
-          <p className="text-slate-500 mb-3">날씨 정보를 불러올 수 없습니다.</p>
+          <p className="text-slate-500 dark:text-slate-400 mb-3">날씨 정보를 불러올 수 없습니다.</p>
           <button
             onClick={() => refetch()}
             className="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm font-medium hover:bg-sky-700 transition-colors"
@@ -62,7 +62,7 @@ export const WeatherPage: React.FC = () => {
           <HourlyForecast hourly={data.hourly} />
           <DailySummary today={data.daily.today} tomorrow={data.daily.tomorrow} />
 
-          <p className="text-[11px] text-slate-300 text-right">
+          <p className="text-[11px] text-slate-300 dark:text-slate-600 text-right">
             기상청 단기예보 | 발표 {data.baseDate.slice(4, 6)}/{data.baseDate.slice(6, 8)} {data.baseTime.slice(0, 2)}:{data.baseTime.slice(2)}
           </p>
         </div>
