@@ -16,6 +16,7 @@ const CATEGORY_TO_CHANNEL: Record<string, Channel> = {
   tech: 'specialized', techblog: 'specialized', finance: 'specialized',
   deals: 'specialized', alert: 'specialized', trend: 'specialized',
   sports: 'specialized', movie: 'specialized', performance: 'specialized',
+  travel: 'specialized',
 };
 
 export function getChannel(category: string | null): Channel {
@@ -50,7 +51,7 @@ const DEFAULT_SOURCE_WEIGHT = 0.95;
 const CATEGORY_WEIGHTS: Record<string, number> = {
   alert: 1.25, news: 1.20, trend: 1.15, tech: 1.15,
   finance: 1.10, community: 1.08, video: 0.95,
-  movie: 1.05, performance: 1.05,
+  movie: 1.05, performance: 1.05, travel: 1.05,
   deals: 0.90, government: 0.85, newsletter: 0.80,
 };
 const DEFAULT_CATEGORY_WEIGHT = 1.00;

@@ -24,7 +24,7 @@ const ChangeIndicator: React.FC<{ topic: Topic }> = ({ topic }) => {
       </span>
     );
   }
-  return <span className="text-[10px] text-slate-400">—</span>;
+  return <span className="text-[10px] text-slate-400 dark:text-slate-500">—</span>;
 };
 
 // ── 신뢰도 뱃지 ──────────────────────────────────────────
@@ -51,16 +51,16 @@ const TopicCard: React.FC<{ topic: Topic }> = ({ topic }) => {
   const rank = topic.rank;
 
   const borderClass = rank <= 2
-    ? 'border-amber-300 bg-gradient-to-br from-amber-50/80 to-orange-50/60'
-    : 'border-slate-200 bg-gradient-to-br from-white to-slate-50';
+    ? 'border-amber-300 dark:border-amber-600 bg-gradient-to-br from-amber-50/80 to-orange-50/60 dark:from-amber-900/30 dark:to-orange-900/20'
+    : 'border-slate-200 dark:border-slate-600 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/80';
   const hoverClass = rank <= 2
-    ? 'hover:border-amber-400 hover:shadow-amber-100/50'
-    : 'hover:border-indigo-300 hover:shadow-indigo-100/50';
+    ? 'hover:border-amber-400 hover:shadow-amber-100/50 dark:hover:border-amber-500'
+    : 'hover:border-indigo-300 hover:shadow-indigo-100/50 dark:hover:border-indigo-500';
 
   return (
     <Link
       to={topPost ? `/issue/${topPost.id}` : '#'}
-      className={`flex-shrink-0 w-56 p-3.5 rounded-xl border-2 ${borderClass} ${hoverClass} hover:shadow-md transition-all group`}
+      className={`flex-shrink-0 w-56 p-3.5 rounded-xl border-2 ${borderClass} ${hoverClass} hover:shadow-md transition-all group snap-start`}
     >
       {/* 순위 + 위치변동 + 신뢰도 */}
       <div className="flex items-center justify-between mb-2">
@@ -74,14 +74,14 @@ const TopicCard: React.FC<{ topic: Topic }> = ({ topic }) => {
       </div>
 
       {/* 헤드라인 */}
-      <p className="text-sm font-semibold text-slate-800 line-clamp-2 mb-2 group-hover:text-indigo-600 transition-colors leading-snug">
+      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-2 mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-snug">
         {topic.headline}
       </p>
 
       {/* 채널 분포 */}
       <div className="flex flex-wrap gap-1 mb-2">
         {topic.channels.map(ch => (
-          <span key={ch} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
+          <span key={ch} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
             {ch}
           </span>
         ))}
@@ -136,10 +136,10 @@ const KeywordStrip: React.FC<{ topics: Topic[] }> = ({ topics }) => {
             onClick={() => navigate(`/?q=${encodeURIComponent(keyword)}`)}
             className={`flex-shrink-0 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors
               ${momentum === 'rising'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                ? 'border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100'
                 : momentum === 'falling'
-                  ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
-                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                  ? 'border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100'
+                  : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
               }`}
           >
             {keyword}
@@ -155,10 +155,10 @@ const KeywordStrip: React.FC<{ topics: Topic[] }> = ({ topics }) => {
 
 const Skeleton: React.FC = () => (
   <div className="mb-6">
-    <div className="h-4 w-28 bg-slate-200 rounded mb-3 animate-pulse" />
+    <div className="h-4 w-28 bg-slate-200 dark:bg-slate-700 rounded mb-3 animate-shimmer" />
     <div className="flex gap-3 overflow-x-auto pb-2">
       {Array.from({ length: 4 }, (_, i) => (
-        <div key={i} className="flex-shrink-0 w-56 h-32 bg-white rounded-xl border border-slate-200 animate-pulse" />
+        <div key={i} className="flex-shrink-0 w-56 h-32 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 animate-shimmer" />
       ))}
     </div>
   </div>
@@ -177,12 +177,12 @@ export const TrendHero: React.FC = () => {
 
   return (
     <div className="mb-6">
-      <h2 className="text-sm font-semibold text-slate-500 mb-3">
+      <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">
         🔥 지금 뜨는 토픽
       </h2>
 
       {/* 토픽 카드 가로 스크롤 */}
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x-mandatory">
         {topics.map(topic => (
           <TopicCard key={topic.id} topic={topic} />
         ))}

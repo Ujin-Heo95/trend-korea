@@ -1,0 +1,37 @@
+{
+  "response": {
+    "header": { "resultCode": "0000", "resultMsg": "OK" },
+    "body": {
+      "items": {
+        "item": [
+          { "baseYmd": "20260325", "areaNm": "서울", "touDivNm": "관광객", "touNum": 50000 },
+          { "baseYmd": "20260326", "areaNm": "서울", "touDivNm": "관광객", "touNum": 52000 },
+          { "baseYmd": "20260327", "areaNm": "서울", "touDivNm": "관광객", "touNum": 48000 },
+          { "baseYmd": "20260328", "areaNm": "서울", "touDivNm": "관광객", "touNum": 55000 },
+          { "baseYmd": "20260329", "areaNm": "서울", "touDivNm": "관광객", "touNum": 60000 },
+          { "baseYmd": "20260330", "areaNm": "서울", "touDivNm": "관광객", "touNum": 65000 },
+          { "baseYmd": "20260331", "areaNm": "서울", "touDivNm": "관광객", "touNum": 70000 },
+
+          { "baseYmd": "20260325", "areaNm": "제주", "touDivNm": "관광객", "touNum": 30000 },
+          { "baseYmd": "20260326", "areaNm": "제주", "touDivNm": "관광객", "touNum": 28000 },
+          { "baseYmd": "20260327", "areaNm": "제주", "touDivNm": "관광객", "touNum": 32000 },
+          { "baseYmd": "20260328", "areaNm": "제주", "touDivNm": "관광객", "touNum": 45000 },
+          { "baseYmd": "20260329", "areaNm": "제주", "touDivNm": "관광객", "touNum": 50000 },
+          { "baseYmd": "20260330", "areaNm": "제주", "touDivNm": "관광객", "touNum": 55000 },
+          { "baseYmd": "20260331", "areaNm": "제주", "touDivNm": "관광객", "touNum": 60000 },
+
+          { "baseYmd": "20260325", "areaNm": "부산", "touDivNm": "관광객", "touNum": 20000 },
+          { "baseYmd": "20260326", "areaNm": "부산", "touDivNm": "관광객", "touNum": 19000 },
+          { "baseYmd": "20260327", "areaNm": "부산", "touDivNm": "관광객", "touNum": 21000 },
+          { "baseYmd": "20260328", "areaNm": "부산", "touDivNm": "관광객", "touNum": 20000 },
+          { "baseYmd": "20260329", "areaNm": "부산", "touDivNm": "관광객", "touNum": 19500 },
+          { "baseYmd": "20260330", "areaNm": "부산", "touDivNm": "관광객", "touNum": 20500 },
+          { "baseYmd": "20260331", "areaNm": "부산", "touDivNm": "관광객", "touNum": 21000 }
+        ]
+      },
+      "numOfRows": 1000,
+      "pageNo": 1,
+      "totalCount": 21
+    }
+  }
+}

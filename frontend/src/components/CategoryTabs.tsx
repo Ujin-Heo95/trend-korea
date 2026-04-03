@@ -6,7 +6,7 @@ const CATEGORIES: { key: string | undefined; label: string; icon: string }[] = [
   { key: 'news,press,newsletter',                                 label: '뉴스',     icon: '📰' },
   { key: 'tech,techblog',                                         label: '테크',     icon: '💻' },
   { key: 'video',                                                 label: '영상',     icon: '🎬' },
-  { key: 'deals,sports,trend,government,finance,alert',           label: '생활',     icon: '🏠' },
+  { key: 'deals,sports,trend,government,finance,alert,travel',    label: '생활',     icon: '🏠' },
   { key: 'movie',                                                 label: '영화',     icon: '🎥' },
   { key: 'performance',                                           label: '공연/전시', icon: '🎭' },
   { key: 'sns',                                                  label: 'SNS',     icon: '📱' },
@@ -26,7 +26,7 @@ export const CategoryTabs: React.FC<Props> = ({ selected, onChange }) => (
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
           selected === key
             ? 'bg-blue-600 text-white shadow-sm'
-            : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
+            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-500'
         }`}
       >
         <span>{icon}</span>

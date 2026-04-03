@@ -1,0 +1,45 @@
+{
+  "response": {
+    "header": { "resultCode": "0000", "resultMsg": "OK" },
+    "body": {
+      "items": {
+        "item": [
+          {
+            "title": "2026 진해군항제",
+            "addr1": "경남 창원시 진해구",
+            "addr2": "중원로터리 일대",
+            "firstimage": "https://tong.visitkorea.or.kr/cms/resource/festival1.jpg",
+            "tel": "055-123-4567",
+            "eventstartdate": "20260401",
+            "eventenddate": "20260410",
+            "contentid": "123456",
+            "contenttypeid": "15",
+            "areacode": "36",
+            "sigungucode": "3"
+          },
+          {
+            "title": "제주 유채꽃 축제",
+            "addr1": "제주특별자치도 서귀포시",
+            "firstimage": "https://tong.visitkorea.or.kr/cms/resource/festival2.jpg",
+            "eventstartdate": "20260320",
+            "eventenddate": "20260420",
+            "contentid": "789012",
+            "contenttypeid": "15",
+            "areacode": "39"
+          },
+          {
+            "title": "서울 벚꽃 페스티벌",
+            "addr1": "서울 영등포구 여의도",
+            "eventstartdate": "20260405",
+            "eventenddate": "20260413",
+            "contentid": "345678",
+            "areacode": "1"
+          }
+        ]
+      },
+      "numOfRows": 30,
+      "pageNo": 1,
+      "totalCount": 3
+    }
+  }
+}

@@ -9,10 +9,10 @@ import { ErrorRetry } from './shared/ErrorRetry';
 const RelatedPostRow: React.FC<{ post: BigKindsRelatedPost }> = ({ post }) => (
   <Link
     to={`/issue/${post.id}`}
-    className="flex items-start gap-2 py-1.5 px-1 rounded hover:bg-indigo-50 transition-colors group/rel"
+    className="flex items-start gap-2 py-1.5 px-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors group/rel"
   >
     <span className="text-xs text-indigo-300 mt-0.5 shrink-0">💬</span>
-    <span className="text-xs text-slate-700 group-hover/rel:text-indigo-600 line-clamp-1 flex-1">
+    <span className="text-xs text-slate-700 dark:text-slate-300 group-hover/rel:text-indigo-600 dark:group-hover/rel:text-indigo-400 line-clamp-1 flex-1">
       {post.title}
     </span>
     <span className="text-[10px] text-slate-400 shrink-0 mt-0.5">
@@ -32,12 +32,12 @@ const IssueCard: React.FC<{
   const hasRelated = issue.relatedPosts.length > 0;
 
   const borderClass = isTop3
-    ? 'border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50'
-    : 'border-indigo-200 bg-gradient-to-br from-indigo-50 to-slate-50';
+    ? 'border-amber-300 dark:border-amber-600 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/20'
+    : 'border-indigo-200 dark:border-indigo-700 bg-gradient-to-br from-indigo-50 to-slate-50 dark:from-indigo-900/20 dark:to-slate-800';
 
   const hoverBorderClass = isTop3
-    ? 'hover:border-amber-400 hover:shadow-amber-100'
-    : 'hover:border-indigo-300 hover:shadow-indigo-100';
+    ? 'hover:border-amber-400 hover:shadow-amber-100 dark:hover:border-amber-500'
+    : 'hover:border-indigo-300 hover:shadow-indigo-100 dark:hover:border-indigo-500';
 
   return (
     <div
@@ -65,7 +65,7 @@ const IssueCard: React.FC<{
       </div>
 
       {/* 키워드 (이슈 제목) */}
-      <p className={`text-sm font-semibold mb-1.5 line-clamp-2 ${isTop3 ? 'text-amber-900' : 'text-slate-800'}`}>
+      <p className={`text-sm font-semibold mb-1.5 line-clamp-2 ${isTop3 ? 'text-amber-900 dark:text-amber-200' : 'text-slate-800 dark:text-slate-100'}`}>
         {issue.keyword}
       </p>
 
@@ -108,10 +108,10 @@ export const TrendRadar: React.FC = () => {
   if (isLoading) {
     return (
       <div className="mb-6">
-        <h2 className="text-sm font-semibold text-slate-500 mb-3">📰 오늘의 뉴스 이슈</h2>
+        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">📰 오늘의 뉴스 이슈</h2>
         <div className="flex gap-3 overflow-x-auto pb-2">
           {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="flex-shrink-0 w-56 h-28 bg-white rounded-xl border-2 border-slate-200 animate-pulse" />
+            <div key={i} className="flex-shrink-0 w-56 h-28 bg-white dark:bg-slate-800 rounded-xl border-2 border-slate-200 dark:border-slate-700 animate-shimmer" />
           ))}
         </div>
       </div>
@@ -121,7 +121,7 @@ export const TrendRadar: React.FC = () => {
   if (error) {
     return (
       <div className="mb-6">
-        <h2 className="text-sm font-semibold text-slate-500 mb-3">📰 오늘의 뉴스 이슈</h2>
+        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">📰 오늘의 뉴스 이슈</h2>
         <ErrorRetry message="뉴스 이슈를 불러오지 못했습니다." onRetry={refetch} />
       </div>
     );
@@ -131,10 +131,10 @@ export const TrendRadar: React.FC = () => {
   if (issues.length === 0) {
     return (
       <div className="mb-6">
-        <h2 className="text-sm font-semibold text-slate-500 mb-3">📰 오늘의 뉴스 이슈</h2>
-        <div className="border-2 border-dashed border-slate-200 rounded-xl py-8 text-center">
-          <p className="text-sm text-slate-400">뉴스 이슈를 수집 중입니다</p>
-          <p className="text-xs text-slate-300 mt-1">잠시 후 자동으로 표시됩니다</p>
+        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">📰 오늘의 뉴스 이슈</h2>
+        <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl py-8 text-center">
+          <p className="text-sm text-slate-400 dark:text-slate-500">뉴스 이슈를 수집 중입니다</p>
+          <p className="text-xs text-slate-300 dark:text-slate-600 mt-1">잠시 후 자동으로 표시됩니다</p>
         </div>
       </div>
     );
@@ -143,13 +143,13 @@ export const TrendRadar: React.FC = () => {
   return (
     <div className="mb-6">
       <div className="flex items-center gap-2 mb-3">
-        <h2 className="text-sm font-semibold text-slate-500">📰 오늘의 뉴스 이슈</h2>
+        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400">📰 오늘의 뉴스 이슈</h2>
         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">
           Top {issues.length}
         </span>
         <span className="text-[10px] text-slate-300 ml-auto">빅카인즈 제공</span>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x-mandatory">
         {issues.map(issue => (
           <IssueCard
             key={issue.rank}

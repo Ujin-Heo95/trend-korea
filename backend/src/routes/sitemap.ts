@@ -14,6 +14,7 @@ const STATIC_PAGES = [
   { loc: '/?category=newsletter', changefreq: 'daily', priority: '0.7' },
   { loc: '/?category=deals', changefreq: 'always', priority: '0.7' },
   { loc: '/keywords', changefreq: 'hourly', priority: '0.6' },
+  { loc: '/weather', changefreq: 'hourly', priority: '0.5' },
   { loc: '/about', changefreq: 'monthly', priority: '0.3' },
   { loc: '/privacy', changefreq: 'monthly', priority: '0.2' },
 ];
@@ -56,7 +57,7 @@ ${[...staticEntries, ...reportEntries, ...postEntries].join('\n')}
 
     return reply
       .type('application/xml; charset=utf-8')
-      .header('cache-control', 'public, max-age=600')
+      .header('cache-control', 'public, max-age=3600')
       .send(xml);
   });
 }

@@ -63,11 +63,11 @@ function CategoryBlock({ category, sections }: { category: string; sections: Dai
 
   return (
     <section className="mb-8">
-      <h2 className="text-lg font-bold text-slate-800 mb-2">
+      <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">
         {meta.emoji} {meta.label}
       </h2>
       {catSummary && (
-        <p className="text-sm text-slate-600 bg-slate-50 rounded-lg px-4 py-2 mb-3 leading-relaxed">
+        <p className="text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 rounded-lg px-4 py-2 mb-3 leading-relaxed">
           {catSummary}
         </p>
       )}
@@ -81,40 +81,55 @@ function CategoryBlock({ category, sections }: { category: string; sections: Dai
 }
 
 function ReportPostRow({ section }: { section: DailyReportSection }) {
-  const { rank, title, url, source_name, view_count, comment_count, cluster_size, summary } = section;
+  const { rank, title, url, source_name, view_count, comment_count, cluster_size, summary, post_id } = section;
+
+  const titleText = title ?? '(deleted)';
+  const titleClass = 'text-sm font-medium text-slate-800 dark:text-slate-100 hover:text-blue-600 transition-colors line-clamp-2';
 
   return (
     <div className="flex items-start gap-3 py-2">
-      <span className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">
+      <span className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-sm font-bold">
         {rank}
       </span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          {url ? (
+          {post_id ? (
+            <Link to={`/issue/${post_id}`} className={titleClass}>
+              {titleText}
+            </Link>
+          ) : url ? (
+            <a href={url} target="_blank" rel="noopener noreferrer" className={titleClass}>
+              {titleText}
+            </a>
+          ) : (
+            <span className="text-sm font-medium text-slate-400 dark:text-slate-500">{titleText}</span>
+          )}
+          {post_id && url && (
             <a
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm font-medium text-slate-800 hover:text-blue-600 transition-colors line-clamp-2"
+              className="flex-shrink-0 text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-400 transition-colors"
+              title="원문 보기"
             >
-              {title ?? '(deleted)'}
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
             </a>
-          ) : (
-            <span className="text-sm font-medium text-slate-400">{title ?? '(deleted)'}</span>
           )}
         </div>
-        <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
+        <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400 dark:text-slate-500">
           {source_name && <span>{source_name}</span>}
           {(view_count ?? 0) > 0 && <span>조회 {formatNumber(view_count!)}</span>}
           {(comment_count ?? 0) > 0 && <span>댓글 {formatNumber(comment_count!)}</span>}
           {(cluster_size ?? 1) > 1 && (
-            <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">
+            <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-medium">
               {cluster_size}개 소스
             </span>
           )}
         </div>
         {summary && (
-          <p className="text-xs text-slate-500 mt-1 leading-relaxed">{summary}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{summary}</p>
         )}
       </div>
     </div>
@@ -123,17 +138,17 @@ function ReportPostRow({ section }: { section: DailyReportSection }) {
 
 function ReportSkeleton() {
   return (
-    <div className="animate-pulse space-y-6">
+    <div className="animate-shimmer space-y-6">
       {[1, 2, 3].map(i => (
         <div key={i}>
-          <div className="h-6 bg-slate-200 rounded w-32 mb-3" />
+          <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-32 mb-3" />
           <div className="space-y-3">
             {[1, 2, 3].map(j => (
               <div key={j} className="flex gap-3">
-                <div className="w-7 h-7 bg-slate-200 rounded-full" />
+                <div className="w-7 h-7 bg-slate-200 dark:bg-slate-700 rounded-full" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-slate-200 rounded w-3/4" />
-                  <div className="h-3 bg-slate-100 rounded w-1/2" />
+                  <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />
+                  <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded w-1/2" />
                 </div>
               </div>
             ))}
@@ -157,7 +172,7 @@ export function DailyReportPage() {
 
   if (!date) {
     return (
-      <div className="text-center py-20 text-slate-500">
+      <div className="text-center py-20 text-slate-500 dark:text-slate-400">
         잘못된 접근입니다. <Link to="/" className="text-blue-600 hover:underline">홈으로</Link>
       </div>
     );
@@ -170,11 +185,11 @@ export function DailyReportPage() {
     <div className="max-w-3xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <Link to="/" className="text-sm text-slate-400 hover:text-blue-600 mb-2 inline-block">
+        <Link to="/" className="text-sm text-slate-400 dark:text-slate-500 hover:text-blue-600 mb-2 inline-block">
           &larr; 홈으로
         </Link>
-        <h1 className="text-2xl font-bold text-slate-900">일일 리포트</h1>
-        <p className="text-sm text-slate-500 mt-1">{formatDate(date)}</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">일일 리포트</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{formatDate(date)}</p>
       </div>
 
       {/* Content */}
@@ -182,7 +197,7 @@ export function DailyReportPage() {
 
       {error && (
         <div className="text-center py-16">
-          <p className="text-slate-500 mb-2">
+          <p className="text-slate-500 dark:text-slate-400 mb-2">
             {(error as any)?.response?.status === 404
               ? '해당 날짜의 리포트가 아직 생성되지 않았습니다.'
               : '리포트를 불러오는데 실패했습니다.'}
@@ -197,27 +212,27 @@ export function DailyReportPage() {
 
         return hasContent ? (
           <>
-            <p className="text-sm text-slate-400 mb-6">
+            <p className="text-sm text-slate-400 dark:text-slate-500 mb-6">
               {report.sections.length}개 포스트 큐레이션 | 조회 {formatNumber(report.view_count)}
             </p>
 
             {/* Editorial Section */}
             {report.editorial_briefing && (
-              <div className="mb-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-5">
+              <div className="mb-8 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-2xl border border-blue-100 dark:border-blue-800 p-5">
                 {report.editorial_keywords && (
                   <div className="flex flex-wrap gap-2 mb-3">
                     {report.editorial_keywords.split(',').map((kw: string) => (
-                      <span key={kw.trim()} className="px-2.5 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                      <span key={kw.trim()} className="px-2.5 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full">
                         #{kw.trim()}
                       </span>
                     ))}
                   </div>
                 )}
-                <p className="text-sm text-slate-700 leading-relaxed mb-3">
+                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
                   {report.editorial_briefing}
                 </p>
                 {report.editorial_watch_point && (
-                  <p className="text-xs text-indigo-600 border-t border-blue-100 pt-3">
+                  <p className="text-xs text-indigo-600 dark:text-indigo-400 border-t border-blue-100 dark:border-blue-800 pt-3">
                     <span className="font-semibold">주목 포인트</span> {report.editorial_watch_point}
                   </p>
                 )}
@@ -231,14 +246,14 @@ export function DailyReportPage() {
             })}
           </>
         ) : (
-          <p className="text-center py-16 text-slate-500">
+          <p className="text-center py-16 text-slate-500 dark:text-slate-400">
             해당 날짜에 수집된 데이터가 없습니다.
           </p>
         );
       })()}
 
       {/* Navigation */}
-      <nav className="flex items-center justify-between py-6 border-t border-slate-200 mt-8">
+      <nav className="flex items-center justify-between py-6 border-t border-slate-200 dark:border-slate-700 mt-8">
         <Link
           to={`/daily-report/${prevDate}`}
           className="text-sm text-blue-600 hover:underline"

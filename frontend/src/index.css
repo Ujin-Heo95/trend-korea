@@ -1,14 +1,80 @@
 @import "tailwindcss";
 
+/* --- Dark mode (class-based, Tailwind v4) --- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* --- Typography: Pretendard Variable (한/영 통합) --- */
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', sans-serif;
 }
 
+/* --- Scrollbar hide --- */
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* --- Animations --- */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-card-enter {
+  animation: fadeSlideUp 0.3s ease-out both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(148, 163, 184, 0.12) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out both;
+}
+
+.animate-live-pulse {
+  animation: pulse-live 2s ease-in-out infinite;
+}
+
+/* --- Scroll snap for horizontal carousels --- */
+.snap-x-mandatory {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.snap-start {
+  scroll-snap-align: start;
+}
+
+/* --- Accessibility: respect reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  .animate-card-enter,
+  .animate-shimmer,
+  .animate-scale-in,
+  .animate-live-pulse {
+    animation: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
 }

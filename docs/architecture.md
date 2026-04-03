@@ -1,63 +1,79 @@
 # Architecture
 
+> 2026-04-03 제로베이스 코드 분석으로 전면 재작성.
+
 ## System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Railway (Cloud)                         │
-│                                                             │
-│  ┌────────────────┐        ┌────────────────────────────┐  │
-│  │  Frontend       │        │  Backend                    │  │
-│  │  React + Vite   │──API──>│  Fastify 5 (Node.js 20)    │  │
-│  │  (정적 빌드)    │        │  :4000                      │  │
-│  └────────────────┘        └────────────┬───────────────┘  │
-│                                         │                   │
-└─────────────────────────────────────────│───────────────────┘
-                                          │
-                             ┌────────────▼───────────────┐
-                             │  PostgreSQL 17.6            │
-                             │  Supabase (서울, 500MB)     │
-                             │  Session pooler (IPv4)      │
-                             └─────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│                        Railway (Cloud)                         │
+│                                                                │
+│  ┌─────────────────┐          ┌─────────────────────────────┐  │
+│  │  Frontend        │          │  Backend                     │  │
+│  │  React 18+Vite 5 │──proxy──>│  Fastify 5 (Node.js 20)     │  │
+│  │  :5173 (dev)     │          │  :4000                       │  │
+│  │  정적 빌드 (prod)│          │  + node-cron 스케줄러        │  │
+│  └─────────────────┘          └──────────────┬──────────────┘  │
+│                                              │                  │
+└──────────────────────────────────────────────│──────────────────┘
+                                               │
+                              ┌─────────────────▼────────────────┐
+                              │  PostgreSQL 17.6                  │
+                              │  Supabase (서울, 500MB 무료)      │
+                              │  Session pooler (IPv4), SSL       │
+                              └──────────────────────────────────┘
+
+외부 API:
+├── Google Gemini Flash (키워드 추출, 일일 리포트)
+├── YouTube Data API v3 (인기/검색)
+├── KOBIS 박스오피스 + KMDB 포스터/줄거리
+├── KOPIS 예매순위 + 상세 API
+├── Naver DataLab (검색 트렌드)
+├── Kakao REST API (다음 카페/블로그 검색)
+├── BigKinds API (오늘의 이슈 Top 10)
+├── KMA 기상청 API (날씨)
+├── Discord Webhooks (에러 알림)
+└── Sentry (에러 트래킹)
 ```
 
 ## Backend Data Flow
 
 ```
-sources.json (통합 레지스트리)
+sources.json (72개 소스 레지스트리)
 └── registry.ts (로더: RSS 자동생성, HTML/API 동적 import)
 
-node-cron 우선순위 스케줄러
-├── 최초 실행: runAllScrapers() — 전체 71개
-├── 매 10분: high-priority (커뮤니티, 트렌딩)
-├── 매 15분: medium-priority (뉴스 RSS, 테크)
-├── 매 30분: low-priority (정부, 기상)
-│     └── 각 실행: p-limit 동시성 4, retry 2회
+node-cron 우선순위 스케줄러 (8개 크론 잡)
+├── 최초 실행: runAllScrapers() — 활성 소스 전체
+├── 매 10분: high-priority (커뮤니티 16개, 트렌딩)
+├── 매 15분: medium-priority (뉴스 RSS, 테크, API)
+├── 매 30분: low-priority (정부, 기상, 테크블로그)
+│     └── 각 실행: p-limit(4) 동시성, 30초 타임아웃, retry 2회 (2s→8s backoff)
 │           ├── logRunStart()  → scraper_runs INSERT
 │           ├── scraper.fetch() → HTML/RSS/API 파싱
-│           ├── saveToDb()     → posts 배치 INSERT (일반: engagement UPSERT, 영화/공연: 전체 UPSERT)
+│           ├── saveToDb()     → posts 배치 INSERT (UPSERT)
+│           ├── recordEngagementSnapshots() → 기존글 조회수/댓글 이력
+│           ├── clusterPosts() → 3-Layer 중복제거 (영화/공연 스킵)
 │           └── logRunEnd()    → scraper_runs UPDATE
 │
-├── 매 5분: refreshTrendScores() → post_scores 다중 팩터 배치 갱신
-│     ├── calculateSourceStats()         → Z-Score 정규화용 소스별 통계
+├── 매 5분: calculateScores() → post_scores 다중 팩터 배치 갱신
+│     ├── calculateSourceStats()         → Z-Score 정규화 (소스별 통계)
 │     ├── calculateVelocityMap()         → engagement 스냅샷 기반 증가 속도
 │     ├── calculateKeywordMomentumMap()  → 3h/24h 키워드 가속도
 │     ├── calculateTrendConfirmationMap()→ 교차검증 시그널 연동
 │     ├── calculateClusterBonusMap()     → 로그 곡선 + 소스 다양성
-│     └── calculateCategoryBaselines()   → zero-engagement Bayesian Prior
-├── 매 20분: crossValidate()
-│     Google Trends 키워드 → Naver DataLab 교차 검증 → 커뮤니티 매칭
-│     → trend_signals UPSERT (convergence_score 산출)
+│     └── calculateCategoryBaselines()   → Bayesian Prior
+│
 ├── 매 30분: extractKeywords() → Gemini Flash 키워드 추출 → keyword_stats 집계
-├── 매일 07:00 KST: generateDailyReport() → Gemini Flash 요약
+├── 매일 22:00 UTC (07:00 KST): generateDailyReport() → Gemini Flash 요약
 │
-├── 매일 00:00, 12:00 UTC (2회/일):
-│     ├── cleanOldPosts()              → 3일 초과 삭제 (공연 7일)
-│     ├── cleanOldScraperRuns()        → 30일 초과 삭제
-│     ├── cleanExpiredTrendSignals()   → 24시간 만료 시그널 삭제
-│     └── cleanOldEngagementSnapshots()→ 6시간 초과 스냅샷 삭제
+├── 매일 00:00, 12:00 UTC:
+│     ├── cleanOldPosts()               → 3일 초과 삭제 (공연 7일)
+│     ├── cleanOldScraperRuns()         → 30일 초과 삭제
+│     ├── cleanExpiredTrendSignals()    → 24시간 만료 시그널 삭제
+│     ├── cleanOldEngagementSnapshots() → 6시간 초과 스냅샷 삭제
+│     └── checkDbSize()                 → 400MB 경고, 475MB 위험 (Discord)
 │
-└── Discord 웹훅: 스크래퍼 에러 배치 알림
+└── Discord 웹훅: 스크래퍼 에러 배치 알림, API 키 실패 알림 (1h 쿨다운)
 ```
 
 ## Scraper Architecture
@@ -65,26 +81,31 @@ node-cron 우선순위 스케줄러
 ```
 BaseScraper (base.ts)
 ├── abstract fetch(): Promise<ScrapedPost[]>  — 각 스크래퍼 구현
-├── saveToDb(posts)                           — 배치 INSERT (일반: engagement UPSERT, 영화/공연: 전체 UPSERT)
-├── recordEngagementSnapshots(posts)          — 기존 게시글의 조회수/댓글수 이력 기록
-└── run()                                     — fetch + saveToDb + clusterPosts + retry 2회
-                                                (영화/공연은 클러스터 dedup 스킵)
+├── saveToDb(posts)     — 배치 INSERT + ON CONFLICT UPSERT
+├── recordEngagementSnapshots(posts) — 기존글 조회수/댓글 이력
+└── run()               — fetch + saveToDb + clusterPosts + retry 2회
 
-구현체 (sources.json 레지스트리에서 로드):
-├── HTML/Cheerio: dcinside, bobaedream, ruliweb, theqoo, instiz, natepann, todayhumor
-├── RSS (19개):   ppomppu, yna, hani, sbs, donga, khan, hankyung, mk, seoul, kmib,
-│                 geeknews, yozm, kma, ppomppu_hot,
-│                 youtube_sbs_news, youtube_ytn, youtube_mbc_news,
-│                 youtube_kbs_news, youtube_jtbc_news
-├── API:          youtube (mostPopular → video_popular 카테고리)
-├── API:          youtube_search (keyword_stats 기반 검색, 2시간 쿨다운)
-├── API:          kobis (KOBIS 박스오피스 + KMDB 포스터/줄거리 보강)
-└── API:          kopis (KOPIS 예매순위 + 상세 API, 5장르)
+소스 유형별 (sources.json 레지스트리):
+├── HTML/Cheerio (15개 활성): dcinside, bobaedream, ruliweb, theqoo, instiz,
+│     natepann, todayhumor, clien, fmkorea, mlbpark, cook82, inven,
+│     humoruniv, ygosu, slrclub, etoland
+├── RSS (34개 등록): ppomppu, yna, hani, sbs, donga, khan, hankyung, mk, kmib,
+│     yozm, google_trends, koreaherald, koreatimes, newsis, chosun, jtbc,
+│     etnews, newswire, naver_d2, kakao_tech, toss_tech, ddanzi, ppomppu_hot,
+│     investing_kr, sedaily, korea_press/policy/briefing, uppity,
+│     google_news_kr, youtube_sbs/ytn/mbc/kbs/jtbc_news
+├── API (8개): youtube, youtube_search, kobis_boxoffice, kopis_boxoffice,
+│     naver_datalab, daum_cafe, daum_blog, bigkinds_issues
+└── Apify (3개 비활성): instagram, x, tiktok (SNS 플랫폼 제약)
+
+총계: 72개 등록, ~59개 활성
 ```
 
 ## Database Schema
 
-### posts
+### 핵심 테이블
+
+#### posts
 
 | Column | Type | Note |
 |--------|------|------|
@@ -92,192 +113,247 @@ BaseScraper (base.ts)
 | source_key | VARCHAR(32) | NOT NULL |
 | source_name | VARCHAR(64) | NOT NULL |
 | title | TEXT | NOT NULL |
-| url | TEXT | NOT NULL, UNIQUE (중복 방지) |
+| url | TEXT | NOT NULL, UNIQUE |
 | thumbnail | TEXT | nullable |
 | author | VARCHAR(128) | nullable |
 | view_count | INTEGER | DEFAULT 0 |
 | comment_count | INTEGER | DEFAULT 0 |
+| vote_count | INTEGER | DEFAULT 0 |
 | published_at | TIMESTAMPTZ | nullable |
 | scraped_at | TIMESTAMPTZ | DEFAULT NOW() |
-| category | VARCHAR(32) | nullable (community/video/news/tech/movie/performance 등) |
-| title_hash | VARCHAR(32) | GENERATED — 정규화 후 MD5 (괄호/특수문자 제거) |
-| metadata | JSONB | nullable — API 소스 구조화 데이터 (포스터, 평점, 출연진 등) |
+| category | VARCHAR(32) | nullable |
+| title_hash | VARCHAR(32) | GENERATED — MD5(정규화 제목) |
+| metadata | JSONB | nullable — 구조화 데이터 |
 
 Indices: `source_key`, `scraped_at DESC`, `view_count DESC`, `category`, `title_hash`
+TTL: 3일 (공연 7일)
 
-### scraper_runs
-
-| Column | Type | Note |
-|--------|------|------|
-| id | BIGSERIAL | PK |
-| source_key | VARCHAR(32) | NOT NULL |
-| started_at | TIMESTAMPTZ | DEFAULT NOW() |
-| finished_at | TIMESTAMPTZ | nullable |
-| posts_saved | INTEGER | nullable |
-| error_message | TEXT | nullable (NULL = 성공) |
-
-Indices: `source_key`, `started_at DESC`
-
-### trend_signals
+#### post_scores
 
 | Column | Type | Note |
 |--------|------|------|
-| id | BIGSERIAL | PK |
-| keyword | TEXT | NOT NULL |
-| google_traffic | TEXT | nullable ("1M+", "500K+") |
-| google_traffic_num | INTEGER | DEFAULT 0, 파싱된 숫자 |
-| google_post_id | BIGINT | FK → posts(id) |
-| naver_recent | INTEGER | nullable, 최근 3일 평균 |
-| naver_previous | INTEGER | nullable, 이전 4일 평균 |
-| naver_change_pct | INTEGER | nullable, 변화율 % |
-| community_mentions | INTEGER | DEFAULT 0 |
-| community_sources | TEXT[] | 언급한 소스 목록 |
-| convergence_score | FLOAT | DEFAULT 0 |
-| signal_type | VARCHAR(20) | 'confirmed' / 'google_only' |
-| detected_date | DATE | DEFAULT CURRENT_DATE |
-| detected_at | TIMESTAMPTZ | DEFAULT NOW() |
-| expires_at | TIMESTAMPTZ | DEFAULT NOW() + 24h |
+| post_id | BIGINT | FK → posts(id), UNIQUE |
+| trend_score | FLOAT | DEFAULT 0 |
+| source_weight | FLOAT | DEFAULT 1.0 |
+| category_weight | FLOAT | DEFAULT 1.0 |
+| calculated_at | TIMESTAMPTZ | DEFAULT NOW() |
 
-Indices: `(keyword, detected_date)` UNIQUE, `convergence_score DESC`, `expires_at`
+5분 주기 배치 갱신.
+공식: `normalized_engagement × decay(6h 반감기) × source_weight × category_weight × velocity × cluster_bonus × keyword_momentum × trend_confirmation`
 
-### post_clusters / post_cluster_members
+### 중복제거
 
-3-Layer 중복제거 클러스터링 (MD5 해시 + Jaccard 유사도 + Thumbnail).
-영화/공연 카테고리는 클러스터 dedup 스킵 (단일 소스 오탐 방지).
+#### post_clusters / post_cluster_members
 
-### engagement_snapshots
+3-Layer 중복제거:
+- **L1**: title_hash (MD5 정규화, 괄호/특수문자 제거)
+- **L2**: Jaccard 바이그램 유사도 (0.8 임계값)
+- **L3**: Thumbnail URL 매칭
+
+영화/공연 카테고리는 클러스터 dedup 스킵.
+
+### 참여도 추적
+
+#### engagement_snapshots
 
 | Column | Type | Note |
 |--------|------|------|
-| id | BIGSERIAL | PK |
 | post_id | BIGINT | FK → posts(id) |
 | view_count | INTEGER | 스냅샷 시점 조회수 |
 | comment_count | INTEGER | 스냅샷 시점 댓글수 |
 | captured_at | TIMESTAMPTZ | DEFAULT NOW() |
 
-스크래퍼 매 실행 시 기존 게시글의 engagement 기록. 6시간 TTL.
+스크래퍼 실행 시 기존 게시글 engagement 기록. 6시간 TTL.
 
-### source_engagement_stats
+#### source_engagement_stats
+
+소스별 24시간 평균/표준편차 (log 스케일). Z-Score 정규화용.
+
+### 키워드
+
+#### keyword_extractions
+
+게시글별 Gemini Flash 추출 키워드. `UNIQUE(post_id)`.
+
+#### keyword_stats
+
+시간 윈도우별 키워드 빈도 집계 (3h, 24h). `UNIQUE(keyword, window_hours)`.
+
+### 트렌드 시그널
+
+#### trend_signals
 
 | Column | Type | Note |
 |--------|------|------|
-| source_key | VARCHAR(32) | PK |
-| mean_log_views | FLOAT | 24시간 평균 log(1+views) |
-| stddev_log_views | FLOAT | 표준편차 (최소 0.1) |
-| mean_log_comments | FLOAT | 24시간 평균 log(1+comments) |
-| stddev_log_comments | FLOAT | 표준편차 (최소 0.1) |
-| sample_count | INTEGER | 표본 수 |
-| calculated_at | TIMESTAMPTZ | 마지막 계산 시각 |
+| keyword | TEXT | NOT NULL |
+| google_traffic | TEXT | "1M+", "500K+" |
+| naver_change_pct | INTEGER | 변화율 % |
+| naver_trend_data | JSONB | 일별 트렌드 데이터 |
+| community_mentions | INTEGER | DEFAULT 0 |
+| convergence_score | FLOAT | DEFAULT 0 |
+| signal_type | VARCHAR(20) | confirmed / google_only |
+| detected_date | DATE | UNIQUE(keyword, detected_date) |
+| expires_at | TIMESTAMPTZ | DEFAULT NOW() + 24h |
 
-스코어링 배치 시 갱신. Z-Score 정규화용.
+### 일일 리포트
 
-### post_scores
+#### daily_reports / daily_report_sections
 
-| Column | Type | Note |
-|--------|------|------|
-| post_id | BIGINT | FK → posts(id) |
-| score | FLOAT | 다중 팩터 트렌드 스코어 |
-| computed_at | TIMESTAMPTZ | 마지막 계산 시각 |
+일일 리포트 메타 + 카테고리별 섹션 (rank, post_id, summary, category_summary).
+editorial_keywords, editorial_briefing, editorial_watch_point (Gemini Flash).
 
-5분 주기 배치 갱신. 공식: `normalized_engagement × decay × source_weight × category_weight × velocity × cluster × keyword_momentum × trend_confirmation`
+### 투표 / 사용량 추적
 
-### keyword_extractions / keyword_stats
+#### post_votes
 
-- `keyword_extractions`: 게시글별 고유명사 키워드 (Gemini Flash 추출, 30분 주기)
-- `keyword_stats`: 시간 윈도우별 키워드 빈도 집계 (3h, 24h)
+IP hash(SHA256 16자) 기반 중복 방지. `UNIQUE(post_id, ip_hash)`.
 
-### daily_reports
+#### apify_usage
 
-일일 리포트 (매일 07:00 KST 생성, Gemini Flash 요약 포함).
+Apify actor별 비용 추적. 월간 예산 게이트 (기본 $20).
+
+#### schema_migrations
+
+마이그레이션 실행 이력 추적. 중복 실행 방지.
+
+---
 
 ## API Endpoints
 
-| Method | Path | Params | Response |
-|--------|------|--------|----------|
-| GET | /api/posts | source?, category?, q?, page=1, limit=30 (max 100) | `{ posts, total, page, limit, lastUpdated? }` — category 미지정 시 movie/performance 제외 |
-| GET | /api/posts/trending | — | `{ posts }` (1시간 내, view_count 상위 20) |
-| GET | /api/sources | — | `Source[]` (71개, post_count, last_updated, success_rate_24h, avg_posts_per_run) |
-| GET | /api/trends/signals | type? | `{ signals }` 교차 검증 트렌드 (convergence_score DESC, 24h) |
-| GET | /api/keywords/hot | hours?=3 | `{ keywords }` 핫이슈 키워드 (빈도순) |
-| GET | /api/daily-report | date? | `{ report }` 일일 리포트 (Gemini 요약 포함) |
-| POST | /api/posts/:id/vote | — | `{ vote_count, voted }` Upvote 토글 (IP 중복 방지) |
-| GET | /api/posts/:id/detail | — | `{ post, relatedPosts, engagementHistory }` 이슈 상세 |
-| GET | /health | — | 공개: `{status:'ok'}`, 인증 시 상세 (DB 통계 등), 503 if DB down |
+| Method | Path | Auth | Cache | 설명 |
+|--------|------|------|-------|------|
+| GET | `/api/posts` | - | LRU 200/60s | 페이지네이션, 필터(source/category/q/sort) |
+| GET | `/api/sources` | - | - | 소스 목록 + 통계 |
+| GET | `/api/keywords` | - | LRU 10/5m | 키워드 빈도 (window: 3/24h) |
+| GET | `/api/trends/signals` | - | LRU 10/60s | BigKinds 교차검증 시그널 |
+| GET | `/api/topics` | - | LRU 5/60s | 토픽 클러스터 (키워드 기반) |
+| GET | `/api/posts/:postId` | - | LRU 200/60s | 이슈 상세 (클러스터, 시그널, engagement, 관련기사) |
+| GET | `/api/daily-report/latest` | - | LRU 30/5m | 최신 리포트 메타 |
+| GET | `/api/daily-report/:date` | - | LRU 30/5m | 특정 날짜 리포트 |
+| POST | `/api/daily-report/generate` | ADMIN | - | 리포트 수동 생성 |
+| POST | `/api/posts/:postId/vote` | - | - | Upvote (IP hash dedup) |
+| GET | `/api/weather/cities` | - | - | 도시 목록 |
+| GET | `/api/weather/:cityCode` | - | - | 날씨 데이터 |
+| GET | `/health` | ADMIN(상세) | - | 공개: status. 인증: DB/스크래퍼/API 상세 |
 
-Rate limit: 100 req/min, CORS: weeklit.net (프로덕션)
+Rate limit: 100 req/min (global). CORS: `weeklit.net` (프로덕션).
+
+---
 
 ## Frontend Architecture
 
 ### Tech Stack
-React 18 + Vite 5 + TypeScript 5.4 + React Query v5 + React Router 6 + Tailwind CSS v4 (PostCSS 빌드)
 
-### Component Tree
+React 18 + Vite 5 + TypeScript 5.4 + React Query v5 + React Router 6 + Tailwind CSS v4 (PostCSS)
+
+### 페이지 구조
+
+| 페이지 | 경로 | 설명 |
+|--------|------|------|
+| HomePage | `/` | 메인 피드 (무한스크롤, 카테고리 탭, 검색, TrendHero, TrendRadar) |
+| IssueDetailPage | `/issue/:postId` | 이슈 상세 (클러스터, 트렌드, 참여추이, 관련기사) |
+| DailyReportPage | `/daily-report/:date` | 일일 리포트 (에디토리얼 + 카테고리별 Top 3) |
+| KeywordsPage | `/keywords` | 핫 키워드 (3h/24h 토글) |
+| WeatherPage | `/weather` | 날씨 (도시 선택, 시간별/일별) |
+| AboutPage | `/about` | 서비스 소개 |
+| PrivacyPage | `/privacy` | 개인정보처리방침 |
+
+### 컴포넌트 트리
+
 ```
-App
-└── BrowserRouter
-    └── Layout (헤더 + max-w-5xl)
+App (ErrorBoundary + QueryClientProvider + BrowserRouter)
+└── Layout (헤더 + Footer + MobileBottomNav)
+    └── Suspense (PageLoader)
         ├── HomePage
-        │   ├── TrendRadar        — 교차 검증 트렌드 카드
-        │   ├── TrendingSection   — 인기 급상승
-        │   ├── CategoryTabs      — 10개 카테고리 탭
-        │   ├── SearchBar         — 검색
-        │   ├── [PostCard]        — 일반 포스트 카드
-        │   ├── MovieRankingTable — 영화 탭 (포스터, 줄거리, 외부링크)
-        │   ├── PerformanceRankingTable — 공연 탭 (포스터, 장르필터, 예매링크)
-        │   └── 무한 스크롤
-        ├── KeywordsPage          — 핫이슈 키워드
-        └── DailyReportPage       — 일일 리포트
-
-shared/
-├── RankBadge             — 순위 배지 (금/은/동)
-├── PosterImage           — 포스터 이미지 (fallback 포함)
-├── ExternalLinkButton    — 외부 링크 버튼
-└── DataFreshnessLabel    — 데이터 기준일 라벨
+        │   ├── TrendHero        — 토픽 카드 (모멘텀 표시)
+        │   ├── TrendRadar       — BigKinds 뉴스 이슈
+        │   ├── CategoryTabs     — 8개 카테고리
+        │   ├── SearchBar        — 디바운스 400ms
+        │   ├── SourceFilterChips— 커뮤니티 소스 필터
+        │   ├── [PostCard]       — 일반 포스트 (순위, 클러스터, 투표, 공유)
+        │   ├── MovieRankingTable— 영화 (포스터, 관객수, 외부링크)
+        │   ├── PerformanceRankingTable — 공연
+        │   ├── SnsRankingTable  — SNS
+        │   └── InfiniteScroll   — IntersectionObserver, 200px rootMargin
+        ├── IssueDetailPage
+        │   ├── EngagementChart  — SVG 참여도 추이
+        │   ├── Sparkline        — 미니 차트
+        │   ├── ShareButton      — 카카오 + 링크복사
+        │   └── VoteButton       — Upvote
+        └── DailyReportPage
+            └── 카테고리별 섹션 + 에디토리얼
 ```
 
 ### Data Fetching (React Query)
-| Hook | Refetch | Stale |
-|------|---------|-------|
-| usePosts(source?, category?, page?) | 30초 | 60초 |
-| useTrending() | 30초 | 60초 |
-| useSources() | — | 60초 |
-| useTrendSignals() | 60초 | 60초 |
-| useHotKeywords(hours?) | 60초 | 60초 |
 
-## Tech Stack Summary
+| Hook | refetchInterval | staleTime |
+|------|-----------------|-----------|
+| useInfinitePosts | 60s | 60s |
+| useTrending | 60s | 60s |
+| useSources | - | 60s |
+| useTrendSignals | 60s | 30s |
+| useTopics | 60s | 30s |
+| useIssueDetail | - | 60s |
 
-| Layer | Tech |
-|-------|------|
-| Backend | Node.js 20, Fastify 5, TypeScript 5.4 |
-| DB | PostgreSQL 17.6 (Supabase 서울), pg 8.11 (Pool) |
-| Scraping | cheerio, rss-parser, axios, p-limit |
-| Scheduling | node-cron |
-| Frontend | React 18, Vite 5, TypeScript 5.4 |
-| State | @tanstack/react-query v5 |
-| Styling | Tailwind CSS v4 (PostCSS) |
-| Testing | Vitest (181 tests), axios mock |
-| Deploy | Railway (auto-detect) + Supabase DB (서울) |
+### 상태 관리
 
-## Environment Variables
+- **서버 상태**: React Query (캐시, 백그라운드 리프레시)
+- **URL 상태**: useSearchParams (category, q, city)
+- **로컬 상태**: localStorage — 읽음 표시(3d TTL), 투표(7d TTL)
+
+### 코드 스플리팅
+
+- React.lazy 페이지 단위
+- Vendor chunks: `vendor-react`, `vendor-query`, `vendor-axios`
+
+### PWA
+
+- Service Worker: network-first (API), cache-first (assets), network-first (navigation → /index.html 폴백)
+- Manifest: standalone, ko, theme-color #2563eb
+
+---
+
+## 환경 변수
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| DATABASE_URL | postgresql://localhost:5432/trend_korea | PG connection |
-| PORT | 4000 | Server port (1-65535) |
-| CRAWL_INTERVAL_MINUTES | 10 | Scrape interval |
-| POST_TTL_DAYS | 7 | Post retention |
-| SCRAPER_RUNS_TTL_DAYS | 30 | Run log retention |
-| YOUTUBE_API_KEY | (none) | YouTube scraper; empty = skip |
-| KOBIS_API_KEY | (none) | KOBIS 박스오피스 API; empty = skip |
-| KOPIS_API_KEY | (none) | KOPIS 공연 예매순위 API; empty = skip |
-| KMDB_API_KEY | (none) | KMDB 영화 포스터/줄거리 API |
-| NAVER_CLIENT_ID | (none) | Naver DataLab (교차 검증) |
-| NAVER_CLIENT_SECRET | (none) | Naver DataLab (교차 검증) |
-| GEMINI_API_KEY | (none) | Gemini Flash (키워드 추출, 일일 리포트) |
-| NAVER_DATALAB_CLIENT_ID | (none) | Naver DataLab (교차 검증) |
-| NAVER_DATALAB_CLIENT_SECRET | (none) | Naver DataLab (교차 검증) |
-| DISCORD_WEBHOOK_URL | (none) | 스크래퍼 에러 알림 |
-| NODE_ENV | development | production warns on missing DB URL |
-| DB_POOL_MAX | 10 | Max DB connections (1-50) |
-| DB_IDLE_TIMEOUT_MS | 30000 | Idle connection timeout |
-| DB_CONNECTION_TIMEOUT_MS | 5000 | Connection acquire timeout |
+| DATABASE_URL | postgresql://localhost:5432/trend_korea | PG 연결 문자열 |
+| PORT | 4000 | 서버 포트 (1-65535) |
+| CRAWL_INTERVAL_MINUTES | 10 | 스크래핑 주기 |
+| POST_TTL_DAYS | 3 | 게시글 보존 기간 (공연 7일) |
+| SCRAPER_RUNS_TTL_DAYS | 30 | 실행 로그 보존 |
+| CORS_ORIGIN | https://weeklit.net | CORS 허용 origin |
+| ADMIN_TOKEN | (none) | 어드민 엔드포인트 인증 |
+| DB_POOL_MAX | 10 | 최대 DB 연결 (1-50) |
+| DB_IDLE_TIMEOUT_MS | 30000 | idle 연결 타임아웃 |
+| DB_CONNECTION_TIMEOUT_MS | 5000 | 연결 획득 타임아웃 |
+| YOUTUBE_API_KEY | (none) | YouTube 인기/검색 |
+| GEMINI_API_KEY | (none) | Gemini Flash (키워드, 리포트) |
+| KOBIS_API_KEY | (none) | KOBIS 박스오피스 |
+| KOPIS_API_KEY | (none) | KOPIS 예매순위 |
+| KMDB_API_KEY | (none) | KMDB 포스터/줄거리 |
+| KMA_API_KEY | (none) | 기상청 API |
+| KAKAO_REST_API_KEY | (none) | 다음 카페/블로그 검색 |
+| NAVER_CLIENT_ID | (none) | Naver DataLab |
+| NAVER_CLIENT_SECRET | (none) | Naver DataLab |
+| BIGKINDS_API_KEY | (none) | 빅카인즈 이슈 |
+| APIFY_API_TOKEN | (none) | Apify SNS 스크래핑 |
+| APIFY_MONTHLY_BUDGET_CENTS | 2000 | Apify 월 예산 ($20) |
+| DISCORD_WEBHOOK_URL | (none) | 에러/알림 웹훅 |
+| SENTRY_DSN | (none) | Sentry 에러 트래킹 |
+
+---
+
+## 테스트
+
+| 영역 | 프레임워크 | 현재 | 목표 |
+|------|-----------|------|------|
+| 백엔드 단위 | Vitest + nock | 181 tests, ~60% | 80% |
+| 백엔드 통합 | 미구축 | 0% | 핵심 경로 |
+| 프론트엔드 | 미구축 | 0% | 40% |
+| E2E | 미구축 | 0% | Happy path |
+
+## CI/CD
+
+- **GitHub Actions**: lint (ESLint flat config) → typecheck (tsc --noEmit) → test (vitest) → build
+- **배포**: Railway auto-detect (push to master)

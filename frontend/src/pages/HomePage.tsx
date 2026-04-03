@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useInfinitePosts } from '../hooks/usePosts';
-import { fetchPosts } from '../api/client';
+import { fetchPosts, fetchLatestReport } from '../api/client';
 import { PostCard } from '../components/PostCard';
+import { PostCardSkeleton } from '../components/shared/PostCardSkeleton';
 import { TrendRadar } from '../components/TrendRadar';
 const TrendHero = React.lazy(() => import('../components/TrendHero').then(m => ({ default: m.TrendHero })));
 import { CategoryTabs } from '../components/CategoryTabs';
@@ -95,12 +97,14 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     <div>
       {!searchQuery && !category && (
         <>
-          <React.Suspense fallback={<div className="h-40 animate-pulse bg-slate-100 rounded-xl mb-6" />}>
+          <React.Suspense fallback={<div className="h-40 animate-shimmer bg-slate-100 dark:bg-slate-800 rounded-xl mb-6" />}>
             <TrendHero />
           </React.Suspense>
           <TrendRadar />
         </>
       )}
+
+      <DailyReportPromo />
 
       <div className="flex items-center justify-between mb-3">
         <CategoryTabs selected={category} onChange={handleCategoryChange} />
@@ -112,13 +116,13 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
             <div className="flex-1 overflow-hidden">
               <SourceFilterChips selected={selectedSources} onChange={setSelectedSources} />
             </div>
-            <div className="flex bg-slate-100 rounded-lg p-0.5 flex-shrink-0 ml-3">
+            <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-0.5 flex-shrink-0 ml-3">
               <button
                 onClick={() => setSortMode('trending')}
                 className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                   sortMode === 'trending'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
+                    ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
                 }`}
               >
                 인기순
@@ -127,8 +131,8 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
                 onClick={() => setSortMode('latest')}
                 className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                   sortMode === 'latest'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
+                    ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
                 }`}
               >
                 최신순
@@ -139,7 +143,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       )}
 
       {searchQuery && (
-        <p className="text-sm text-slate-500 mb-3">
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
           &quot;{searchQuery}&quot; 검색 결과 {total.toLocaleString()}건
           {isFetching && !isFetchingNextPage && (
             <span className="ml-2 text-blue-500 animate-pulse">업데이트 중...</span>
@@ -149,12 +153,12 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
 
       {isLoading ? (
         <div className="grid gap-3">
-          {Array.from({ length: 10 }, (_, i) => (
-            <div key={i} className="h-20 bg-white rounded-xl border border-slate-200 animate-pulse" />
+          {Array.from({ length: 8 }, (_, i) => (
+            <PostCardSkeleton key={i} />
           ))}
         </div>
       ) : allPosts.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">
+        <div className="text-center py-16 text-slate-400 dark:text-slate-500">
           <p className="text-lg mb-1">검색 결과가 없습니다</p>
           <p className="text-sm">다른 키워드로 검색해 보세요</p>
         </div>
@@ -176,6 +180,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
                 onRead={markAsRead}
                 hasVoted={hasVoted(post.id)}
                 onVote={vote}
+                style={i < 15 ? { '--enter-delay': `${i * 40}ms` } as React.CSSProperties : undefined}
               />
             ))}
           </div>
@@ -186,7 +191,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
 
       {category === 'video' && popularVideos && popularVideos.posts.length > 0 && (
         <div className="mt-6 mb-4">
-          <h3 className="text-base font-bold text-slate-700 mb-3 flex items-center gap-2">
+          <h3 className="text-base font-bold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
             <span>🔥</span> 인기 급상승 영상
           </h3>
           <div className="grid gap-3">
@@ -204,8 +209,42 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       )}
 
       {!hasNextPage && allPosts.length > 0 && (
-        <p className="text-center text-sm text-slate-400 py-4">모든 글을 불러왔습니다</p>
+        <p className="text-center text-sm text-slate-400 dark:text-slate-500 py-4">모든 글을 불러왔습니다</p>
       )}
     </div>
   );
 };
+
+// ── 일일 리포트 프로모션 ──
+
+function DailyReportPromo() {
+  const { data: report } = useQuery({
+    queryKey: ['latest-report-promo'],
+    queryFn: fetchLatestReport,
+    staleTime: 5 * 60_000,
+  });
+
+  if (!report) return null;
+
+  return (
+    <Link
+      to={`/daily-report/${report.report_date}`}
+      className="block mb-4 p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-600 transition-colors group"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-2xl flex-shrink-0">📊</span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
+              {report.report_date} 일일 트렌드 리포트
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">AI가 분석한 오늘의 한국 인터넷 핵심 이슈</p>
+          </div>
+        </div>
+        <svg className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </div>
+    </Link>
+  );
+}

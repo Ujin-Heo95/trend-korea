@@ -24,7 +24,7 @@ export const SearchBar: React.FC<Props> = ({ value, onChange }) => {
         value={input}
         onChange={(e) => setInput(e.target.value)}
         placeholder="키워드 검색..."
-        className="w-full sm:w-64 pl-9 pr-8 py-2 text-sm bg-slate-100 border border-transparent rounded-lg focus:bg-white focus:border-blue-300 focus:outline-none transition-colors"
+        className="w-full sm:w-64 pl-9 pr-8 py-2 text-sm bg-slate-100 dark:bg-slate-700 dark:text-slate-200 border border-transparent rounded-lg focus:bg-white dark:focus:bg-slate-600 focus:border-blue-300 dark:focus:border-blue-500 focus:outline-none transition-colors dark:placeholder-slate-400"
       />
       <svg
         className="absolute left-2.5 top-2.5 w-4 h-4 text-slate-400"
@@ -36,7 +36,7 @@ export const SearchBar: React.FC<Props> = ({ value, onChange }) => {
         <button
           type="button"
           onClick={() => { setInput(''); onChange(''); }}
-          className="absolute right-2 top-2 p-0.5 text-slate-400 hover:text-slate-600 transition-colors"
+          className="absolute right-2 top-2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
           aria-label="검색어 지우기"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

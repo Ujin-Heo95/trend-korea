@@ -11,9 +11,9 @@ const WINDOW_OPTIONS = [
 ] as const;
 
 const RANK_STYLES: Record<number, string> = {
-  1: 'bg-amber-100 text-amber-800 border-amber-300',
-  2: 'bg-slate-100 text-slate-700 border-slate-300',
-  3: 'bg-orange-50 text-orange-700 border-orange-300',
+  1: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700',
+  2: 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600',
+  3: 'bg-orange-50 dark:bg-orange-900/40 text-orange-700 dark:text-orange-200 border-orange-300 dark:border-orange-700',
 };
 
 function formatTime(iso: string | null): string {
@@ -43,8 +43,8 @@ export const KeywordsPage: React.FC = () => {
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">핫이슈 태그</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">핫이슈 태그</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             {data
               ? `${data.totalPosts.toLocaleString()}개 게시글 기반 · ${formatTime(data.calculatedAt)} 갱신`
               : '키워드 통계를 불러오는 중...'}
@@ -52,7 +52,7 @@ export const KeywordsPage: React.FC = () => {
         </div>
 
         {/* 윈도우 토글 */}
-        <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+        <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
           {WINDOW_OPTIONS.map(opt => (
             <button
               key={opt.value}
@@ -60,7 +60,7 @@ export const KeywordsPage: React.FC = () => {
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 windowHours === opt.value
                   ? 'bg-rose-600 text-white'
-                  : 'bg-white text-slate-600 hover:bg-slate-50'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
               {opt.label}
@@ -73,7 +73,7 @@ export const KeywordsPage: React.FC = () => {
       {isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 10 }, (_, i) => (
-            <div key={i} className="h-12 bg-slate-100 rounded-lg animate-pulse" />
+            <div key={i} className="h-12 bg-slate-100 dark:bg-slate-700 rounded-lg animate-shimmer" />
           ))}
         </div>
       )}
@@ -83,7 +83,7 @@ export const KeywordsPage: React.FC = () => {
 
       {/* 데이터 없음 */}
       {data && data.keywords.length === 0 && (
-        <div className="text-center py-20 text-slate-400">
+        <div className="text-center py-20 text-slate-400 dark:text-slate-500">
           아직 추출된 키워드가 없습니다. 잠시 후 다시 확인해주세요.
         </div>
       )}
@@ -104,8 +104,8 @@ export const KeywordsPage: React.FC = () => {
                   isTop3
                     ? `py-4 ${rankStyle}`
                     : isTop10
-                      ? 'py-3 bg-white border-slate-200 hover:border-slate-300'
-                      : 'py-2 bg-white border-slate-100 text-sm'
+                      ? 'py-3 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      : 'py-2 bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm'
                 }`}
               >
                 {/* 순위 배지 */}
@@ -117,23 +117,23 @@ export const KeywordsPage: React.FC = () => {
                         ? 'bg-slate-400 text-white'
                         : kw.rank === 3
                           ? 'bg-orange-400 text-white'
-                          : 'bg-slate-100 text-slate-500'
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
                   } ${isTop3 ? 'text-base' : 'text-xs'}`}
                 >
                   {kw.rank}
                 </span>
 
                 {/* 키워드명 */}
-                <span className={`flex-1 truncate ${isTop3 ? 'text-lg font-bold' : isTop10 ? 'font-semibold' : 'text-slate-600'}`}>
+                <span className={`flex-1 truncate ${isTop3 ? 'text-lg font-bold' : isTop10 ? 'font-semibold dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}>
                   {kw.keyword}
                 </span>
 
                 {/* 언급 수 + Rate */}
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className={`${isTop3 ? 'text-sm font-semibold' : 'text-xs text-slate-500'}`}>
+                  <span className={`${isTop3 ? 'text-sm font-semibold' : 'text-xs text-slate-500 dark:text-slate-400'}`}>
                     {kw.count.toLocaleString()}회
                   </span>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">
                     {kw.rate}%
                   </span>
                 </div>

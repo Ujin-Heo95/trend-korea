@@ -2,7 +2,7 @@ export type Category =
   | 'community' | 'video' | 'video_popular' | 'news' | 'tech'
   | 'finance' | 'trend' | 'government' | 'newsletter'
   | 'deals' | 'alert' | 'sports' | 'press' | 'techblog'
-  | 'movie' | 'performance' | 'sns';
+  | 'movie' | 'performance' | 'sns' | 'travel';
 
 export interface Post {
   id: number;
@@ -166,6 +166,7 @@ export interface IssueDetailResponse {
   }[];
   engagement_history: { view_count: number; comment_count: number; captured_at: string }[];
   related_articles: { id: number; title: string; url: string; source_name: string; source_key: string; thumbnail: string | null }[];
+  category_popular?: { id: number; title: string; source_name: string; source_key: string; thumbnail: string | null; view_count: number }[];
 }
 
 // ── 날씨 ─────────────────────────────────────────────────

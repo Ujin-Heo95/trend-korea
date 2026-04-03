@@ -43,7 +43,7 @@ export const SourceFilterChips: React.FC<Props> = ({ selected, onChange }) => {
         className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
           isAll
             ? 'bg-blue-600 text-white shadow-sm'
-            : 'bg-white text-slate-500 border border-slate-200 hover:border-blue-300'
+            : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600 hover:border-blue-300'
         }`}
       >
         전체
@@ -58,7 +58,7 @@ export const SourceFilterChips: React.FC<Props> = ({ selected, onChange }) => {
             className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
               active
                 ? `${color} ring-1 ring-current shadow-sm`
-                : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
+                : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600 hover:border-slate-300'
             }`}
           >
             {name}

@@ -25,7 +25,7 @@ export async function summarizePost(
     const result = await m.generateContent(
       `한국어로 한 줄 요약해줘 (50자 이내, 마침표로 끝내기). 뉴스/게시글 제목: "${title}" (출처: ${sourceName})`,
     );
-    await delay(250);
+    await delay(50);
     return result.response.text().trim() || null;
   } catch (err) {
     console.error('[gemini] post summary failed:', (err as Error).message);
@@ -45,7 +45,7 @@ export async function summarizeCategory(
     const result = await m.generateContent(
       `한국어로 2-3문장 개요 작성 (100자 이내). 카테고리: ${categoryLabel}\n오늘의 인기 글 목록:\n${titleList}`,
     );
-    await delay(250);
+    await delay(50);
     return result.response.text().trim() || null;
   } catch (err) {
     console.error('[gemini] category summary failed:', (err as Error).message);
@@ -76,7 +76,7 @@ ${sections}
 
 JSON 형식으로 응답: {"keywords":"...","briefing":"...","watchPoint":"..."}`,
     );
-    await delay(500);
+    await delay(100);
     return result.response.text().trim() || null;
   } catch (err) {
     console.error('[gemini] editorial failed:', (err as Error).message);

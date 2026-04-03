@@ -146,6 +146,24 @@ export async function issueDetailRoutes(app: FastifyInstance): Promise<void> {
       if (relatedArticles.length >= 10) break;
     }
 
+    // Q6: 같은 카테고리 인기글 (현재 포스트·클러스터·관련기사 제외)
+    const excludeIds = [postId, ...clusterMemberIds, ...seenRelated];
+    let categoryPopular: { id: number; title: string; source_name: string; source_key: string; thumbnail: string | null; view_count: number }[] = [];
+    if (postData.category) {
+      const { rows: popRows } = await app.pg.query<typeof categoryPopular[number]>(
+        `SELECT p.id, p.title, p.source_name, p.source_key, p.thumbnail, p.view_count
+         FROM posts p
+         LEFT JOIN post_scores ps ON ps.post_id = p.id
+         WHERE p.category = $1
+           AND p.scraped_at > NOW() - INTERVAL '24 hours'
+           AND p.id != ALL($2::int[])
+         ORDER BY COALESCE(ps.trend_score, 0) DESC
+         LIMIT 5`,
+        [postData.category, excludeIds],
+      );
+      categoryPopular = popRows;
+    }
+
     const result = {
       post: postData,
       trend_score,
@@ -153,6 +171,7 @@ export async function issueDetailRoutes(app: FastifyInstance): Promise<void> {
       trend_signals: formattedSignals,
       engagement_history: engagementResult.rows,
       related_articles: relatedArticles,
+      category_popular: categoryPopular,
     };
 
     detailCache.set(cacheKey, result);

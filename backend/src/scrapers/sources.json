@@ -676,6 +676,36 @@
       "className": "BigKindsScraper",
       "priority": "low",
       "enabled": true
+    },
+    {
+      "key": "tour_festival",
+      "name": "관광공사 축제/행사",
+      "category": "travel",
+      "type": "api",
+      "module": "./tour-festival.js",
+      "className": "TourFestivalScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "tour_visitor",
+      "name": "관광 빅데이터 방문객",
+      "category": "travel",
+      "type": "api",
+      "module": "./tour-visitor.js",
+      "className": "TourVisitorScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "kcisa_performance",
+      "name": "문화예술공연(통합)",
+      "category": "performance",
+      "type": "api",
+      "module": "./kcisa-performance.js",
+      "className": "KcisaPerformanceScraper",
+      "priority": "low",
+      "enabled": true
     }
   ]
 }

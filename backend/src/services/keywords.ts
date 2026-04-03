@@ -16,11 +16,11 @@ function getModel(): GenerativeModel | null {
 }
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-const geminiLimit = pLimit(1);
+const geminiLimit = pLimit(3);
 
-const BATCH_SIZE = 15;
+const BATCH_SIZE = 25;
 const MAX_POSTS_PER_RUN = 200;
-const BATCH_DELAY_MS = 2000;
+const BATCH_DELAY_MS = 500;
 
 const PROMPT_TEMPLATE = `다음은 한국 커뮤니티 게시글 제목 목록이다.
 각 제목에서 고유명사(인물명, 기업명, 지명, 브랜드, 작품명, 이슈 키워드)만 추출하라.

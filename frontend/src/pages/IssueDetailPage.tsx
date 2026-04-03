@@ -77,14 +77,14 @@ export const IssueDetailPage: React.FC = () => {
     );
   }
 
-  const { post, trend_score, cluster_members, trend_signals, engagement_history, related_articles } = data;
+  const { post, trend_score, cluster_members, trend_signals, engagement_history, related_articles, category_popular } = data;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 pb-24">
       {/* Back navigation */}
       <button
         onClick={handleBack}
-        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-blue-500 mb-4 transition-colors"
+        className="inline-flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 mb-4 transition-colors"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -95,20 +95,20 @@ export const IssueDetailPage: React.FC = () => {
       {/* Post header */}
       <article>
         <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${SOURCE_COLORS[post.source_key] ?? 'bg-slate-100 text-slate-600'}`}>
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${SOURCE_COLORS[post.source_key] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
             {post.source_name}
           </span>
           {trend_score != null && trend_score > 0 && (
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400">
               트렌드 {trend_score.toFixed(1)}
             </span>
           )}
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-slate-400 dark:text-slate-500">
             {timeAgo(post.published_at ?? post.scraped_at)}
           </span>
         </div>
 
-        <h1 className="text-xl font-bold text-slate-900 leading-snug mb-3">
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-snug mb-3">
           {post.title}
         </h1>
 
@@ -118,10 +118,11 @@ export const IssueDetailPage: React.FC = () => {
             alt=""
             className="w-full max-h-64 object-cover rounded-xl mb-4"
             loading="lazy"
+            decoding="async"
           />
         )}
 
-        <div className="flex items-center gap-4 text-sm text-slate-500 mb-6">
+        <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400 mb-6">
           {post.author && <span>{post.author}</span>}
           {post.view_count > 0 && <span>조회 {formatCount(post.view_count)}</span>}
           {post.comment_count > 0 && <span>댓글 {formatCount(post.comment_count)}</span>}
@@ -132,7 +133,7 @@ export const IssueDetailPage: React.FC = () => {
       {/* Cluster section */}
       {cluster_members.length > 0 && (
         <section className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-700 mb-3">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
             이 이슈를 다루는 {cluster_members.length + 1}개 소스
           </h2>
           <div className="space-y-2">
@@ -140,14 +141,14 @@ export const IssueDetailPage: React.FC = () => {
               <Link
                 key={m.id}
                 to={`/issue/${m.id}`}
-                className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-100 hover:border-blue-200 transition-colors"
+                className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 transition-colors"
               >
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${SOURCE_COLORS[m.source_key] ?? 'bg-slate-100 text-slate-600'}`}>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${SOURCE_COLORS[m.source_key] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
                   {m.source_name}
                 </span>
-                <span className="text-sm text-slate-700 line-clamp-1 flex-1">{m.title}</span>
+                <span className="text-sm text-slate-700 dark:text-slate-300 line-clamp-1 flex-1">{m.title}</span>
                 {m.view_count > 0 && (
-                  <span className="text-xs text-slate-400 flex-shrink-0">조회 {formatCount(m.view_count)}</span>
+                  <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">조회 {formatCount(m.view_count)}</span>
                 )}
               </Link>
             ))}
@@ -158,22 +159,22 @@ export const IssueDetailPage: React.FC = () => {
       {/* Trend signals section */}
       {trend_signals.length > 0 && (
         <section className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-700 mb-3">관련 트렌드</h2>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">관련 트렌드</h2>
           <div className="space-y-3">
             {trend_signals.map(s => (
-              <div key={s.id} className="p-4 rounded-xl bg-amber-50 border border-amber-100">
+              <div key={s.id} className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="font-semibold text-amber-800">{s.keyword}</span>
+                  <span className="font-semibold text-amber-800 dark:text-amber-300">{s.keyword}</span>
                   {s.naver_change_pct !== null && (
                     <span className="text-sm">
                       {trendIcon(s.naver_change_pct)} {s.naver_change_pct > 0 ? '+' : ''}{s.naver_change_pct}%
                     </span>
                   )}
                   {s.google_traffic && (
-                    <span className="text-xs text-slate-500">Google {s.google_traffic}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">Google {s.google_traffic}</span>
                   )}
                   <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                    s.signal_type === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-600'
+                    s.signal_type === 'confirmed' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
                   }`}>
                     {s.signal_type === 'confirmed' ? '확인됨' : 'Google'}
                   </span>
@@ -189,9 +190,9 @@ export const IssueDetailPage: React.FC = () => {
                         href={a.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block text-xs text-slate-600 hover:text-blue-600 line-clamp-1"
+                        className="block text-xs text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 line-clamp-1"
                       >
-                        <span className="text-slate-400 mr-1">{a.source}</span>
+                        <span className="text-slate-400 dark:text-slate-500 mr-1">{a.source}</span>
                         {a.title}
                       </a>
                     ))}
@@ -206,8 +207,8 @@ export const IssueDetailPage: React.FC = () => {
       {/* Engagement chart */}
       {engagement_history.length >= 2 && (
         <section className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-700 mb-3">조회수 추이</h2>
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">조회수 추이</h2>
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
             <EngagementChart data={engagement_history} />
           </div>
         </section>
@@ -216,23 +217,52 @@ export const IssueDetailPage: React.FC = () => {
       {/* Related articles */}
       {related_articles.length > 0 && (
         <section className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-700 mb-3">관련 기사</h2>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">관련 기사</h2>
           <div className="space-y-2">
             {related_articles.map(a => (
               <Link
                 key={a.id}
                 to={`/issue/${a.id}`}
-                className="flex items-center gap-3 p-3 rounded-lg bg-white border border-slate-200 hover:border-blue-200 hover:bg-blue-50 transition-colors"
+                className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
               >
                 {a.thumbnail && (
-                  <img src={a.thumbnail} alt="" className="w-12 h-9 object-cover rounded flex-shrink-0" loading="lazy" />
+                  <img src={a.thumbnail} alt="" className="w-12 h-9 object-cover rounded flex-shrink-0" loading="lazy" decoding="async" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${SOURCE_COLORS[a.source_key] ?? 'bg-slate-100 text-slate-600'}`}>
+                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${SOURCE_COLORS[a.source_key] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
                     {a.source_name}
                   </span>
-                  <p className="text-sm text-slate-700 line-clamp-1 mt-0.5">{a.title}</p>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-1 mt-0.5">{a.title}</p>
                 </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Category popular */}
+      {category_popular && category_popular.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">이 카테고리의 인기글</h2>
+          <div className="space-y-2">
+            {category_popular.map((p: { id: number; title: string; source_name: string; source_key: string; thumbnail: string | null; view_count: number }) => (
+              <Link
+                key={p.id}
+                to={`/issue/${p.id}`}
+                className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+              >
+                {p.thumbnail && (
+                  <img src={p.thumbnail} alt="" className="w-12 h-9 object-cover rounded flex-shrink-0" loading="lazy" decoding="async" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${SOURCE_COLORS[p.source_key] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                    {p.source_name}
+                  </span>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-1 mt-0.5">{p.title}</p>
+                </div>
+                {p.view_count > 0 && (
+                  <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">{formatCount(p.view_count)}</span>
+                )}
               </Link>
             ))}
           </div>

@@ -23,6 +23,8 @@ interface Config {
   apifyApiToken: string;
   apifyMonthlyBudgetCents: number;
   bigkindsApiKey: string;
+  dataGoKrApiKey: string;
+  kcisaApiKey: string;
   adminToken: string;
   corsOrigin: string[];
 }
@@ -90,6 +92,8 @@ export const config: Config = {
   apifyApiToken: process.env.APIFY_API_TOKEN ?? '',
   apifyMonthlyBudgetCents,
   bigkindsApiKey: process.env.BIGKINDS_API_KEY ?? '',
+  dataGoKrApiKey: process.env.DATA_GO_KR_API_KEY ?? '',
+  kcisaApiKey: process.env.KCISA_API_KEY ?? '',
   adminToken: process.env.ADMIN_TOKEN ?? (() => {
     if (process.env.NODE_ENV === 'production') {
       console.warn('[config] WARNING: ADMIN_TOKEN is not set — admin endpoints are disabled in production');
