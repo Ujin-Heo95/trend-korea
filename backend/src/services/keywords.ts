@@ -43,35 +43,50 @@ export async function extractKeywords(titles: readonly string[]): Promise<string
   const numberedTitles = titles.map((t, i) => `${i + 1}. ${t}`).join('\n');
   const prompt = PROMPT_TEMPLATE + numberedTitles;
 
-  try {
-    const result = await m.generateContent(prompt);
+  const MAX_RETRIES = 2;
 
-    const text = result.response.text().trim();
-    // JSON 블록 추출: ```json ... ``` 또는 그냥 배열
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      console.error('[keywords] no JSON array in response:', text.slice(0, 200));
-      await notifyScraperErrors('keywords', [{ sourceKey: 'gemini', error: 'JSON 파싱 실패: 배열 없음' }]);
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const result = await m.generateContent(prompt);
+
+      const text = result.response.text().trim();
+      // JSON 블록 추출: ```json ... ``` 또는 그냥 배열
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        console.error('[keywords] no JSON array in response:', text.slice(0, 200));
+        await notifyScraperErrors('keywords', [{ sourceKey: 'gemini', error: 'JSON 파싱 실패: 배열 없음' }]);
+        return titles.map(() => []);
+      }
+
+      const parsed: unknown = JSON.parse(jsonMatch[0]);
+      if (!Array.isArray(parsed)) {
+        throw new Error('parsed result is not an array');
+      }
+
+      // 각 항목을 string[] 로 정규화, 길이 보정
+      return titles.map((_, i) => {
+        const item = parsed[i];
+        if (!Array.isArray(item)) return [];
+        return item.filter((k: unknown): k is string => typeof k === 'string' && k.length >= 2);
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const is429 = msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED');
+
+      if (is429 && attempt < MAX_RETRIES) {
+        const backoff = BATCH_DELAY_MS * 2 * (attempt + 1);
+        console.warn(`[keywords] rate limited (429), retry ${attempt + 1}/${MAX_RETRIES} after ${backoff}ms`);
+        await delay(backoff);
+        continue;
+      }
+
+      console.error('[keywords] extraction failed:', msg);
+      await notifyScraperErrors('keywords', [{ sourceKey: 'gemini', error: msg }]);
       return titles.map(() => []);
     }
-
-    const parsed: unknown = JSON.parse(jsonMatch[0]);
-    if (!Array.isArray(parsed)) {
-      throw new Error('parsed result is not an array');
-    }
-
-    // 각 항목을 string[] 로 정규화, 길이 보정
-    return titles.map((_, i) => {
-      const item = parsed[i];
-      if (!Array.isArray(item)) return [];
-      return item.filter((k: unknown): k is string => typeof k === 'string' && k.length >= 2);
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error('[keywords] extraction failed:', msg);
-    await notifyScraperErrors('keywords', [{ sourceKey: 'gemini', error: msg }]);
-    return titles.map(() => []);
   }
+
+  return titles.map(() => []);
 }
 
 /**

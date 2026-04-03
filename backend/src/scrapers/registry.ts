@@ -14,6 +14,7 @@ export interface SourceEntry {
   priority: SourcePriority;
   enabled: boolean;
   feedUrl?: string;
+  encoding?: string;
   module?: string;
   className?: string;
 }
@@ -95,6 +96,7 @@ async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<BaseScr
       feedUrl: source.feedUrl,
       maxItems: 30,
       pool,
+      encoding: source.encoding,
     });
   }
 

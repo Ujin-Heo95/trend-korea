@@ -1,4 +1,5 @@
 import Parser from 'rss-parser';
+import axios from 'axios';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
@@ -9,6 +10,7 @@ interface RssScraperConfig {
   feedUrl: string;
   maxItems: number;
   pool: Pool;
+  encoding?: string;
 }
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
@@ -73,12 +75,31 @@ export class RssScraper extends BaseScraper {
       : this.cfg.sourceKey.startsWith('youtube_')
         ? youtubeParser
         : defaultParser;
-    const feed = await parser.parseURL(this.cfg.feedUrl);
+
+    const feed = this.cfg.encoding && this.cfg.encoding !== 'utf-8'
+      ? await this.fetchWithEncoding(parser, this.cfg.encoding)
+      : await parser.parseURL(this.cfg.feedUrl);
 
     return (feed.items ?? [])
       .slice(0, this.cfg.maxItems)
       .map(item => this.mapItem(item))
       .filter(p => p.url);
+  }
+
+  /** EUC-KR 등 non-UTF-8 RSS 피드를 수동 디코딩 후 파싱 */
+  private async fetchWithEncoding(parser: Parser, encoding: string) {
+    const { data } = await axios.get<ArrayBuffer>(this.cfg.feedUrl, {
+      responseType: 'arraybuffer',
+      timeout: 10_000,
+      headers: {
+        'User-Agent': UA,
+        Accept: 'application/rss+xml, application/xml, text/xml, */*;q=0.1',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+    });
+    const decoded = new TextDecoder(encoding).decode(data);
+    const cleanXml = decoded.replace(/encoding="[^"]*"/i, 'encoding="UTF-8"');
+    return parser.parseString(cleanXml);
   }
 
   private mapItem(item: Parser.Item): ScrapedPost {

@@ -52,19 +52,12 @@ export async function fetchHtml(
 
   await randomDelay(delay[0], delay[1]);
 
-  if (eucKr) {
-    const { data } = await axios.get<ArrayBuffer>(url, {
-      headers: buildHeaders(headers),
-      timeout,
-      responseType: 'arraybuffer',
-    });
-    const decoded = new TextDecoder('euc-kr').decode(data);
-    return cheerio.load(decoded);
-  }
-
-  const { data } = await axios.get<string>(url, {
+  const { data } = await axios.get<ArrayBuffer>(url, {
     headers: buildHeaders(headers),
     timeout,
+    responseType: 'arraybuffer',
   });
-  return cheerio.load(data);
+  const encoding = eucKr ? 'euc-kr' : 'utf-8';
+  const decoded = new TextDecoder(encoding).decode(data);
+  return cheerio.load(decoded);
 }

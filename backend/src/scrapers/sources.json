@@ -222,6 +222,7 @@
       "category": "news",
       "type": "rss",
       "feedUrl": "https://www.kmib.co.kr/rss/data/kmibRssAll.xml",
+      "encoding": "euc-kr",
       "priority": "medium",
       "enabled": true
     },
