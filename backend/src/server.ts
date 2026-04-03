@@ -17,6 +17,8 @@ import { weatherRoutes } from './routes/weather.js';
 import { keywordsRoutes } from './routes/keywords.js';
 import { trendSignalsRoutes } from './routes/trendSignals.js';
 import { issueDetailRoutes } from './routes/issueDetail.js';
+import { keywordDetailRoutes } from './routes/keywordDetail.js';
+import { ogImageRoutes } from './routes/ogImage.js';
 import { votesRoutes } from './routes/votes.js';
 import { topicsRoutes } from './routes/topics.js';
 import { sitemapRoutes } from './routes/sitemap.js';
@@ -65,6 +67,8 @@ export async function buildApp() {
   await app.register(keywordsRoutes);
   await app.register(trendSignalsRoutes);
   await app.register(issueDetailRoutes);
+  await app.register(keywordDetailRoutes);
+  await app.register(ogImageRoutes);
   await app.register(votesRoutes);
   await app.register(topicsRoutes);
   await app.register(sitemapRoutes);

@@ -50,9 +50,19 @@ export async function sitemapRoutes(app: FastifyInstance): Promise<void> {
       urlEntry(`/daily-report/${r.report_date}`, 'daily', '0.7', r.report_date),
     );
 
+    // 인기 키워드 SEO 랜딩 페이지 (상위 100개)
+    const { rows: keywords } = await app.pg.query<{ keyword: string }>(
+      `SELECT keyword FROM keyword_stats
+       WHERE window_hours = 3
+       ORDER BY mention_count DESC LIMIT 100`,
+    );
+    const keywordEntries = keywords.map(k =>
+      urlEntry(`/keyword/${encodeURIComponent(k.keyword)}`, 'hourly', '0.5'),
+    );
+
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${[...staticEntries, ...reportEntries, ...postEntries].join('\n')}
+${[...staticEntries, ...reportEntries, ...postEntries, ...keywordEntries].join('\n')}
 </urlset>`;
 
     return reply

@@ -137,7 +137,7 @@ async function getIssueMeta(pool: Pool, postId: number): Promise<PageMeta | null
     title: `${title} — 위클릿`,
     description: desc,
     url: pageUrl,
-    ogImage: thumbnail ?? undefined,
+    ogImage: thumbnail ?? `${BASE_URL}/api/og-image/${postId}`,
     type: 'article',
     jsonLd: [
       {
@@ -287,6 +287,31 @@ export function registerPrerender(app: FastifyInstance, pool: Pool): void {
       const reportMatch = req.url.match(/^\/daily-report\/(\d{4}-\d{2}-\d{2})/);
       if (!meta && reportMatch) {
         meta = await getDailyReportMeta(pool, reportMatch[1]);
+      }
+
+      const kwMatch = req.url.match(/^\/keyword\/([^/?]+)/);
+      if (!meta && kwMatch) {
+        const kw = decodeURIComponent(kwMatch[1]);
+        const pageUrl = `${BASE_URL}/keyword/${encodeURIComponent(kw)}`;
+        meta = {
+          title: `"${kw}" 실시간 이슈 — 위클릿`,
+          description: `"${kw}" 관련 최신 뉴스, 커뮤니티 반응, 트렌드를 한눈에 모아보세요.`,
+          url: pageUrl,
+          jsonLd: [
+            {
+              '@context': 'https://schema.org',
+              '@type': 'CollectionPage',
+              name: `${kw} 관련 이슈`,
+              url: pageUrl,
+              description: `${kw} 관련 최신 이슈 모아보기`,
+            },
+            breadcrumb([
+              HOME_CRUMB,
+              { name: '이슈 키워드', url: `${BASE_URL}/keywords` },
+              { name: kw, url: pageUrl },
+            ]),
+          ],
+        };
       }
 
       if (!meta) {

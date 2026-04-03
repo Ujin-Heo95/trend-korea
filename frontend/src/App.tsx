@@ -12,6 +12,7 @@ const KeywordsPage = lazy(() => import('./pages/KeywordsPage').then(m => ({ defa
 const AboutPage = lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 const IssueDetailPage = lazy(() => import('./pages/IssueDetailPage').then(m => ({ default: m.IssueDetailPage })));
+const KeywordDetailPage = lazy(() => import('./pages/KeywordDetailPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -90,6 +91,7 @@ function AppRoutes() {
           <Route path="/keywords" element={<KeywordsPage />} />
           <Route path="/weather" element={<WeatherPage />} />
           <Route path="/issue/:postId" element={<IssueDetailPage />} />
+          <Route path="/keyword/:keyword" element={<KeywordDetailPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
         </Routes>

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Post, Source, PostsResponse, DailyReport, DailyReportMeta, WeatherResponse, CityInfo, KeywordStatsResponse, TrendSignalsResponse, TopicsResponse, IssueDetailResponse } from '../types';
+import type { Post, Source, PostsResponse, DailyReport, DailyReportMeta, WeatherResponse, CityInfo, KeywordStatsResponse, TrendSignalsResponse, TopicsResponse, IssueDetailResponse, MiniEditorial } from '../types';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 const api = axios.create({ baseURL });
@@ -39,3 +39,20 @@ export const fetchIssueDetail = (postId: number) =>
 
 export const postVote = (postId: number) =>
   api.post<{ vote_count: number; is_new_vote: boolean }>(`/posts/${postId}/vote`).then(r => r.data);
+
+export const fetchMiniEditorial = () =>
+  api.get<MiniEditorial | null>('/mini-editorial/latest').then(r => r.data);
+
+export interface KeywordDetailResponse {
+  keyword: string;
+  posts: {
+    id: number; source_key: string; source_name: string; title: string;
+    thumbnail: string | null; view_count: number; category: string | null;
+    scraped_at: string; cluster_size: number;
+  }[];
+  related_keywords: string[];
+  stats: { mention_count: number; rate: number; calculated_at: string } | null;
+}
+
+export const fetchKeywordDetail = (keyword: string) =>
+  api.get<KeywordDetailResponse>(`/keyword/${encodeURIComponent(keyword)}`).then(r => r.data);

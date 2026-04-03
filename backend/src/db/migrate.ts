@@ -28,6 +28,8 @@ const migrations = [
   '020_trend_rankings.sql',
   '021_seed_suppressions.sql',
   '022_post_summaries.sql',
+  '023_burst_explanations.sql',
+  '024_mini_editorials.sql',
 ];
 
 try {
