@@ -261,7 +261,7 @@ function DailyReportPromo() {
 
   return (
     <Link
-      to={`/daily-report/${report.report_date}`}
+      to={`/daily-report/${String(report.report_date).slice(0, 10)}`}
       className="block mb-4 p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-600 transition-colors group"
     >
       <div className="flex items-center justify-between">
@@ -269,7 +269,7 @@ function DailyReportPromo() {
           <span className="text-2xl flex-shrink-0">📊</span>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
-              {report.report_date} 일일 트렌드 리포트
+              {String(report.report_date).slice(0, 10)} 일일 트렌드 리포트
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">AI가 분석한 오늘의 한국 인터넷 핵심 이슈</p>
           </div>

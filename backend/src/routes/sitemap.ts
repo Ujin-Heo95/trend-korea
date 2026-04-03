@@ -47,7 +47,7 @@ export async function sitemapRoutes(app: FastifyInstance): Promise<void> {
        ORDER BY report_date DESC LIMIT 30`,
     );
     const reportEntries = reports.map(r =>
-      urlEntry(`/daily-report/${r.report_date}`, 'daily', '0.7', r.report_date),
+      urlEntry(`/daily-report/${String(r.report_date).slice(0, 10)}`, 'daily', '0.7', r.report_date),
     );
 
     // 인기 키워드 SEO 랜딩 페이지 (상위 100개)

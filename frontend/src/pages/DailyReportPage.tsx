@@ -42,8 +42,13 @@ function formatDate(dateStr: string): string {
   return `${d.getFullYear()}\ub144 ${d.getMonth() + 1}\uc6d4 ${d.getDate()}\uc77c (${weekdays[d.getDay()]})`;
 }
 
+function isValidDateStr(dateStr: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr) && !isNaN(new Date(dateStr + 'T00:00:00+09:00').getTime());
+}
+
 function shiftDate(dateStr: string, days: number): string {
   const d = new Date(dateStr + 'T00:00:00+09:00');
+  if (isNaN(d.getTime())) return dateStr;
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
 }
@@ -161,7 +166,8 @@ function ReportSkeleton() {
 }
 
 export function DailyReportPage() {
-  const { date } = useParams<{ date: string }>();
+  const { date: rawDate } = useParams<{ date: string }>();
+  const date = rawDate?.slice(0, 10);
   useDocumentTitle(date ? `일일 리포트 ${date}` : '일일 리포트');
 
   const { data: report, isLoading, error } = useQuery({
@@ -171,7 +177,7 @@ export function DailyReportPage() {
     enabled: !!date,
   });
 
-  if (!date) {
+  if (!date || !isValidDateStr(date)) {
     return (
       <div className="text-center py-20 text-slate-500 dark:text-slate-400">
         잘못된 접근입니다. <Link to="/" className="text-blue-600 hover:underline">홈으로</Link>
