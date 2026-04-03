@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { Pool } from 'pg';
 
 const BASE_URL = 'https://weeklit.net';
-const SITE_NAME = 'WeekLit — 실시간 트렌드 모아보기';
+const SITE_NAME = '위클릿 — 실시간 트렌드 모아보기';
 const DEFAULT_DESC = '위클릿은 한국 주요 커뮤니티, 뉴스, YouTube에서 실시간 이슈를 모아보는 트렌드 어그리게이터입니다';
 
 const BOT_UA_PATTERN = /googlebot|yeti|bingbot|duckduckbot|kakaotalk-scrap|facebookexternalhit|twitterbot|slackbot|linkedinbot|telegrambot|whatsapp|line-poker|pinterestbot/i;
@@ -47,7 +47,7 @@ function renderHtml(meta: PageMeta): string {
   <meta property="og:type" content="${type}" />
   <meta property="og:locale" content="ko_KR" />
   <meta property="og:url" content="${url}" />
-  <meta property="og:site_name" content="WeekLit" />
+  <meta property="og:site_name" content="위클릿" />
   ${ogImage}
   <meta name="twitter:card" content="${meta.ogImage ? 'summary_large_image' : 'summary'}" />
   <meta name="twitter:title" content="${title}" />
@@ -59,7 +59,7 @@ function renderHtml(meta: PageMeta): string {
 <body>
   <h1>${title}</h1>
   <p>${desc}</p>
-  <a href="${url}">WeekLit에서 보기</a>
+  <a href="${url}">위클릿에서 보기</a>
 </body>
 </html>`;
 }
@@ -77,10 +77,10 @@ async function getIssueMeta(pool: Pool, postId: number): Promise<PageMeta | null
   );
   if (!rows[0]) return null;
   const { title, source_name, thumbnail, category, scraped_at } = rows[0];
-  const desc = `${source_name}${category ? ` · ${category}` : ''} — WeekLit 실시간 이슈`;
+  const desc = `${source_name}${category ? ` · ${category}` : ''} — 위클릿 실시간 이슈`;
   const pageUrl = `${BASE_URL}/issue/${postId}`;
   return {
-    title: `${title} — WeekLit`,
+    title: `${title} — 위클릿`,
     description: desc,
     url: pageUrl,
     ogImage: thumbnail ?? undefined,
@@ -92,7 +92,7 @@ async function getIssueMeta(pool: Pool, postId: number): Promise<PageMeta | null
       description: desc,
       url: pageUrl,
       datePublished: scraped_at,
-      publisher: { '@type': 'Organization', name: 'WeekLit', url: BASE_URL },
+      publisher: { '@type': 'Organization', name: '위클릿', url: BASE_URL },
       ...(thumbnail ? { image: thumbnail } : {}),
     },
   };
@@ -109,7 +109,7 @@ async function getDailyReportMeta(pool: Pool, date: string): Promise<PageMeta | 
   if (!rows[0]) return null;
   const briefing = rows[0].editorial_briefing ?? '오늘의 트렌드 종합 리포트';
   return {
-    title: `${rows[0].report_date} 일일 트렌드 리포트 — WeekLit`,
+    title: `${rows[0].report_date} 일일 트렌드 리포트 — 위클릿`,
     description: briefing.slice(0, 200),
     url: `${BASE_URL}/daily-report/${date}`,
   };
@@ -118,7 +118,7 @@ async function getDailyReportMeta(pool: Pool, date: string): Promise<PageMeta | 
 const WEBSITE_JSON_LD = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
-  name: 'WeekLit',
+  name: '위클릿',
   url: BASE_URL,
   description: DEFAULT_DESC,
   potentialAction: {
@@ -130,16 +130,16 @@ const WEBSITE_JSON_LD = {
 
 function getStaticMeta(path: string): PageMeta {
   if (path.startsWith('/keywords')) {
-    return { title: '이슈 키워드 — WeekLit', description: '실시간 트렌드 키워드 분석', url: `${BASE_URL}/keywords` };
+    return { title: '이슈 키워드 — 위클릿', description: '실시간 트렌드 키워드 분석', url: `${BASE_URL}/keywords` };
   }
   if (path.startsWith('/about')) {
-    return { title: '서비스 소개 — WeekLit', description: 'WeekLit은 한국 주요 커뮤니티와 뉴스에서 실시간 이슈를 모아보는 트렌드 어그리게이터입니다.', url: `${BASE_URL}/about` };
+    return { title: '서비스 소개 — 위클릿', description: '위클릿은 한국 주요 커뮤니티와 뉴스에서 실시간 이슈를 모아보는 트렌드 어그리게이터입니다.', url: `${BASE_URL}/about` };
   }
   if (path.startsWith('/privacy')) {
-    return { title: '개인정보처리방침 — WeekLit', description: 'WeekLit 개인정보처리방침', url: `${BASE_URL}/privacy` };
+    return { title: '개인정보처리방침 — 위클릿', description: '위클릿 개인정보처리방침', url: `${BASE_URL}/privacy` };
   }
   if (path.startsWith('/weather')) {
-    return { title: '날씨 — WeekLit', description: '전국 주요 도시 날씨 예보', url: `${BASE_URL}/weather` };
+    return { title: '날씨 — 위클릿', description: '전국 주요 도시 날씨 예보', url: `${BASE_URL}/weather` };
   }
   return { title: SITE_NAME, description: DEFAULT_DESC, url: BASE_URL, jsonLd: WEBSITE_JSON_LD };
 }

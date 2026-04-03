@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const BASE_TITLE = 'WeekLit — 실시간 트렌드 모아보기';
+const BASE_TITLE = '위클릿 — 실시간 트렌드 모아보기';
 
 export function useDocumentTitle(subtitle?: string) {
   useEffect(() => {

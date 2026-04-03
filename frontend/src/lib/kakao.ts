@@ -25,7 +25,7 @@ export function shareToKakao({ title, description, imageUrl, linkUrl }: ShareOpt
     objectType: 'feed',
     content: {
       title,
-      description: description || 'WeekLit — 실시간 트렌드 모아보기',
+      description: description || '위클릿 — 실시간 트렌드 모아보기',
       imageUrl,
       link: { mobileWebUrl: linkUrl, webUrl: linkUrl },
     },
