@@ -4,8 +4,7 @@ import { runAllScrapers, runScrapersByPriority, runApifyScrapers } from '../scra
 import { cleanOldPosts, cleanOldScraperRuns, cleanExpiredTrendSignals, cleanOldEngagementSnapshots } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
 import { generateDailyReport } from '../services/dailyReport.js';
-// BigKinds Top 10 전환으로 비활성화 — 추후 재활용 가능
-// import { crossValidate } from '../services/trendCrossValidator.js';
+import { crossValidate } from '../services/trendCrossValidator.js';
 import { processNewPosts, calculateStats } from '../services/keywords.js';
 import { checkDbSize } from '../services/dbMonitor.js';
 import { pool } from '../db/client.js';
@@ -28,7 +27,7 @@ export function startScheduler(): void {
   // 최초 실행: 전체 스크래퍼 1회 → 키워드 추출도 연이어 실행
   runAllScrapers()
     .then(() => processNewPosts(pool))
-    .then(() => Promise.all([calculateStats(pool, 3), calculateStats(pool, 24)]))
+    .then(() => Promise.all([calculateStats(pool, 1), calculateStats(pool, 3), calculateStats(pool, 24)]))
     .catch(captureError);
 
   // 우선순위별 cron
@@ -55,6 +54,7 @@ export function startScheduler(): void {
   cron.schedule('*/30 * * * *', async () => {
     try {
       await processNewPosts(pool);
+      await calculateStats(pool, 1);
       await calculateStats(pool, 3);
       await calculateStats(pool, 24);
     } catch (err) {
@@ -63,11 +63,11 @@ export function startScheduler(): void {
   });
   console.log('[scheduler] keywords: every 30 min');
 
-  // 교차 검증 트렌드: BigKinds Top 10 전환으로 비활성화
-  // cron.schedule('*/20 * * * *', () => {
-  //   crossValidate(pool).catch(err => captureError(err));
-  // });
-  // console.log('[scheduler] cross-validate: every 20 min');
+  // 교차 검증 트렌드: BigKinds와 병행 (검색+커뮤니티 수렴 신호)
+  cron.schedule('*/20 * * * *', () => {
+    crossValidate(pool).catch(err => captureError(err));
+  });
+  console.log('[scheduler] cross-validate: every 20 min');
 
   // Apify SNS 수집: 09:00, 18:00 KST (= 00:00, 09:00 UTC)
   cron.schedule('0 0,9 * * *', () => {

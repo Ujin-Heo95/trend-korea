@@ -277,7 +277,14 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
         ...sortedKws.map(kw => signalMap.get(kw) ?? 0),
       );
 
-      const headline = representativePosts[0]?.title ?? sortedKws[0];
+      // 뉴스 기사 제목 우선 (정보 밀도가 높음) → 없으면 스코어 최고 포스트
+      const newsPost = rankedPosts.find(({ pid }) => {
+        const p = postMap.get(pid);
+        return p && ['news', 'press', 'government'].includes(p.category ?? '');
+      });
+      const headline = (newsPost ? postMap.get(newsPost.pid)?.title : undefined)
+        ?? representativePosts[0]?.title
+        ?? sortedKws[0];
       const channelArr = [...channels];
 
       topics.push({
@@ -300,7 +307,7 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
       return scoreB - scoreA;
     });
 
-    const result = { topics: topics.slice(0, 8) };
+    const result = { topics: topics.slice(0, 12) };
     topicsCache.set('topics', result);
     return reply.send(result);
   });

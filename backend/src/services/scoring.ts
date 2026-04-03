@@ -24,13 +24,25 @@ export function getChannel(category: string | null): Channel {
 // ─── Source & Category Weights (기존 유지) ───
 
 const SOURCE_WEIGHTS: Record<string, number> = {
+  // 주요 통신사·일간지
   yna: 1.15, sbs: 1.15, khan: 1.15, mk: 1.15,
-  hani: 1.10, donga: 1.10, hankyung: 1.10, geeknews: 1.10, yozm: 1.10,
+  chosun: 1.12, joins: 1.12,
+  hani: 1.10, donga: 1.10, hankyung: 1.10,
+  // 방송사
+  kbs: 1.12, mbc: 1.12, jtbc: 1.12, ytn: 1.10,
+  // 포탈·통합
+  daum_news: 1.10, google_news_kr: 1.08, newsis: 1.08,
+  // 테크
+  geeknews: 1.10, yozm: 1.10, etnews: 1.05,
+  naver_d2: 1.05, kakao_tech: 1.05, toss_tech: 1.05,
+  // 커뮤니티
   dcinside: 1.05, bobaedream: 1.05, ruliweb: 1.05, theqoo: 1.05,
   instiz: 1.05, natepann: 1.05,
+  // 기타
   youtube: 1.03, ppomppu: 1.03,
   kopis_boxoffice: 1.10,
   bigkinds_issues: 1.15,
+  sports_donga: 1.00,
 };
 const DEFAULT_SOURCE_WEIGHT = 0.95;
 
