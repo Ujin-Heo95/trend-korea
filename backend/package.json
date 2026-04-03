@@ -13,6 +13,7 @@
     "@fastify/cors": "^10.1.0",
     "@fastify/helmet": "^13.0.2",
     "@fastify/rate-limit": "^10.3.0",
+    "@fastify/static": "^9.0.0",
     "@google/generative-ai": "^0.24.1",
     "@sentry/node": "^10.46.0",
     "apify-client": "^2.22.3",

@@ -1,7 +1,10 @@
+import { resolve, join } from 'path';
+import { existsSync } from 'fs';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
 import * as Sentry from '@sentry/node';
 import { Pool } from 'pg';
 import { config } from './config/index.js';
@@ -16,7 +19,9 @@ import { trendSignalsRoutes } from './routes/trendSignals.js';
 import { issueDetailRoutes } from './routes/issueDetail.js';
 import { votesRoutes } from './routes/votes.js';
 import { topicsRoutes } from './routes/topics.js';
+import { sitemapRoutes } from './routes/sitemap.js';
 import { startScheduler } from './scheduler/index.js';
+import { registerPrerender } from './middleware/prerender.js';
 
 if (config.sentryDsn) {
   Sentry.init({
@@ -62,6 +67,34 @@ export async function buildApp() {
   await app.register(issueDetailRoutes);
   await app.register(votesRoutes);
   await app.register(topicsRoutes);
+  await app.register(sitemapRoutes);
+
+  // 봇 프리렌더: API 이외의 봇 요청에 동적 meta 태그 HTML 반환
+  registerPrerender(app, pool);
+
+  // SPA 정적 파일 서빙 (프론트엔드 빌드 결과물이 존재할 때 + 테스트 환경 제외)
+  const frontendDist = resolve(import.meta.dirname, '../../frontend/dist');
+  const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+  if (!isTest && existsSync(frontendDist)) {
+    await app.register(fastifyStatic, {
+      root: frontendDist,
+      wildcard: false,
+      serve: false,  // 자동 서빙 비활성화 — setNotFoundHandler에서 직접 처리
+    });
+    // SPA fallback: API·sitemap 이외의 모든 GET → 정적 파일 또는 index.html
+    app.setNotFoundHandler(async (req, reply) => {
+      if (req.method === 'GET' && !req.url.startsWith('/api/')) {
+        // 정적 파일 먼저 시도, 없으면 index.html (SPA)
+        try {
+          return await reply.sendFile(req.url === '/' ? 'index.html' : req.url.slice(1));
+        } catch {
+          return reply.sendFile('index.html');
+        }
+      }
+      return reply.status(404).send({ error: 'Not Found' });
+    });
+    console.log(`[server] serving frontend from ${frontendDist}`);
+  }
 
   app.addHook('onError', (_req, _reply, error, done) => {
     if (config.sentryDsn) Sentry.captureException(error);
