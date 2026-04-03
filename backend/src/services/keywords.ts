@@ -139,6 +139,92 @@ export async function processNewPosts(pool: Pool): Promise<void> {
   console.log(`[keywords] extracted keywords for ${totalExtracted} posts${quotaExhausted ? ' (stopped: quota)' : ''}`);
 }
 
+// ─── Z-Score 버스트 감지 (다음 포커스 알고리즘 영감) ───
+
+const EMA_ALPHA = 0.1;           // 스무딩 계수: ~10회 후 안정화
+const PRIOR_MEAN = 0.5;          // Bayesian prior: 평균 0.5%
+const PRIOR_STDDEV = 0.3;        // Bayesian prior: 표준편차 0.3%
+const MIN_SAMPLES_FOR_ZSCORE = 5; // Z-Score 신뢰를 위한 최소 관측 수
+const BURST_ZSCORE_THRESHOLD = 2.0; // 2σ 이상 = 유의미한 버스트
+
+/**
+ * 3h keyword_stats를 기반으로 EMA 베이스라인 갱신
+ * — 매 30분 calculateStats(pool, 3) 이후 호출
+ */
+export async function updateBaselines(pool: Pool): Promise<number> {
+  const { rows } = await pool.query<{ keyword: string; rate: number }>(
+    `SELECT keyword, rate FROM keyword_stats WHERE window_hours = 3`,
+  );
+
+  if (rows.length === 0) return 0;
+
+  // 배치 UPSERT: EMA 갱신
+  const values: string[] = [];
+  const params: unknown[] = [];
+  for (const row of rows) {
+    const idx = params.length;
+    values.push(`($${idx + 1}, $${idx + 2}, $${idx + 3})`);
+    params.push(row.keyword, row.rate, PRIOR_STDDEV);
+  }
+
+  const result = await pool.query(
+    `INSERT INTO keyword_baselines (keyword, mean_rate, stddev_rate, sample_count, updated_at)
+     VALUES ${values.join(', ')}
+     ON CONFLICT (keyword) DO UPDATE SET
+       mean_rate = keyword_baselines.mean_rate * (1.0 - ${EMA_ALPHA})
+                 + EXCLUDED.mean_rate * ${EMA_ALPHA},
+       stddev_rate = GREATEST(
+         SQRT(
+           keyword_baselines.stddev_rate * keyword_baselines.stddev_rate * (1.0 - ${EMA_ALPHA})
+           + ${EMA_ALPHA} * (EXCLUDED.mean_rate - keyword_baselines.mean_rate)
+                          * (EXCLUDED.mean_rate - keyword_baselines.mean_rate)
+         ),
+         0.05
+       ),
+       sample_count = keyword_baselines.sample_count + 1,
+       updated_at = NOW()`,
+    params,
+  );
+
+  const updated = result.rowCount ?? 0;
+  console.log(`[keywords] baselines updated: ${updated} keywords (EMA α=${EMA_ALPHA})`);
+  return updated;
+}
+
+/**
+ * 현재 3h rate가 베이스라인 대비 Z-Score > threshold인 키워드 반환
+ * @returns Map<keyword, zScore>
+ */
+export async function detectBursts(pool: Pool): Promise<Map<string, number>> {
+  const { rows } = await pool.query<{ keyword: string; z_score: number }>(`
+    SELECT ks.keyword,
+      CASE
+        WHEN kb.stddev_rate > 0 AND kb.sample_count >= ${MIN_SAMPLES_FOR_ZSCORE}
+          THEN (ks.rate - kb.mean_rate) / kb.stddev_rate
+        ELSE (ks.rate - ${PRIOR_MEAN}) / ${PRIOR_STDDEV}
+      END AS z_score
+    FROM keyword_stats ks
+    LEFT JOIN keyword_baselines kb ON kb.keyword = ks.keyword
+    WHERE ks.window_hours = 3
+    ORDER BY z_score DESC
+    LIMIT 50
+  `);
+
+  const bursts = new Map<string, number>();
+  for (const r of rows) {
+    if (r.z_score >= BURST_ZSCORE_THRESHOLD) {
+      bursts.set(r.keyword, Math.round(r.z_score * 100) / 100);
+    }
+  }
+
+  if (bursts.size > 0) {
+    const top3 = [...bursts.entries()].slice(0, 3).map(([kw, z]) => `${kw}(${z})`).join(', ');
+    console.log(`[keywords] bursts detected: ${bursts.size} keywords (top: ${top3})`);
+  }
+
+  return bursts;
+}
+
 /**
  * 시간 윈도우 내 키워드 빈도 집계 → keyword_stats UPSERT
  */

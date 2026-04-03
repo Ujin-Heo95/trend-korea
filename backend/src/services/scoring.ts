@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { detectBursts } from './keywords.js';
 
 const LN2 = Math.LN2;
 const HALF_LIFE_MINUTES = 360; // 6시간 반감기
@@ -73,6 +74,7 @@ export interface ScoreFactors {
   clusterBonus: number;
   keywordMomentumBonus: number;
   trendConfirmationBonus: number;
+  burstBonus: number;
 }
 
 interface SourceStats {
@@ -98,7 +100,8 @@ export function computeScore(factors: ScoreFactors): number {
     * factors.velocityBonus
     * factors.clusterBonus
     * factors.keywordMomentumBonus
-    * factors.trendConfirmationBonus;
+    * factors.trendConfirmationBonus
+    * factors.burstBonus;
 }
 
 /** Backward-compatible overload for tests / simple usage */
@@ -385,6 +388,35 @@ async function calculateTrendConfirmationMap(pool: Pool): Promise<Map<number, nu
   return map;
 }
 
+/** 버스트 키워드 → 포스트별 최대 Z-Score 보너스 [1.0, 1.4] */
+async function calculateBurstBonusMap(pool: Pool): Promise<Map<number, number>> {
+  const bursts = await detectBursts(pool);
+  if (bursts.size === 0) return new Map();
+
+  const burstKeywords = [...bursts.keys()];
+  const { rows } = await pool.query<{ post_id: number; keywords: string[] }>(`
+    SELECT ke.post_id, ke.keywords
+    FROM keyword_extractions ke
+    JOIN posts p ON p.id = ke.post_id
+    WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
+      AND ke.keywords && $1::text[]
+  `, [burstKeywords]);
+
+  const map = new Map<number, number>();
+  for (const r of rows) {
+    let maxZ = 0;
+    for (const kw of r.keywords) {
+      const z = bursts.get(kw);
+      if (z !== undefined && z > maxZ) maxZ = z;
+    }
+    if (maxZ >= 2.0) {
+      // bonus: 1.0 + min(z * 0.1, 0.4) → [1.2, 1.4] 범위
+      map.set(r.post_id, 1.0 + Math.min(maxZ * 0.1, 0.4));
+    }
+  }
+  return map;
+}
+
 /** 클러스터 보너스: 로그 곡선 + 소스 다양성 [1.0, 2.5] */
 async function calculateClusterBonusMap(pool: Pool): Promise<Map<number, number>> {
   const { rows } = await pool.query<{
@@ -443,6 +475,7 @@ export async function calculateScores(pool: Pool): Promise<number> {
     keywordMomentumMap,
     trendConfirmationMap,
     clusterBonusMap,
+    burstBonusMap,
     categoryBaselines,
     postsResult,
   ] = await Promise.all([
@@ -452,6 +485,7 @@ export async function calculateScores(pool: Pool): Promise<number> {
     calculateKeywordMomentumMap(pool).catch(() => new Map<number, number>()),
     calculateTrendConfirmationMap(pool).catch(() => new Map<number, number>()),
     calculateClusterBonusMap(pool).catch(() => new Map<number, number>()),
+    calculateBurstBonusMap(pool).catch(() => new Map<number, number>()),
     calculateCategoryBaselines(pool),
     pool.query<{
       id: number;
@@ -512,6 +546,7 @@ export async function calculateScores(pool: Pool): Promise<number> {
       clusterBonus: clusterBonusMap.get(row.id) ?? 1.0,
       keywordMomentumBonus: momentumToBonus(keywordMomentumMap.get(row.id)),
       trendConfirmationBonus: trendConfirmationMap.get(row.id) ?? 1.0,
+      burstBonus: burstBonusMap.get(row.id) ?? 1.0,
     };
 
     const score = computeScore(factors);

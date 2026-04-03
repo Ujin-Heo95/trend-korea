@@ -5,7 +5,7 @@ import { cleanOldPosts, cleanOldScraperRuns, cleanExpiredTrendSignals, cleanOldE
 import { calculateScores } from '../services/scoring.js';
 import { generateDailyReport } from '../services/dailyReport.js';
 import { crossValidate } from '../services/trendCrossValidator.js';
-import { processNewPosts, calculateStats } from '../services/keywords.js';
+import { processNewPosts, calculateStats, updateBaselines } from '../services/keywords.js';
 import { checkDbSize } from '../services/dbMonitor.js';
 import { pool } from '../db/client.js';
 
@@ -27,7 +27,12 @@ export function startScheduler(): void {
   // 최초 실행: 전체 스크래퍼 1회 → 키워드 추출도 연이어 실행
   runAllScrapers()
     .then(() => processNewPosts(pool))
-    .then(() => Promise.all([calculateStats(pool, 1), calculateStats(pool, 3), calculateStats(pool, 24)]))
+    .then(async () => {
+      await calculateStats(pool, 1);
+      await calculateStats(pool, 3);
+      await updateBaselines(pool);
+      await calculateStats(pool, 24);
+    })
     .catch(captureError);
 
   // 우선순위별 cron
@@ -56,6 +61,7 @@ export function startScheduler(): void {
       await processNewPosts(pool);
       await calculateStats(pool, 1);
       await calculateStats(pool, 3);
+      await updateBaselines(pool);
       await calculateStats(pool, 24);
     } catch (err) {
       captureError(err);
