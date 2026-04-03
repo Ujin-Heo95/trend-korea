@@ -417,15 +417,19 @@ async function calculateBurstBonusMap(pool: Pool): Promise<Map<number, number>> 
   return map;
 }
 
-/** 클러스터 보너스: 로그 곡선 + 소스 다양성 [1.0, 2.5] */
+/** 클러스터 보너스: 로그 곡선 + 카테고리 다양성 + 뉴스 출처 다양성 [1.0, 3.0] */
 async function calculateClusterBonusMap(pool: Pool): Promise<Map<number, number>> {
   const { rows } = await pool.query<{
     canonical_post_id: number;
     member_count: number;
     category_diversity: number;
+    source_diversity: number;
+    news_outlet_count: number;
   }>(`
     SELECT pc.canonical_post_id, pc.member_count,
-      COUNT(DISTINCT p.category)::int AS category_diversity
+      COUNT(DISTINCT p.category)::int AS category_diversity,
+      COUNT(DISTINCT p.source_key)::int AS source_diversity,
+      COUNT(DISTINCT CASE WHEN p.category IN ('news','press') THEN p.source_key END)::int AS news_outlet_count
     FROM post_clusters pc
     JOIN post_cluster_members pcm ON pcm.cluster_id = pc.id
     JOIN posts p ON p.id = pcm.post_id
@@ -437,8 +441,12 @@ async function calculateClusterBonusMap(pool: Pool): Promise<Map<number, number>
   for (const r of rows) {
     if (r.member_count <= 1) continue;
     const rawCluster = 1.0 + 0.3 * Math.log2(r.member_count);
-    const diversity = 1.0 + 0.1 * Math.min(r.category_diversity - 1, 3);
-    map.set(r.canonical_post_id, Math.min(rawCluster * diversity, 2.5));
+    const categoryDiv = 1.0 + 0.1 * Math.min(r.category_diversity - 1, 3);
+    // 다음 포커스 핵심: 여러 뉴스사 동시 보도 = 높은 가중치
+    const newsOutletDiv = r.news_outlet_count >= 3
+      ? 1.0 + 0.15 * Math.min(r.news_outlet_count - 2, 5)
+      : 1.0;
+    map.set(r.canonical_post_id, Math.min(rawCluster * categoryDiv * newsOutletDiv, 3.0));
   }
   return map;
 }

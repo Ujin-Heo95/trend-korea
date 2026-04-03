@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { LRUCache } from '../cache/lru.js';
+import { detectBursts } from '../services/keywords.js';
 
 // ─── Types ───
 
@@ -19,19 +20,24 @@ interface Topic {
   momentum: 'rising' | 'steady' | 'falling';
   momentumValue: number;
   convergenceScore: number;
+  unifiedScore: number;
+  burstScore: number;
+  rank: number;
+  previousRank: number | null;
+  changeType: 'new' | 'up' | 'down' | 'same';
+  changeAmount: number;
+  confidence: 'high' | 'medium' | 'low';
   representativePosts: TopicPost[];
 }
 
 // ─── Helpers ───
 
-/** keyword_stats 3h/24h 비율로 모멘텀 판정 */
 function classifyMomentum(ratio: number): 'rising' | 'steady' | 'falling' {
   if (ratio >= 1.5) return 'rising';
   if (ratio <= 0.7) return 'falling';
   return 'steady';
 }
 
-/** 채널(프론트 표시용)을 category에서 파생 */
 function categoryToChannel(category: string | null): string {
   if (!category) return '기타';
   const map: Record<string, string> = {
@@ -47,7 +53,6 @@ function categoryToChannel(category: string | null): string {
   return map[category] ?? '기타';
 }
 
-/** 문자열 배열로부터 결정론적 해시 ID 생성 */
 function hashKeywords(keywords: string[]): string {
   const sorted = [...keywords].sort();
   let hash = 0;
@@ -56,6 +61,14 @@ function hashKeywords(keywords: string[]): string {
     hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
   }
   return Math.abs(hash).toString(36);
+}
+
+/** 신뢰도 판정: 채널 수 + convergence 기반 */
+function classifyConfidence(channels: string[], convergence: number): 'high' | 'medium' | 'low' {
+  const signalCount = channels.length + (convergence > 5 ? 1 : 0);
+  if (signalCount >= 3) return 'high';
+  if (signalCount >= 2) return 'medium';
+  return 'low';
 }
 
 // ─── Cache ───
@@ -69,7 +82,7 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
     const cached = topicsCache.get('topics');
     if (cached) return reply.send(cached);
 
-    // Step 1: 3h 키워드 top 30 + 24h 대응 rate
+    // Step 1: 3h 키워드 top 30 + 24h 대응 rate (품질 필터: 억제 키워드 제외)
     const { rows: kwRows } = await app.pg.query<{
       keyword: string;
       mention_count: number;
@@ -82,13 +95,15 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
         COALESCE(k24.rate, 0) AS rate_24h
       FROM keyword_stats k3
       LEFT JOIN keyword_stats k24 ON k24.keyword = k3.keyword AND k24.window_hours = 24
+      LEFT JOIN keyword_suppressions ks ON ks.keyword = k3.keyword
       WHERE k3.window_hours = 3
+        AND ks.keyword IS NULL
       ORDER BY k3.mention_count DESC
       LIMIT 30
     `);
 
     if (kwRows.length === 0) {
-      const result = { topics: [] };
+      const result = { topics: [] as Topic[] };
       topicsCache.set('topics', result);
       return reply.send(result);
     }
@@ -102,62 +117,45 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
 
     const topKeywords = kwRows.map(r => r.keyword);
 
-    // Step 2: 이 키워드를 가진 최근 6시간 포스트 찾기
-    const { rows: postKwRows } = await app.pg.query<{
-      post_id: number;
-      keywords: string[];
-    }>(`
-      SELECT ke.post_id, ke.keywords
-      FROM keyword_extractions ke
-      JOIN posts p ON p.id = ke.post_id
-      WHERE p.scraped_at > NOW() - INTERVAL '6 hours'
-        AND ke.keywords && $1::text[]
-    `, [topKeywords]);
+    // Step 2: 포스트 찾기 + 버스트 감지 병렬
+    const [postKwResult, burstMap] = await Promise.all([
+      app.pg.query<{ post_id: number; keywords: string[] }>(`
+        SELECT ke.post_id, ke.keywords
+        FROM keyword_extractions ke
+        JOIN posts p ON p.id = ke.post_id
+        WHERE p.scraped_at > NOW() - INTERVAL '6 hours'
+          AND ke.keywords && $1::text[]
+      `, [topKeywords]),
+      detectBursts(app.pg).catch(() => new Map<string, number>()),
+    ]);
 
+    const postKwRows = postKwResult.rows;
     if (postKwRows.length === 0) {
-      const result = { topics: [] };
+      const result = { topics: [] as Topic[] };
       topicsCache.set('topics', result);
       return reply.send(result);
     }
 
-    // Step 3: 포스트 상세 + 클러스터 정보 + 스코어
+    // Step 3: 포스트 상세 + 클러스터 + 스코어
     const postIds = postKwRows.map(r => r.post_id);
     const [postsResult, clusterResult, scoresResult] = await Promise.all([
       app.pg.query<{
-        id: number;
-        title: string;
-        source_key: string;
-        source_name: string;
-        category: string | null;
-        view_count: number;
-      }>(`
-        SELECT id, title, source_key, source_name, category, view_count
-        FROM posts WHERE id = ANY($1::int[])
-      `, [postIds]),
-      app.pg.query<{
-        post_id: number;
-        cluster_id: number;
-      }>(`
-        SELECT post_id, cluster_id
-        FROM post_cluster_members WHERE post_id = ANY($1::int[])
-      `, [postIds]),
-      app.pg.query<{
-        post_id: number;
-        trend_score: number;
-      }>(`
-        SELECT post_id, trend_score
-        FROM post_scores WHERE post_id = ANY($1::int[])
-      `, [postIds]),
+        id: number; title: string; source_key: string;
+        source_name: string; category: string | null; view_count: number;
+      }>(`SELECT id, title, source_key, source_name, category, view_count
+          FROM posts WHERE id = ANY($1::int[])`, [postIds]),
+      app.pg.query<{ post_id: number; cluster_id: number }>(
+        `SELECT post_id, cluster_id FROM post_cluster_members WHERE post_id = ANY($1::int[])`, [postIds]),
+      app.pg.query<{ post_id: number; trend_score: number }>(
+        `SELECT post_id, trend_score FROM post_scores WHERE post_id = ANY($1::int[])`, [postIds]),
     ]);
 
-    // 룩업 맵 구축
     const postMap = new Map(postsResult.rows.map(p => [p.id, p]));
     const postCluster = new Map(clusterResult.rows.map(c => [c.post_id, c.cluster_id]));
     const postScore = new Map(scoresResult.rows.map(s => [s.post_id, s.trend_score]));
     const postKeywords = new Map(postKwRows.map(pk => [pk.post_id, pk.keywords]));
 
-    // Step 4: 토픽 그룹핑 (Union-Find)
-    // 같은 클러스터 또는 키워드 2개 이상 공유 → 같은 토픽
+    // Step 4: Union-Find 토픽 그룹핑
     const parent = new Map<number, number>();
     const find = (x: number): number => {
       if (!parent.has(x)) parent.set(x, x);
@@ -169,7 +167,6 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
       if (ra !== rb) parent.set(ra, rb);
     };
 
-    // 4a. 클러스터 기반 병합
     const clusterPosts = new Map<number, number[]>();
     for (const [pid, cid] of postCluster) {
       const arr = clusterPosts.get(cid) ?? [];
@@ -177,12 +174,9 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
       clusterPosts.set(cid, arr);
     }
     for (const members of clusterPosts.values()) {
-      for (let i = 1; i < members.length; i++) {
-        union(members[0], members[i]);
-      }
+      for (let i = 1; i < members.length; i++) union(members[0], members[i]);
     }
 
-    // 4b. 키워드 공유 기반 병합 (상위 키워드 한정)
     const topKwSet = new Set(topKeywords);
     const keywordPosts = new Map<string, number[]>();
     for (const [pid, kws] of postKeywords) {
@@ -193,11 +187,8 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
         keywordPosts.set(kw, arr);
       }
     }
-    // 같은 키워드를 공유하는 포스트 병합
     for (const members of keywordPosts.values()) {
-      for (let i = 1; i < members.length; i++) {
-        union(members[0], members[i]);
-      }
+      for (let i = 1; i < members.length; i++) union(members[0], members[i]);
     }
 
     // Step 5: 그룹별 토픽 조립
@@ -209,42 +200,36 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
       groups.set(root, arr);
     }
 
-    // convergence score 조회 (trend_signals)
     const { rows: sigRows } = await app.pg.query<{
-      keyword: string;
-      convergence_score: number;
-    }>(`
-      SELECT keyword, convergence_score
-      FROM trend_signals
-      WHERE expires_at > NOW() AND convergence_score > 0
-    `);
+      keyword: string; convergence_score: number;
+    }>(`SELECT keyword, convergence_score FROM trend_signals
+        WHERE expires_at > NOW() AND convergence_score > 0`);
     const signalMap = new Map(sigRows.map(s => [s.keyword, s.convergence_score]));
 
     const topics: Topic[] = [];
 
     for (const [, memberIds] of groups) {
-      if (memberIds.length < 2) continue; // 단일 포스트 토픽은 제외
+      if (memberIds.length < 2) continue;
 
-      // 키워드 빈도 집계
       const kwFreq = new Map<string, number>();
       const channels = new Set<string>();
-      let totalEngagement = 0;
+      let newsCount = 0;
+      let communityCount = 0;
 
       for (const pid of memberIds) {
         const post = postMap.get(pid);
         if (!post) continue;
-        channels.add(categoryToChannel(post.category));
-        totalEngagement += post.view_count;
+        const ch = categoryToChannel(post.category);
+        channels.add(ch);
+        if (ch === '뉴스') newsCount++;
+        if (ch === '커뮤니티') communityCount++;
 
         const kws = postKeywords.get(pid) ?? [];
         for (const kw of kws) {
-          if (topKwSet.has(kw)) {
-            kwFreq.set(kw, (kwFreq.get(kw) ?? 0) + 1);
-          }
+          if (topKwSet.has(kw)) kwFreq.set(kw, (kwFreq.get(kw) ?? 0) + 1);
         }
       }
 
-      // 상위 3개 키워드
       const sortedKws = [...kwFreq.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
@@ -252,7 +237,6 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
 
       if (sortedKws.length === 0) continue;
 
-      // 대표 포스트 (trend_score 상위 3개)
       const rankedPosts = memberIds
         .map(pid => ({ pid, score: postScore.get(pid) ?? 0 }))
         .sort((a, b) => b.score - a.score)
@@ -266,18 +250,11 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
         })
         .filter((p): p is TopicPost => p !== null);
 
-      // 모멘텀: 토픽 키워드 중 최대 모멘텀
-      const maxMomentum = Math.max(
-        ...sortedKws.map(kw => keywordMomentum.get(kw) ?? 1.0)
-      );
+      const maxMomentum = Math.max(...sortedKws.map(kw => keywordMomentum.get(kw) ?? 1.0));
+      const maxConvergence = Math.max(0, ...sortedKws.map(kw => signalMap.get(kw) ?? 0));
+      const maxBurst = Math.max(0, ...sortedKws.map(kw => burstMap.get(kw) ?? 0));
 
-      // convergence score: 키워드 매칭 최대값
-      const maxConvergence = Math.max(
-        0,
-        ...sortedKws.map(kw => signalMap.get(kw) ?? 0),
-      );
-
-      // 뉴스 기사 제목 우선 (정보 밀도가 높음) → 없으면 스코어 최고 포스트
+      // 뉴스 기사 제목 우선
       const newsPost = rankedPosts.find(({ pid }) => {
         const p = postMap.get(pid);
         return p && ['news', 'press', 'government'].includes(p.category ?? '');
@@ -285,7 +262,27 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
       const headline = (newsPost ? postMap.get(newsPost.pid)?.title : undefined)
         ?? representativePosts[0]?.title
         ?? sortedKws[0];
+
       const channelArr = [...channels];
+
+      // 통합 스코어 (다음 포커스 스타일 가중 평균)
+      const isBreaking = maxBurst > 3.0;
+      const communitySignal = Math.min(communityCount / 5, 1.0);
+      const newsSignal = Math.min(newsCount / 3, 1.0);
+      const burstSignal = Math.min(maxBurst / 5, 1.0);
+      const convergenceSignal = Math.min(maxConvergence / 20, 1.0);
+
+      const wNews = isBreaking ? 0.35 : 0.25;
+      const wCommunity = isBreaking ? 0.20 : 0.30;
+      const wBurst = 0.25;
+      const wConvergence = 0.20;
+
+      const unifiedScore = (
+        communitySignal * wCommunity +
+        newsSignal * wNews +
+        burstSignal * wBurst +
+        convergenceSignal * wConvergence
+      ) * Math.log2(memberIds.length + 1) * maxMomentum;
 
       topics.push({
         id: hashKeywords(sortedKws),
@@ -296,18 +293,85 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
         momentum: classifyMomentum(maxMomentum),
         momentumValue: Math.round(maxMomentum * 100) / 100,
         convergenceScore: maxConvergence,
+        unifiedScore: Math.round(unifiedScore * 1000) / 1000,
+        burstScore: maxBurst,
+        rank: 0,
+        previousRank: null,
+        changeType: 'new',
+        changeAmount: 0,
+        confidence: classifyConfidence(channelArr, maxConvergence),
         representativePosts,
       });
     }
 
-    // 정렬: engagement × momentum × channel diversity
-    topics.sort((a, b) => {
-      const scoreA = a.postCount * a.momentumValue * a.channels.length;
-      const scoreB = b.postCount * b.momentumValue * b.channels.length;
-      return scoreB - scoreA;
-    });
+    // 통합 스코어로 정렬
+    topics.sort((a, b) => b.unifiedScore - a.unifiedScore);
+    const finalTopics = topics.slice(0, 12);
 
-    const result = { topics: topics.slice(0, 12) };
+    // 랭킹 번호 부여
+    for (let i = 0; i < finalTopics.length; i++) {
+      finalTopics[i].rank = i + 1;
+    }
+
+    // 위치변동 계산: 이전 랭킹 조회
+    const { rows: prevRanks } = await app.pg.query<{
+      keyword: string; rank: number;
+    }>(`
+      SELECT DISTINCT ON (keyword) keyword, rank
+      FROM trend_rankings
+      WHERE calculated_at > NOW() - INTERVAL '2 hours'
+        AND calculated_at < NOW() - INTERVAL '5 minutes'
+      ORDER BY keyword, calculated_at DESC
+    `);
+    const prevRankMap = new Map(prevRanks.map(r => [r.keyword, r.rank]));
+
+    for (const topic of finalTopics) {
+      const prevRank = topic.keywords.reduce<number | null>((best, kw) => {
+        const prev = prevRankMap.get(kw);
+        if (prev === undefined) return best;
+        return best === null ? prev : Math.min(best, prev);
+      }, null);
+
+      topic.previousRank = prevRank;
+      if (prevRank === null) {
+        topic.changeType = 'new';
+        topic.changeAmount = 0;
+      } else if (prevRank > topic.rank) {
+        topic.changeType = 'up';
+        topic.changeAmount = prevRank - topic.rank;
+      } else if (prevRank < topic.rank) {
+        topic.changeType = 'down';
+        topic.changeAmount = topic.rank - prevRank;
+      } else {
+        topic.changeType = 'same';
+        topic.changeAmount = 0;
+      }
+    }
+
+    // 현재 랭킹 저장 (위치변동 추적용)
+    if (finalTopics.length > 0) {
+      const rankValues: string[] = [];
+      const rankParams: unknown[] = [];
+      for (const topic of finalTopics) {
+        for (const kw of topic.keywords) {
+          const idx = rankParams.length;
+          rankValues.push(`($${idx + 1}, $${idx + 2}, $${idx + 3})`);
+          rankParams.push(kw, topic.rank, topic.unifiedScore);
+        }
+      }
+      await app.pg.query(
+        `INSERT INTO trend_rankings (keyword, rank, unified_score)
+         VALUES ${rankValues.join(', ')}`,
+        rankParams,
+      ).catch(() => { /* 테이블 미생성 시 무시 */ });
+
+      // 24시간 이전 데이터 정리
+      await app.pg.query(
+        `DELETE FROM trend_rankings WHERE calculated_at < NOW() - INTERVAL '24 hours'`,
+      ).catch(() => {});
+    }
+
+    const result = { topics: finalTopics };
     topicsCache.set('topics', result);
     return reply.send(result);
   });

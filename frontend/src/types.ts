@@ -106,6 +106,13 @@ export interface Topic {
   momentum: 'rising' | 'steady' | 'falling';
   momentumValue: number;
   convergenceScore: number;
+  unifiedScore: number;
+  burstScore: number;
+  rank: number;
+  previousRank: number | null;
+  changeType: 'new' | 'up' | 'down' | 'same';
+  changeAmount: number;
+  confidence: 'high' | 'medium' | 'low';
   representativePosts: TopicPost[];
 }
 

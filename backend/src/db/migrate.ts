@@ -25,6 +25,8 @@ const migrations = [
   '017_post_votes.sql',
   '018_bigint_fk.sql',
   '019_keyword_baselines.sql',
+  '020_trend_rankings.sql',
+  '021_seed_suppressions.sql',
 ];
 
 try {

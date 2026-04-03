@@ -4,19 +4,51 @@ import { useTopics } from '../hooks/usePosts';
 import type { Topic } from '../types';
 import { ErrorRetry } from './shared/ErrorRetry';
 
-// ── 모멘텀 표시 ────────────────────────────────────────
+// ── 위치변동 인디케이터 (다음 포커스 스타일) ───────────────
 
-const MOMENTUM_CONFIG = {
-  rising:  { icon: '↑', label: '급상승', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  steady:  { icon: '→', label: '유지',   color: 'text-slate-500',   bg: 'bg-slate-50' },
-  falling: { icon: '↓', label: '하락',   color: 'text-red-500',     bg: 'bg-red-50' },
+const ChangeIndicator: React.FC<{ topic: Topic }> = ({ topic }) => {
+  if (topic.changeType === 'new') {
+    return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500 text-white">NEW</span>;
+  }
+  if (topic.changeType === 'up') {
+    return (
+      <span className="text-[10px] font-bold text-emerald-600">
+        ▲{topic.changeAmount}
+      </span>
+    );
+  }
+  if (topic.changeType === 'down') {
+    return (
+      <span className="text-[10px] font-bold text-red-400">
+        ▼{topic.changeAmount}
+      </span>
+    );
+  }
+  return <span className="text-[10px] text-slate-400">—</span>;
+};
+
+// ── 신뢰도 뱃지 ──────────────────────────────────────────
+
+const CONFIDENCE_CONFIG = {
+  high:   { label: '확인됨', color: 'text-amber-700', bg: 'bg-amber-100' },
+  medium: { label: '유력',   color: 'text-blue-600',  bg: 'bg-blue-50' },
+  low:    { label: '감지',   color: 'text-slate-500',  bg: 'bg-slate-100' },
 } as const;
+
+const ConfidenceBadge: React.FC<{ confidence: Topic['confidence'] }> = ({ confidence }) => {
+  const c = CONFIDENCE_CONFIG[confidence];
+  return (
+    <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${c.bg} ${c.color}`}>
+      {c.label}
+    </span>
+  );
+};
 
 // ── 토픽 카드 ──────────────────────────────────────────
 
-const TopicCard: React.FC<{ topic: Topic; rank: number }> = ({ topic, rank }) => {
-  const m = MOMENTUM_CONFIG[topic.momentum];
+const TopicCard: React.FC<{ topic: Topic }> = ({ topic }) => {
   const topPost = topic.representativePosts[0];
+  const rank = topic.rank;
 
   const borderClass = rank <= 2
     ? 'border-amber-300 bg-gradient-to-br from-amber-50/80 to-orange-50/60'
@@ -30,17 +62,18 @@ const TopicCard: React.FC<{ topic: Topic; rank: number }> = ({ topic, rank }) =>
       to={topPost ? `/issue/${topPost.id}` : '#'}
       className={`flex-shrink-0 w-56 p-3.5 rounded-xl border-2 ${borderClass} ${hoverClass} hover:shadow-md transition-all group`}
     >
-      {/* 순위 + 모멘텀 */}
+      {/* 순위 + 위치변동 + 신뢰도 */}
       <div className="flex items-center justify-between mb-2">
-        <span className={`text-xs font-bold ${rank <= 2 ? 'text-amber-600' : 'text-slate-400'}`}>
-          #{rank + 1}
-        </span>
-        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${m.bg} ${m.color}`}>
-          {m.icon} {m.label}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className={`text-xs font-bold ${rank <= 2 ? 'text-amber-600' : 'text-slate-400'}`}>
+            #{rank}
+          </span>
+          <ChangeIndicator topic={topic} />
+        </div>
+        <ConfidenceBadge confidence={topic.confidence} />
       </div>
 
-      {/* 헤드라인 (대표 포스트 제목) */}
+      {/* 헤드라인 */}
       <p className="text-sm font-semibold text-slate-800 line-clamp-2 mb-2 group-hover:text-indigo-600 transition-colors leading-snug">
         {topic.headline}
       </p>
@@ -48,29 +81,38 @@ const TopicCard: React.FC<{ topic: Topic; rank: number }> = ({ topic, rank }) =>
       {/* 채널 분포 */}
       <div className="flex flex-wrap gap-1 mb-2">
         {topic.channels.map(ch => (
-          <span
-            key={ch}
-            className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500"
-          >
+          <span key={ch} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
             {ch}
           </span>
         ))}
       </div>
 
-      {/* 포스트 수 */}
-      <p className="text-[11px] text-slate-400">
-        {topic.postCount}개 글에서 논의 중
-      </p>
+      {/* 포스트 수 + 버스트 표시 */}
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] text-slate-400">
+          {topic.postCount}개 글에서 논의 중
+        </p>
+        {topic.burstScore > 2.0 && (
+          <span className="text-[10px] font-medium text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">
+            🔥 급증
+          </span>
+        )}
+      </div>
     </Link>
   );
 };
 
 // ── 키워드 스트립 ──────────────────────────────────────
 
+const MOMENTUM_CONFIG = {
+  rising:  { icon: '↑', color: 'text-emerald-600' },
+  steady:  { icon: '→', color: 'text-slate-500' },
+  falling: { icon: '↓', color: 'text-red-500' },
+} as const;
+
 const KeywordStrip: React.FC<{ topics: Topic[] }> = ({ topics }) => {
   const navigate = useNavigate();
 
-  // 모든 토픽에서 키워드 + 모멘텀 추출, 중복 제거
   const seen = new Set<string>();
   const keywords: { keyword: string; momentum: Topic['momentum'] }[] = [];
   for (const t of topics) {
@@ -141,8 +183,8 @@ export const TrendHero: React.FC = () => {
 
       {/* 토픽 카드 가로 스크롤 */}
       <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-        {topics.map((topic, i) => (
-          <TopicCard key={topic.id} topic={topic} rank={i} />
+        {topics.map(topic => (
+          <TopicCard key={topic.id} topic={topic} />
         ))}
       </div>
 
