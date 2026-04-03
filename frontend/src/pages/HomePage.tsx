@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useInfinitePosts } from '../hooks/usePosts';
 import { fetchPosts, fetchLatestReport } from '../api/client';
+import { AdSlot } from '../components/shared/AdSlot';
 import { PostCard } from '../components/PostCard';
 import { PostCardSkeleton } from '../components/shared/PostCardSkeleton';
 import { TrendRadar } from '../components/TrendRadar';
@@ -15,6 +16,7 @@ import { SnsRankingTable } from '../components/SnsRankingTable';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useReadPosts } from '../hooks/useReadPosts';
 import { useVotes } from '../hooks/useVotes';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 
 const CATEGORY_TITLES: Record<string, string> = {
   community: '커뮤니티',
@@ -37,6 +39,8 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   useDocumentTitle(category ? CATEGORY_TITLES[category] : undefined);
   const { isRead, markAsRead } = useReadPosts();
   const { hasVoted, vote } = useVotes();
+  const mainRef = useRef<HTMLDivElement>(null);
+  usePullToRefresh(mainRef);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<'trending' | 'latest'>('trending');
 
@@ -93,8 +97,33 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const allPosts = data?.pages.flatMap((p) => p.posts) ?? [];
   const total = data?.pages[0]?.total ?? 0;
 
+  // New posts detection
+  const prevPostIdsRef = useRef<Set<number>>(new Set());
+  const [newPostCount, setNewPostCount] = useState(0);
+
+  useEffect(() => {
+    if (allPosts.length === 0) return;
+    const currentIds = new Set(allPosts.map(p => p.id));
+    if (prevPostIdsRef.current.size > 0) {
+      const newCount = [...currentIds].filter(id => !prevPostIdsRef.current.has(id)).length;
+      if (newCount > 0) setNewPostCount(newCount);
+    }
+    prevPostIdsRef.current = currentIds;
+  }, [allPosts]);
+
   return (
-    <div>
+    <div ref={mainRef} style={{ overscrollBehaviorY: 'contain' }}>
+      {/* New posts banner */}
+      {newPostCount > 0 && (
+        <button
+          type="button"
+          onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setNewPostCount(0); }}
+          className="w-full mb-3 py-2 px-4 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors animate-scale-in"
+        >
+          {newPostCount}개 새 글이 있습니다
+        </button>
+      )}
+
       {!searchQuery && !category && (
         <>
           <React.Suspense fallback={<div className="h-40 animate-shimmer bg-slate-100 dark:bg-slate-800 rounded-xl mb-6" />}>
@@ -172,16 +201,18 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         ) : (
           <div className="grid gap-3">
             {allPosts.map((post, i) => (
-              <PostCard
-                key={post.id}
-                post={post}
-                rank={category === 'community' && sortMode === 'trending' ? i + 1 : undefined}
-                isRead={isRead(post.url)}
-                onRead={markAsRead}
-                hasVoted={hasVoted(post.id)}
-                onVote={vote}
-                style={i < 15 ? { '--enter-delay': `${i * 40}ms` } as React.CSSProperties : undefined}
-              />
+              <React.Fragment key={post.id}>
+                <PostCard
+                  post={post}
+                  rank={category === 'community' && sortMode === 'trending' ? i + 1 : undefined}
+                  isRead={isRead(post.url)}
+                  onRead={markAsRead}
+                  hasVoted={hasVoted(post.id)}
+                  onVote={vote}
+                  style={i < 15 ? { '--enter-delay': `${i * 40}ms` } as React.CSSProperties : undefined}
+                />
+                {(i + 1) % 5 === 0 && <AdSlot slotId="home-infeed" format="native" className="my-1" />}
+              </React.Fragment>
             ))}
           </div>
         )

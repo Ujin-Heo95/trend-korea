@@ -3,8 +3,12 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { SearchBar } from './SearchBar';
 import { MobileBottomNav } from './MobileBottomNav';
+import { AdSlot } from './shared/AdSlot';
 import { Footer } from './Footer';
 import { ThemeToggle } from './shared/ThemeToggle';
+import { LivePulse } from './shared/LivePulse';
+import { StreakBadge } from './shared/StreakBadge';
+import { ScrollToTop } from './shared/ScrollToTop';
 import { fetchLatestReport } from '../api/client';
 
 interface Props {
@@ -27,6 +31,8 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
         <div className="flex items-center gap-3">
           <Link to="/" className="text-xl font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">위클릿</Link>
           <span className="text-sm text-slate-400 dark:text-slate-500 hidden sm:inline">실시간 트렌드 모아보기</span>
+          <LivePulse />
+          <StreakBadge />
           {latestReport && (
             <Link
               to={`/daily-report/${String(latestReport.report_date).slice(0, 10)}`}
@@ -60,9 +66,13 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
         </div>
       </div>
     </header>
-    <main className="max-w-5xl mx-auto px-4 py-6 pb-20 sm:pb-6">{children}</main>
+    <main className="max-w-5xl mx-auto px-4 py-6 pb-28 sm:pb-6">{children}</main>
     <Footer />
+    <div className="sm:hidden fixed bottom-14 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-700">
+      <AdSlot slotId="mobile-sticky" format="banner" />
+    </div>
     <MobileBottomNav />
+    <ScrollToTop />
   </div>
   );
 };

@@ -27,6 +27,7 @@ const migrations = [
   '019_keyword_baselines.sql',
   '020_trend_rankings.sql',
   '021_seed_suppressions.sql',
+  '022_post_summaries.sql',
 ];
 
 try {

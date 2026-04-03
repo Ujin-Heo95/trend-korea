@@ -42,12 +42,12 @@ export async function buildApp() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://pagead2.googlesyndication.com", "https://cloud.umami.is", "https://t1.kakaocdn.net"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://pagead2.googlesyndication.com", "https://www.googletagservices.com", "https://adservice.google.com", "https://cloud.umami.is", "https://t1.kakaocdn.net"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "https://cloud.umami.is", "https://pagead2.googlesyndication.com"],
-        frameSrc: ["https://pagead2.googlesyndication.com"],
+        connectSrc: ["'self'", "https://cloud.umami.is", "https://pagead2.googlesyndication.com", "https://www.googletagservices.com", "https://adservice.google.com"],
+        frameSrc: ["https://pagead2.googlesyndication.com", "https://tpc.googlesyndication.com", "https://www.google.com"],
       },
     },
     crossOriginEmbedderPolicy: false,

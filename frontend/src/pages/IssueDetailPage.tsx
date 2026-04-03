@@ -10,6 +10,7 @@ import { VoteButton } from '../components/shared/VoteButton';
 import { ErrorRetry } from '../components/shared/ErrorRetry';
 import { Sparkline } from '../components/shared/Sparkline';
 import { EngagementChart } from '../components/shared/EngagementChart';
+import { AdSlot } from '../components/shared/AdSlot';
 
 function timeAgo(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -108,9 +109,13 @@ export const IssueDetailPage: React.FC = () => {
           </span>
         </div>
 
-        <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-snug mb-3">
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-snug mb-1">
           {post.title}
         </h1>
+        {post.ai_summary && (
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">{post.ai_summary}</p>
+        )}
+        {!post.ai_summary && <div className="mb-3" />}
 
         {post.thumbnail && (
           <img
@@ -268,6 +273,9 @@ export const IssueDetailPage: React.FC = () => {
           </div>
         </section>
       )}
+
+      {/* Ad slot */}
+      <AdSlot slotId="issue-detail" format="rectangle" className="my-6" />
 
       {/* Action buttons */}
       <div className="flex flex-col gap-3 mt-8">

@@ -36,10 +36,10 @@ function formatDate(d: Date): string {
 
 function parseItems(data: DataLabResponse): readonly VisitorItem[] {
   const items = data.response?.body?.items;
-  if (!items || items === '') return [];
+  if (!items || typeof items === 'string') return [];
   const itemData = items.item;
   if (Array.isArray(itemData)) return itemData;
-  if (itemData) return [itemData];
+  if (itemData) return [itemData as VisitorItem];
   return [];
 }
 

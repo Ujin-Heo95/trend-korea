@@ -1,5 +1,6 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { AdSlot } from '../components/shared/AdSlot';
 import { useQuery } from '@tanstack/react-query';
 import { fetchDailyReport } from '../api/client';
 import type { DailyReportSection, Category } from '../types';
@@ -239,11 +240,19 @@ export function DailyReportPage() {
               </div>
             )}
 
-            {CATEGORY_ORDER.map(cat => {
-              const sections = grouped.get(cat);
-              if (!sections || sections.length === 0) return null;
-              return <CategoryBlock key={cat} category={cat} sections={sections} />;
-            })}
+            {CATEGORY_ORDER.reduce<{ elements: React.ReactNode[]; count: number }>(
+              (acc, cat) => {
+                const sections = grouped.get(cat);
+                if (!sections || sections.length === 0) return acc;
+                acc.elements.push(<CategoryBlock key={cat} category={cat} sections={sections} />);
+                acc.count += 1;
+                if (acc.count === 3) {
+                  acc.elements.push(<AdSlot key="ad-report-mid" slotId="report-mid" format="banner" className="my-4" />);
+                }
+                return acc;
+              },
+              { elements: [], count: 0 },
+            ).elements}
           </>
         ) : (
           <p className="text-center py-16 text-slate-500 dark:text-slate-400">
@@ -260,7 +269,7 @@ export function DailyReportPage() {
         >
           &larr; {prevDate}
         </Link>
-        <Link to="/" className="text-sm text-slate-400 hover:text-blue-600">
+        <Link to="/" className="text-sm text-slate-400 dark:text-slate-500 hover:text-blue-600">
           홈
         </Link>
         <Link
