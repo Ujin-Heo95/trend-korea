@@ -111,7 +111,8 @@ async function buildBatchContext(
     ),
     pool.query<PostRow>(
       `SELECT id, title, title_hash, category, thumbnail, view_count, scraped_at
-       FROM posts WHERE scraped_at > NOW() - INTERVAL '${WINDOW_HOURS} hours'`,
+       FROM posts WHERE scraped_at > NOW() - $1 * INTERVAL '1 hour'`,
+      [WINDOW_HOURS],
     ),
   ]);
 

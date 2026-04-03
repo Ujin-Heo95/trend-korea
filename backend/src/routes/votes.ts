@@ -10,6 +10,9 @@ export async function votesRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Params: { postId: number } }>(
     '/api/posts/:postId/vote',
     {
+      config: {
+        rateLimit: { max: 10, timeWindow: '1 minute' },
+      },
       schema: {
         params: {
           type: 'object',
@@ -53,8 +56,7 @@ export async function votesRoutes(app: FastifyInstance): Promise<void> {
 
       return {
         vote_count: countResult.rows[0]?.vote_count ?? 0,
-        voted: !inserted ? true : true, // always true after voting
-        already_voted: !inserted,
+        is_new_vote: inserted,
       };
     }
   );

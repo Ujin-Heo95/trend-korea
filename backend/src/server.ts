@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import * as Sentry from '@sentry/node';
 import { Pool } from 'pg';
@@ -32,7 +33,25 @@ export async function buildApp() {
   const app = Fastify({ logger: true, trustProxy: true });
   app.decorate('pg', pool);
   await app.register(cors, { origin: config.corsOrigin });
-  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://pagead2.googlesyndication.com", "https://cloud.umami.is", "https://t1.kakaocdn.net"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https://cloud.umami.is", "https://pagead2.googlesyndication.com"],
+        frameSrc: ["https://pagead2.googlesyndication.com"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  });
+  await app.register(rateLimit, {
+    max: 200,
+    timeWindow: '1 minute',
+    allowList: (req) => req.url === '/health',
+  });
   await app.register(postsRoutes);
   await app.register(sourcesRoutes);
   await app.register(healthRoutes);

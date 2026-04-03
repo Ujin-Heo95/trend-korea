@@ -11,8 +11,8 @@ export async function cleanOldPosts(): Promise<CleanupResult> {
 
   const result = await pool.query<never>(
     `DELETE FROM posts WHERE
-      (category = 'performance' AND scraped_at < NOW() - ($1 || ' days')::INTERVAL) OR
-      (COALESCE(category, '') != 'performance' AND scraped_at < NOW() - ($2 || ' days')::INTERVAL)`,
+      (category = 'performance' AND scraped_at < NOW() - $1 * INTERVAL '1 day') OR
+      (COALESCE(category, '') != 'performance' AND scraped_at < NOW() - $2 * INTERVAL '1 day')`,
     [PERFORMANCE_TTL_DAYS, config.postTtlDays]
   );
   const deleted = result.rowCount ?? 0;
@@ -40,7 +40,7 @@ export async function cleanOldEngagementSnapshots(): Promise<CleanupResult> {
 
 export async function cleanOldScraperRuns(): Promise<CleanupResult> {
   const result = await pool.query<never>(
-    `DELETE FROM scraper_runs WHERE started_at < NOW() - ($1 || ' days')::INTERVAL`,
+    `DELETE FROM scraper_runs WHERE started_at < NOW() - $1 * INTERVAL '1 day'`,
     [config.scraperRunsTtlDays]
   );
   const deleted = result.rowCount ?? 0;

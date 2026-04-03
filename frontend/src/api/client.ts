@@ -38,4 +38,4 @@ export const fetchIssueDetail = (postId: number) =>
   api.get<IssueDetailResponse>(`/posts/${postId}`).then(r => r.data);
 
 export const postVote = (postId: number) =>
-  api.post<{ vote_count: number; voted: boolean; already_voted: boolean }>(`/posts/${postId}/vote`).then(r => r.data);
+  api.post<{ vote_count: number; is_new_vote: boolean }>(`/posts/${postId}/vote`).then(r => r.data);

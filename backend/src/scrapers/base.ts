@@ -2,6 +2,19 @@ import type { Pool } from 'pg';
 import type { ScrapedPost } from './types.js';
 import { clusterPosts } from '../services/dedup.js';
 
+const MAX_TITLE_LEN = 300;
+const MAX_AUTHOR_LEN = 100;
+const MAX_URL_LEN = 2048;
+const MAX_METADATA_BYTES = 8192;
+
+function stripHtml(s: string): string {
+  return s.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
+}
+
+function truncate(s: string, max: number): string {
+  return s.length > max ? s.slice(0, max) : s;
+}
+
 export abstract class BaseScraper {
   category?: string;
 
@@ -15,12 +28,17 @@ export abstract class BaseScraper {
     const values: unknown[] = [];
     const placeholders = posts.map((p, i) => {
       const b = i * COLS;
+      const metaJson = p.metadata ? JSON.stringify(p.metadata) : null;
       values.push(
-        p.sourceKey, p.sourceName, p.title, p.url,
-        p.thumbnail ?? null, p.author ?? null,
+        truncate(stripHtml(p.sourceKey), 100),
+        truncate(stripHtml(p.sourceName), 100),
+        truncate(stripHtml(p.title), MAX_TITLE_LEN),
+        truncate(p.url, MAX_URL_LEN),
+        p.thumbnail ? truncate(p.thumbnail, MAX_URL_LEN) : null,
+        p.author ? truncate(stripHtml(p.author), MAX_AUTHOR_LEN) : null,
         p.viewCount ?? 0, p.commentCount ?? 0, p.publishedAt ?? null,
         p.category ?? this.category ?? null,
-        p.metadata ? JSON.stringify(p.metadata) : null,
+        metaJson && metaJson.length <= MAX_METADATA_BYTES ? metaJson : null,
       );
       return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11})`;
     });
