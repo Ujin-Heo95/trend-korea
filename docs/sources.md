@@ -58,7 +58,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ---
 
-## 2. 현재 소스 현황 (103개 등록, 82개 활성)
+## 2. 현재 소스 현황 (109개 등록, 88개 활성)
 
 | 카테고리 | 소스 | 수집방식 | 우선순위 | 상태 |
 |----------|------|----------|----------|------|
@@ -89,6 +89,12 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | finance | upbit | API | low | 신규 (2026-04-04), 키 불필요 |
 | finance | krx | API | low | **disabled** (세션 인증 필요) |
 | music | melon_chart | HTML | low | 신규 (2026-04-04) |
+| music | bugs_chart | HTML | low | 신규 (2026-04-04) |
+| music | genie_chart | HTML | low | 신규 (2026-04-04) |
+| music | kworb_spotify_kr | HTML | low | 신규 (2026-04-04) |
+| books | yes24_bestseller | HTML | low | 신규 (2026-04-04) |
+| books | aladin_bestseller | HTML | low | 신규 (2026-04-04) |
+| ott | flixpatrol | HTML | low | 신규 (2026-04-04) |
 | trend | google_trends | RSS | medium | 안정 |
 | trend | naver_datalab | API | medium | 안정 |
 | government | korea_press, korea_policy, korea_briefing | RSS | low | 안정 |
