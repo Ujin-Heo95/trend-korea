@@ -7,7 +7,7 @@ export function getModel(): GenerativeModel | null {
   if (!config.geminiApiKey) return null;
   if (!model) {
     const genAI = new GoogleGenerativeAI(config.geminiApiKey);
-    model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   }
   return model;
 }
