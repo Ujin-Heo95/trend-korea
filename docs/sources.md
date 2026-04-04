@@ -58,7 +58,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ---
 
-## 2. 현재 소스 현황 (97개 등록, 84개 활성)
+## 2. 현재 소스 현황 (101개 등록, 88개 활성)
 
 | 카테고리 | 소스 | 수집방식 | 우선순위 | 상태 |
 |----------|------|----------|----------|------|
@@ -99,7 +99,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | press | newswire | RSS | medium | 안정 |
 | newsletter | uppity | RSS | low | 안정 |
 | deals | ppomppu_hot, ruliweb_hot | RSS | medium | 안정 |
-| deals | clien_jirum, quasarzone_deal, dcinside_hotdeal | HTML | medium | 신규 |
+| deals | clien_jirum, quasarzone_deal, dcinside_hotdeal | HTML | medium | 신규 (2026-04-04) |
 | blog | daum_blog | API | low | 안정 |
 | sns | apify_instagram, apify_x, apify_tiktok | Apify | medium | **disabled** (토큰 미설정) |
 | alert | kma | RSS | low | **disabled** |
@@ -133,6 +133,14 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | melon_chart | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
 | naver_news_ranking | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
+### HTML 핫딜
+
+| 소스 | title | url | thumbnail | author | viewCount | commentCount | likeCount | publishedAt |
+|------|:-----:|:---:|:---------:|:------:|:---------:|:------------:|:---------:|:-----------:|
+| clien_jirum | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | ✗ |
+| quasarzone_deal | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ |
+| dcinside_hotdeal | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ |
+
 ### API 스크래퍼
 
 | 소스 | title | url | thumbnail | author | viewCount | commentCount | likeCount | publishedAt | metadata |
@@ -158,7 +166,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | apify_instagram | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓(likes) |
 | apify_tiktok | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓(shares) |
 
-### RSS 소스 (45+개)
+### RSS 소스 (47+개)
 
 | 유형 | title | url | thumbnail | author | viewCount | commentCount | likeCount | publishedAt |
 |------|:-----:|:---:|:---------:|:------:|:---------:|:------------:|:---------:|:-----------:|
@@ -203,6 +211,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | 디지털데일리 RSS | HTML 반환 (2026-04) | 전자신문 |
 | 바이라인네트워크 RSS | 403 (2026-04) | -- |
 | 우아한형제들 기술블로그 | 403 (2026-04) | 당근 기술블로그 |
+| 쿨엔조이 RSS | RSS 404 (http/https 모두, 2026-04) | 퀘사이사존 핫딜 HTML |
 
 ---
 
@@ -220,8 +229,8 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ### Tier 3 — HTML (일부 연동 완료)
 
-**연동 완료**: 멜론 차트, 네이버 뉴스 랭킹
-**JS SPA (헤드리스 필요)**: Signal.bz
+**연동 완료**: 멜론 차트, 네이버 뉴스 랭킹, 클리앙 알뜰구매, 퀘사이사존 핫딜, DC 핫딜갤러리
+**JS SPA (헤드리스 필요)**: Signal.bz, 어미새(eomisae.co.kr, 패션/라이프 핫딜)
 **미연동 (복잡)**: 개드립, 아카라이브, 네이버 웹툰 랭킹, 나무위키
 
 ### Tier 4 — 고급/유료 (~7개)
