@@ -66,7 +66,7 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
         </div>
       </div>
     </header>
-    <main className="max-w-5xl mx-auto px-4 py-6 pb-28 sm:pb-6">{children}</main>
+    <main id="main-content" role="tabpanel" className="max-w-5xl mx-auto px-4 py-6 pb-28 sm:pb-6">{children}</main>
     <Footer />
     <div className="sm:hidden fixed bottom-14 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-700">
       <AdSlot slotId="mobile-sticky" format="banner" />

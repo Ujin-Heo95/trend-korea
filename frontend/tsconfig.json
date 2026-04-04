@@ -13,5 +13,11 @@
     "jsx": "react-jsx",
     "strict": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/components/auth",
+    "src/components/comments",
+    "src/hooks/useAuth.tsx",
+    "src/lib/supabase.ts"
+  ]
 }

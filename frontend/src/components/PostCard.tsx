@@ -82,15 +82,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
                 {kw}
               </span>
             ))}
-            {hasClusters && (
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(!expanded); }}
-                className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
-              >
-                외 {clusterSize - 1}개 소스 {expanded ? '▲' : '▼'}
-              </button>
-            )}
           </div>
           <p className={`text-sm font-medium line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 ${isRead ? 'text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
             {post.title}
@@ -113,6 +104,18 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
           </div>
         </div>
       </Link>
+      {hasClusters && (
+        <div className="px-4 pb-2">
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            aria-expanded={expanded}
+            className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
+          >
+            외 {clusterSize - 1}개 소스 {expanded ? '▲' : '▼'}
+          </button>
+        </div>
+      )}
       {expanded && post.related_sources && post.related_sources.length > 0 && (
         <div className="px-4 pb-3 ml-4 space-y-1 border-l-2 border-slate-200 dark:border-slate-600 pl-3">
           {post.related_sources.map((s) => (

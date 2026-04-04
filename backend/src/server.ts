@@ -102,6 +102,26 @@ export async function buildApp() {
     console.log(`[server] serving frontend from ${frontendDist}`);
   }
 
+  // Audit log: structured stdout for mutating requests
+  app.addHook('onResponse', (req, reply, done) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
+      const ip = req.ip;
+      const ipHash = ip ? Buffer.from(ip).toString('base64').slice(0, 8) : 'unknown';
+      const token = req.headers.authorization?.replace('Bearer ', '') ?? '';
+      const isAdmin = token !== '' && token === config.adminToken;
+      console.log(JSON.stringify({
+        audit: true,
+        ts: new Date().toISOString(),
+        method: req.method,
+        path: req.url,
+        status: reply.statusCode,
+        ipHash,
+        admin: isAdmin,
+      }));
+    }
+    done();
+  });
+
   app.addHook('onError', (_req, _reply, error, done) => {
     if (config.sentryDsn) Sentry.captureException(error);
     done();

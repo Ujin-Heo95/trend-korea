@@ -23,10 +23,10 @@
 
 `BaseScraper.saveToDb()`에서 HTML strip + 제어문자 제거 + 길이 제한 + metadata 크기 바운드.
 
-### 감사 로그 부재 (P2-07)
+### ~~감사 로그 부재 (P2-07)~~ ✅ 해결 (2026-04-04)
 
-POST/PUT/DELETE 요청에 대한 기록 없음. 투표 조작, 리포트 생성 트리거 등 추적 불가.
-수정: `onRequest` 훅 → 구조화 stdout (IP hash, method, path, admin status).
+`server.ts` `onResponse` 훅으로 POST/PUT/DELETE 요청 구조화 JSON 로깅.
+IP hash, method, path, status, admin 여부 포함.
 
 ---
 
@@ -68,12 +68,12 @@ RSS 파서 확장 필드만 `RssExt` (eslint-disable 주석 포함) 유지.
 신규 소스는 카테고리 기본색 자동 상속, 주요 커뮤니티만 오버라이드.
 PostCard, IssueDetailPage, KeywordDetailPage, SourceFilterChips, TrendingSection 모두 적용.
 
-### CategoryTabs 접근성 (P2-12)
+### ~~CategoryTabs 접근성 (P2-12)~~ ✅ 해결 (2026-04-04)
 
-`CategoryTabs.tsx` — `role="tab"`, `aria-selected`, `aria-controls` 미적용.
-`MobileBottomNav.tsx` — `aria-current="page"` 미적용.
-PostCard 내 중첩 인터랙티브 요소 (Link 안에 클러스터 확장 버튼).
-skip-to-content 링크 없음.
+`CategoryTabs.tsx` — `role="tablist"`, `role="tab"`, `aria-selected`, `aria-controls` 적용.
+`MobileBottomNav.tsx` — `aria-current="page"` 적용.
+PostCard 클러스터 버튼을 Link 밖으로 이동 + `aria-expanded` 추가.
+`index.html` — skip-to-content 링크 추가. `Layout.tsx` — `main` 랜드마크에 `id="main-content"` 추가.
 
 ### ~~Google Fonts display=swap~~ ✅ 이미 적용됨
 

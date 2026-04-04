@@ -76,6 +76,7 @@ export const MobileBottomNav: React.FC = () => {
             <Link
               key={path}
               to={path}
+              aria-current={active ? 'page' : undefined}
               className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors ${
                 active ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
               }`}

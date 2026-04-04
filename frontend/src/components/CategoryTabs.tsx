@@ -19,20 +19,26 @@ interface Props {
 }
 
 export const CategoryTabs: React.FC<Props> = ({ selected, onChange }) => (
-  <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
-    {CATEGORIES.map(({ key, label, icon }) => (
-      <button
-        key={label}
-        onClick={() => onChange(key)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-          selected === key
-            ? 'bg-blue-600 text-white shadow-sm'
-            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-500'
-        }`}
-      >
-        <span>{icon}</span>
-        {label}
-      </button>
-    ))}
+  <div role="tablist" aria-label="카테고리" className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+    {CATEGORIES.map(({ key, label, icon }) => {
+      const isSelected = selected === key;
+      return (
+        <button
+          key={label}
+          role="tab"
+          aria-selected={isSelected}
+          aria-controls="posts-panel"
+          onClick={() => onChange(key)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+            isSelected
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-500'
+          }`}
+        >
+          <span aria-hidden="true">{icon}</span>
+          {label}
+        </button>
+      );
+    })}
   </div>
 );
