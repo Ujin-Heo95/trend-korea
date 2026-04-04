@@ -15,6 +15,7 @@ import { SourceFilterChips } from '../components/SourceFilterChips';
 import { MovieRankingTable } from '../components/MovieRankingTable';
 import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
 import { SnsRankingTable } from '../components/SnsRankingTable';
+import { CommunityRankingList } from '../components/CommunityRankingList';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useReadPosts } from '../hooks/useReadPosts';
 import { useVotes } from '../hooks/useVotes';
@@ -61,7 +62,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     ...(isNewsTab && newsSubcategory ? { subcategory: newsSubcategory } : {}),
     ...(searchQuery ? { q: searchQuery } : {}),
     ...(selectedSources.length > 0 ? { source: selectedSources.join(',') } : {}),
-    ...(category === 'community' ? { sort: sortMode } : {}),
+    ...(category === 'community' || isNewsTab ? { sort: sortMode } : {}),
   };
 
   const {
@@ -159,12 +160,16 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         <NewsSubcategoryTabs selected={newsSubcategory} onChange={setNewsSubcategory} />
       )}
 
-      {category === 'community' && (
+      {(category === 'community' || isNewsTab) && (
         <>
           <div className="flex items-center justify-between mb-2">
-            <div className="flex-1 overflow-hidden">
-              <SourceFilterChips selected={selectedSources} onChange={setSelectedSources} />
-            </div>
+            {category === 'community' ? (
+              <div className="flex-1 overflow-hidden">
+                <SourceFilterChips selected={selectedSources} onChange={setSelectedSources} />
+              </div>
+            ) : (
+              <div className="flex-1" />
+            )}
             <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-0.5 flex-shrink-0 ml-3">
               <button
                 onClick={() => setSortMode('trending')}
@@ -218,13 +223,15 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           <PerformanceRankingTable posts={allPosts} />
         ) : category === 'sns' ? (
           <SnsRankingTable posts={allPosts} />
+        ) : category === 'community' && selectedSources.length === 0 && sortMode === 'trending' ? (
+          <CommunityRankingList posts={allPosts} isRead={isRead} onRead={markAsRead} />
         ) : (
           <div className="grid gap-3">
             {allPosts.map((post, i) => (
               <React.Fragment key={post.id}>
                 <PostCard
                   post={post}
-                  rank={category === 'community' && sortMode === 'trending' ? i + 1 : undefined}
+                  rank={(category === 'community' || isNewsTab) && sortMode === 'trending' ? i + 1 : undefined}
                   isRead={isRead(post.url)}
                   onRead={markAsRead}
                   hasVoted={hasVoted(post.id)}
