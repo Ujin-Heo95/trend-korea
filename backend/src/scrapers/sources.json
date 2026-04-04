@@ -698,7 +698,7 @@
       "type": "rss",
       "feedUrl": "https://d2.naver.com/d2.atom",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kakao_tech",
@@ -707,7 +707,7 @@
       "type": "rss",
       "feedUrl": "https://tech.kakao.com/feed/",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "toss_tech",
@@ -716,7 +716,7 @@
       "type": "rss",
       "feedUrl": "https://toss.tech/rss.xml",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "apify_instagram_trending",
@@ -766,7 +766,7 @@
       "module": "./daum-search.js",
       "className": "DaumBlogScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "bigkinds_issues",
@@ -843,7 +843,7 @@
       "type": "rss",
       "feedUrl": "https://www.reddit.com/r/korea/.rss",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "reddit_hanguk",
@@ -852,7 +852,7 @@
       "type": "rss",
       "feedUrl": "https://www.reddit.com/r/hanguk/.rss",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "daangn_tech",
@@ -861,7 +861,7 @@
       "type": "rss",
       "feedUrl": "https://medium.com/feed/daangn",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "line_tech",
@@ -870,7 +870,7 @@
       "type": "rss",
       "feedUrl": "https://techblog.lycorp.co.jp/ko/feed/index.xml",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "banksalad_tech",
@@ -879,7 +879,7 @@
       "type": "rss",
       "feedUrl": "https://blog.banksalad.com/rss.xml",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "upbit",

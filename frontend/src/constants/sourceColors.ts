@@ -11,6 +11,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   movie: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-400',
   performance: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400',
   deal: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
+  music: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400',
+  travel: 'bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-400',
 };
 
 /** Source-specific overrides for visual differentiation */

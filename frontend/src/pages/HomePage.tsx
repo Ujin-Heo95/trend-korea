@@ -13,6 +13,7 @@ import { CategoryTabs } from '../components/CategoryTabs';
 import { NewsSubcategoryTabs } from '../components/NewsSubcategoryTabs';
 import { SourceFilterChips } from '../components/SourceFilterChips';
 import { MovieRankingTable } from '../components/MovieRankingTable';
+import { MusicRankingTable } from '../components/MusicRankingTable';
 import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
 import { SnsRankingTable } from '../components/SnsRankingTable';
 import { CommunityRankingList } from '../components/CommunityRankingList';
@@ -23,13 +24,13 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh';
 
 const CATEGORY_TITLES: Record<string, string> = {
   community: '커뮤니티',
-  'news,press,newsletter': '뉴스',
-  'tech,techblog': '테크',
+  'news,press,newsletter,tech': '뉴스',
   video: 'YouTube',
   deals: '핫딜',
-  'sports,trend,government,finance,alert': '생활',
   movie: '박스오피스',
   performance: '공연/전시',
+  music: '음악',
+  travel: '여행',
   sns: 'SNS',
 };
 
@@ -49,7 +50,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const [sortMode, setSortMode] = useState<'trending' | 'latest'>('trending');
   const [newsSubcategory, setNewsSubcategory] = useState<string | undefined>(undefined);
   const [, startTransition] = useTransition();
-  const isNewsTab = category === 'news,press,newsletter';
+  const isNewsTab = category === 'news,press,newsletter,tech';
 
   const handleCategoryChange = (cat: string | undefined) => {
     startTransition(() => {
@@ -222,6 +223,8 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       ) : (
         category === 'movie' ? (
           <MovieRankingTable posts={allPosts} />
+        ) : category === 'music' ? (
+          <MusicRankingTable posts={allPosts} />
         ) : category === 'performance' ? (
           <PerformanceRankingTable posts={allPosts} />
         ) : category === 'sns' ? (

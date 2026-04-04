@@ -3,13 +3,13 @@ import React from 'react';
 const CATEGORIES: { key: string | undefined; label: string; icon: string }[] = [
   { key: undefined,                                                label: '전체',     icon: '📋' },
   { key: 'community',                                             label: '커뮤니티', icon: '💬' },
-  { key: 'news,press,newsletter',                                 label: '뉴스',     icon: '📰' },
-  { key: 'tech,techblog',                                         label: '테크',     icon: '💻' },
+  { key: 'news,press,newsletter,tech',                            label: '뉴스',     icon: '📰' },
   { key: 'video',                                                 label: '영상',     icon: '🎬' },
   { key: 'deals',                                                 label: '핫딜',     icon: '🔥' },
-  { key: 'sports,trend,government,finance,alert,travel',           label: '생활',     icon: '🏠' },
   { key: 'movie',                                                 label: '영화',     icon: '🎥' },
   { key: 'performance',                                           label: '공연/전시', icon: '🎭' },
+  { key: 'music',                                                 label: '음악',     icon: '🎵' },
+  { key: 'travel',                                                label: '여행',     icon: '✈️' },
   { key: 'sns',                                                  label: 'SNS',     icon: '📱' },
 ];
 

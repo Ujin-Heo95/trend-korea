@@ -20,6 +20,7 @@
 | 개인정보처리방침 | `src/pages/PrivacyPage.tsx` |
 | API 클라이언트 | `src/api/client.ts` |
 | 영화 랭킹 테이블 | `src/components/MovieRankingTable.tsx` |
+| 음악 랭킹 테이블 | `src/components/MusicRankingTable.tsx` |
 | 공연 랭킹 테이블 | `src/components/PerformanceRankingTable.tsx` |
 | SNS 랭킹 테이블 | `src/components/SnsRankingTable.tsx` |
 | 교차 검증 UI | `src/components/TrendRadar.tsx` |

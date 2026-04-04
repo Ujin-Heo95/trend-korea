@@ -58,7 +58,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ---
 
-## 2. 현재 소스 현황 (101개 등록, 88개 활성)
+## 2. 현재 소스 현황 (101개 등록, 79개 활성)
 
 | 카테고리 | 소스 | 수집방식 | 우선순위 | 상태 |
 |----------|------|----------|----------|------|
@@ -67,7 +67,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | community | clien, fmkorea | HTML | medium | fmkorea 봇 차단 (430) |
 | community | mlbpark, cook82, inven, humoruniv, ygosu, slrclub, etoland | HTML | high | 안정 |
 | community | ruliweb | HTML | high | **disabled** (timeout) |
-| community | reddit_korea, reddit_hanguk | RSS (Atom) | low | 신규 (2026-04-04) |
+| community | reddit_korea, reddit_hanguk | RSS (Atom) | low | **disabled** (비활성화 2026-04-04) |
 | news | yna, hani, sbs, donga, khan, hankyung, mk, kmib | RSS | medium | 안정 |
 | news | chosun, jtbc | RSS | high | 안정 |
 | news | ohmynews, nocutnews, asiae, segye, bbc_korean, mbn | RSS | medium | nocutnews+ 신규 (2026-04-04) |
@@ -80,8 +80,8 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | tech | zdnet_kr, itworld_kr | RSS | medium | 신규 (2026-04-04) |
 | tech | nature | RSS | low | 신규 (2026-04-04) |
 | tech | geeknews | RSS | medium | **disabled** (403) |
-| techblog | naver_d2, kakao_tech, toss_tech | RSS | low | 안정 |
-| techblog | daangn_tech, line_tech, banksalad_tech | RSS | low | 신규 (2026-04-04) |
+| techblog | naver_d2, kakao_tech, toss_tech | RSS | low | **disabled** (비활성화 2026-04-04) |
+| techblog | daangn_tech, line_tech, banksalad_tech | RSS | low | **disabled** (비활성화 2026-04-04) |
 | video | youtube | API | low | 쿼터 주의 (10K/일) |
 | video | youtube_sbs_news, youtube_ytn, youtube_mbc_news, youtube_kbs_news, youtube_jtbc_news | RSS | medium | 안정 |
 | finance | investing_kr, sedaily, moneytoday | RSS | medium | moneytoday 신규 (2026-04-04) |
@@ -100,7 +100,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | newsletter | uppity | RSS | low | 안정 |
 | deals | ppomppu_hot, ruliweb_hot | RSS | medium | 안정 |
 | deals | clien_jirum, quasarzone_deal, dcinside_hotdeal | HTML | medium | 신규 (2026-04-04) |
-| blog | daum_blog | API | low | 안정 |
+| blog | daum_blog | API | low | **disabled** (비활성화 2026-04-04) |
 | sns | apify_instagram, apify_x, apify_tiktok | Apify | medium | **disabled** (토큰 미설정) |
 | alert | kma | RSS | low | **disabled** |
 
