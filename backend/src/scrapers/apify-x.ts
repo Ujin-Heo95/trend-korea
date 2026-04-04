@@ -44,6 +44,7 @@ export class ApifyXScraper extends ApifyBaseScraper {
       author: screenName ? `@${screenName}` : undefined,
       viewCount: views,
       commentCount: replies,
+      likeCount: likes,
       publishedAt: item.created_at ? new Date(String(item.created_at)) : undefined,
       metadata: { platform: 'x', retweets, likes },
     };

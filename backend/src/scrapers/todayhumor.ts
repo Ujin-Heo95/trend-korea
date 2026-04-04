@@ -27,9 +27,10 @@ export class TodayhumorScraper extends BaseScraper {
       const memoText = $(el).find('.list_memo_count_span').text().trim();
       const memoMatch = memoText.match(/(\d+)/);
       const commentCount = memoMatch ? parseInt(memoMatch[1]) || undefined : undefined;
+      const likeCount = parseInt($(el).find('td.oknok .ok_ok').text().replace(/,/g, '')) || undefined;
 
       if (title && url) {
-        posts.push({ sourceKey: 'todayhumor', sourceName: '오늘의유머', title, url, viewCount, commentCount });
+        posts.push({ sourceKey: 'todayhumor', sourceName: '오늘의유머', title, url, viewCount, commentCount, likeCount });
       }
     });
 

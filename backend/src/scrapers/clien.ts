@@ -19,11 +19,14 @@ export class ClienScraper extends BaseScraper {
 
       const title = $(el).find('.subject_fixed').text().trim() || $(el).text().trim();
       const url = href.startsWith('http') ? href : `https://www.clien.net${href.split('?')[0]}`;
-      const hit = $(el).closest('.list_item').find('.hit').text().trim();
+      const listItem = $(el).closest('.list_item');
+      const hit = listItem.find('.hit').text().trim();
       const viewCount = parseHit(hit);
+      const likeCount = parseInt(listItem.find('.symph_count, .list_symph .num').text().trim()) || undefined;
+      const thumbnail = listItem.find('.list_image img').attr('src') || undefined;
 
       if (title && url) {
-        posts.push({ sourceKey: 'clien', sourceName: '클리앙', title, url, viewCount });
+        posts.push({ sourceKey: 'clien', sourceName: '클리앙', title, url, thumbnail, viewCount, likeCount });
       }
     });
 

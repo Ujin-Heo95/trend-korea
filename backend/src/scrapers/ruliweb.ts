@@ -32,8 +32,9 @@ export class RuliwebScraper extends BaseScraper {
       const viewCount = parseInt($row.find('td.hit').text().trim(), 10) || 0;
       const replyText = $link.find('span.num_reply').text().trim();
       const commentCount = parseInt(replyText.replace(/[()]/g, ''), 10) || 0;
+      const likeCount = parseInt($row.find('td.recomd').text().trim(), 10) || undefined;
 
-      posts.push({ sourceKey: 'ruliweb', sourceName: '루리웹', title, url, author, viewCount, commentCount });
+      posts.push({ sourceKey: 'ruliweb', sourceName: '루리웹', title, url, author, viewCount, commentCount, likeCount });
     });
 
     return posts.slice(0, 30);

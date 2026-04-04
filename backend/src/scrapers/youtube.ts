@@ -32,6 +32,7 @@ export class YoutubeScraper extends BaseScraper {
         author: item.snippet.channelTitle,
         viewCount: parseInt(item.statistics?.viewCount ?? '0'),
         commentCount: parseInt(item.statistics?.commentCount ?? '0'),
+        likeCount: parseInt(item.statistics?.likeCount ?? '0'),
         publishedAt: item.snippet.publishedAt ? new Date(item.snippet.publishedAt) : undefined,
       }));
     } catch (error) {

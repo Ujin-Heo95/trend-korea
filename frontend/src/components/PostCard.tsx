@@ -74,6 +74,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
             {post.comment_count > 0 && (
               <span className="text-xs text-slate-400 dark:text-slate-500 tabular-nums">댓글 {post.comment_count.toLocaleString()}</span>
             )}
+            {post.like_count > 0 && (
+              <span className="text-xs text-slate-400 dark:text-slate-500 tabular-nums">추천 {post.like_count.toLocaleString()}</span>
+            )}
             {post.keywords?.slice(0, 2).map(kw => (
               <span key={kw} className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">
                 {kw}

@@ -34,8 +34,9 @@ export class ApifyInstagramScraper extends ApifyBaseScraper {
       url,
       thumbnail: item.displayUrl ? String(item.displayUrl) : undefined,
       author: item.ownerUsername ? String(item.ownerUsername) : undefined,
-      viewCount: likes,
+      viewCount: Number(item.videoPlayCount ?? item.videoViewCount ?? 0),
       commentCount: comments,
+      likeCount: likes,
       publishedAt: item.timestamp ? new Date(String(item.timestamp)) : undefined,
       metadata: { platform: 'instagram', likes },
     };

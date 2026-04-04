@@ -37,6 +37,7 @@ export class ApifyTiktokScraper extends ApifyBaseScraper {
       author: authorMeta?.name ? String(authorMeta.name) : undefined,
       viewCount: Number(item.playCount ?? 0),
       commentCount: Number(item.commentCount ?? 0),
+      likeCount: likes,
       publishedAt: item.createTimeISO ? new Date(String(item.createTimeISO)) : undefined,
       metadata: { platform: 'tiktok', likes, shares },
     };

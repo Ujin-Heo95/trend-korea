@@ -20,8 +20,9 @@ export class TheqooScraper extends BaseScraper {
       const viewCount = parseInt($(el).find('.m_no').text().replace(/,/g, '')) || undefined;
       const commentText = $(el).find('.replyNum').text().trim();
       const commentCount = commentText ? parseInt(commentText.replace(/,/g, '')) || undefined : undefined;
+      const likeCount = parseInt($(el).find('.m_no_voted').text().replace(/,/g, '')) || undefined;
       if (title && url && url !== 'https://theqoo.net') {
-        posts.push({ sourceKey: 'theqoo', sourceName: '더쿠', title, url, viewCount, commentCount });
+        posts.push({ sourceKey: 'theqoo', sourceName: '더쿠', title, url, viewCount, commentCount, likeCount });
       }
     });
     return posts.slice(0, 30);

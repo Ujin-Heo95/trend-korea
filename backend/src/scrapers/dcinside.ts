@@ -34,6 +34,7 @@ export class DcinsideScraper extends BaseScraper {
       const viewCount = parseInt($(el).find('td.gall_count').text().replace(/,/g, '')) || undefined;
       const commentMatch = $(el).find('.reply_num').text().match(/\[(\d+)\]/);
       const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
+      const likeCount = parseInt($(el).find('td.gall_recommend').text().replace(/,/g, '')) || undefined;
 
       if (title) {
         posts.push({
@@ -44,6 +45,7 @@ export class DcinsideScraper extends BaseScraper {
           thumbnail,
           viewCount,
           commentCount,
+          likeCount,
         });
       }
     });

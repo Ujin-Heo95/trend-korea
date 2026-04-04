@@ -80,8 +80,8 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       const fetchLimit = Math.ceil(limit * 1.5);
 
       const orderBy = isTrending
-        ? 'COALESCE(ps.trend_score, 0) DESC'
-        : 'p.scraped_at DESC';
+        ? 'COALESCE(ps.trend_score, 0) DESC, p.id DESC'
+        : 'p.scraped_at DESC, p.id DESC';
 
       const [rows, count] = await Promise.all([
         app.pg.query(
@@ -205,7 +205,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
        FROM posts p
        LEFT JOIN post_scores ps ON ps.post_id = p.id
        WHERE p.scraped_at > NOW() - INTERVAL '6 hours'
-       ORDER BY COALESCE(ps.trend_score, 0) DESC
+       ORDER BY COALESCE(ps.trend_score, 0) DESC, p.id DESC
        LIMIT 30`
     );
 

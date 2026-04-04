@@ -24,8 +24,9 @@ describe('ApifyInstagramScraper.mapResult', () => {
     expect(post!.url).toBe('https://www.instagram.com/p/ABC123/');
     expect(post!.thumbnail).toBe('https://scontent.cdninstagram.com/v/photo.jpg');
     expect(post!.author).toBe('foodie_kr');
-    expect(post!.viewCount).toBe(1234);
+    expect(post!.viewCount).toBe(0);
     expect(post!.commentCount).toBe(56);
+    expect(post!.likeCount).toBe(1234);
     expect(post!.metadata).toEqual({ platform: 'instagram', likes: 1234 });
   });
 

@@ -193,8 +193,8 @@ describe('EtolandScraper', () => {
 // ─── FmKorea ─────────────────────────────────────────────────
 describe('FmkoreaScraper', () => {
   const html = `<html><body>
-    <h3 class="title"><a href="/index.php?document_srl=111">에펨 인기글 [42]</a></h3>
-    <h3 class="title"><a href="https://www.fmkorea.com/222">댓글 없는 글</a></h3>
+    <li class="li"><h3 class="title"><a href="/index.php?document_srl=111">에펨 인기글 [42]</a></h3><span class="ed"><span class="vr">15</span></span></li>
+    <li class="li"><h3 class="title"><a href="https://www.fmkorea.com/222">댓글 없는 글</a></h3></li>
   </body></html>`;
 
   beforeEach(() => {

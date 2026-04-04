@@ -29,11 +29,12 @@ export class NatepannScraper extends BaseScraper {
 
       const tds = $(el).find('td');
       const viewCount = parseInt(tds.eq(2).text().replace(/,/g, '')) || undefined;
+      const likeCount = parseInt(tds.eq(3).text().replace(/,/g, '')) || undefined;
       const commentMatch = subjectTd.find('.reple-num').text().match(/\((\d+)\)/);
       const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
 
       if (title && href) {
-        posts.push({ sourceKey: 'natepann', sourceName: '네이트판', title, url, viewCount, commentCount });
+        posts.push({ sourceKey: 'natepann', sourceName: '네이트판', title, url, viewCount, commentCount, likeCount });
       }
     });
 

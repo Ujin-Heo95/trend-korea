@@ -14,6 +14,7 @@ export interface Post {
   author?: string;
   view_count: number;
   comment_count: number;
+  like_count: number;
   vote_count: number;
   published_at?: string;
   scraped_at: string;
@@ -176,7 +177,7 @@ export interface IssueDetailResponse {
     convergence_score: number; signal_type: string;
     google_articles: GoogleArticle[];
   }[];
-  engagement_history: { view_count: number; comment_count: number; captured_at: string }[];
+  engagement_history: { view_count: number; comment_count: number; like_count: number; captured_at: string }[];
   related_articles: { id: number; title: string; url: string; source_name: string; source_key: string; thumbnail: string | null }[];
   category_popular?: { id: number; title: string; source_name: string; source_key: string; thumbnail: string | null; view_count: number }[];
 }

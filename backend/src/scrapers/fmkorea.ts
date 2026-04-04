@@ -13,18 +13,22 @@ export class FmkoreaScraper extends BaseScraper {
 
     const posts: ScrapedPost[] = [];
 
-    $('h3.title a').each((_, el) => {
-      const href = $(el).attr('href') ?? '';
+    $('li.li').each((_, el) => {
+      const $el = $(el);
+      const a = $el.find('h3.title a').first();
+      const href = a.attr('href') ?? '';
       if (!href) return;
 
-      const rawTitle = $(el).text().trim();
+      const rawTitle = a.text().trim();
       const title = rawTitle.replace(/\s*\[\d+\]\s*$/, '').trim();
       const commentMatch = rawTitle.match(/\[(\d+)\]\s*$/);
       const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
       const url = href.startsWith('http') ? href : `https://www.fmkorea.com${href}`;
+      const likeCount = parseInt($el.find('.ed .vr').text().replace(/,/g, '')) || undefined;
+      const thumbnail = $el.find('.thumbnail img').attr('src') || undefined;
 
       if (title && url) {
-        posts.push({ sourceKey: 'fmkorea', sourceName: '에펨코리아', title, url, commentCount });
+        posts.push({ sourceKey: 'fmkorea', sourceName: '에펨코리아', title, url, thumbnail, commentCount, likeCount });
       }
     });
 
