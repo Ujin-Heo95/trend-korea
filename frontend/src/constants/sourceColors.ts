@@ -48,4 +48,8 @@ export const SOURCE_COLORS: Record<string, string> = {
   slrclub: 'bg-slate-100 text-slate-600',
   etoland: 'bg-emerald-100 text-emerald-700',
   ddanzi: 'bg-lime-100 text-lime-700',
+  ruliweb_hot: 'bg-orange-100 text-orange-700',
+  clien_jirum: 'bg-teal-100 text-teal-700',
+  quasarzone_deal: 'bg-indigo-100 text-indigo-700',
+  dcinside_hotdeal: 'bg-blue-100 text-blue-700',
 };

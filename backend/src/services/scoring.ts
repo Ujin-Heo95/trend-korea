@@ -45,6 +45,8 @@ const SOURCE_WEIGHTS: Record<string, number> = {
   kopis_boxoffice: 1.10,
   bigkinds_issues: 1.15,
   sports_donga: 1.00,
+  ruliweb_hot: 1.00, clien_jirum: 1.05,
+  quasarzone_deal: 1.00, dcinside_hotdeal: 1.00,
 };
 const DEFAULT_SOURCE_WEIGHT = 0.95;
 
@@ -52,7 +54,7 @@ const CATEGORY_WEIGHTS: Record<string, number> = {
   alert: 1.25, news: 1.20, trend: 1.15, tech: 1.15,
   finance: 1.10, community: 1.08, video: 0.95,
   movie: 1.05, performance: 1.05, travel: 1.05,
-  deals: 0.90, government: 0.85, newsletter: 0.80,
+  deals: 1.00, government: 0.85, newsletter: 0.80,
 };
 const DEFAULT_CATEGORY_WEIGHT = 1.00;
 
@@ -83,12 +85,15 @@ interface SourceStats {
   stddevLogViews: number;
   meanLogComments: number;
   stddevLogComments: number;
+  meanLogLikes: number;
+  stddevLogLikes: number;
   sampleCount: number;
 }
 
 interface VelocityData {
   viewVelocity: number;
   commentVelocity: number;
+  likeVelocity: number;
 }
 
 // ─── Core Scoring Formula ───
@@ -130,6 +135,8 @@ async function calculateSourceStats(pool: Pool): Promise<Map<string, SourceStats
     stddev_log_views: number;
     mean_log_comments: number;
     stddev_log_comments: number;
+    mean_log_likes: number;
+    stddev_log_likes: number;
     sample_count: number;
   }>(`
     SELECT source_key,
@@ -137,6 +144,8 @@ async function calculateSourceStats(pool: Pool): Promise<Map<string, SourceStats
       GREATEST(STDDEV(ln(1 + view_count)), 0.1)::float AS stddev_log_views,
       AVG(ln(1 + comment_count))::float AS mean_log_comments,
       GREATEST(STDDEV(ln(1 + comment_count)), 0.1)::float AS stddev_log_comments,
+      AVG(ln(1 + like_count))::float AS mean_log_likes,
+      GREATEST(STDDEV(ln(1 + like_count)), 0.1)::float AS stddev_log_likes,
       COUNT(*)::int AS sample_count
     FROM posts
     WHERE scraped_at > NOW() - INTERVAL '24 hours' AND view_count > 0
@@ -150,6 +159,8 @@ async function calculateSourceStats(pool: Pool): Promise<Map<string, SourceStats
       stddevLogViews: r.stddev_log_views,
       meanLogComments: r.mean_log_comments,
       stddevLogComments: r.stddev_log_comments,
+      meanLogLikes: r.mean_log_likes,
+      stddevLogLikes: r.stddev_log_likes,
       sampleCount: r.sample_count,
     });
   }
@@ -160,18 +171,21 @@ async function calculateSourceStats(pool: Pool): Promise<Map<string, SourceStats
     const params: unknown[] = [];
     for (const r of rows) {
       const i = params.length;
-      values.push(`($${i+1},$${i+2},$${i+3},$${i+4},$${i+5},$${i+6})`);
+      values.push(`($${i+1},$${i+2},$${i+3},$${i+4},$${i+5},$${i+6},$${i+7},$${i+8})`);
       params.push(r.source_key, r.mean_log_views, r.stddev_log_views,
-                  r.mean_log_comments, r.stddev_log_comments, r.sample_count);
+                  r.mean_log_comments, r.stddev_log_comments,
+                  r.mean_log_likes, r.stddev_log_likes, r.sample_count);
     }
     await pool.query(
-      `INSERT INTO source_engagement_stats (source_key, mean_log_views, stddev_log_views, mean_log_comments, stddev_log_comments, sample_count)
+      `INSERT INTO source_engagement_stats (source_key, mean_log_views, stddev_log_views, mean_log_comments, stddev_log_comments, mean_log_likes, stddev_log_likes, sample_count)
        VALUES ${values.join(',')}
        ON CONFLICT (source_key) DO UPDATE SET
          mean_log_views = EXCLUDED.mean_log_views,
          stddev_log_views = EXCLUDED.stddev_log_views,
          mean_log_comments = EXCLUDED.mean_log_comments,
          stddev_log_comments = EXCLUDED.stddev_log_comments,
+         mean_log_likes = EXCLUDED.mean_log_likes,
+         stddev_log_likes = EXCLUDED.stddev_log_likes,
          sample_count = EXCLUDED.sample_count,
          calculated_at = NOW()`,
       params
@@ -189,6 +203,8 @@ async function calculateChannelStats(pool: Pool): Promise<Map<Channel, SourceSta
     stddev_log_views: number;
     mean_log_comments: number;
     stddev_log_comments: number;
+    mean_log_likes: number;
+    stddev_log_likes: number;
     sample_count: number;
   }>(`
     SELECT
@@ -203,6 +219,8 @@ async function calculateChannelStats(pool: Pool): Promise<Map<Channel, SourceSta
       GREATEST(STDDEV(ln(1 + view_count)), 0.1)::float AS stddev_log_views,
       AVG(ln(1 + comment_count))::float AS mean_log_comments,
       GREATEST(STDDEV(ln(1 + comment_count)), 0.1)::float AS stddev_log_comments,
+      AVG(ln(1 + like_count))::float AS mean_log_likes,
+      GREATEST(STDDEV(ln(1 + like_count)), 0.1)::float AS stddev_log_likes,
       COUNT(*)::int AS sample_count
     FROM posts
     WHERE scraped_at > NOW() - INTERVAL '24 hours' AND view_count > 0
@@ -216,6 +234,8 @@ async function calculateChannelStats(pool: Pool): Promise<Map<Channel, SourceSta
       stddevLogViews: r.stddev_log_views,
       meanLogComments: r.mean_log_comments,
       stddevLogComments: r.stddev_log_comments,
+      meanLogLikes: r.mean_log_likes,
+      stddevLogLikes: r.stddev_log_likes,
       sampleCount: r.sample_count,
     });
   }
@@ -231,10 +251,20 @@ const CHANNEL_COMMENT_WEIGHT: Record<Channel, number> = {
   specialized: 1.0,  // 테크블로그 등
 };
 
+/** 채널별 좋아요 가중치 */
+const CHANNEL_LIKE_WEIGHT: Record<Channel, number> = {
+  community: 2.0,    // 커뮤니티 추천은 가장 강한 품질 지표
+  sns: 1.5,          // SNS 좋아요는 높은 참여
+  video: 1.2,        // 영상 좋아요는 적당
+  specialized: 0.8,  // 전문 사이트는 보통
+  news: 0.3,         // 뉴스 좋아요는 약한 신호 (대부분 없음)
+};
+
 /** Z-Score 정규화된 engagement 계산 (채널 인식) */
 function normalizeEngagement(
   viewCount: number,
   commentCount: number,
+  likeCount: number,
   sourceKey: string,
   sourceStatsMap: Map<string, SourceStats>,
   channelStatsMap: Map<Channel, SourceStats>,
@@ -242,9 +272,10 @@ function normalizeEngagement(
   categoryBaseline: number,
 ): number {
   const commentWeight = CHANNEL_COMMENT_WEIGHT[channel];
+  const likeWeight = CHANNEL_LIKE_WEIGHT[channel];
 
   // engagement 데이터가 없으면 Bayesian Prior 사용
-  if (viewCount === 0 && commentCount === 0) {
+  if (viewCount === 0 && commentCount === 0 && likeCount === 0) {
     // 뉴스는 engagement 없이 스크랩되는 경우가 많으므로 baseline 상향
     if (channel === 'news') return categoryBaseline * 1.2;
     return categoryBaseline;
@@ -256,14 +287,15 @@ function normalizeEngagement(
     stats = channelStatsMap.get(channel);
   }
   if (!stats || stats.sampleCount < 10) {
-    const raw = Math.log1p(viewCount) + Math.log1p(commentCount) * commentWeight;
+    const raw = Math.log1p(viewCount) + Math.log1p(commentCount) * commentWeight + Math.log1p(likeCount) * likeWeight;
     return Math.max(raw, 0.5);
   }
 
   const zViews = (Math.log1p(viewCount) - stats.meanLogViews) / stats.stddevLogViews;
   const zComments = (Math.log1p(commentCount) - stats.meanLogComments) / stats.stddevLogComments;
+  const zLikes = (Math.log1p(likeCount) - stats.meanLogLikes) / stats.stddevLogLikes;
   // z-score를 양수 범위로 시프트: 평균 = 2.0, 1시그마 위 = 3.0
-  return Math.max(2.0 + zViews + zComments * commentWeight, 0.5);
+  return Math.max(2.0 + zViews + zComments * commentWeight + zLikes * likeWeight, 0.5);
 }
 
 /** Engagement 스냅샷 기반 velocity 계산 */
@@ -274,14 +306,18 @@ async function calculateVelocityMap(pool: Pool): Promise<Map<number, VelocityDat
     latest_views: number;
     earliest_comments: number;
     latest_comments: number;
+    earliest_likes: number;
+    latest_likes: number;
     hours_delta: number;
   }>(`
     WITH snapshots AS (
-      SELECT post_id, view_count, comment_count, captured_at,
+      SELECT post_id, view_count, comment_count, like_count, captured_at,
         FIRST_VALUE(view_count) OVER w AS earliest_views,
         LAST_VALUE(view_count) OVER w AS latest_views,
         FIRST_VALUE(comment_count) OVER w AS earliest_comments,
         LAST_VALUE(comment_count) OVER w AS latest_comments,
+        FIRST_VALUE(like_count) OVER w AS earliest_likes,
+        LAST_VALUE(like_count) OVER w AS latest_likes,
         EXTRACT(EPOCH FROM (MAX(captured_at) OVER w - MIN(captured_at) OVER w)) / 3600.0 AS hours_delta
       FROM engagement_snapshots
       WHERE captured_at > NOW() - INTERVAL '2 hours'
@@ -289,7 +325,8 @@ async function calculateVelocityMap(pool: Pool): Promise<Map<number, VelocityDat
                    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
     )
     SELECT DISTINCT ON (post_id)
-      post_id, earliest_views, latest_views, earliest_comments, latest_comments, hours_delta
+      post_id, earliest_views, latest_views, earliest_comments, latest_comments,
+      earliest_likes, latest_likes, hours_delta
     FROM snapshots
     WHERE hours_delta > 0.15
   `);
@@ -300,6 +337,7 @@ async function calculateVelocityMap(pool: Pool): Promise<Map<number, VelocityDat
     map.set(r.post_id, {
       viewVelocity: (r.latest_views - r.earliest_views) / delta,
       commentVelocity: (r.latest_comments - r.earliest_comments) / delta,
+      likeVelocity: (r.latest_likes - r.earliest_likes) / delta,
     });
   }
   return map;
@@ -308,7 +346,7 @@ async function calculateVelocityMap(pool: Pool): Promise<Map<number, VelocityDat
 /** Velocity → bonus 변환 [1.0, 1.5] */
 function velocityToBonus(velocity: VelocityData | undefined): number {
   if (!velocity) return 1.0;
-  const score = Math.log1p(velocity.viewVelocity) + Math.log1p(velocity.commentVelocity) * 2.0;
+  const score = Math.log1p(velocity.viewVelocity) + Math.log1p(velocity.commentVelocity) * 2.0 + Math.log1p(velocity.likeVelocity) * 2.5;
   return 1.0 + Math.min(score / 10.0, 0.5);
 }
 
@@ -502,9 +540,10 @@ export async function calculateScores(pool: Pool): Promise<number> {
       category: string | null;
       view_count: number;
       comment_count: number;
+      like_count: number;
       scraped_at: Date;
     }>(`
-      SELECT p.id, p.source_key, p.category, p.view_count, p.comment_count, p.scraped_at
+      SELECT p.id, p.source_key, p.category, p.view_count, p.comment_count, p.like_count, p.scraped_at
       FROM posts p
       WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
     `),
@@ -531,7 +570,7 @@ export async function calculateScores(pool: Pool): Promise<number> {
 
     // Zero-engagement credibility 가중치
     let credibilityFactor = 0.8;
-    if (row.view_count === 0 && row.comment_count === 0) {
+    if (row.view_count === 0 && row.comment_count === 0 && row.like_count === 0) {
       const hasTrendSignal = trendConfirmationMap.has(row.id);
       const hasKeywordMomentum = (keywordMomentumMap.get(row.id) ?? 1.0) > 1.5;
       const hasCluster = clusterBonusMap.has(row.id);
@@ -544,8 +583,8 @@ export async function calculateScores(pool: Pool): Promise<number> {
 
     const factors: ScoreFactors = {
       normalizedEngagement: normalizeEngagement(
-        row.view_count, row.comment_count, row.source_key,
-        sourceStatsMap, channelStatsMap, channel,
+        row.view_count, row.comment_count, row.like_count,
+        row.source_key, sourceStatsMap, channelStatsMap, channel,
         catBaseline * credibilityFactor,
       ),
       decay: Math.exp(-LN2 * ageMinutes / HALF_LIFE_MINUTES),

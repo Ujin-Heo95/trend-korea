@@ -98,7 +98,8 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | sports | sports_donga | RSS | medium | **disabled** (빈 응답) |
 | press | newswire | RSS | medium | 안정 |
 | newsletter | uppity | RSS | low | 안정 |
-| deals | ppomppu_hot | RSS | medium | 안정 |
+| deals | ppomppu_hot, ruliweb_hot | RSS | medium | 안정 |
+| deals | clien_jirum, quasarzone_deal, dcinside_hotdeal | HTML | medium | 신규 |
 | blog | daum_blog | API | low | 안정 |
 | sns | apify_instagram, apify_x, apify_tiktok | Apify | medium | **disabled** (토큰 미설정) |
 | alert | kma | RSS | low | **disabled** |
