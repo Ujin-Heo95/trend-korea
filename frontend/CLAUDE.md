@@ -23,7 +23,6 @@
 | 음악 랭킹 테이블 | `src/components/MusicRankingTable.tsx` |
 | 공연 랭킹 테이블 | `src/components/PerformanceRankingTable.tsx` |
 | SNS 랭킹 테이블 | `src/components/SnsRankingTable.tsx` |
-| 교차 검증 UI | `src/components/TrendRadar.tsx` |
 | 스파크라인 | `src/components/shared/Sparkline.tsx` |
 | 참여 추이 차트 | `src/components/shared/EngagementChart.tsx` |
 | 카카오 SDK 초기화 | `src/lib/kakao.ts` |

@@ -1,15 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, useTransition, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useInfinitePosts, useTopics } from '../hooks/usePosts';
 import type { Post } from '../types';
-import { fetchPosts, fetchLatestReport } from '../api/client';
+import { fetchPosts } from '../api/client';
 import { AdSlot } from '../components/shared/AdSlot';
 import { PostCard } from '../components/PostCard';
 import { PostCardSkeleton } from '../components/shared/PostCardSkeleton';
-import { TrendRadar } from '../components/TrendRadar';
-import { MiniBriefing } from '../components/MiniBriefing';
-const TrendHero = React.lazy(() => import('../components/TrendHero').then(m => ({ default: m.TrendHero })));
 import { CategoryTabs } from '../components/CategoryTabs';
 import { NewsSubcategoryTabs } from '../components/NewsSubcategoryTabs';
 import { SourceFilterChips } from '../components/SourceFilterChips';
@@ -166,18 +162,6 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           {newPostCount}개 새 글이 있습니다
         </button>
       )}
-
-      {!searchQuery && !category && (
-        <>
-          <React.Suspense fallback={<div className="h-40 animate-shimmer bg-slate-100 dark:bg-slate-800 rounded-xl mb-6" />}>
-            <TrendHero />
-          </React.Suspense>
-          <TrendRadar />
-          <MiniBriefing />
-        </>
-      )}
-
-      <DailyReportPromo />
 
       <div className="flex items-center justify-between mb-3">
         <CategoryTabs selected={category} onChange={handleCategoryChange} />
@@ -351,36 +335,3 @@ function EntertainmentAllView({ posts }: { posts: Post[] }) {
   return <div className="space-y-6">{sections.map(s => <div key={s.key}>{s.component}</div>)}</div>;
 }
 
-// ── 일일 리포트 프로모션 ──
-
-function DailyReportPromo() {
-  const { data: report } = useQuery({
-    queryKey: ['latest-report-promo'],
-    queryFn: fetchLatestReport,
-    staleTime: 5 * 60_000,
-  });
-
-  if (!report) return null;
-
-  return (
-    <Link
-      to={`/daily-report/${String(report.report_date).slice(0, 10)}`}
-      className="block mb-4 p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-600 transition-colors group"
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="text-2xl flex-shrink-0">📊</span>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
-              {String(report.report_date).slice(0, 10)} 일일 트렌드 리포트
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">AI가 분석한 오늘의 한국 인터넷 핵심 이슈</p>
-          </div>
-        </div>
-        <svg className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </div>
-    </Link>
-  );
-}
