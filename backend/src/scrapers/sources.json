@@ -1030,6 +1030,66 @@
       "feedUrl": "https://www.itworld.co.kr/feed/",
       "priority": "medium",
       "enabled": true
+    },
+    {
+      "key": "yes24_bestseller",
+      "name": "YES24 베스트셀러",
+      "category": "books",
+      "type": "html",
+      "module": "./yes24.js",
+      "className": "Yes24BestsellerScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "aladin_bestseller",
+      "name": "알라딘 베스트셀러",
+      "category": "books",
+      "type": "html",
+      "module": "./aladin.js",
+      "className": "AladinBestsellerScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "bugs_chart",
+      "name": "벅스 차트",
+      "category": "music",
+      "type": "html",
+      "module": "./bugs-chart.js",
+      "className": "BugsChartScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "genie_chart",
+      "name": "지니 차트",
+      "category": "music",
+      "type": "html",
+      "module": "./genie-chart.js",
+      "className": "GenieChartScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "kworb_spotify_kr",
+      "name": "Spotify 한국",
+      "category": "music",
+      "type": "html",
+      "module": "./kworb-spotify.js",
+      "className": "KworbSpotifyKrScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "flixpatrol",
+      "name": "FlixPatrol OTT 순위",
+      "category": "ott",
+      "type": "html",
+      "module": "./flixpatrol.js",
+      "className": "FlixPatrolScraper",
+      "priority": "low",
+      "enabled": true
     }
   ]
 }

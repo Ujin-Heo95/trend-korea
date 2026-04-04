@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { Post } from '../types';
 import { RankBadge } from './shared/RankBadge';
 import { PosterImage } from './shared/PosterImage';
@@ -11,6 +11,13 @@ interface MusicMeta {
   album?: string;
   songNo?: string;
 }
+
+const SOURCE_LABELS: Record<string, string> = {
+  melon_chart: '멜론',
+  bugs_chart: '벅스',
+  genie_chart: '지니',
+  kworb_spotify_kr: 'Spotify',
+};
 
 function parseMusicMeta(post: Post): MusicMeta | null {
   const m = post.metadata as MusicMeta | undefined;
@@ -28,13 +35,23 @@ function parseMusicMeta(post: Post): MusicMeta | null {
 }
 
 export const MusicRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
+  const [sourceFilter, setSourceFilter] = useState<string | undefined>(undefined);
+
+  const availableSources = useMemo(() => {
+    const keys = new Set(posts.map(p => p.source_key));
+    return Object.entries(SOURCE_LABELS).filter(([k]) => keys.has(k));
+  }, [posts]);
+
   const songs = useMemo(() =>
     posts
+      .filter(p => !sourceFilter || p.source_key === sourceFilter)
       .map(p => ({ post: p, meta: parseMusicMeta(p) }))
       .filter((m): m is { post: Post; meta: MusicMeta } => m.meta !== null)
       .sort((a, b) => a.meta.rank - b.meta.rank),
-    [posts],
+    [posts, sourceFilter],
   );
+
+  const activeSourceLabel = sourceFilter ? (SOURCE_LABELS[sourceFilter] ?? sourceFilter) : '전체';
 
   if (songs.length === 0) {
     return (
@@ -47,10 +64,37 @@ export const MusicRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-      {/* 헤더 */}
+      {/* 헤더 + 소스 필터 */}
       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-        <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">멜론 실시간 차트</h2>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Melon TOP 30</p>
+        <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{activeSourceLabel} 실시간 차트</h2>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{activeSourceLabel} TOP 30</p>
+        {availableSources.length > 1 && (
+          <div className="flex gap-1.5 mt-2">
+            <button
+              onClick={() => setSourceFilter(undefined)}
+              className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                !sourceFilter
+                  ? 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              전체
+            </button>
+            {availableSources.map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setSourceFilter(key)}
+                className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                  sourceFilter === key
+                    ? 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Desktop table */}
@@ -97,7 +141,7 @@ export const MusicRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
                 {meta.album ?? ''}
               </td>
               <td className="py-3 px-3 text-center">
-                <ExternalLinkButton href={post.url} label="멜론" />
+                <ExternalLinkButton href={post.url} label={SOURCE_LABELS[post.source_key] ?? '듣기'} />
               </td>
             </tr>
           ))}

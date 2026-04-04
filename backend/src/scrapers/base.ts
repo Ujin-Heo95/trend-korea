@@ -73,7 +73,7 @@ export abstract class BaseScraper {
     });
 
     const category = posts[0].category ?? this.category ?? null;
-    const isRankedCategory = ['movie', 'performance'].includes(category ?? '');
+    const isRankedCategory = ['movie', 'performance', 'music', 'books', 'ott'].includes(category ?? '');
 
     // 랭킹 데이터는 UPSERT로 관객수/메타데이터 갱신
     // 일반 데이터는 engagement 증가 시에만 업데이트 (velocity 계산 활성화)
@@ -170,7 +170,7 @@ export abstract class BaseScraper {
         const posts = await this.fetch();
         const count = await this.saveToDb(posts);
         // 랭킹 데이터(영화/공연)는 단일 소스이므로 클러스터 중복제거 불필요
-        const skipDedup = ['movie', 'performance'].includes(this.category ?? '');
+        const skipDedup = ['movie', 'performance', 'music', 'books', 'ott'].includes(this.category ?? '');
         if (!skipDedup) {
           await clusterPosts(this.pool, posts);
         }

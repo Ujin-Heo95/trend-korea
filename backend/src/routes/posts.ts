@@ -64,7 +64,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
           conditions.push(`p.category = ANY($${params.push(cats)}::text[])`);
         }
       } else {
-        conditions.push(`(p.category IS NULL OR p.category NOT IN ('movie', 'performance', 'video_popular', 'music', 'travel'))`);
+        conditions.push(`(p.category IS NULL OR p.category NOT IN ('movie', 'performance', 'video_popular', 'music', 'travel', 'books', 'ott'))`);
       }
       if (subcategory) {
         conditions.push(`p.subcategory = $${params.push(subcategory)}`);

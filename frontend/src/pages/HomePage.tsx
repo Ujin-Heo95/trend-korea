@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback, useTransition } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useTransition, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useInfinitePosts, useTopics } from '../hooks/usePosts';
+import type { Post } from '../types';
 import { fetchPosts, fetchLatestReport } from '../api/client';
 import { AdSlot } from '../components/shared/AdSlot';
 import { PostCard } from '../components/PostCard';
@@ -16,6 +17,9 @@ import { MovieRankingTable } from '../components/MovieRankingTable';
 import { MusicRankingTable } from '../components/MusicRankingTable';
 import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
 import { SnsRankingTable } from '../components/SnsRankingTable';
+import { BookRankingTable } from '../components/BookRankingTable';
+import { OttRankingTable } from '../components/OttRankingTable';
+import { EntertainmentSubTabs, type EntertainmentSub } from '../components/EntertainmentSubTabs';
 import { CommunityRankingList } from '../components/CommunityRankingList';
 import { UnifiedRankingList } from '../components/UnifiedRankingList';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -28,11 +32,18 @@ const CATEGORY_TITLES: Record<string, string> = {
   'news,press,newsletter,tech': '뉴스',
   video: 'YouTube',
   deals: '핫딜',
-  movie: '박스오피스',
-  performance: '공연/전시',
-  music: '음악',
+  entertainment: '엔터테인먼트',
   travel: '여행',
   sns: 'SNS',
+};
+
+const ENTERTAINMENT_CATEGORY_MAP: Record<EntertainmentSub, string> = {
+  all: 'movie,performance,music,books,ott',
+  books: 'books',
+  ott: 'ott',
+  music: 'music',
+  movie: 'movie',
+  performance: 'performance',
 };
 
 interface Props {
@@ -50,8 +61,10 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<'trending' | 'latest'>('trending');
   const [newsSubcategory, setNewsSubcategory] = useState<string | undefined>(undefined);
+  const [entertainmentSub, setEntertainmentSub] = useState<EntertainmentSub>('all');
   const [, startTransition] = useTransition();
   const isNewsTab = category === 'news,press,newsletter,tech';
+  const isEntertainmentTab = category === 'entertainment';
   const isAllTab = !category && !searchQuery;
 
   // 전체 탭: 토픽 기반 이슈 랭킹
@@ -63,11 +76,16 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       setSelectedSources([]);
       setSortMode('trending');
       setNewsSubcategory(undefined);
+      setEntertainmentSub('all');
     });
   };
 
+  const resolvedCategory = isEntertainmentTab
+    ? ENTERTAINMENT_CATEGORY_MAP[entertainmentSub]
+    : category;
+
   const filter = {
-    ...(category ? { category } : {}),
+    ...(resolvedCategory ? { category: resolvedCategory } : {}),
     ...(isNewsTab && newsSubcategory ? { subcategory: newsSubcategory } : {}),
     ...(searchQuery ? { q: searchQuery } : {}),
     ...(selectedSources.length > 0 ? { source: selectedSources.join(',') } : {}),
@@ -169,6 +187,10 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         <NewsSubcategoryTabs selected={newsSubcategory} onChange={setNewsSubcategory} />
       )}
 
+      {isEntertainmentTab && (
+        <EntertainmentSubTabs selected={entertainmentSub} onChange={setEntertainmentSub} />
+      )}
+
       {(category === 'community' || isNewsTab) && (
         <>
           <div className="flex items-center justify-between mb-2">
@@ -233,12 +255,18 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           <p className="text-sm">다른 키워드로 검색해 보세요</p>
         </div>
       ) : isAllTab ? null : (
-        category === 'movie' ? (
+        isEntertainmentTab && entertainmentSub === 'movie' ? (
           <MovieRankingTable posts={allPosts} />
-        ) : category === 'music' ? (
+        ) : isEntertainmentTab && entertainmentSub === 'music' ? (
           <MusicRankingTable posts={allPosts} />
-        ) : category === 'performance' ? (
+        ) : isEntertainmentTab && entertainmentSub === 'performance' ? (
           <PerformanceRankingTable posts={allPosts} />
+        ) : isEntertainmentTab && entertainmentSub === 'books' ? (
+          <BookRankingTable posts={allPosts} />
+        ) : isEntertainmentTab && entertainmentSub === 'ott' ? (
+          <OttRankingTable posts={allPosts} />
+        ) : isEntertainmentTab && entertainmentSub === 'all' ? (
+          <EntertainmentAllView posts={allPosts} />
         ) : category === 'sns' ? (
           <SnsRankingTable posts={allPosts} />
         ) : category === 'community' && selectedSources.length === 0 && sortMode === 'trending' ? (
@@ -290,6 +318,38 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     </div>
   );
 };
+
+// ── 엔터테인먼트 전체 뷰 ──
+
+function EntertainmentAllView({ posts }: { posts: Post[] }) {
+  const grouped = useMemo(() => {
+    const map: Record<string, Post[]> = {};
+    for (const p of posts) {
+      const cat = p.category ?? 'unknown';
+      (map[cat] ??= []).push(p);
+    }
+    return map;
+  }, [posts]);
+
+  const sections: { key: string; label: string; component: React.ReactNode }[] = [
+    grouped['movie']?.length ? { key: 'movie', label: '영화', component: <MovieRankingTable posts={grouped['movie']} /> } : null,
+    grouped['music']?.length ? { key: 'music', label: '음악', component: <MusicRankingTable posts={grouped['music']} /> } : null,
+    grouped['performance']?.length ? { key: 'perf', label: '공연', component: <PerformanceRankingTable posts={grouped['performance']} /> } : null,
+    grouped['books']?.length ? { key: 'books', label: '도서', component: <BookRankingTable posts={grouped['books']} /> } : null,
+    grouped['ott']?.length ? { key: 'ott', label: 'OTT', component: <OttRankingTable posts={grouped['ott']} /> } : null,
+  ].filter((s): s is NonNullable<typeof s> => s !== null);
+
+  if (sections.length === 0) {
+    return (
+      <div className="text-center py-16 text-slate-400 dark:text-slate-500">
+        <p className="text-lg mb-1">엔터테인먼트 데이터가 없습니다</p>
+        <p className="text-sm">데이터 수집 후 표시됩니다</p>
+      </div>
+    );
+  }
+
+  return <div className="space-y-6">{sections.map(s => <div key={s.key}>{s.component}</div>)}</div>;
+}
 
 // ── 일일 리포트 프로모션 ──
 

@@ -19,7 +19,8 @@ describe('cleanOldPosts', () => {
     expect(result.deleted).toBe(42);
     const [sql, params] = (pool.query as any).mock.calls[0] as [string, unknown[]];
     expect(sql).toContain('DELETE FROM posts');
-    expect(params[0]).toBe(7);
+    expect(params[0]).toEqual(['performance', 'books', 'ott']);
+    expect(params[1]).toBe(7);
   });
 
   it('returns 0 when no posts deleted', async () => {
