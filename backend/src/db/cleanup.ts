@@ -38,6 +38,15 @@ export async function cleanOldEngagementSnapshots(): Promise<CleanupResult> {
   return { deleted };
 }
 
+export async function cleanNumericTitlePosts(): Promise<CleanupResult> {
+  const result = await pool.query<never>(
+    `DELETE FROM posts WHERE source_key = 'cook82' AND title ~ '^\\d+$'`,
+  );
+  const deleted = result.rowCount ?? 0;
+  if (deleted > 0) console.log(`[cleanup] deleted ${deleted} cook82 numeric-title posts`);
+  return { deleted };
+}
+
 export async function cleanOldScraperRuns(): Promise<CleanupResult> {
   const result = await pool.query<never>(
     `DELETE FROM scraper_runs WHERE started_at < NOW() - $1 * INTERVAL '1 day'`,

@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import * as Sentry from '@sentry/node';
 import { runAllScrapers, runScrapersByPriority, runApifyScrapers } from '../scrapers/index.js';
-import { cleanOldPosts, cleanOldScraperRuns, cleanExpiredTrendSignals, cleanOldEngagementSnapshots } from '../db/cleanup.js';
+import { cleanOldPosts, cleanOldScraperRuns, cleanExpiredTrendSignals, cleanOldEngagementSnapshots, cleanNumericTitlePosts } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
 import { generateDailyReport } from '../services/dailyReport.js';
 import { crossValidate } from '../services/trendCrossValidator.js';
@@ -102,6 +102,7 @@ export function startScheduler(): void {
   // 자정 + 정오 2회 (Railway 서버 = UTC 기준) — DB 100MB 한도 대응
   cron.schedule('0 0,12 * * *', () => {
     cleanOldPosts().catch(captureError);
+    cleanNumericTitlePosts().catch(captureError);
     cleanOldScraperRuns().catch(captureError);
     cleanExpiredTrendSignals().catch(captureError);
     cleanOldEngagementSnapshots().catch(captureError);
