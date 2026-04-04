@@ -150,6 +150,13 @@
       "category": "news",
       "type": "rss",
       "feedUrl": "https://www.yna.co.kr/rss/news.xml",
+      "sectionFeeds": {
+        "정치": "https://www.yna.co.kr/rss/politics.xml",
+        "경제": "https://www.yna.co.kr/rss/economy.xml",
+        "사회": "https://www.yna.co.kr/rss/society.xml",
+        "세계": "https://www.yna.co.kr/rss/international.xml",
+        "연예": "https://www.yna.co.kr/rss/culture.xml"
+      },
       "priority": "medium",
       "enabled": true
     },
@@ -159,6 +166,15 @@
       "category": "news",
       "type": "rss",
       "feedUrl": "https://www.hani.co.kr/rss/",
+      "sectionFeeds": {
+        "정치": "https://www.hani.co.kr/rss/politics/",
+        "경제": "https://www.hani.co.kr/rss/economy/",
+        "사회": "https://www.hani.co.kr/rss/society/",
+        "세계": "https://www.hani.co.kr/rss/international/",
+        "연예": "https://www.hani.co.kr/rss/culture/",
+        "스포츠": "https://www.hani.co.kr/rss/sports/",
+        "IT/과학": "https://www.hani.co.kr/rss/science/"
+      },
       "priority": "medium",
       "enabled": true
     },
@@ -168,6 +184,15 @@
       "category": "news",
       "type": "rss",
       "feedUrl": "https://news.sbs.co.kr/news/headlineRssFeed.do?plink=RSSREADER",
+      "sectionFeeds": {
+        "정치": "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=01&plink=RSSREADER",
+        "경제": "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02&plink=RSSREADER",
+        "사회": "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=03&plink=RSSREADER",
+        "세계": "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=07&plink=RSSREADER",
+        "연예": "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=08&plink=RSSREADER",
+        "스포츠": "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=09&plink=RSSREADER",
+        "생활": "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=14&plink=RSSREADER"
+      },
       "priority": "medium",
       "enabled": true
     },
@@ -177,6 +202,15 @@
       "category": "news",
       "type": "rss",
       "feedUrl": "https://rss.donga.com/total.xml",
+      "sectionFeeds": {
+        "정치": "https://rss.donga.com/politics.xml",
+        "경제": "https://rss.donga.com/economy.xml",
+        "사회": "https://rss.donga.com/society.xml",
+        "세계": "https://rss.donga.com/international.xml",
+        "연예": "https://rss.donga.com/entertainment.xml",
+        "스포츠": "https://rss.donga.com/sports.xml",
+        "IT/과학": "https://rss.donga.com/science.xml"
+      },
       "priority": "medium",
       "enabled": true
     },
@@ -186,6 +220,15 @@
       "category": "news",
       "type": "rss",
       "feedUrl": "https://www.khan.co.kr/rss/rssdata/total_news.xml",
+      "sectionFeeds": {
+        "정치": "https://www.khan.co.kr/rss/rssdata/politic_news.xml",
+        "경제": "https://www.khan.co.kr/rss/rssdata/economy_news.xml",
+        "사회": "https://www.khan.co.kr/rss/rssdata/society_news.xml",
+        "세계": "https://www.khan.co.kr/rss/rssdata/world_news.xml",
+        "연예": "https://www.khan.co.kr/rss/rssdata/culture_news.xml",
+        "스포츠": "https://www.khan.co.kr/rss/rssdata/sports_news.xml",
+        "IT/과학": "https://www.khan.co.kr/rss/rssdata/science_news.xml"
+      },
       "priority": "medium",
       "enabled": true
     },
@@ -193,6 +236,7 @@
       "key": "hankyung",
       "name": "한국경제",
       "category": "news",
+      "subcategory": "경제",
       "type": "rss",
       "feedUrl": "https://www.hankyung.com/feed/all-news",
       "priority": "medium",
@@ -202,6 +246,7 @@
       "key": "mk",
       "name": "매일경제",
       "category": "news",
+      "subcategory": "경제",
       "type": "rss",
       "feedUrl": "https://www.mk.co.kr/rss/40300001/",
       "priority": "medium",
@@ -259,6 +304,45 @@
       "category": "deals",
       "type": "rss",
       "feedUrl": "https://www.ppomppu.co.kr/rss.php?id=ppomppu4",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "ruliweb_hot",
+      "name": "루리웹 핫딜",
+      "category": "deals",
+      "type": "rss",
+      "feedUrl": "https://bbs.ruliweb.com/market/board/1020/rss",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "clien_jirum",
+      "name": "클리앙 알뜰구매",
+      "category": "deals",
+      "type": "html",
+      "module": "./clien-jirum.js",
+      "className": "ClienJirumScraper",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "quasarzone_deal",
+      "name": "퀘사이사존 핫딜",
+      "category": "deals",
+      "type": "html",
+      "module": "./quasarzone.js",
+      "className": "QuasarzoneScraper",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "dcinside_hotdeal",
+      "name": "DC 핫딜갤러리",
+      "category": "deals",
+      "type": "html",
+      "module": "./dcinside-hotdeal.js",
+      "className": "DcinsideHotdealScraper",
       "priority": "medium",
       "enabled": true
     },
@@ -368,6 +452,14 @@
       "category": "news",
       "type": "rss",
       "feedUrl": "https://www.newsis.com/RSS/society.xml",
+      "sectionFeeds": {
+        "정치": "https://www.newsis.com/RSS/politics.xml",
+        "경제": "https://www.newsis.com/RSS/economy.xml",
+        "사회": "https://www.newsis.com/RSS/society.xml",
+        "세계": "https://www.newsis.com/RSS/international.xml",
+        "연예": "https://www.newsis.com/RSS/culture.xml",
+        "스포츠": "https://www.newsis.com/RSS/sports.xml"
+      },
       "priority": "medium",
       "enabled": true
     },
@@ -542,6 +634,15 @@
       "category": "news",
       "type": "rss",
       "feedUrl": "https://fs.jtbc.co.kr/RSS/newsflash.xml",
+      "sectionFeeds": {
+        "정치": "https://fs.jtbc.co.kr/RSS/politics.xml",
+        "경제": "https://fs.jtbc.co.kr/RSS/economy.xml",
+        "사회": "https://fs.jtbc.co.kr/RSS/society.xml",
+        "세계": "https://fs.jtbc.co.kr/RSS/international.xml",
+        "연예": "https://fs.jtbc.co.kr/RSS/entertainment.xml",
+        "스포츠": "https://fs.jtbc.co.kr/RSS/sports.xml",
+        "생활": "https://fs.jtbc.co.kr/RSS/culture.xml"
+      },
       "priority": "high",
       "enabled": true
     },

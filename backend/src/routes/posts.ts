@@ -18,7 +18,7 @@ async function attachKeywords(pg: FastifyInstance['pg'], posts: any[]): Promise<
 }
 
 export async function postsRoutes(app: FastifyInstance): Promise<void> {
-  app.get<{ Querystring: { source?: string; category?: string; q?: string; page?: number; limit?: number; sort?: string } }>(
+  app.get<{ Querystring: { source?: string; category?: string; subcategory?: string; q?: string; page?: number; limit?: number; sort?: string } }>(
     '/api/posts',
     {
       schema: {
@@ -28,6 +28,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
             page: { type: 'integer', minimum: 1, default: 1 },
             limit: { type: 'integer', minimum: 1, maximum: 100, default: 30 },
             category: { type: 'string' },
+            subcategory: { type: 'string' },
             source: { type: 'string' },
             q: { type: 'string', maxLength: 200 },
             sort: { type: 'string', enum: ['trending', 'latest', 'views'] },
@@ -36,14 +37,14 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (req) => {
-      const { source, category, q, sort } = req.query;
+      const { source, category, subcategory, q, sort } = req.query;
       const limit  = req.query.limit ?? 30;
       const page   = req.query.page ?? 1;
       const offset = (page - 1) * limit;
       const isTrending = sort === 'trending';
 
       const sortedSource = source ? source.split(',').sort().join(',') : '';
-      const cacheKey = `posts:${sortedSource}:${category ?? ''}:${q ?? ''}:${sort ?? ''}:${page}:${limit}`;
+      const cacheKey = `posts:${sortedSource}:${category ?? ''}:${subcategory ?? ''}:${q ?? ''}:${sort ?? ''}:${page}:${limit}`;
       const cached = postsCache.get(cacheKey);
       if (cached) return cached;
 
@@ -64,6 +65,9 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       } else {
         conditions.push(`(p.category IS NULL OR p.category NOT IN ('movie', 'performance', 'video_popular'))`);
       }
+      if (subcategory) {
+        conditions.push(`p.subcategory = $${params.push(subcategory)}`);
+      }
       if (q) {
         const escapedQ = q.replace(/[%_\\]/g, '\\$&');
         conditions.push(`p.title ILIKE $${params.push(`%${escapedQ}%`)}`);
@@ -82,7 +86,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       const [rows, count] = await Promise.all([
         app.pg.query(
           `SELECT p.id, p.source_key, p.source_name, p.title, p.url, p.thumbnail,
-                  p.author, p.view_count, p.comment_count, p.vote_count, p.published_at, p.scraped_at, p.category, p.metadata, p.ai_summary
+                  p.author, p.view_count, p.comment_count, p.like_count, p.vote_count, p.published_at, p.scraped_at, p.category, p.subcategory, p.metadata, p.ai_summary
            FROM posts p
            LEFT JOIN post_scores ps ON ps.post_id = p.id
            ${where}
@@ -196,7 +200,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
 
     const r = await app.pg.query(
       `SELECT p.id, p.source_key, p.source_name, p.title, p.url, p.thumbnail,
-              p.author, p.view_count, p.comment_count, p.vote_count, p.published_at,
+              p.author, p.view_count, p.comment_count, p.like_count, p.vote_count, p.published_at,
               p.scraped_at, p.category, p.metadata, p.ai_summary, COALESCE(ps.trend_score, 0) AS trend_score
        FROM posts p
        LEFT JOIN post_scores ps ON ps.post_id = p.id

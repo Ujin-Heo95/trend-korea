@@ -4,7 +4,7 @@ import type { Post, Source, PostsResponse, DailyReport, DailyReportMeta, Weather
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 const api = axios.create({ baseURL });
 
-export const fetchPosts = (params: { source?: string; category?: string; q?: string; sort?: string; page?: number; limit?: number }) =>
+export const fetchPosts = (params: { source?: string; category?: string; subcategory?: string; q?: string; sort?: string; page?: number; limit?: number }) =>
   api.get<PostsResponse>('/posts', { params }).then(r => r.data);
 
 export const fetchTrending = () =>

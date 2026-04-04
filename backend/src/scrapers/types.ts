@@ -7,7 +7,9 @@ export interface ScrapedPost {
   author?: string;
   viewCount?: number;
   commentCount?: number;
+  likeCount?: number;
   publishedAt?: Date;
   category?: string;
+  subcategory?: string;
   metadata?: Record<string, unknown>;
 }

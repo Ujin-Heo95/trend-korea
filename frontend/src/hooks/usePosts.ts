@@ -5,6 +5,7 @@ import type { PostsResponse } from '../types';
 interface PostsFilter {
   source?: string;
   category?: string;
+  subcategory?: string;
   q?: string;
   sort?: string;
 }

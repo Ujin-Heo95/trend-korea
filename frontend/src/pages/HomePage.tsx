@@ -10,6 +10,7 @@ import { TrendRadar } from '../components/TrendRadar';
 import { MiniBriefing } from '../components/MiniBriefing';
 const TrendHero = React.lazy(() => import('../components/TrendHero').then(m => ({ default: m.TrendHero })));
 import { CategoryTabs } from '../components/CategoryTabs';
+import { NewsSubcategoryTabs } from '../components/NewsSubcategoryTabs';
 import { SourceFilterChips } from '../components/SourceFilterChips';
 import { MovieRankingTable } from '../components/MovieRankingTable';
 import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
@@ -24,7 +25,8 @@ const CATEGORY_TITLES: Record<string, string> = {
   'news,press,newsletter': '뉴스',
   'tech,techblog': '테크',
   video: 'YouTube',
-  'deals,sports,trend,government,finance,alert': '생활',
+  deals: '핫딜',
+  'sports,trend,government,finance,alert': '생활',
   movie: '박스오피스',
   performance: '공연/전시',
   sns: 'SNS',
@@ -44,15 +46,19 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   usePullToRefresh(mainRef);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<'trending' | 'latest'>('trending');
+  const [newsSubcategory, setNewsSubcategory] = useState<string | undefined>(undefined);
+  const isNewsTab = category === 'news,press,newsletter';
 
   const handleCategoryChange = (cat: string | undefined) => {
     onCategoryChange(cat);
     setSelectedSources([]);
     setSortMode('trending');
+    setNewsSubcategory(undefined);
   };
 
   const filter = {
     ...(category ? { category } : {}),
+    ...(isNewsTab && newsSubcategory ? { subcategory: newsSubcategory } : {}),
     ...(searchQuery ? { q: searchQuery } : {}),
     ...(selectedSources.length > 0 ? { source: selectedSources.join(',') } : {}),
     ...(category === 'community' ? { sort: sortMode } : {}),
@@ -140,6 +146,10 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       <div className="flex items-center justify-between mb-3">
         <CategoryTabs selected={category} onChange={handleCategoryChange} />
       </div>
+
+      {isNewsTab && (
+        <NewsSubcategoryTabs selected={newsSubcategory} onChange={setNewsSubcategory} />
+      )}
 
       {category === 'community' && (
         <>

@@ -17,6 +17,7 @@ function truncate(s: string, max: number): string {
 
 export abstract class BaseScraper {
   category?: string;
+  subcategory?: string;
 
   constructor(protected pool: Pool) {}
   abstract fetch(): Promise<ScrapedPost[]>;
@@ -24,7 +25,7 @@ export abstract class BaseScraper {
   async saveToDb(posts: ScrapedPost[]): Promise<number> {
     if (!posts.length) return 0;
 
-    const COLS = 11;
+    const COLS = 13;
     const values: unknown[] = [];
     const placeholders = posts.map((p, i) => {
       const b = i * COLS;
@@ -36,11 +37,13 @@ export abstract class BaseScraper {
         truncate(p.url, MAX_URL_LEN),
         p.thumbnail ? truncate(p.thumbnail, MAX_URL_LEN) : null,
         p.author ? truncate(stripHtml(p.author), MAX_AUTHOR_LEN) : null,
-        p.viewCount ?? 0, p.commentCount ?? 0, p.publishedAt ?? null,
+        p.viewCount ?? 0, p.commentCount ?? 0, p.likeCount ?? 0,
+        p.publishedAt ?? null,
         p.category ?? this.category ?? null,
+        p.subcategory ?? this.subcategory ?? null,
         metaJson && metaJson.length <= MAX_METADATA_BYTES ? metaJson : null,
       );
-      return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11})`;
+      return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11},$${b+12},$${b+13})`;
     });
 
     const category = posts[0].category ?? this.category ?? null;
@@ -53,17 +56,20 @@ export abstract class BaseScraper {
            title = EXCLUDED.title,
            view_count = EXCLUDED.view_count,
            comment_count = EXCLUDED.comment_count,
+           like_count = EXCLUDED.like_count,
            metadata = EXCLUDED.metadata,
            thumbnail = EXCLUDED.thumbnail,
            scraped_at = NOW()`
       : `ON CONFLICT (url) DO UPDATE SET
            view_count = GREATEST(posts.view_count, EXCLUDED.view_count),
-           comment_count = GREATEST(posts.comment_count, EXCLUDED.comment_count)
+           comment_count = GREATEST(posts.comment_count, EXCLUDED.comment_count),
+           like_count = GREATEST(posts.like_count, EXCLUDED.like_count)
          WHERE EXCLUDED.view_count > posts.view_count
-            OR EXCLUDED.comment_count > posts.comment_count`;
+            OR EXCLUDED.comment_count > posts.comment_count
+            OR EXCLUDED.like_count > posts.like_count`;
 
     const result = await this.pool.query(
-      `INSERT INTO posts (source_key,source_name,title,url,thumbnail,author,view_count,comment_count,published_at,category,metadata)
+      `INSERT INTO posts (source_key,source_name,title,url,thumbnail,author,view_count,comment_count,like_count,published_at,category,subcategory,metadata)
        VALUES ${placeholders.join(',')} ${conflictClause}`,
       values
     );
@@ -76,7 +82,7 @@ export abstract class BaseScraper {
 
   /** 기존 게시글의 engagement 스냅샷을 engagement_snapshots에 배치 기록 */
   private async recordEngagementSnapshots(posts: ScrapedPost[]): Promise<void> {
-    const withEngagement = posts.filter(p => (p.viewCount ?? 0) > 0 || (p.commentCount ?? 0) > 0);
+    const withEngagement = posts.filter(p => (p.viewCount ?? 0) > 0 || (p.commentCount ?? 0) > 0 || (p.likeCount ?? 0) > 0);
     if (!withEngagement.length) return;
 
     try {
@@ -95,13 +101,13 @@ export abstract class BaseScraper {
         const postId = urlToPostId.get(p.url);
         if (!postId) continue;
         const i = snapValues.length;
-        snapValues.push(postId, p.viewCount ?? 0, p.commentCount ?? 0);
-        snapPlaceholders.push(`($${i + 1},$${i + 2},$${i + 3})`);
+        snapValues.push(postId, p.viewCount ?? 0, p.commentCount ?? 0, p.likeCount ?? 0);
+        snapPlaceholders.push(`($${i + 1},$${i + 2},$${i + 3},$${i + 4})`);
       }
 
       if (snapPlaceholders.length > 0) {
         await this.pool.query(
-          `INSERT INTO engagement_snapshots (post_id, view_count, comment_count)
+          `INSERT INTO engagement_snapshots (post_id, view_count, comment_count, like_count)
            VALUES ${snapPlaceholders.join(',')}`,
           snapValues
         );

@@ -10,6 +10,7 @@ export interface SourceEntry {
   key: string;
   name: string;
   category: string;
+  subcategory?: string;
   type: 'rss' | 'html' | 'api' | 'apify';
   priority: SourcePriority;
   enabled: boolean;
@@ -17,6 +18,7 @@ export interface SourceEntry {
   encoding?: string;
   module?: string;
   className?: string;
+  sectionFeeds?: Record<string, string>;
 }
 
 export interface ResolvedScraper {
@@ -34,7 +36,7 @@ export function getEnabledSources(): readonly SourceEntry[] {
 }
 
 export function getSourceMeta(): readonly { key: string; name: string; category: string }[] {
-  return getAllSources().map(s => ({ key: s.key, name: s.name, category: s.category }));
+  return getAllSources().map(s => ({ key: s.key, name: s.name, category: s.category, subcategory: s.subcategory }));
 }
 
 export function getSourcesByPriority(priority: SourcePriority): readonly SourceEntry[] {
@@ -73,6 +75,7 @@ export async function buildScrapers(pool: Pool): Promise<readonly ResolvedScrape
     const scraper = await buildOneScraper(source, pool);
     if (scraper) {
       scraper.category = source.category;
+      scraper.subcategory = source.subcategory;
       scrapers.push({ sourceKey: source.key, scraper, priority: source.priority });
     }
   }
@@ -100,6 +103,7 @@ async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<BaseScr
       maxItems: 30,
       pool,
       encoding: source.encoding,
+      sectionFeeds: source.sectionFeeds,
     });
   }
 
