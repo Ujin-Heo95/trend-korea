@@ -154,7 +154,7 @@ const KeywordStrip: React.FC<{ topics: Topic[] }> = ({ topics }) => {
 // ── 스켈레톤 ───────────────────────────────────────────
 
 const Skeleton: React.FC = () => (
-  <div className="mb-6">
+  <div className="mb-6" style={{ minHeight: '10rem' }}>
     <div className="h-4 w-28 bg-slate-200 dark:bg-slate-700 rounded mb-3 animate-shimmer" />
     <div className="flex gap-3 overflow-x-auto pb-2">
       {Array.from({ length: 4 }, (_, i) => (
@@ -176,7 +176,7 @@ export const TrendHero: React.FC = () => {
   if (topics.length === 0) return null;
 
   return (
-    <div className="mb-6">
+    <div className="mb-6" style={{ minHeight: '10rem' }}>
       <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">
         🔥 지금 뜨는 토픽
       </h2>

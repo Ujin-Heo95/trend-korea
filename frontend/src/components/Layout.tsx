@@ -59,6 +59,12 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
           >
             날씨
           </Link>
+          <Link
+            to="/bookmarks"
+            className="text-xs font-medium px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-colors hidden sm:inline-block"
+          >
+            북마크
+          </Link>
         </div>
         <div className="flex items-center gap-2">
           <SearchBar value={searchQuery} onChange={onSearchChange} />

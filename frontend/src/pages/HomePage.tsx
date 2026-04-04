@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useTransition } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useInfinitePosts } from '../hooks/usePosts';
@@ -48,13 +48,16 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<'trending' | 'latest'>('trending');
   const [newsSubcategory, setNewsSubcategory] = useState<string | undefined>(undefined);
+  const [, startTransition] = useTransition();
   const isNewsTab = category === 'news,press,newsletter';
 
   const handleCategoryChange = (cat: string | undefined) => {
-    onCategoryChange(cat);
-    setSelectedSources([]);
-    setSortMode('trending');
-    setNewsSubcategory(undefined);
+    startTransition(() => {
+      onCategoryChange(cat);
+      setSelectedSources([]);
+      setSortMode('trending');
+      setNewsSubcategory(undefined);
+    });
   };
 
   const filter = {

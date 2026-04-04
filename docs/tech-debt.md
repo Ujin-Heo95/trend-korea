@@ -99,9 +99,10 @@ posts.test.ts 2건 실패도 해결 (test DB 스키마 like_count 컬럼 추가)
 vitest + @testing-library/react + jsdom 인프라 구축.
 45 tests (4 files): sourceColors, PostCard, CategoryTabs, TrendingSection.
 
-### E2E (P4-06) — 미착수
+### ~~E2E (P4-06)~~ ✅ 기반 구축 (2026-04-04)
 
-Playwright 기반 5건 happy path. 런칭 후 우선순위.
+Playwright 설치 + 5건 happy path 작성 (`e2e/happy-paths.spec.ts`).
+홈로드, 카테고리전환, 이슈상세, 투표, 일일리포트. CI 연동은 추후.
 
 ---
 

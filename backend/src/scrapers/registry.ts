@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 import { RssScraper } from './rss.js';
 import { config } from '../config/index.js';
 import type { BaseScraper } from './base.js';
+import { logger } from '../utils/logger.js';
 import sourcesData from './sources.json' with { type: 'json' };
 
 export type SourcePriority = 'high' | 'medium' | 'low';
@@ -85,10 +86,7 @@ export async function buildScrapers(pool: Pool): Promise<readonly ResolvedScrape
   }
 
   if (missingKeys.length > 0) {
-    console.warn(`[registry] ⚠️ API 키 누락으로 무음 실패 예상 (${missingKeys.length}개):`);
-    for (const msg of missingKeys) {
-      console.warn(`  - ${msg}`);
-    }
+    logger.warn({ count: missingKeys.length, keys: missingKeys }, '[registry] API 키 누락으로 무음 실패 예상');
   }
 
   cachedScrapers = Object.freeze(scrapers);
@@ -103,7 +101,7 @@ export function resetScraperCache(): void {
 async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<BaseScraper | null> {
   if (source.type === 'rss') {
     if (!source.feedUrl) {
-      console.warn(`[registry] ${source.key}: rss type requires feedUrl, skipping`);
+      logger.warn({ sourceKey: source.key }, '[registry] rss type requires feedUrl, skipping');
       return null;
     }
     return new RssScraper({
@@ -118,7 +116,7 @@ async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<BaseScr
   }
 
   if (!source.module || !source.className) {
-    console.warn(`[registry] ${source.key}: html/api/apify type requires module+className, skipping`);
+    logger.warn({ sourceKey: source.key }, '[registry] html/api/apify type requires module+className, skipping');
     return null;
   }
 
@@ -126,7 +124,7 @@ async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<BaseScr
     const mod = await import(source.module);
     const ScraperClass = mod[source.className];
     if (!ScraperClass) {
-      console.warn(`[registry] ${source.key}: class ${source.className} not found in ${source.module}`);
+      logger.warn({ sourceKey: source.key, className: source.className, module: source.module }, '[registry] class not found in module');
       return null;
     }
 
@@ -139,7 +137,7 @@ async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<BaseScr
     }
     return new ScraperClass(pool);
   } catch (err) {
-    console.error(`[registry] ${source.key}: failed to load module ${source.module}:`, err);
+    logger.error({ sourceKey: source.key, module: source.module, err }, '[registry] failed to load module');
     return null;
   }
 }

@@ -52,14 +52,14 @@ const NAV_ITEMS: NavItem[] = [
     matchFn: (pathname) => pathname === '/keywords',
   },
   {
-    path: '/weather',
-    label: '날씨',
+    path: '/bookmarks',
+    label: '북마크',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
       </svg>
     ),
-    matchFn: (pathname) => pathname === '/weather',
+    matchFn: (pathname) => pathname === '/bookmarks',
   },
 ];
 

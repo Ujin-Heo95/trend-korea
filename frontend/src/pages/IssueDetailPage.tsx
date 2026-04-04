@@ -11,6 +11,8 @@ import { ErrorRetry } from '../components/shared/ErrorRetry';
 import { Sparkline } from '../components/shared/Sparkline';
 import { EngagementChart } from '../components/shared/EngagementChart';
 import { AdSlot } from '../components/shared/AdSlot';
+import { IssueDetailSkeleton } from '../components/shared/IssueDetailSkeleton';
+import { optimizedImage } from '../utils/imageProxy';
 
 function timeAgo(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -60,11 +62,7 @@ export const IssueDetailPage: React.FC = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
-      </div>
-    );
+    return <IssueDetailSkeleton />;
   }
 
   if (isError || !data) {
@@ -119,7 +117,7 @@ export const IssueDetailPage: React.FC = () => {
 
         {post.thumbnail && (
           <img
-            src={post.thumbnail}
+            src={optimizedImage(post.thumbnail, 640)}
             alt=""
             className="w-full max-h-64 object-cover rounded-xl mb-4"
             loading="lazy"
@@ -231,7 +229,7 @@ export const IssueDetailPage: React.FC = () => {
                 className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
               >
                 {a.thumbnail && (
-                  <img src={a.thumbnail} alt="" className="w-12 h-9 object-cover rounded flex-shrink-0" loading="lazy" decoding="async" />
+                  <img src={optimizedImage(a.thumbnail, 96)} alt="" className="w-12 h-9 object-cover rounded flex-shrink-0" loading="lazy" decoding="async" />
                 )}
                 <div className="flex-1 min-w-0">
                   <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getSourceColor(a.source_key)}`}>
@@ -257,7 +255,7 @@ export const IssueDetailPage: React.FC = () => {
                 className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
               >
                 {p.thumbnail && (
-                  <img src={p.thumbnail} alt="" className="w-12 h-9 object-cover rounded flex-shrink-0" loading="lazy" decoding="async" />
+                  <img src={optimizedImage(p.thumbnail, 96)} alt="" className="w-12 h-9 object-cover rounded flex-shrink-0" loading="lazy" decoding="async" />
                 )}
                 <div className="flex-1 min-w-0">
                   <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getSourceColor(p.source_key)}`}>

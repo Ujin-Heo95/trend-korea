@@ -4,6 +4,8 @@ import type { Post } from '../types';
 import { getSourceColor } from '../constants/sourceColors';
 import { ShareButton } from './shared/ShareButton';
 import { VoteButton } from './shared/VoteButton';
+import { BookmarkButton } from './shared/BookmarkButton';
+import { optimizedImage } from '../utils/imageProxy';
 
 function timeAgo(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -60,7 +62,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
         )}
         {post.thumbnail && (
           <div className="flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
-            <img src={post.thumbnail} alt="" loading="lazy" decoding="async" width={64} height={48} className="w-full h-full object-cover" />
+            <img src={optimizedImage(post.thumbnail, 128)} alt="" loading="lazy" decoding="async" width={64} height={48} className="w-full h-full object-cover" />
           </div>
         )}
         <div className="flex-1 min-w-0">
@@ -100,6 +102,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
             {onVote && (
               <VoteButton postId={post.id} voteCount={post.vote_count} hasVoted={hasVoted ?? false} onVote={onVote} />
             )}
+            <BookmarkButton post={post} />
             <ShareButton url={post.url} title={post.title} thumbnail={post.thumbnail} />
           </div>
         </div>

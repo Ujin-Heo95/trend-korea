@@ -1,5 +1,6 @@
 import { Pool, type QueryResult, type QueryResultRow } from 'pg';
 import { config } from '../config/index.js';
+import { logger } from '../utils/logger.js';
 
 const isSSL = config.dbUrl.includes('supabase.com') || config.dbUrl.includes('sslmode=require');
 
@@ -12,7 +13,7 @@ export const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  console.error('[db:pool] idle client error:', err.message);
+  logger.error({ err }, '[db:pool] idle client error');
 });
 
 // ── Connection error detection ──────────────────────────
@@ -42,7 +43,7 @@ export async function queryWithRetry<T extends QueryResultRow = QueryResultRow>(
     return await pool.query<T>(text, params);
   } catch (err) {
     if (isConnectionError(err)) {
-      console.warn('[db] connection error, retrying once:', (err as Error).message);
+      logger.warn({ err }, '[db] connection error, retrying once');
       return pool.query<T>(text, params);
     }
     throw err;
@@ -56,10 +57,10 @@ export async function validateConnection(): Promise<void> {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       await pool.query('SELECT 1');
-      console.log('[db] connection validated');
+      logger.info('[db] connection validated');
       return;
     } catch (err) {
-      console.error(`[db] connection attempt ${attempt}/${MAX_RETRIES} failed:`, (err as Error).message);
+      logger.error({ attempt, maxRetries: MAX_RETRIES, err }, '[db] connection attempt failed');
       if (attempt === MAX_RETRIES) throw err;
       const delayMs = 1000 * 2 ** (attempt - 1); // 1s, 2s, 4s
       await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -81,10 +82,10 @@ export async function checkDbHealth(): Promise<boolean> {
 // ── Graceful shutdown ───────────────────────────────────
 
 export async function gracefulShutdown(): Promise<void> {
-  console.log('[db] draining connection pool...');
+  logger.info('[db] draining connection pool...');
   const timeout = new Promise<void>(resolve => setTimeout(resolve, 5_000));
   await Promise.race([pool.end(), timeout]);
-  console.log('[db] pool closed');
+  logger.info('[db] pool closed');
 }
 
 // Note: shutdown handlers are registered in server.ts to coordinate with Fastify close

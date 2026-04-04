@@ -1,11 +1,37 @@
 import type { Pool } from 'pg';
 import type { ScrapedPost } from './types.js';
 import { clusterPosts } from '../services/dedup.js';
+import { logger } from '../utils/logger.js';
 
 const MAX_TITLE_LEN = 300;
 const MAX_AUTHOR_LEN = 100;
 const MAX_URL_LEN = 2048;
 const MAX_METADATA_BYTES = 8192;
+
+// ── Circuit Breaker ────────────────────────────────────
+const CIRCUIT_BREAKER_THRESHOLD = 5;
+const CIRCUIT_BREAKER_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+interface CircuitState {
+  failures: number;
+  openedAt: number | null;
+}
+
+const circuitStates = new Map<string, CircuitState>();
+
+function getCircuitState(sourceKey: string): CircuitState {
+  let state = circuitStates.get(sourceKey);
+  if (!state) {
+    state = { failures: 0, openedAt: null };
+    circuitStates.set(sourceKey, state);
+  }
+  return state;
+}
+
+/** Exported for testing — reset all circuit breaker states */
+export function resetCircuitBreakers(): void {
+  circuitStates.clear();
+}
 
 function stripHtml(s: string): string {
   return s.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
@@ -114,11 +140,30 @@ export abstract class BaseScraper {
       }
     } catch (err) {
       // 스냅샷 실패는 스크래핑 자체를 중단시키지 않음
-      console.warn(`[scraper] engagement snapshot failed: ${String(err)}`);
+      logger.warn({ err }, '[scraper] engagement snapshot failed');
     }
   }
 
+  /** Source key used for circuit breaker tracking — subclasses can set sourceKey property */
+  protected getSourceKey(): string {
+    return (this as unknown as { sourceKey?: string }).sourceKey ?? this.constructor.name;
+  }
+
   async run(): Promise<{ count: number; error?: string }> {
+    // ── Circuit Breaker check ──
+    const cbState = getCircuitState(this.getSourceKey());
+    if (cbState.openedAt !== null) {
+      const elapsed = Date.now() - cbState.openedAt;
+      if (elapsed < CIRCUIT_BREAKER_COOLDOWN_MS) {
+        const remainMin = Math.ceil((CIRCUIT_BREAKER_COOLDOWN_MS - elapsed) / 60_000);
+        return { count: 0, error: `circuit open — skipping (${remainMin}min remaining)` };
+      }
+      // Cooldown expired — close circuit and retry
+      logger.info({ sourceKey: this.getSourceKey() }, '[scraper] circuit breaker closed, resuming');
+      cbState.openedAt = null;
+      cbState.failures = 0;
+    }
+
     const MAX_RETRIES = 2;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
@@ -129,13 +174,21 @@ export abstract class BaseScraper {
         if (!skipDedup) {
           await clusterPosts(this.pool, posts);
         }
+        // Success — reset circuit breaker
+        cbState.failures = 0;
         return { count };
       } catch (err) {
         if (attempt < MAX_RETRIES) {
           const delay = 2000 * Math.pow(4, attempt);
-          console.warn(`[scraper] retry ${attempt + 1}/${MAX_RETRIES} in ${delay}ms: ${String(err)}`);
+          logger.warn({ sourceKey: this.getSourceKey(), attempt: attempt + 1, delay }, '[scraper] retrying');
           await new Promise(r => setTimeout(r, delay));
           continue;
+        }
+        // All retries exhausted — increment circuit breaker
+        cbState.failures += 1;
+        if (cbState.failures >= CIRCUIT_BREAKER_THRESHOLD) {
+          cbState.openedAt = Date.now();
+          logger.error({ sourceKey: this.getSourceKey(), failures: cbState.failures }, '[scraper] circuit breaker OPEN — skipping for 1 hour');
         }
         return { count: 0, error: String(err) };
       }

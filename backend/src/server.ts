@@ -40,6 +40,36 @@ declare module 'fastify' { interface FastifyInstance { pg: Pool; } }
 export async function buildApp() {
   const app = Fastify({ logger: true, trustProxy: true });
   app.decorate('pg', pool);
+
+  // ── Central Error Handler ────────────────────────────
+  app.setErrorHandler((error: Error & { statusCode?: number; validation?: unknown }, request, reply) => {
+    const statusCode = error.statusCode ?? 500;
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    // Log with Sentry if configured
+    if (config.sentryDsn && statusCode >= 500) {
+      Sentry.captureException(error);
+    }
+
+    // Log server errors
+    if (statusCode >= 500) {
+      request.log.error({ err: error, url: request.url }, 'server error');
+    }
+
+    // Fastify validation errors (400)
+    if (error.validation) {
+      return reply.status(400).send({
+        error: error.message,
+        statusCode: 400,
+      });
+    }
+
+    return reply.status(statusCode).send({
+      error: isProduction && statusCode >= 500 ? 'Internal Server Error' : error.message,
+      statusCode,
+    });
+  });
+
   await app.register(cors, { origin: config.corsOrigin });
   await app.register(helmet, {
     contentSecurityPolicy: {

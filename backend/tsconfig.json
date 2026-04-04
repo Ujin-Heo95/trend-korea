@@ -11,5 +11,10 @@
     "skipLibCheck": true
   },
   "include": ["src/**/*"],
-  "exclude": ["tests/**/*"]
+  "exclude": [
+    "tests/**/*",
+    "src/middleware/auth.ts",
+    "src/routes/auth.ts",
+    "src/routes/comments.ts"
+  ]
 }

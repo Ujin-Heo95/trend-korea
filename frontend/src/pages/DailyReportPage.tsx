@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchDailyReport } from '../api/client';
 import type { DailyReportSection, Category } from '../types';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { ReportSkeleton } from '../components/shared/ReportSkeleton';
 
 const CATEGORY_META: Record<string, { emoji: string; label: string }> = {
   news: { emoji: '\ud83d\udcf0', label: '\ub274\uc2a4' },
@@ -138,29 +139,6 @@ function ReportPostRow({ section }: { section: DailyReportSection }) {
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{summary}</p>
         )}
       </div>
-    </div>
-  );
-}
-
-function ReportSkeleton() {
-  return (
-    <div className="animate-shimmer space-y-6">
-      {[1, 2, 3].map(i => (
-        <div key={i}>
-          <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-32 mb-3" />
-          <div className="space-y-3">
-            {[1, 2, 3].map(j => (
-              <div key={j} className="flex gap-3">
-                <div className="w-7 h-7 bg-slate-200 dark:bg-slate-700 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />
-                  <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded w-1/2" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

@@ -32,10 +32,42 @@
       "WebFetch(domain:www.kobis.or.kr)",
       "WebFetch(domain:wikidocs.net)",
       "Bash(npx vitest:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(nslookup www.weeklit.net)",
+      "Bash(curl -sI https://www.weeklit.net)",
+      "Bash(curl -svk https://www.weeklit.net)",
+      "Bash(ls *.toml *.json)",
+      "Bash(railway --version)",
+      "Bash(railway variables:*)",
+      "Bash(railway whoami:*)",
+      "Bash(railway list:*)",
+      "Bash(nslookup www.weeklit.net 8.8.8.8)",
+      "Bash(nslookup -type=TXT _railway.weeklit.net 8.8.8.8)",
+      "Bash(nslookup weeklit.net 8.8.8.8)",
+      "Bash(nslookup -type=TXT _railway-verify.www.weeklit.net 8.8.8.8)",
+      "Bash(npx vite:*)",
+      "Bash(railway logs:*)",
+      "Bash(curl -s -H \"User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\)\" -H \"Referer: https://www.82cook.com/\" \"https://www.82cook.com/entiz/enti.php?bn=15\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\허우진\\.claude\\sessions"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "A git push just completed in the trend-korea project. Save a concise work summary to auto-memory.\n\nSteps:\n1. Run `git log --oneline -5` to see recent commits\n2. Run `git diff HEAD~3..HEAD --stat` for changed files summary\n3. Write a memory file to C:/Users/허우진/.claude/projects/C--dev-trend-korea/memory/ with filename push_YYYY-MM-DD.md (use `date +%Y-%m-%d` for the date). If file exists for today, use push_YYYY-MM-DD_2.md etc.\n4. Use this format:\n   ---\n   name: Push YYYY-MM-DD\n   description: <one-line summary>\n   type: project\n   ---\n   <2-3 bullet points: what changed and why>\n5. Read MEMORY.md from the same directory and add a one-line index entry for the new file.\n\nKeep summary under 80 words. Focus on WHAT and WHY, not HOW.",
+            "if": "Bash(git push:*)",
+            "timeout": 120,
+            "model": "claude-haiku-4-5-20251001",
+            "statusMessage": "푸시 기억 저장 중..."
+          }
+        ]
+      }
     ]
   }
 }
