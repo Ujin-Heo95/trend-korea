@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { Pool } from 'pg';
 import { config } from '../config/index.js';
+import { detectBursts } from './keywords.js';
 
 interface TrendArticle {
   readonly title: string;
@@ -48,7 +49,7 @@ interface TrendSignal {
   readonly communityMentions: number;
   readonly communitySources: readonly string[];
   readonly convergenceScore: number;
-  readonly signalType: 'confirmed' | 'google_only';
+  readonly signalType: 'confirmed' | 'google_only' | 'burst_confirmed' | 'burst_naver' | 'burst_google';
   readonly contextTitle: string | null;
   readonly relatedPostIds: readonly number[];
 }
@@ -394,6 +395,198 @@ export async function crossValidate(pool: Pool): Promise<number> {
   const elapsed = Date.now() - startTime;
   const confirmed = signals.filter(s => s.signalType === 'confirmed').length;
   console.log(`[cross-validate] ${upserted} signals (${confirmed} confirmed) in ${elapsed}ms`);
+
+  return upserted;
+}
+
+// ── Google Trends 매칭 (DB 쿼리, API 비용 0) ────────
+
+interface GoogleTrendsMatch {
+  readonly keyword: string;
+  readonly trafficNum: number;
+  readonly postId: number;
+}
+
+async function matchGoogleTrends(
+  pool: Pool,
+  burstKeywords: readonly string[],
+): Promise<ReadonlyMap<string, GoogleTrendsMatch>> {
+  if (burstKeywords.length === 0) return new Map();
+
+  const { rows } = await pool.query<{
+    id: number;
+    gt_keyword: string;
+    traffic_num: number;
+  }>(`
+    SELECT id,
+      metadata->>'keyword' AS gt_keyword,
+      COALESCE((metadata->>'trafficNum')::int, view_count) AS traffic_num
+    FROM posts
+    WHERE source_key = 'google_trends'
+      AND scraped_at > NOW() - INTERVAL '6 hours'
+      AND metadata->>'keyword' IS NOT NULL
+  `);
+
+  const matches = new Map<string, GoogleTrendsMatch>();
+  for (const burst of burstKeywords) {
+    if (burst.length < 2) continue;
+    for (const gt of rows) {
+      if (gt.gt_keyword.includes(burst) || burst.includes(gt.gt_keyword)) {
+        const existing = matches.get(burst);
+        if (!existing || gt.traffic_num > existing.trafficNum) {
+          matches.set(burst, {
+            keyword: gt.gt_keyword,
+            trafficNum: gt.traffic_num,
+            postId: gt.id,
+          });
+        }
+      }
+    }
+  }
+
+  return matches;
+}
+
+// ── 버스트 키워드 외부 검증 ─────────────────────────
+
+const MAX_BURST_KEYWORDS = 15;
+
+export async function validateBurstKeywords(pool: Pool): Promise<number> {
+  const startTime = Date.now();
+
+  // 1. 버스트 키워드 수집 (z_score DESC, 상위 15개)
+  const bursts = await detectBursts(pool);
+  if (bursts.size === 0) {
+    console.log('[burst-validate] no burst keywords, skipping');
+    return 0;
+  }
+
+  const sortedBursts = [...bursts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, MAX_BURST_KEYWORDS);
+
+  // 2. 오늘 이미 trend_signals에 있는 키워드 제외
+  const { rows: existing } = await pool.query<{ keyword: string }>(
+    `SELECT keyword FROM trend_signals WHERE detected_date = CURRENT_DATE`,
+  );
+  const existingKeywords = new Set(existing.map(r => r.keyword));
+
+  const newBursts = sortedBursts.filter(([kw]) => !existingKeywords.has(kw));
+  if (newBursts.length === 0) {
+    console.log('[burst-validate] all burst keywords already validated today');
+    return 0;
+  }
+
+  const keywords = newBursts.map(([kw]) => kw);
+
+  // 3. Google Trends 매칭 (DB 쿼리, API 비용 0)
+  const gtMatches = await matchGoogleTrends(pool, keywords);
+
+  // 4. Naver DataLab 호출 (기존 함수 재사용)
+  const naverResults = await queryNaverDatalab(keywords);
+
+  // 5. 커뮤니티 언급 수 (keyword_stats 3h 윈도우에서)
+  const { rows: statsRows } = await pool.query<{
+    keyword: string;
+    mention_count: number;
+  }>(`
+    SELECT keyword, mention_count
+    FROM keyword_stats
+    WHERE window_hours = 3 AND keyword = ANY($1::text[])
+  `, [keywords]);
+  const mentionMap = new Map(statsRows.map(r => [r.keyword, r.mention_count]));
+
+  // 6. 시그널 생성
+  const signals: TrendSignal[] = [];
+  for (const [keyword, zScore] of newBursts) {
+    const gt = gtMatches.get(keyword);
+    const naver = naverResults.get(keyword) ?? null;
+    const hasGt = gt !== undefined;
+    const hasNaver = naver !== null && naver.changePct > 0;
+
+    // 둘 다 없으면 저장 안 함 (내부 burstBonus만 적용)
+    if (!hasGt && !hasNaver) continue;
+
+    const signalType: TrendSignal['signalType'] = hasGt && hasNaver
+      ? 'burst_confirmed'
+      : hasNaver
+        ? 'burst_naver'
+        : 'burst_google';
+
+    const trafficNum = gt?.trafficNum ?? 0;
+    const communityMentions = mentionMap.get(keyword) ?? 0;
+    const convergenceScore = computeConvergenceScore(trafficNum, naver, communityMentions);
+
+    signals.push({
+      keyword,
+      googleTraffic: gt ? `${trafficNum}+` : '',
+      googleTrafficNum: trafficNum,
+      googlePostId: gt?.postId ?? 0,
+      naverRecent: naver?.recent ?? null,
+      naverPrevious: naver?.previous ?? null,
+      naverChangePct: naver?.changePct ?? null,
+      naverTrendData: naver?.trendData ?? null,
+      communityMentions,
+      communitySources: [],
+      convergenceScore,
+      signalType,
+      contextTitle: null,
+      relatedPostIds: [],
+    });
+  }
+
+  // 7. UPSERT (기존 crossValidate와 동일 쿼리)
+  let upserted = 0;
+  for (const s of signals) {
+    try {
+      await pool.query(
+        `INSERT INTO trend_signals (
+           keyword, google_traffic, google_traffic_num, google_post_id,
+           naver_recent, naver_previous, naver_change_pct,
+           community_mentions, community_sources,
+           convergence_score, signal_type,
+           context_title, related_post_ids, naver_trend_data
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         ON CONFLICT (keyword, detected_date)
+         DO UPDATE SET
+           google_traffic = EXCLUDED.google_traffic,
+           google_traffic_num = EXCLUDED.google_traffic_num,
+           google_post_id = EXCLUDED.google_post_id,
+           naver_recent = EXCLUDED.naver_recent,
+           naver_previous = EXCLUDED.naver_previous,
+           naver_change_pct = EXCLUDED.naver_change_pct,
+           community_mentions = EXCLUDED.community_mentions,
+           community_sources = EXCLUDED.community_sources,
+           convergence_score = EXCLUDED.convergence_score,
+           signal_type = EXCLUDED.signal_type,
+           context_title = EXCLUDED.context_title,
+           related_post_ids = EXCLUDED.related_post_ids,
+           naver_trend_data = EXCLUDED.naver_trend_data`,
+        [
+          s.keyword, s.googleTraffic, s.googleTrafficNum, s.googlePostId,
+          s.naverRecent, s.naverPrevious, s.naverChangePct,
+          s.communityMentions, s.communitySources,
+          s.convergenceScore, s.signalType,
+          s.contextTitle, s.relatedPostIds,
+          s.naverTrendData ? JSON.stringify(s.naverTrendData) : null,
+        ],
+      );
+      upserted++;
+    } catch (err) {
+      console.error(`[burst-validate] upsert error for "${s.keyword}":`, err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  const elapsed = Date.now() - startTime;
+  const byType = {
+    burst_confirmed: signals.filter(s => s.signalType === 'burst_confirmed').length,
+    burst_naver: signals.filter(s => s.signalType === 'burst_naver').length,
+    burst_google: signals.filter(s => s.signalType === 'burst_google').length,
+  };
+  console.log(
+    `[burst-validate] ${upserted}/${newBursts.length} validated in ${elapsed}ms | ` +
+    `confirmed=${byType.burst_confirmed} naver=${byType.burst_naver} google=${byType.burst_google}`
+  );
 
   return upserted;
 }

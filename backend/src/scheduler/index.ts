@@ -4,7 +4,7 @@ import { runAllScrapers, runScrapersByPriority, runApifyScrapers } from '../scra
 import { cleanOldPosts, cleanOldScraperRuns, cleanExpiredTrendSignals, cleanOldEngagementSnapshots, cleanNumericTitlePosts } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
 import { generateDailyReport } from '../services/dailyReport.js';
-import { crossValidate } from '../services/trendCrossValidator.js';
+import { crossValidate, validateBurstKeywords } from '../services/trendCrossValidator.js';
 import { processNewPosts, calculateStats, updateBaselines, generateBurstExplanations } from '../services/keywords.js';
 import { summarizeNewPosts } from '../services/summaries.js';
 import { generateMiniEditorial } from '../services/miniEditorial.js';
@@ -68,6 +68,7 @@ export function startScheduler(): void {
       await calculateStats(pool, 3);
       await updateBaselines(pool);
       await generateBurstExplanations(pool);
+      await validateBurstKeywords(pool);
       await calculateStats(pool, 24);
     } catch (err) {
       captureError(err);

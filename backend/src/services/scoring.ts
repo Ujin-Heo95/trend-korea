@@ -429,26 +429,37 @@ function momentumToBonus(momentum: number | undefined): number {
 }
 
 /** 교차검증 트렌드 시그널 → 게시글별 bonus 매핑 */
+// signal_type별 보너스 상한: 3중 확인 > GT+Naver > burst+Naver > burst+GT
+const SIGNAL_TYPE_MAX_BONUS: Record<string, number> = {
+  burst_confirmed: 0.30,  // 내부 버스트 + GT + Naver 3중
+  confirmed: 0.25,        // GT + Naver (기존)
+  burst_naver: 0.20,      // 내부 버스트 + Naver
+  burst_google: 0.15,     // 내부 버스트 + GT
+};
+
 async function calculateTrendConfirmationMap(pool: Pool): Promise<Map<number, number>> {
   const { rows } = await pool.query<{
     post_id: number;
     max_convergence: number;
+    best_signal_type: string;
   }>(`
-    SELECT ke.post_id, MAX(ts.convergence_score)::float AS max_convergence
+    SELECT ke.post_id,
+      MAX(ts.convergence_score)::float AS max_convergence,
+      (ARRAY_AGG(ts.signal_type ORDER BY ts.convergence_score DESC))[1] AS best_signal_type
     FROM keyword_extractions ke
     JOIN posts p ON p.id = ke.post_id
     JOIN trend_signals ts ON ts.keyword = ANY(ke.keywords)
       AND ts.expires_at > NOW()
       AND ts.convergence_score > 5
-      AND ts.signal_type = 'confirmed'
+      AND ts.signal_type IN ('confirmed', 'burst_confirmed', 'burst_naver', 'burst_google')
     WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
     GROUP BY ke.post_id
   `);
 
   const map = new Map<number, number>();
   for (const r of rows) {
-    // convergence_score / 20, 최대 0.25 bonus
-    const bonus = 1.0 + Math.min(r.max_convergence / 20.0, 0.25);
+    const maxBonus = SIGNAL_TYPE_MAX_BONUS[r.best_signal_type] ?? 0.25;
+    const bonus = 1.0 + Math.min(r.max_convergence / 20.0, maxBonus);
     map.set(r.post_id, bonus);
   }
   return map;
