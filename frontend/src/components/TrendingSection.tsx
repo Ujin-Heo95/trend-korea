@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTrending } from '../hooks/usePosts';
+import { getSourceColor } from '../constants/sourceColors';
 
 export const TrendingSection: React.FC = () => {
   const { data, isLoading } = useTrending();
@@ -33,7 +34,7 @@ export const TrendingSection: React.FC = () => {
           >
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-xs font-bold text-orange-500">#{i + 1}</span>
-              <span className="text-xs text-slate-400">{post.source_name}</span>
+              <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getSourceColor(post.source_key, post.category)}`}>{post.source_name}</span>
               {post.view_count > 0 && (
                 <span className="text-xs text-slate-400 ml-auto">조회 {post.view_count.toLocaleString()}</span>
               )}

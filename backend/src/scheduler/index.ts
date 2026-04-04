@@ -8,6 +8,7 @@ import { crossValidate } from '../services/trendCrossValidator.js';
 import { processNewPosts, calculateStats, updateBaselines, generateBurstExplanations } from '../services/keywords.js';
 import { summarizeNewPosts } from '../services/summaries.js';
 import { generateMiniEditorial } from '../services/miniEditorial.js';
+import { generateAndSaveWeeklyDigest } from '../services/weeklyDigest.js';
 import { checkDbSize } from '../services/dbMonitor.js';
 import { pool } from '../db/client.js';
 
@@ -91,6 +92,12 @@ export function startScheduler(): void {
     runApifyScrapers().catch(captureError);
   });
   console.log('[scheduler] apify SNS: 00:00, 09:00 UTC (09:00, 18:00 KST)');
+
+  // 주간 다이제스트: 일요일 23:00 UTC (= 월요일 08:00 KST)
+  cron.schedule('0 23 * * 0', () => {
+    generateAndSaveWeeklyDigest(pool).catch(captureError);
+  });
+  console.log('[scheduler] weekly digest: Sunday 23:00 UTC (Mon 08:00 KST)');
 
   // 자정 + 정오 2회 (Railway 서버 = UTC 기준) — DB 100MB 한도 대응
   cron.schedule('0 0,12 * * *', () => {

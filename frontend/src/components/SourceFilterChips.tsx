@@ -1,5 +1,5 @@
 import React from 'react';
-import { SOURCE_COLORS } from '../constants/sourceColors';
+import { getSourceColor } from '../constants/sourceColors';
 
 const COMMUNITY_SOURCES = [
   { key: 'dcinside', name: 'DC인사이드' },
@@ -50,7 +50,7 @@ export const SourceFilterChips: React.FC<Props> = ({ selected, onChange }) => {
       </button>
       {COMMUNITY_SOURCES.map(({ key, name }) => {
         const active = selected.includes(key);
-        const color = SOURCE_COLORS[key] ?? 'bg-slate-100 text-slate-600';
+        const color = getSourceColor(key, 'community');
         return (
           <button
             key={key}

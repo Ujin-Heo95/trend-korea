@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchKeywordDetail } from '../api/client';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import { SOURCE_COLORS } from '../constants/sourceColors';
+import { getSourceColor } from '../constants/sourceColors';
 import { ErrorRetry } from '../components/shared/ErrorRetry';
 import { AdSlot } from '../components/shared/AdSlot';
 
@@ -67,6 +67,22 @@ export const KeywordDetailPage: React.FC = () => {
         )}
       </div>
 
+      {/* AI 분석 */}
+      {data.aiExplanation && (
+        <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 border border-indigo-200 dark:border-indigo-800">
+          <div className="flex items-center gap-1.5 mb-2">
+            <svg className="w-4 h-4 text-indigo-500" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0l2 5h5l-4 3.5 1.5 5L8 10.5 3.5 13.5 5 8.5 1 5h5z"/></svg>
+            <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">AI 분석</span>
+            {data.stats?.zScore != null && data.stats.zScore >= 2.0 && (
+              <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400">
+                급상승
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">{data.aiExplanation}</p>
+        </div>
+      )}
+
       {/* Related keywords */}
       {data.related_keywords.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-6">
@@ -100,7 +116,7 @@ export const KeywordDetailPage: React.FC = () => {
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${SOURCE_COLORS[post.source_key] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getSourceColor(post.source_key, post.category)}`}>
                       {post.source_name}
                     </span>
                     {post.cluster_size > 1 && (

@@ -2,6 +2,7 @@ import axios from 'axios';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
+import type { YouTubeSearchItem } from '../db/types.js';
 
 const COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2시간
 const MIN_MENTION_COUNT = 3;
@@ -84,7 +85,7 @@ export class YoutubeSearchScraper extends BaseScraper {
         timeout: 10000,
       });
 
-      return (data.items ?? []).map((item: any) => ({
+      return (data.items ?? []).map((item: YouTubeSearchItem) => ({
         sourceKey: 'youtube_search',
         sourceName: 'YouTube 키워드',
         title: item.snippet.title,

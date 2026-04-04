@@ -4,7 +4,7 @@ import { useIssueDetail } from '../hooks/usePosts';
 import { useReadPosts } from '../hooks/useReadPosts';
 import { useVotes } from '../hooks/useVotes';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import { SOURCE_COLORS } from '../constants/sourceColors';
+import { getSourceColor } from '../constants/sourceColors';
 import { ShareButton } from '../components/shared/ShareButton';
 import { VoteButton } from '../components/shared/VoteButton';
 import { ErrorRetry } from '../components/shared/ErrorRetry';
@@ -96,7 +96,7 @@ export const IssueDetailPage: React.FC = () => {
       {/* Post header */}
       <article>
         <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${SOURCE_COLORS[post.source_key] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getSourceColor(post.source_key, post.category)}`}>
             {post.source_name}
           </span>
           {trend_score != null && trend_score > 0 && (
@@ -148,7 +148,7 @@ export const IssueDetailPage: React.FC = () => {
                 to={`/issue/${m.id}`}
                 className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 transition-colors"
               >
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${SOURCE_COLORS[m.source_key] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${getSourceColor(m.source_key)}`}>
                   {m.source_name}
                 </span>
                 <span className="text-sm text-slate-700 dark:text-slate-300 line-clamp-1 flex-1">{m.title}</span>
@@ -234,7 +234,7 @@ export const IssueDetailPage: React.FC = () => {
                   <img src={a.thumbnail} alt="" className="w-12 h-9 object-cover rounded flex-shrink-0" loading="lazy" decoding="async" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${SOURCE_COLORS[a.source_key] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getSourceColor(a.source_key)}`}>
                     {a.source_name}
                   </span>
                   <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-1 mt-0.5">{a.title}</p>
@@ -260,7 +260,7 @@ export const IssueDetailPage: React.FC = () => {
                   <img src={p.thumbnail} alt="" className="w-12 h-9 object-cover rounded flex-shrink-0" loading="lazy" decoding="async" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${SOURCE_COLORS[p.source_key] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getSourceColor(p.source_key)}`}>
                     {p.source_name}
                   </span>
                   <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-1 mt-0.5">{p.title}</p>

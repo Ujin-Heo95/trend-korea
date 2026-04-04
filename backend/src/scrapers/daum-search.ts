@@ -2,6 +2,7 @@ import axios from 'axios';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
+import type { DaumSearchDoc } from '../db/types.js';
 
 const COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2시간
 const MIN_MENTION_COUNT = 3;
@@ -78,7 +79,7 @@ abstract class DaumSearchBase extends BaseScraper {
         }
       );
 
-      return (data.documents ?? []).map((doc: any) => ({
+      return (data.documents ?? []).map((doc: DaumSearchDoc) => ({
         sourceKey: this.sourceKey,
         sourceName: this.sourceName,
         title: stripHtml(doc.title),

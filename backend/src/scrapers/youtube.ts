@@ -2,6 +2,7 @@ import axios from 'axios';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
+import type { YouTubeVideoItem } from '../db/types.js';
 
 export class YoutubeScraper extends BaseScraper {
   constructor(pool: Pool, private apiKey: string) {
@@ -23,7 +24,7 @@ export class YoutubeScraper extends BaseScraper {
         timeout: 10000,
       });
 
-      return (data.items ?? []).map((item: any) => ({
+      return (data.items ?? []).map((item: YouTubeVideoItem) => ({
         sourceKey: 'youtube',
         sourceName: 'YouTube',
         title: item.snippet.title,

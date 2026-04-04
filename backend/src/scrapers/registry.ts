@@ -56,7 +56,11 @@ const API_KEY_REQUIREMENTS: Record<string, { key: keyof typeof config; label: st
   kcisa_performance:{ key: 'dataGoKrApiKey',  label: 'DATA_GO_KR_API_KEY' },
 };
 
+let cachedScrapers: readonly ResolvedScraper[] | null = null;
+
 export async function buildScrapers(pool: Pool): Promise<readonly ResolvedScraper[]> {
+  if (cachedScrapers) return cachedScrapers;
+
   const enabled = getEnabledSources();
   const scrapers: ResolvedScraper[] = [];
   const missingKeys: string[] = [];
@@ -87,7 +91,13 @@ export async function buildScrapers(pool: Pool): Promise<readonly ResolvedScrape
     }
   }
 
-  return scrapers;
+  cachedScrapers = Object.freeze(scrapers);
+  return cachedScrapers;
+}
+
+/** Reset cached scrapers (useful for testing or dynamic reconfiguration) */
+export function resetScraperCache(): void {
+  cachedScrapers = null;
 }
 
 async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<BaseScraper | null> {

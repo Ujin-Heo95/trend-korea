@@ -32,26 +32,14 @@ POST/PUT/DELETE 요청에 대한 기록 없음. 투표 조작, 리포트 생성 
 
 ## 백엔드 — Medium
 
-### `any` 타입 15+ 위치 (P2-01)
+### ~~`any` 타입 15+ 위치 (P2-01)~~ ✅ 해결 (2026-04-04)
 
-| 파일 | 위치 | 내용 |
-|------|------|------|
-| `routes/posts.ts` | 라인 7, 100, 154, 209, 227 | 쿼리 결과 `any[]` 캐스트 |
-| `routes/sources.ts` | 라인 23-24 | `(r: any)` 캐스트 |
-| `scrapers/registry.ts` | 동적 import | `await import()` 결과 무타입 |
-| `scrapers/rss.ts` | 라인 97, 103, 122 | RSS 아이템 타입 미정의 |
-| `services/weather.ts` | 라인 130 | KMA API 응답 무타입 |
-| `scrapers/apify-x.ts` | 라인 36 | media 객체 무타입 |
-| `scrapers/daum-search.ts` | 라인 81 | API 응답 무타입 |
-| `scrapers/youtube*.ts` | 다수 | API 응답 무타입 |
+`db/types.ts`에 `PostRow`, `SourceRow`, API 응답 인터페이스 정의. 16곳 `any` → 구체 타입 교체.
+RSS 파서 확장 필드만 `RssExt` (eslint-disable 주석 포함) 유지.
 
-모델: `issueDetail.ts`가 모든 쿼리를 정확히 타입화한 좋은 예시.
+### ~~buildScrapers 매 주기 재생성 (P2-02)~~ ✅ 해결 (2026-04-04)
 
-### buildScrapers 매 주기 재생성 (P2-02)
-
-`scrapers/index.ts` — `runScrapersByPriority`, `runApifyScrapers`, `runAllScrapers`가 매번
-`buildScrapers(pool)` 호출. 68개 소스에 대해 동적 import + 클래스 인스턴스화 반복.
-수정: 모듈 레벨 캐시 + `resetScrapers()` export.
+모듈-레벨 캐시 + `resetScraperCache()` export. sources.json은 런타임 불변이므로 TTL 불필요.
 
 ### ~~cleanup.ts 인터벌 문자열 연결 (P2-16)~~ ✅ 해결 (2026-04-04)
 
@@ -61,24 +49,24 @@ POST/PUT/DELETE 요청에 대한 기록 없음. 투표 조작, 리포트 생성 
 
 `{ vote_count, is_new_vote: inserted }` 정확한 응답.
 
-### DB 연결 복구 부재 (P2-08)
+### ~~DB 연결 복구 부재 (P2-08)~~ ✅ 해결 (2026-04-04)
 
-`db/client.ts` — pool error 시 console.log만. Supabase 유지보수 시 연결 끊기면
-프로세스 재시작까지 모든 쿼리 실패.
-수정: 재연결 backoff + 스크래퍼 일시정지 + health 503.
+`db/client.ts` — `queryWithRetry()` (connection error 1회 재시도), `validateConnection()` (시작 시 3회 backoff),
+`gracefulShutdown()` (5초 타임아웃 pool drain). server.ts에서 통합 호출.
 
-### category null vs undefined 불일치
+### ~~category null vs undefined 불일치~~ ✅ 해결 (2026-04-04)
 
-DB는 `category IS NULL`, 프론트엔드 타입은 `Category | undefined`. 경계에서 매칭 안 됨.
+프론트 `Post.category` 타입을 `Category | null`로 명시. null 카테고리는 미분류 포스트로 정식 허용.
 
 ---
 
 ## 프론트엔드 — Medium
 
-### COLORS 맵 수동 관리
+### ~~COLORS 맵 수동 관리~~ ✅ 해결 (2026-04-04)
 
-`sourceColors.ts` + `PostCard.tsx` — 50개+ 소스별 색상 수동 매핑.
-sources.json과 동기화 필요. 해시 기반 자동 색상 생성 또는 sources.json에 색상 필드 추가 권장.
+카테고리 기반 `getSourceColor(sourceKey, category)` 함수로 전환.
+신규 소스는 카테고리 기본색 자동 상속, 주요 커뮤니티만 오버라이드.
+PostCard, IssueDetailPage, KeywordDetailPage, SourceFilterChips, TrendingSection 모두 적용.
 
 ### CategoryTabs 접근성 (P2-12)
 
@@ -92,9 +80,10 @@ skip-to-content 링크 없음.
 `index.html:19` 확인: `&display=swap` 파라미터 포함. 기존 tech-debt에서 제거.
 단, 외부 Google Fonts 요청 자체가 렌더 블로킹 → P2-10에서 자체 호스팅으로 해결.
 
-### TrendingSection 마크업 중복
+### ~~TrendingSection 소스 색상 미적용~~ ✅ 해결 (2026-04-04)
 
-`TrendingSection.tsx` — PostCard를 재사용하지 않고 독립 마크업 사용.
+`getSourceColor()` 적용으로 소스 이름에 카테고리 색상 배지 표시.
+레이아웃 통합은 하지 않음 — 수평 컴팩트 카드는 의도적으로 다른 디자인.
 
 ---
 

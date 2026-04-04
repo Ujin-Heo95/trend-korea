@@ -9,22 +9,30 @@ const MAX_POSTS_PER_RUN = 200;
 const BATCH_DELAY_MS = 500;
 
 const PROMPT_TEMPLATE = `다음은 한국 커뮤니티 게시글 제목 목록이다.
-각 제목에서 고유명사(인물명, 기업명, 지명, 브랜드, 작품명, 이슈 키워드)만 추출하라.
-일반명사(논란, 상황, 발표 등)는 제외한다.
-1글자 키워드는 제외한다.
+각 제목에서:
+1. 고유명사(인물명, 기업명, 지명, 브랜드, 작품명, 이슈 키워드)만 추출. 일반명사 제외. 1글자 제외.
+2. 제목의 전체적인 톤을 판단: "positive", "negative", "neutral", "controversy" 중 하나.
 
-응답 형식 (JSON 배열의 배열, 제목 순서 유지):
-[["키워드1", "키워드2"], ["키워드3"], ...]
+응답 형식 (JSON 배열, 제목 순서 유지):
+[{"keywords": ["키워드1", "키워드2"], "tone": "neutral"}, {"keywords": ["키워드3"], "tone": "negative"}, ...]
 
 제목 목록:
 `;
 
+export interface KeywordExtraction {
+  readonly keywords: string[];
+  readonly tone: string | null;
+}
+
+const VALID_TONES = new Set(['positive', 'negative', 'neutral', 'controversy']);
+
 /**
- * Gemini Flash로 제목 배치에서 키워드 추출
+ * Gemini Flash로 제목 배치에서 키워드 + 톤 추출
  */
-export async function extractKeywords(titles: readonly string[]): Promise<string[][]> {
+export async function extractKeywords(titles: readonly string[]): Promise<KeywordExtraction[]> {
+  const empty: KeywordExtraction = { keywords: [], tone: null };
   const m = getModel();
-  if (!m) return titles.map(() => []);
+  if (!m) return titles.map(() => empty);
 
   const numberedTitles = titles.map((t, i) => `${i + 1}. ${t}`).join('\n');
   const prompt = PROMPT_TEMPLATE + numberedTitles;
@@ -36,12 +44,11 @@ export async function extractKeywords(titles: readonly string[]): Promise<string
       const result = await m.generateContent(prompt);
 
       const text = result.response.text().trim();
-      // JSON 블록 추출: ```json ... ``` 또는 그냥 배열
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
         console.error('[keywords] no JSON array in response:', text.slice(0, 200));
         await notifyScraperErrors('keywords', [{ sourceKey: 'gemini', error: 'JSON 파싱 실패: 배열 없음' }]);
-        return titles.map(() => []);
+        return titles.map(() => empty);
       }
 
       const parsed: unknown = JSON.parse(jsonMatch[0]);
@@ -49,11 +56,25 @@ export async function extractKeywords(titles: readonly string[]): Promise<string
         throw new Error('parsed result is not an array');
       }
 
-      // 각 항목을 string[] 로 정규화, 길이 보정
       return titles.map((_, i) => {
         const item = parsed[i];
-        if (!Array.isArray(item)) return [];
-        return item.filter((k: unknown): k is string => typeof k === 'string' && k.length >= 2);
+        // 하위호환: 기존 형태 [["kw1"], ["kw2"]] 도 지원
+        if (Array.isArray(item)) {
+          return {
+            keywords: item.filter((k: unknown): k is string => typeof k === 'string' && k.length >= 2),
+            tone: null,
+          };
+        }
+        // 새 형태: {"keywords": [...], "tone": "..."}
+        if (item && typeof item === 'object') {
+          const obj = item as Record<string, unknown>;
+          const kws = Array.isArray(obj.keywords)
+            ? (obj.keywords as unknown[]).filter((k): k is string => typeof k === 'string' && k.length >= 2)
+            : [];
+          const tone = typeof obj.tone === 'string' && VALID_TONES.has(obj.tone) ? obj.tone : null;
+          return { keywords: kws, tone };
+        }
+        return empty;
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -68,11 +89,11 @@ export async function extractKeywords(titles: readonly string[]): Promise<string
 
       console.error('[keywords] extraction failed:', msg);
       await notifyScraperErrors('keywords', [{ sourceKey: 'gemini', error: msg }]);
-      return titles.map(() => []);
+      return titles.map(() => empty);
     }
   }
 
-  return titles.map(() => []);
+  return titles.map(() => empty);
 }
 
 /**
@@ -103,27 +124,27 @@ export async function processNewPosts(pool: Pool): Promise<void> {
     const batch = pending.slice(i, i + BATCH_SIZE);
     const titles = batch.map(p => p.title);
 
-    const keywords = await geminiLimit(() => extractKeywords(titles));
+    const extractions = await geminiLimit(() => extractKeywords(titles));
 
     // 전부 빈 배열이면 API 실패 (쿼터 초과 등) — 중단
-    const hasAnyKeywords = keywords.some(k => k.length > 0);
+    const hasAnyKeywords = extractions.some(e => e.keywords.length > 0);
     if (!hasAnyKeywords && batch.length > 3) {
       console.warn('[keywords] all empty results — possible quota exhaustion, stopping');
       quotaExhausted = true;
     }
 
-    // 배치 INSERT
+    // 배치 INSERT (tone 포함)
     const values: string[] = [];
     const params: unknown[] = [];
     for (let j = 0; j < batch.length; j++) {
       const idx = params.length;
-      values.push(`($${idx + 1}, $${idx + 2}::text[])`);
-      params.push(batch[j].id, keywords[j]);
+      values.push(`($${idx + 1}, $${idx + 2}::text[], $${idx + 3})`);
+      params.push(batch[j].id, extractions[j].keywords, extractions[j].tone);
     }
 
     if (values.length > 0 && hasAnyKeywords) {
       await pool.query(
-        `INSERT INTO keyword_extractions (post_id, keywords)
+        `INSERT INTO keyword_extractions (post_id, keywords, tone)
          VALUES ${values.join(', ')}
          ON CONFLICT (post_id) DO NOTHING`,
         params,
@@ -242,37 +263,42 @@ export async function calculateStats(pool: Pool, windowHours: number): Promise<v
     return;
   }
 
-  // 키워드별 언급 수 (상위 100개)
-  const { rows: stats } = await pool.query<{ keyword: string; cnt: number }>(
-    `SELECT unnest(ke.keywords) AS keyword, COUNT(DISTINCT ke.post_id)::int AS cnt
-     FROM keyword_extractions ke
-     JOIN posts p ON p.id = ke.post_id
-     WHERE p.scraped_at > NOW() - INTERVAL '1 hour' * $1
-     GROUP BY keyword
-     ORDER BY cnt DESC
-     LIMIT 100`,
+  // 키워드별 언급 수 + 대표 톤 (상위 100개)
+  const { rows: stats } = await pool.query<{ keyword: string; cnt: number; dominant_tone: string | null }>(
+    `SELECT keyword, cnt, dominant_tone FROM (
+       SELECT unnest(ke.keywords) AS keyword,
+              COUNT(DISTINCT ke.post_id)::int AS cnt,
+              MODE() WITHIN GROUP (ORDER BY ke.tone) AS dominant_tone
+       FROM keyword_extractions ke
+       JOIN posts p ON p.id = ke.post_id
+       WHERE p.scraped_at > NOW() - INTERVAL '1 hour' * $1
+       GROUP BY keyword
+       ORDER BY cnt DESC
+       LIMIT 100
+     ) sub`,
     [windowHours],
   );
 
   if (stats.length === 0) return;
 
-  // UPSERT keyword_stats
+  // UPSERT keyword_stats (dominant_tone 포함)
   const values: string[] = [];
   const params: unknown[] = [];
   for (const row of stats) {
     const idx = params.length;
-    const rate = Math.round((row.cnt / total) * 10000) / 100; // 소수점 2자리 %
-    values.push(`($${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, NOW())`);
-    params.push(row.keyword, row.cnt, rate, windowHours, total);
+    const rate = Math.round((row.cnt / total) * 10000) / 100;
+    values.push(`($${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 6}, NOW())`);
+    params.push(row.keyword, row.cnt, rate, windowHours, total, row.dominant_tone);
   }
 
   await pool.query(
-    `INSERT INTO keyword_stats (keyword, mention_count, rate, window_hours, total_posts, calculated_at)
+    `INSERT INTO keyword_stats (keyword, mention_count, rate, window_hours, total_posts, dominant_tone, calculated_at)
      VALUES ${values.join(', ')}
      ON CONFLICT (keyword, window_hours) DO UPDATE SET
        mention_count = EXCLUDED.mention_count,
        rate = EXCLUDED.rate,
        total_posts = EXCLUDED.total_posts,
+       dominant_tone = EXCLUDED.dominant_tone,
        calculated_at = EXCLUDED.calculated_at`,
     params,
   );

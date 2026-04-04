@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { getSourceMeta } from '../scrapers/registry.js';
+import type { PostStatsRow, RunStatsRow } from '../db/types.js';
 
 export async function sourcesRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/sources', async () => {
@@ -20,8 +21,8 @@ export async function sourcesRoutes(app: FastifyInstance): Promise<void> {
       ),
     ]);
 
-    const posts = Object.fromEntries(postStats.rows.map((r: any) => [r.source_key, r]));
-    const runs = Object.fromEntries(runStats.rows.map((r: any) => [r.source_key, r]));
+    const posts = Object.fromEntries((postStats.rows as PostStatsRow[]).map(r => [r.source_key, r]));
+    const runs = Object.fromEntries((runStats.rows as RunStatsRow[]).map(r => [r.source_key, r]));
 
     return sourceMeta.map(s => {
       const p = posts[s.key];

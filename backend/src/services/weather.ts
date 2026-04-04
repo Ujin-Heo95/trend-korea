@@ -127,14 +127,14 @@ async function fetchFromKMA(cityCode: string, baseDate: string, baseTime: string
     throw new Error(`KMA API error: ${res.status} ${res.statusText}`);
   }
 
-  const json = await res.json() as any;
+  const json = await res.json() as { response?: { header?: { resultCode?: string; resultMsg?: string }; body?: { items?: { item?: RawItem[] } } } };
   const header = json?.response?.header;
 
   if (header?.resultCode !== '00') {
     throw new Error(`KMA API error: ${header?.resultCode} ${header?.resultMsg}`);
   }
 
-  return json.response.body.items.item ?? [];
+  return json.response?.body?.items?.item ?? [];
 }
 
 // ── 데이터 변환 ──────────────────────────────────────────

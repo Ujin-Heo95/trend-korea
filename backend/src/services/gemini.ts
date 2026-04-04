@@ -169,6 +169,80 @@ JSON 형식: {"keywords":["kw1","kw2",...],"briefing":"..."}`,
   }
 }
 
+/**
+ * 키워드가 왜 화제인지 설명 (버스트 아닌 키워드용, on-demand)
+ */
+export async function explainKeywordTrend(
+  keyword: string,
+  relatedTitles: readonly string[],
+): Promise<string | null> {
+  const m = getModel();
+  if (!m || relatedTitles.length === 0) return null;
+
+  try {
+    const titleList = relatedTitles.map((t, i) => `${i + 1}. ${t}`).join('\n');
+    const result = await m.generateContent(
+      `키워드 "${keyword}"가 현재 화제이다.
+관련 게시글 제목:
+${titleList}
+
+이 키워드가 왜 주목받고 있는지 2-3문장(120자 이내)으로 한국어로 분석하라. 마침표로 끝낼 것.`,
+    );
+    await delay(50);
+    return result.response.text().trim() || null;
+  } catch (err) {
+    console.error('[gemini] keyword trend explain failed:', (err as Error).message);
+    return null;
+  }
+}
+
+/**
+ * 7일치 일일 에디토리얼을 종합하여 주간 다이제스트 생성
+ */
+export async function generateWeeklyDigest(
+  dailySummaries: readonly { date: string; keywords: string; briefing: string }[],
+): Promise<{ digest: string; topKeywords: string[]; outlook: string } | null> {
+  const m = getModel();
+  if (!m || dailySummaries.length === 0) return null;
+
+  try {
+    const entries = dailySummaries
+      .map(d => `[${d.date}] 키워드: ${d.keywords}\n브리핑: ${d.briefing}`)
+      .join('\n\n');
+
+    const result = await m.generateContent(
+      `당신은 한국 시사 전문 편집자입니다. 아래는 이번 주 일일 에디토리얼 요약입니다.
+
+${entries}
+
+다음을 한국어로 작성하세요:
+1. **이번 주 핵심 키워드** (5-7개, 쉼표 구분): 한 주를 관통하는 핵심 이슈
+2. **주간 다이제스트** (4-6문장, 300자 이내): 이번 주의 트렌드 흐름, 주요 이슈 간 연결고리, 여론 방향을 분석
+3. **다음 주 전망** (2-3문장, 120자 이내): 이어질 만한 이슈와 주목할 포인트
+
+JSON 형식: {"topKeywords":["kw1","kw2",...],"digest":"...","outlook":"..."}`,
+    );
+    await delay(100);
+
+    const text = result.response.text().trim();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    const topKeywords = Array.isArray(parsed.topKeywords)
+      ? (parsed.topKeywords as unknown[]).filter((k): k is string => typeof k === 'string')
+      : [];
+    const digest = typeof parsed.digest === 'string' ? parsed.digest.trim() : '';
+    const outlook = typeof parsed.outlook === 'string' ? parsed.outlook.trim() : '';
+
+    if (!digest) return null;
+    return { digest, topKeywords, outlook };
+  } catch (err) {
+    console.error('[gemini] weekly digest failed:', (err as Error).message);
+    return null;
+  }
+}
+
 export async function generateEditorial(
   categoryTitles: Record<string, string[]>,
 ): Promise<string | null> {

@@ -8,7 +8,7 @@ import fastifyStatic from '@fastify/static';
 import * as Sentry from '@sentry/node';
 import { Pool } from 'pg';
 import { config } from './config/index.js';
-import { pool } from './db/client.js';
+import { pool, validateConnection, gracefulShutdown } from './db/client.js';
 import { postsRoutes } from './routes/posts.js';
 import { sourcesRoutes } from './routes/sources.js';
 import { healthRoutes } from './routes/health.js';
@@ -22,6 +22,7 @@ import { ogImageRoutes } from './routes/ogImage.js';
 import { votesRoutes } from './routes/votes.js';
 import { topicsRoutes } from './routes/topics.js';
 import { sitemapRoutes } from './routes/sitemap.js';
+import { weeklyDigestRoutes } from './routes/weeklyDigest.js';
 import { startScheduler } from './scheduler/index.js';
 import { registerPrerender } from './middleware/prerender.js';
 
@@ -72,6 +73,7 @@ export async function buildApp() {
   await app.register(votesRoutes);
   await app.register(topicsRoutes);
   await app.register(sitemapRoutes);
+  await app.register(weeklyDigestRoutes);
 
   // 봇 프리렌더: API 이외의 봇 요청에 동적 meta 태그 HTML 반환
   registerPrerender(app, pool);
@@ -110,6 +112,7 @@ export async function buildApp() {
 
 const isMain = process.argv[1]?.endsWith('server.ts') || process.argv[1]?.endsWith('server.js');
 if (isMain) {
+  await validateConnection();
   const app = await buildApp();
   startScheduler();
   await app.listen({ port: config.port, host: '0.0.0.0' });
@@ -117,7 +120,7 @@ if (isMain) {
   const shutdown = async (signal: string) => {
     console.log(`[server] ${signal} received — shutting down gracefully`);
     await app.close();
-    await pool.end();
+    await gracefulShutdown();
     if (config.sentryDsn) await Sentry.close(2000);
     console.log('[server] shutdown complete');
     process.exit(0);

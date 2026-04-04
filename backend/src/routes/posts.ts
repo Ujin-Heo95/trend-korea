@@ -1,10 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { LRUCache } from '../cache/lru.js';
+import type { PostRow, PostRowWithCluster } from '../db/types.js';
 
 const postsCache = new LRUCache<unknown>(200, 60_000);
 
 /** Batch-fetch keywords from keyword_extractions for given post IDs */
-async function attachKeywords(pg: FastifyInstance['pg'], posts: any[]): Promise<void> {
+async function attachKeywords(pg: FastifyInstance['pg'], posts: PostRowWithCluster[]): Promise<void> {
   if (posts.length === 0) return;
   const ids = posts.map(p => p.id);
   const { rows } = await pg.query<{ post_id: number; keywords: string[] }>(
@@ -101,7 +102,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       ]);
 
       // Cluster dedup: collapse non-canonical cluster members
-      const postIds = rows.rows.map((r: any) => r.id);
+      const postIds = (rows.rows as PostRow[]).map(r => r.id);
       const clusterInfo = postIds.length > 0
         ? await app.pg.query<{
             post_id: number; cluster_id: number; canonical_post_id: number;
@@ -154,8 +155,8 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
 
       // Filter: keep canonical or unclustered, skip non-canonical members
       const seenClusters = new Set<number>();
-      const posts = [];
-      for (const row of rows.rows as any[]) {
+      const posts: PostRowWithCluster[] = [];
+      for (const row of rows.rows as PostRowWithCluster[]) {
         const ci = clusterMap.get(row.id);
         if (ci) {
           if (row.id !== ci.canonicalId) continue; // skip non-canonical
@@ -210,7 +211,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
     );
 
     // Cluster dedup for trending
-    const postIds = r.rows.map((row: any) => row.id);
+    const postIds = (r.rows as PostRow[]).map(row => row.id);
     const clusterInfo = postIds.length > 0
       ? await app.pg.query<{ post_id: number; canonical_post_id: number; member_count: number }>(
           `SELECT pcm.post_id, pc.canonical_post_id, pc.member_count
@@ -227,8 +228,8 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const seenClusters = new Set<number>();
-    const posts = [];
-    for (const row of r.rows as any[]) {
+    const posts: PostRowWithCluster[] = [];
+    for (const row of r.rows as PostRowWithCluster[]) {
       const ci = clusterMap.get(row.id);
       if (ci) {
         if (row.id !== ci.canonicalId) continue;

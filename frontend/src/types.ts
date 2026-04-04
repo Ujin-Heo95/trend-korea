@@ -18,7 +18,7 @@ export interface Post {
   vote_count: number;
   published_at?: string;
   scraped_at: string;
-  category?: Category;
+  category: Category | null;
   cluster_size?: number;
   cluster_id?: number | null;
   related_sources?: { id: number; source_name: string; source_key: string; url: string }[];
@@ -77,6 +77,8 @@ export interface DailyReportMeta {
 }
 
 // ── 키워드/이슈태그 ──────────────────────────────────────
+export type KeywordTone = 'positive' | 'negative' | 'neutral' | 'controversy';
+
 export interface KeywordStat {
   rank: number;
   keyword: string;
@@ -84,6 +86,7 @@ export interface KeywordStat {
   rate: number;
   burstExplanation?: string;
   zScore?: number;
+  tone?: KeywordTone;
 }
 
 export interface KeywordStatsResponse {

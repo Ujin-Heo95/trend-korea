@@ -33,7 +33,7 @@ export class ApifyXScraper extends ApifyBaseScraper {
 
     const entities = item.entities as Record<string, unknown> | undefined;
     const media = Array.isArray(entities?.media) ? entities.media : [];
-    const thumbnail = media.length > 0 ? String((media[0] as any).media_url_https ?? '') : undefined;
+    const thumbnail = media.length > 0 ? String((media[0] as Record<string, unknown>).media_url_https ?? '') : undefined;
 
     return {
       sourceKey: 'apify_x_trending',

@@ -57,6 +57,9 @@ const googleTrendsParser = new Parser({
   },
 });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- RSS parser returns dynamic XML-parsed fields
+type RssExt = Record<string, any>;
+
 function safeDate(value: string | undefined): Date | undefined {
   if (!value) return undefined;
   const d = new Date(value);
@@ -163,7 +166,7 @@ export class RssScraper extends BaseScraper {
       return this.mapYoutubeItem(item);
     }
 
-    const ext = item as any;
+    const ext = item as RssExt;
     const thumbnail = ext.enclosure?.url
       ?? ext['media:content']?.['$']?.url
       ?? ext['media:thumbnail']?.['$']?.url
@@ -181,7 +184,7 @@ export class RssScraper extends BaseScraper {
   }
 
   private mapYoutubeItem(item: Parser.Item): ScrapedPost {
-    const ext = item as any;
+    const ext = item as RssExt;
     const mediaGroup = ext.mediaGroup ?? {};
     // YouTube Atom: <media:group><media:thumbnail url="..."/></media:group>
     const thumbnail = mediaGroup['media:thumbnail']?.[0]?.['$']?.url
@@ -200,7 +203,7 @@ export class RssScraper extends BaseScraper {
   }
 
   private mapGoogleTrendsItem(item: Parser.Item): ScrapedPost {
-    const ext = item as any;
+    const ext = item as RssExt;
     const keyword = item.title?.trim() ?? '';
     const traffic = ext.htApproxTraffic ?? '';
     const picture = ext.htPicture ?? undefined;

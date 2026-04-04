@@ -5,6 +5,14 @@ import { fetchKeywordStats } from '../api/client';
 import { ErrorRetry } from '../components/shared/ErrorRetry';
 import { WordCloud } from '../components/WordCloud';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import type { KeywordTone } from '../types';
+
+const TONE_INDICATOR: Record<KeywordTone, { dot: string; label: string }> = {
+  positive: { dot: 'bg-emerald-500', label: '긍정' },
+  negative: { dot: 'bg-red-500', label: '부정' },
+  neutral: { dot: 'bg-slate-400', label: '중립' },
+  controversy: { dot: 'bg-amber-500', label: '논란' },
+};
 
 const WINDOW_OPTIONS = [
   { value: 3, label: '3시간' },
@@ -37,7 +45,7 @@ export const KeywordsPage: React.FC = () => {
   });
 
   const handleKeywordClick = (keyword: string) => {
-    navigate(`/?q=${encodeURIComponent(keyword)}`);
+    navigate(`/keyword/${encodeURIComponent(keyword)}`);
   };
 
   return (
@@ -125,6 +133,47 @@ export const KeywordsPage: React.FC = () => {
         </div>
       )}
 
+      {/* 급상승 키워드 섹션 */}
+      {data && viewMode === 'list' && (() => {
+        const burstKeywords = data.keywords.filter(kw => kw.zScore != null && kw.zScore >= 2.0);
+        if (burstKeywords.length === 0) return null;
+        return (
+          <div className="mb-6">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+              <span className="text-red-500">&#x1F525;</span> 급상승 키워드
+            </h2>
+            <div className="space-y-2">
+              {burstKeywords.map(kw => (
+                <button
+                  key={kw.keyword}
+                  onClick={() => handleKeywordClick(kw.keyword)}
+                  className="w-full flex items-start gap-3 px-4 py-3 rounded-lg border-l-4 border-l-red-500 border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 transition-all hover:shadow-sm hover:scale-[1.005] text-left"
+                >
+                  <span className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold bg-red-500 text-white text-xs">
+                    {kw.rank}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-lg font-bold text-slate-900 dark:text-white">{kw.keyword}</span>
+                      <span className="flex-shrink-0 text-xs font-medium px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400">
+                        z-score {kw.zScore?.toFixed(1)}
+                      </span>
+                    </div>
+                    {kw.burstExplanation && (
+                      <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{kw.burstExplanation}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 pt-1">
+                    <span className="text-sm font-semibold">{kw.count.toLocaleString()}회</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">{kw.rate}%</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 태그 랭킹 리스트 */}
       {data && data.keywords.length > 0 && viewMode === 'list' && (
         <div className="space-y-2">
@@ -160,9 +209,15 @@ export const KeywordsPage: React.FC = () => {
                   {kw.rank}
                 </span>
 
-                {/* 키워드명 + 버스트 설명 */}
+                {/* 키워드명 + 톤 + 버스트 설명 */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
+                    {kw.tone && TONE_INDICATOR[kw.tone] && (
+                      <span
+                        className={`flex-shrink-0 w-2 h-2 rounded-full ${TONE_INDICATOR[kw.tone].dot}`}
+                        title={TONE_INDICATOR[kw.tone].label}
+                      />
+                    )}
                     <span className={`truncate ${isTop3 ? 'text-lg font-bold' : isTop10 ? 'font-semibold dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}>
                       {kw.keyword}
                     </span>
@@ -173,7 +228,7 @@ export const KeywordsPage: React.FC = () => {
                     )}
                   </div>
                   {kw.burstExplanation && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{kw.burstExplanation}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{kw.burstExplanation}</p>
                   )}
                 </div>
 

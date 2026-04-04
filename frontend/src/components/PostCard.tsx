@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Post } from '../types';
-import { SOURCE_COLORS } from '../constants/sourceColors';
+import { getSourceColor } from '../constants/sourceColors';
 import { ShareButton } from './shared/ShareButton';
 import { VoteButton } from './shared/VoteButton';
 
@@ -65,7 +65,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${SOURCE_COLORS[post.source_key] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getSourceColor(post.source_key, post.category)}`}>
               {post.source_name}
             </span>
             {post.view_count > 0 && (
@@ -96,7 +96,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
             {post.title}
           </p>
           {post.ai_summary && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{post.ai_summary}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+              <span className="inline-flex items-center gap-0.5 text-indigo-500 dark:text-indigo-400 mr-1">
+                <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0l2 5h5l-4 3.5 1.5 5L8 10.5 3.5 13.5 5 8.5 1 5h5z"/></svg>
+                <span className="text-[10px] font-semibold">AI</span>
+              </span>
+              {post.ai_summary}
+            </p>
           )}
           <div className="flex items-center gap-2 mt-1">
             <p className="text-xs text-slate-400 dark:text-slate-500">{timeAgo(post.published_at ?? post.scraped_at)}</p>
@@ -115,7 +121,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
               to={`/issue/${s.id}`}
               className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
             >
-              <span className={`px-1.5 py-0.5 rounded ${SOURCE_COLORS[s.source_key] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+              <span className={`px-1.5 py-0.5 rounded ${getSourceColor(s.source_key)}`}>
                 {s.source_name}
               </span>
             </Link>

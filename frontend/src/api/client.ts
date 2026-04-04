@@ -51,8 +51,24 @@ export interface KeywordDetailResponse {
     scraped_at: string; cluster_size: number;
   }[];
   related_keywords: string[];
-  stats: { mention_count: number; rate: number; calculated_at: string } | null;
+  stats: {
+    mention_count: number; rate: number; calculated_at: string;
+    tone?: string; zScore?: number;
+  } | null;
+  aiExplanation: string | null;
 }
 
 export const fetchKeywordDetail = (keyword: string) =>
   api.get<KeywordDetailResponse>(`/keyword/${encodeURIComponent(keyword)}`).then(r => r.data);
+
+export interface WeeklyDigest {
+  id: number;
+  week_start: string;
+  digest: string;
+  top_keywords: string[];
+  outlook: string | null;
+  created_at: string;
+}
+
+export const fetchWeeklyDigestLatest = () =>
+  api.get<WeeklyDigest | null>('/weekly-digest/latest').then(r => r.data);
