@@ -2,7 +2,8 @@ export type Category =
   | 'community' | 'video' | 'video_popular' | 'news' | 'tech'
   | 'finance' | 'trend' | 'government' | 'newsletter'
   | 'deals' | 'alert' | 'sports' | 'press' | 'techblog'
-  | 'movie' | 'performance' | 'sns' | 'travel' | 'music';
+  | 'movie' | 'performance' | 'sns' | 'travel' | 'music'
+  | 'books' | 'ott';
 
 export interface Post {
   id: number;

@@ -160,7 +160,7 @@ export class TourVisitorScraper extends BaseScraper {
         sourceKey: 'tour_visitor',
         sourceName: '관광 빅데이터 방문객',
         title: `${trendIcon} ${stat.region} — 방문객 ${changeLabel} (${formatCount(stat.latestCount)})`,
-        url: `https://datalab.visitkorea.or.kr/datalab/portal/loc/getLocBaseList.do`,
+        url: `https://datalab.visitkorea.or.kr/datalab/portal/loc/getLocBaseList.do?region=${encodeURIComponent(stat.region)}`,
         viewCount: stat.changePercent,
         commentCount: stat.latestCount,
         publishedAt: new Date(),

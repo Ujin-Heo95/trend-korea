@@ -50,7 +50,7 @@ export class KworbSpotifyKrScraper extends BaseScraper {
         url,
         author: artist,
         category: 'music',
-        metadata: { rank, title, artist, streams },
+        metadata: { rank, title, artist, songNo: trackId, streams },
       });
     });
 
