@@ -23,7 +23,7 @@
 ```
 
 - `key`: 영문 소문자, 언더스코어 (DB source_key로 사용)
-- `category`: community, news, tech, video, deals, alert 중 선택
+- `category`: community, news, tech, techblog, video, video_popular, finance, music, trend, government, performance, movie, travel, sports, press, newsletter, deals, blog, sns, alert 중 선택
 - `priority`: high(10분), medium(15분), low(30분)
 - `enabled`: false로 두면 수집 제외
 
@@ -58,7 +58,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ---
 
-## 2. 현재 소스 현황 (63개 등록, 56개 활성)
+## 2. 현재 소스 현황 (86개 등록, 73개 활성)
 
 | 카테고리 | 소스 | 수집방식 | 우선순위 | 상태 |
 |----------|------|----------|----------|------|
@@ -67,27 +67,37 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | community | clien, fmkorea | HTML | medium | fmkorea 봇 차단 (430) |
 | community | mlbpark, cook82, inven, humoruniv, ygosu, slrclub, etoland | HTML | high | 안정 |
 | community | ruliweb | HTML | high | **disabled** (timeout) |
-| news | yna, hani, sbs, donga, khan, hankyung, mk | RSS | medium | 안정 |
-| news | chosun, joins | RSS | high | 신규 (2026-03-29) |
-| news | kbs, mbc, jtbc, ytn | RSS | high | 신규 방송사 (2026-03-29) |
-| news | daum_news | RSS | high | 신규 포탈 (2026-03-29) |
-| news | google_news_kr, koreaherald, newsis | RSS | medium | 안정 |
-| news | seoul, kmib, koreatimes | RSS | medium | **disabled** (404/406/DNS) |
-| tech | yozm, etnews | RSS | medium | etnews 신규 (2026-03-29) |
+| community | reddit_korea, reddit_hanguk | RSS (Atom) | low | 신규 (2026-04-04) |
+| news | yna, hani, sbs, donga, khan, hankyung, mk, kmib | RSS | medium | 안정 |
+| news | chosun, jtbc | RSS | high | 안정 |
+| news | ohmynews | RSS | medium | 신규 (2026-04-04) |
+| news | naver_news_ranking | HTML (euc-kr) | medium | 신규 (2026-04-04) |
+| news | google_news_kr, koreaherald, koreatimes, newsis | RSS | medium | 안정 |
+| news | joins, kbs, mbc, ytn, daum_news, seoul | RSS | high | **disabled** (RSS 서비스 종료/404) |
+| tech | yozm, etnews | RSS | medium | 안정 |
+| tech | boannews | RSS (euc-kr) | medium | 신규 (2026-04-04) |
 | tech | geeknews | RSS | medium | **disabled** (403) |
-| techblog | naver_d2, kakao_tech, toss_tech | RSS | low | 신규 (2026-03-29) |
+| techblog | naver_d2, kakao_tech, toss_tech | RSS | low | 안정 |
+| techblog | daangn_tech, line_tech, banksalad_tech | RSS | low | 신규 (2026-04-04) |
 | video | youtube | API | low | 쿼터 주의 (10K/일) |
-| video | youtube_sbs_news, youtube_ytn, youtube_mbc_news, youtube_kbs_news, youtube_jtbc_news | RSS | medium | 신규 YouTube 뉴스 채널 |
-| finance | investing_kr, sedaily | RSS | medium | 안정 |
+| video | youtube_sbs_news, youtube_ytn, youtube_mbc_news, youtube_kbs_news, youtube_jtbc_news | RSS | medium | 안정 |
+| finance | investing_kr, sedaily, moneytoday | RSS | medium | moneytoday 신규 (2026-04-04) |
+| finance | upbit | API | low | 신규 (2026-04-04), 키 불필요 |
 | finance | krx | API | low | **disabled** (세션 인증 필요) |
+| music | melon_chart | HTML | low | 신규 (2026-04-04) |
 | trend | google_trends | RSS | medium | 안정 |
+| trend | naver_datalab | API | medium | 안정 |
 | government | korea_press, korea_policy, korea_briefing | RSS | low | 안정 |
-| sports | sports_donga | RSS | medium | 신규 (2026-03-29) |
-| press | newswire | RSS | medium | 신규 (2026-03-29) |
+| performance | kopis_boxoffice, kcisa_performance | API | low | 안정 |
+| movie | kobis_boxoffice | API | low | 안정 |
+| travel | tour_festival, tour_visitor | API | low | 안정 |
+| sports | sports_donga | RSS | medium | **disabled** (빈 응답) |
+| press | newswire | RSS | medium | 안정 |
 | newsletter | uppity | RSS | low | 안정 |
 | deals | ppomppu_hot | RSS | medium | 안정 |
+| blog | daum_blog | API | low | 안정 |
+| sns | apify_instagram, apify_x, apify_tiktok | Apify | medium | **disabled** (토큰 미설정) |
 | alert | kma | RSS | low | **disabled** |
-| entertainment | kopis_boxoffice | API | low | 안정 |
 
 ---
 
@@ -103,28 +113,47 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | FM Korea | 서버 차단 (IP 블록) | -- |
 | Google Trends JSON | JSON API 폐지 | RSS 전환 완료 |
 | KakaoView | 2023 서비스 종료 | -- |
+| 중앙일보 RSS | "서비스 종료 안내" 페이지 반환 (2026-04) | Google 뉴스 |
+| KBS RSS | API 경로 변경, 404 JSON 반환 (2026-04) | YouTube RSS |
+| MBC RSS | HTML 리다이렉트, RSS 아님 (2026-04) | YouTube RSS |
+| YTN RSS | HTML 리다이렉트 (2026-04) | YouTube RSS |
+| 다음 뉴스 RSS | HTML 리다이렉트 (2026-04) | Google 뉴스 |
+| 서울신문 RSS | 404 (2026-04) | -- |
+| 스포츠동아 RSS | 빈 응답 (2026-04) | -- |
+| GeekNews RSS | 403 Forbidden (2026-04) | -- |
+| Signal.bz | JS SPA, 헤드리스 브라우저 필요 | 네이버 뉴스 랭킹 |
+| 한국일보 RSS | RSS 없음, HTML 반환 (2026-04) | Google 뉴스 |
+| 프레시안 RSS | HTML 반환 (2026-04) | -- |
+| 노컷뉴스 RSS | HTML 반환 (2026-04) | -- |
+| 이데일리 RSS | 빈 응답 (2026-04) | 머니투데이 |
+| 파이낸셜뉴스 RSS | 404 (2026-04) | 머니투데이 |
+| 헤럴드경제 RSS | HTML 반환 (2026-04) | -- |
+| 블로터 RSS | 404 (2026-04) | 보안뉴스 |
+| IT조선 RSS | 404 (2026-04) | 전자신문 |
+| ZDNet Korea RSS | 404 (2026-04) | 전자신문 |
+| 디지털데일리 RSS | HTML 반환 (2026-04) | 전자신문 |
+| 바이라인네트워크 RSS | 403 (2026-04) | -- |
+| 우아한형제들 기술블로그 | 403 (2026-04) | 당근 기술블로그 |
 
 ---
 
 ## 4. 확장 후보 카탈로그
 
-### Tier 1 — RSS 즉시 추가 (코드 0줄, ~60개)
+### Tier 1 — RSS (대부분 연동 완료, 일부 RSS 서비스 종료)
 
-**종합 일간지**: 조선일보, 중앙일보, 한국일보, 오마이뉴스, 프레시안, 세계일보, 노컷뉴스
-**방송사**: KBS, MBC, JTBC, YTN
-**경제/금융**: 머니투데이, 이데일리, 파이낸셜뉴스, 헤럴드경제
-**IT/테크**: 블로터, IT조선, ZDNet Korea, 보안뉴스, 디지털데일리, 바이라인네트워크
-**커뮤니티**: Reddit r/korea, r/hanguk
-**기업 기술블로그**: 네이버 D2, 카카오, 토스, 배민, 당근, 쿠팡, LINE, 마켓컬리, 뱅크샐러드 등 25+개
-**보도자료**: 뉴스와이어 (산업별 203개 RSS 제공)
+**연동 완료**: 조선일보, 오마이뉴스, 머니투데이, 보안뉴스, Reddit r/korea·r/hanguk, 네이버 D2, 카카오, 토스, 당근, LINE, 뱅크샐러드, 뉴스와이어
+**RSS 서비스 종료 (추가 불가)**: 중앙일보, 한국일보, 프레시안, 세계일보, 노컷뉴스, KBS, MBC, YTN, 이데일리, 파이낸셜뉴스, 헤럴드경제, 블로터, IT조선, ZDNet Korea, 디지털데일리, 바이라인네트워크, 우아한형제들
 
-### Tier 2 — API 연동 필요 (~11개)
+### Tier 2 — API (대부분 연동 완료)
 
-KOBIS 박스오피스, 업비트/빗썸 시세, 한국은행 ECOS, DART, 기상청, 에어코리아, 네이버 검색, 카카오 검색, BIG KINDS
+**연동 완료**: KOBIS, 업비트, 네이버 Datalab, 카카오(다음) 검색, BIG KINDS, KOPIS, 관광공사
+**미연동 (API 키 필요)**: 빗썸, 한국은행 ECOS, DART, 에어코리아
 
-### Tier 3 — HTML 스크래퍼 (~7개)
+### Tier 3 — HTML (일부 연동 완료)
 
-개드립, 아카라이브, Signal.bz, 멜론 차트, 네이버 웹툰/뉴스 랭킹, 나무위키
+**연동 완료**: 멜론 차트, 네이버 뉴스 랭킹
+**JS SPA (헤드리스 필요)**: Signal.bz
+**미연동 (복잡)**: 개드립, 아카라이브, 네이버 웹툰 랭킹, 나무위키
 
 ### Tier 4 — 고급/유료 (~7개)
 

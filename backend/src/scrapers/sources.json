@@ -706,6 +706,109 @@
       "className": "KcisaPerformanceScraper",
       "priority": "low",
       "enabled": true
+    },
+    {
+      "key": "ohmynews",
+      "name": "오마이뉴스",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "http://rss.ohmynews.com/rss/ohmynews.xml",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "moneytoday",
+      "name": "머니투데이",
+      "category": "finance",
+      "type": "rss",
+      "feedUrl": "https://rss.mt.co.kr/mt_news.xml",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "boannews",
+      "name": "보안뉴스",
+      "category": "tech",
+      "type": "rss",
+      "feedUrl": "https://www.boannews.com/media/news_rss.xml",
+      "encoding": "euc-kr",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "reddit_korea",
+      "name": "Reddit r/korea",
+      "category": "community",
+      "type": "rss",
+      "feedUrl": "https://www.reddit.com/r/korea/.rss",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "reddit_hanguk",
+      "name": "Reddit r/hanguk",
+      "category": "community",
+      "type": "rss",
+      "feedUrl": "https://www.reddit.com/r/hanguk/.rss",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "daangn_tech",
+      "name": "당근 기술블로그",
+      "category": "techblog",
+      "type": "rss",
+      "feedUrl": "https://medium.com/feed/daangn",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "line_tech",
+      "name": "LINE 기술블로그",
+      "category": "techblog",
+      "type": "rss",
+      "feedUrl": "https://techblog.lycorp.co.jp/ko/feed/index.xml",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "banksalad_tech",
+      "name": "뱅크샐러드 기술블로그",
+      "category": "techblog",
+      "type": "rss",
+      "feedUrl": "https://blog.banksalad.com/rss.xml",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "upbit",
+      "name": "업비트 시세",
+      "category": "finance",
+      "type": "api",
+      "module": "./upbit.js",
+      "className": "UpbitScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "melon_chart",
+      "name": "멜론 차트",
+      "category": "music",
+      "type": "html",
+      "module": "./melon-chart.js",
+      "className": "MelonChartScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "naver_news_ranking",
+      "name": "네이버 뉴스 랭킹",
+      "category": "news",
+      "type": "html",
+      "module": "./naver-news-ranking.js",
+      "className": "NaverNewsRankingScraper",
+      "priority": "medium",
+      "enabled": true
     }
   ]
 }
