@@ -6,6 +6,13 @@ describe('GET /api/posts', () => {
 
   beforeAll(async () => {
     app = await buildApp();
+    // Ensure columns from later migrations exist in the test DB
+    await app.pg.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS category VARCHAR(32)`);
+    await app.pg.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT NULL`);
+    await app.pg.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS vote_count INTEGER NOT NULL DEFAULT 0`);
+    await app.pg.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS ai_summary TEXT DEFAULT NULL`);
+    await app.pg.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS like_count INTEGER NOT NULL DEFAULT 0`);
+    await app.pg.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS subcategory VARCHAR(32)`);
     await app.pg.query(
       `INSERT INTO posts (source_key,source_name,title,url)
        VALUES ('test','테스트','테스트글','https://test.example.com/1')

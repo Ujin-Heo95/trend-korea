@@ -87,14 +87,21 @@ PostCard 클러스터 버튼을 Link 밖으로 이동 + `aria-expanded` 추가.
 
 ---
 
-## 테스트 커버리지 갭 — High
+## 테스트 커버리지 — 진행 중
 
-| 영역 | 현재 | 목표 | 로드맵 |
-|------|------|------|--------|
-| 백엔드 단위 | ~60% (181 tests) | 80% | P2-13 |
-| 백엔드 통합 | 0% | 핵심 경로 5-8건 | P2-13 |
-| 프론트엔드 | 0% | 40% (hooks+컴포넌트) | P2-14 |
-| E2E | 0% | Happy path 5건 | P4-06 |
+### ~~백엔드 단위 (P2-13)~~ ✅ 대폭 개선 (2026-04-04)
+
+250 tests (35 files). 기존 208 → 250: weather, news-classifier, db/client-utils, posts.test.ts 수정.
+posts.test.ts 2건 실패도 해결 (test DB 스키마 like_count 컬럼 추가).
+
+### ~~프론트엔드 테스트 (P2-14)~~ ✅ 인프라 구축 + 초기 테스트 (2026-04-04)
+
+vitest + @testing-library/react + jsdom 인프라 구축.
+45 tests (4 files): sourceColors, PostCard, CategoryTabs, TrendingSection.
+
+### E2E (P4-06) — 미착수
+
+Playwright 기반 5건 happy path. 런칭 후 우선순위.
 
 ---
 
