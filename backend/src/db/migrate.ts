@@ -30,9 +30,14 @@ const migrations = [
   '022_post_summaries.sql',
   '023_burst_explanations.sql',
   '024_mini_editorials.sql',
+  '025_user_profiles.sql',
+  '026_comments.sql',
   '027_like_count.sql',
   '028_news_subcategory.sql',
   '029_backfill_news_subcategory.sql',
+  '030_keyword_tone.sql',
+  '031_index_optimization.sql',
+  '031_weekly_digests.sql',
 ];
 
 try {
