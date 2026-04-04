@@ -343,7 +343,7 @@ export async function generateBurstExplanations(pool: Pool): Promise<void> {
       `SELECT p.title FROM keyword_extractions ke
        JOIN posts p ON p.id = ke.post_id
        WHERE $1 = ANY(ke.keywords)
-         AND p.scraped_at > NOW() - INTERVAL '6 hours'
+         AND p.scraped_at > NOW() - INTERVAL '8 hours'
        ORDER BY p.scraped_at DESC LIMIT 5`,
       [keyword],
     );
@@ -356,7 +356,7 @@ export async function generateBurstExplanations(pool: Pool): Promise<void> {
 
     await pool.query(
       `INSERT INTO keyword_burst_explanations (keyword, z_score, explanation, related_titles, expires_at)
-       VALUES ($1, $2, $3, $4::text[], NOW() + INTERVAL '6 hours')
+       VALUES ($1, $2, $3, $4::text[], NOW() + INTERVAL '8 hours')
        ON CONFLICT (keyword)
        DO UPDATE SET z_score = EXCLUDED.z_score, explanation = EXCLUDED.explanation,
                      related_titles = EXCLUDED.related_titles, expires_at = EXCLUDED.expires_at,

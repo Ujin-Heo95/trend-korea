@@ -1,11 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { LRUCache } from '../cache/lru.js';
-import { explainKeywordTrend } from '../services/gemini.js';
-import pLimit from 'p-limit';
 
-const geminiLimit = pLimit(3);
-
-const cache = new LRUCache<unknown>(100, 3 * 60_000); // 3분 TTL
+const cache = new LRUCache<unknown>(100, 5 * 60_000); // 5분 TTL
 
 export async function keywordDetailRoutes(app: FastifyInstance): Promise<void> {
   // 키워드 상세 — 해당 키워드를 포함하는 최신 이슈 + 관련 키워드
@@ -75,13 +71,9 @@ export async function keywordDetailRoutes(app: FastifyInstance): Promise<void> {
         [keyword],
       );
 
-      // AI 설명: 버스트 설명이 있으면 사용, 없으면 on-demand 생성 (캐시)
+      // AI 설명: 1시간 배치에서 생성된 버스트 설명만 사용 (on-demand Gemini 제거)
       const stat = stats[0] ?? null;
-      let aiExplanation: string | null = stat?.burst_explanation ?? null;
-      if (!aiExplanation && posts.length >= 2) {
-        const titles = posts.slice(0, 5).map(p => p.title);
-        aiExplanation = await geminiLimit(() => explainKeywordTrend(keyword, titles));
-      }
+      const aiExplanation: string | null = stat?.burst_explanation ?? null;
 
       const result = {
         keyword,

@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { summarizePost, summarizeCategory, generateEditorial } from './gemini.js';
+import { summarizeCategory, generateEditorial } from './gemini.js';
 
 const CATEGORIES = [
   'news', 'tech', 'community', 'finance', 'trend',
@@ -30,6 +30,7 @@ interface RankedPost {
   category: string;
   trend_score: number;
   cluster_size: number;
+  ai_summary: string | null;
 }
 
 interface SectionRow {
@@ -59,6 +60,7 @@ async function queryTopPosts(pool: Pool): Promise<RankedPost[]> {
              p.view_count, p.comment_count, p.category,
              ps.trend_score,
              COALESCE(pc.member_count, 1) AS cluster_size,
+             p.ai_summary,
              ROW_NUMBER() OVER (
                PARTITION BY p.category ORDER BY ps.trend_score DESC
              ) AS rn
@@ -69,7 +71,7 @@ async function queryTopPosts(pool: Pool): Promise<RankedPost[]> {
         AND p.category IS NOT NULL
     )
     SELECT id, title, url, source_name, view_count, comment_count,
-           category, trend_score, cluster_size
+           category, trend_score, cluster_size, ai_summary
     FROM ranked
     WHERE rn <= $1
     ORDER BY category, rn
@@ -108,7 +110,6 @@ async function buildSections(
 
     for (let i = 0; i < posts.length; i++) {
       const post = posts[i];
-      const postSummary = await summarizePost(post.title, post.source_name);
 
       sections.push({
         category: cat,
@@ -120,7 +121,7 @@ async function buildSections(
         viewCount: post.view_count,
         commentCount: post.comment_count,
         clusterSize: post.cluster_size,
-        summary: postSummary,
+        summary: post.ai_summary,
         categorySummary: i === 0 ? catSummary : null,
       });
     }

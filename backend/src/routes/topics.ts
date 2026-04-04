@@ -2,7 +2,6 @@ import type { FastifyInstance } from 'fastify';
 import { LRUCache } from '../cache/lru.js';
 import { detectBursts } from '../services/keywords.js';
 import { getSourceWeight } from '../services/scoring.js';
-import { summarizeTopicsBatch } from '../services/gemini.js';
 
 // ─── Types ───
 
@@ -381,26 +380,6 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
         topic.changeType = 'same';
         topic.changeAmount = 0;
       }
-    }
-
-    // AI 브리핑 요약 생성 (캐시 덕분에 60초에 1회만 호출)
-    try {
-      const summaryInputs = finalTopics.map(t => ({
-        channel: t.channels[0] ?? '기타',
-        keywords: t.keywords,
-        postTitles: t.representativePosts.map(p => p.title),
-      }));
-      const summaries = await summarizeTopicsBatch(summaryInputs);
-      for (let i = 0; i < finalTopics.length; i++) {
-        const s = summaries[i];
-        if (s) {
-          finalTopics[i].summaryHeadline = s.headline;
-          finalTopics[i].summaryBody = s.body;
-        }
-      }
-    } catch {
-      // 요약 실패해도 토픽 자체는 반환
-      console.error('[topics] summary generation failed, continuing without summaries');
     }
 
     // 현재 랭킹 저장 (위치변동 추적용)

@@ -27,10 +27,8 @@ export function startScheduler(): void {
   console.log(`[scheduler] priority intervals: high=${PRIORITY_INTERVALS.high}min, medium=${PRIORITY_INTERVALS.medium}min, low=${PRIORITY_INTERVALS.low}min`);
   console.log(`[scheduler] cleanup: twice daily (00:00, 12:00 UTC)`);
 
-  // 최초 실행: 전체 스크래퍼 1회 → 키워드 추출 + AI 요약
+  // 최초 실행: 전체 스크래퍼 1회 → 통계만 (Gemini 호출 없음, 1시간 배치에서 처리)
   runAllScrapers()
-    .then(() => processNewPosts(pool))
-    .then(() => summarizeNewPosts(pool))
     .then(async () => {
       await calculateStats(pool, 1);
       await calculateStats(pool, 3);
@@ -59,28 +57,35 @@ export function startScheduler(): void {
   });
   console.log('[scheduler] daily report: 22:00 UTC (07:00 KST)');
 
-  // 키워드 추출 + AI 요약 + 통계 집계: 30분 주기
+  // 키워드 통계만 갱신: 30분 주기 (Gemini 호출 없음)
   cron.schedule('*/30 * * * *', async () => {
     try {
-      await processNewPosts(pool);
-      await summarizeNewPosts(pool);
       await calculateStats(pool, 1);
       await calculateStats(pool, 3);
       await updateBaselines(pool);
-      await generateBurstExplanations(pool);
-      await validateBurstKeywords(pool);
       await calculateStats(pool, 24);
     } catch (err) {
       captureError(err);
     }
   });
-  console.log('[scheduler] keywords + summaries + bursts: every 30 min');
+  console.log('[scheduler] keyword stats: every 30 min (no Gemini)');
 
-  // 미니 에디토리얼: 3시간마다 실시간 이슈 브리핑
-  cron.schedule('0 */3 * * *', () => {
-    generateMiniEditorial(pool).catch(captureError);
+  // Gemini AI 배치: 1시간 주기 (07:00~02:00 KST = UTC 22-23,0-17)
+  // 키워드 추출 + AI 요약 + 버스트 설명 + 미니 에디토리얼
+  cron.schedule('0 0-17,22-23 * * *', async () => {
+    try {
+      console.log('[scheduler] hourly AI batch started');
+      await processNewPosts(pool);
+      await summarizeNewPosts(pool);
+      await generateBurstExplanations(pool);
+      await validateBurstKeywords(pool);
+      await generateMiniEditorial(pool);
+      console.log('[scheduler] hourly AI batch complete');
+    } catch (err) {
+      captureError(err);
+    }
   });
-  console.log('[scheduler] mini-editorial: every 3 hours');
+  console.log('[scheduler] AI batch: hourly 07:00-02:00 KST (UTC 22-23,0-17)');
 
   // 교차 검증 트렌드: BigKinds와 병행 (검색+커뮤니티 수렴 신호)
   cron.schedule('*/20 * * * *', () => {
