@@ -99,7 +99,7 @@ export const IssueDetailPage: React.FC = () => {
           </span>
           {trend_score != null && trend_score > 0 && (
             <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400">
-              트렌드 {trend_score.toFixed(1)}
+              {trend_score >= 15 ? 'HOT' : trend_score >= 8 ? '인기' : '트렌드'}
             </span>
           )}
           <span className="text-xs text-slate-400 dark:text-slate-500">

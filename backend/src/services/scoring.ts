@@ -440,6 +440,7 @@ async function calculateTrendConfirmationMap(pool: Pool): Promise<Map<number, nu
     JOIN trend_signals ts ON ts.keyword = ANY(ke.keywords)
       AND ts.expires_at > NOW()
       AND ts.convergence_score > 5
+      AND ts.signal_type = 'confirmed'
     WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
     GROUP BY ke.post_id
   `);
@@ -572,6 +573,7 @@ export async function calculateScores(pool: Pool): Promise<number> {
       SELECT p.id, p.source_key, p.category, p.view_count, p.comment_count, p.like_count, p.scraped_at
       FROM posts p
       WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
+        AND COALESCE(p.category, '') NOT IN ('movie', 'performance', 'music', 'books', 'ott', 'deals')
     `),
   ]);
 
@@ -583,10 +585,8 @@ export async function calculateScores(pool: Pool): Promise<number> {
   const values: string[] = [];
   const params: unknown[] = [];
 
-  // 스코어 분포 추적용
-  const scores: number[] = [];
-  // 채널별 백분위 정규화용
-  const rawScoreEntries: { postId: number; score: number; srcW: number; catW: number; channel: Channel; sourceKey: string }[] = [];
+  // 볼륨 감쇄 + UPSERT용
+  const rawScoreEntries: { postId: number; score: number; srcW: number; catW: number; sourceKey: string }[] = [];
 
   for (const row of rows) {
     const ageMinutes = (now - new Date(row.scraped_at).getTime()) / 60_000;
@@ -624,8 +624,7 @@ export async function calculateScores(pool: Pool): Promise<number> {
     };
 
     const score = computeScore(factors);
-    scores.push(score);
-    rawScoreEntries.push({ postId: row.id, score, srcW, catW, channel, sourceKey: row.source_key });
+    rawScoreEntries.push({ postId: row.id, score, srcW, catW, sourceKey: row.source_key });
   }
 
   // Step 2.5: 소스 볼륨 감쇄 (과대표현 억제)
@@ -640,22 +639,7 @@ export async function calculateScores(pool: Pool): Promise<number> {
     entry.score *= volumeDampeningFactor(srcCount, medianCount);
   }
 
-  // Step 3: 채널 내 백분위 정규화 (0-10 스케일)
-  const byChannel = new Map<Channel, typeof rawScoreEntries>();
-  for (const entry of rawScoreEntries) {
-    const arr = byChannel.get(entry.channel) ?? [];
-    arr.push(entry);
-    byChannel.set(entry.channel, arr);
-  }
-  for (const group of byChannel.values()) {
-    group.sort((a, b) => a.score - b.score);
-    const len = group.length;
-    for (let i = 0; i < len; i++) {
-      group[i].score = len > 1 ? (i / (len - 1)) * 10 : 5.0;
-    }
-  }
-
-  // Step 4: UPSERT 준비
+  // Step 3: UPSERT 준비 (raw score 직접 사용)
   for (const entry of rawScoreEntries) {
     const i = params.length;
     params.push(entry.postId, entry.score, entry.srcW, entry.catW);
@@ -681,13 +665,17 @@ export async function calculateScores(pool: Pool): Promise<number> {
     updated += result.rowCount ?? 0;
   }
 
-  // 스코어 분포 로깅 (백분위 정규화 후)
+  // 스코어 분포 로깅 (raw score)
   if (rawScoreEntries.length > 0) {
     const finalScores = rawScoreEntries.map(e => e.score).sort((a, b) => a - b);
     const p = (pct: number) => finalScores[Math.floor(finalScores.length * pct / 100)]?.toFixed(2) ?? '?';
-    const channelCounts = [...byChannel.entries()].map(([ch, g]) => `${ch}=${g.length}`).join(', ');
+    const top3 = rawScoreEntries
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map(e => `[id=${e.postId} score=${e.score.toFixed(2)} src=${e.sourceKey}]`)
+      .join(' ');
     console.log(
-      `[scoring] ${finalScores.length} posts scored (0-10 scale). p10=${p(10)}, p50=${p(50)}, p90=${p(90)} | channels: ${channelCounts}`
+      `[scoring] ${finalScores.length} posts scored (raw). p25=${p(25)} p50=${p(50)} p75=${p(75)} p90=${p(90)} max=${p(100)} | top3: ${top3}`
     );
   }
 

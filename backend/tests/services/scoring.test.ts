@@ -4,6 +4,8 @@ import {
   getHalfLife, volumeDampeningFactor, type ScoreFactors,
 } from '../../src/services/scoring.js';
 
+const LN2 = Math.LN2;
+
 describe('getSourceWeight', () => {
   it('returns T1 weight for 통신사·집계', () => {
     expect(getSourceWeight('yna')).toBe(2.5);
@@ -238,6 +240,86 @@ describe('computeScoreLegacy (backward compat)', () => {
     const single = computeScoreLegacy(1000, 50, 60, 1.0, 1.0, 1.0);
     const clustered = computeScoreLegacy(1000, 50, 60, 1.0, 1.0, 1.3);
     expect(clustered).toBeCloseTo(single * 1.3, 1);
+  });
+});
+
+describe('cross-channel differentiation (raw score)', () => {
+  it('T1 news outscores community at same engagement and age', () => {
+    const newsFactors: ScoreFactors = {
+      normalizedEngagement: 3.0,
+      decay: 0.75,           // ~1h old, news half-life 240min
+      sourceWeight: 2.5,     // T1
+      categoryWeight: 1.20,  // news
+      velocityBonus: 1.0,
+      clusterBonus: 1.0,
+      keywordMomentumBonus: 1.0,
+      trendConfirmationBonus: 1.0,
+      burstBonus: 1.0,
+    };
+    const communityFactors: ScoreFactors = {
+      normalizedEngagement: 3.0,
+      decay: 0.75,           // same age, community half-life 150min → faster decay
+      sourceWeight: 1.0,     // community
+      categoryWeight: 1.08,  // community
+      velocityBonus: 1.0,
+      clusterBonus: 1.0,
+      keywordMomentumBonus: 1.0,
+      trendConfirmationBonus: 1.0,
+      burstBonus: 1.0,
+    };
+    const newsScore = computeScore(newsFactors);
+    const communityScore = computeScore(communityFactors);
+    expect(newsScore).toBeGreaterThan(communityScore);
+    // T1 news should be ~2.78x community (2.5*1.2 / 1.0*1.08)
+    expect(newsScore / communityScore).toBeCloseTo(2.5 * 1.2 / (1.0 * 1.08), 1);
+  });
+
+  it('decay reduces raw score absolutely over time', () => {
+    const fresh: ScoreFactors = {
+      normalizedEngagement: 4.0,
+      decay: 1.0,            // just scraped
+      sourceWeight: 2.0,
+      categoryWeight: 1.0,
+      velocityBonus: 1.0,
+      clusterBonus: 1.0,
+      keywordMomentumBonus: 1.0,
+      trendConfirmationBonus: 1.0,
+      burstBonus: 1.0,
+    };
+    const aged: ScoreFactors = {
+      ...fresh,
+      decay: Math.exp(-LN2 * 240 / 240), // 4h old news → 50% decay
+    };
+    expect(computeScore(fresh)).toBe(8.0);  // 4.0 * 1.0 * 2.0 * 1.0
+    expect(computeScore(aged)).toBeCloseTo(4.0, 1);  // 50% of fresh
+  });
+
+  it('high-engagement community cannot beat T1 news by engagement alone', () => {
+    const newsNormal: ScoreFactors = {
+      normalizedEngagement: 3.0,
+      decay: 0.9,
+      sourceWeight: 2.5,
+      categoryWeight: 1.20,
+      velocityBonus: 1.0,
+      clusterBonus: 1.0,
+      keywordMomentumBonus: 1.0,
+      trendConfirmationBonus: 1.0,
+      burstBonus: 1.0,
+    };
+    const communityHigh: ScoreFactors = {
+      normalizedEngagement: 5.0,  // much higher engagement
+      decay: 0.9,
+      sourceWeight: 1.0,
+      categoryWeight: 1.08,
+      velocityBonus: 1.0,
+      clusterBonus: 1.0,
+      keywordMomentumBonus: 1.0,
+      trendConfirmationBonus: 1.0,
+      burstBonus: 1.0,
+    };
+    // news: 3.0 * 0.9 * 2.5 * 1.2 = 8.1
+    // community: 5.0 * 0.9 * 1.0 * 1.08 = 4.86
+    expect(computeScore(newsNormal)).toBeGreaterThan(computeScore(communityHigh));
   });
 });
 
