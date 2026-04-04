@@ -17,7 +17,6 @@ export interface PostRow {
   category: string | null;
   subcategory: string | null;
   metadata: Record<string, unknown> | null;
-  ai_summary: string | null;
 }
 
 export interface PostRowWithScore extends PostRow {
@@ -28,7 +27,6 @@ export interface PostRowWithCluster extends PostRow {
   cluster_size?: number;
   cluster_id?: number | null;
   related_sources?: { id: number; source_name: string; source_key: string; url: string }[];
-  keywords?: string[];
 }
 
 export interface PostStatsRow {

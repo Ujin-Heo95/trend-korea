@@ -103,19 +103,6 @@ describe('PostCard', () => {
     expect(screen.getByText('더쿠')).toBeInTheDocument();
   });
 
-  it('renders keywords when present', () => {
-    render(<PostCard post={makePost({ keywords: ['키워드1', '키워드2', '키워드3'] })} />);
-    expect(screen.getByText('키워드1')).toBeInTheDocument();
-    expect(screen.getByText('키워드2')).toBeInTheDocument();
-    // Only first 2 keywords are shown
-    expect(screen.queryByText('키워드3')).not.toBeInTheDocument();
-  });
-
-  it('renders AI summary when present', () => {
-    render(<PostCard post={makePost({ ai_summary: 'AI가 요약한 내용입니다' })} />);
-    expect(screen.getByText('AI가 요약한 내용입니다')).toBeInTheDocument();
-  });
-
   it('links to the issue detail page', () => {
     render(<PostCard post={makePost({ id: 42 })} />);
     const link = screen.getByRole('link');

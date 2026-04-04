@@ -130,9 +130,6 @@ function makeFactors(overrides: Partial<ScoreFactors> = {}): ScoreFactors {
     categoryWeight: 1.0,
     velocityBonus: 1.0,
     clusterBonus: 1.0,
-    keywordMomentumBonus: 1.0,
-    trendConfirmationBonus: 1.0,
-    burstBonus: 1.0,
     ...overrides,
   };
 }
@@ -161,18 +158,6 @@ describe('computeScore (new formula)', () => {
     expect(clustered).toBeCloseTo(base * 2.0, 5);
   });
 
-  it('keyword momentum bonus increases score', () => {
-    const base = computeScore(makeFactors());
-    const momentum = computeScore(makeFactors({ keywordMomentumBonus: 1.3 }));
-    expect(momentum).toBeCloseTo(base * 1.3, 5);
-  });
-
-  it('trend confirmation bonus increases score', () => {
-    const base = computeScore(makeFactors());
-    const confirmed = computeScore(makeFactors({ trendConfirmationBonus: 1.25 }));
-    expect(confirmed).toBeCloseTo(base * 1.25, 5);
-  });
-
   it('all bonuses compound multiplicatively', () => {
     const factors = makeFactors({
       normalizedEngagement: 2.5,
@@ -181,10 +166,8 @@ describe('computeScore (new formula)', () => {
       categoryWeight: 1.15,
       velocityBonus: 1.3,
       clusterBonus: 1.6,
-      keywordMomentumBonus: 1.2,
-      trendConfirmationBonus: 1.1,
     });
-    const expected = 2.5 * 0.8 * 2.2 * 1.15 * 1.3 * 1.6 * 1.2 * 1.1;
+    const expected = 2.5 * 0.8 * 2.2 * 1.15 * 1.3 * 1.6;
     expect(computeScore(factors)).toBeCloseTo(expected, 3);
   });
 
@@ -252,9 +235,6 @@ describe('cross-channel differentiation (raw score)', () => {
       categoryWeight: 1.20,  // news
       velocityBonus: 1.0,
       clusterBonus: 1.0,
-      keywordMomentumBonus: 1.0,
-      trendConfirmationBonus: 1.0,
-      burstBonus: 1.0,
     };
     const communityFactors: ScoreFactors = {
       normalizedEngagement: 3.0,
@@ -263,9 +243,6 @@ describe('cross-channel differentiation (raw score)', () => {
       categoryWeight: 1.08,  // community
       velocityBonus: 1.0,
       clusterBonus: 1.0,
-      keywordMomentumBonus: 1.0,
-      trendConfirmationBonus: 1.0,
-      burstBonus: 1.0,
     };
     const newsScore = computeScore(newsFactors);
     const communityScore = computeScore(communityFactors);
@@ -282,9 +259,6 @@ describe('cross-channel differentiation (raw score)', () => {
       categoryWeight: 1.0,
       velocityBonus: 1.0,
       clusterBonus: 1.0,
-      keywordMomentumBonus: 1.0,
-      trendConfirmationBonus: 1.0,
-      burstBonus: 1.0,
     };
     const aged: ScoreFactors = {
       ...fresh,
@@ -302,9 +276,6 @@ describe('cross-channel differentiation (raw score)', () => {
       categoryWeight: 1.20,
       velocityBonus: 1.0,
       clusterBonus: 1.0,
-      keywordMomentumBonus: 1.0,
-      trendConfirmationBonus: 1.0,
-      burstBonus: 1.0,
     };
     const communityHigh: ScoreFactors = {
       normalizedEngagement: 5.0,  // much higher engagement
@@ -313,9 +284,6 @@ describe('cross-channel differentiation (raw score)', () => {
       categoryWeight: 1.08,
       velocityBonus: 1.0,
       clusterBonus: 1.0,
-      keywordMomentumBonus: 1.0,
-      trendConfirmationBonus: 1.0,
-      burstBonus: 1.0,
     };
     // news: 3.0 * 0.9 * 2.5 * 1.2 = 8.1
     // community: 5.0 * 0.9 * 1.0 * 1.08 = 4.86

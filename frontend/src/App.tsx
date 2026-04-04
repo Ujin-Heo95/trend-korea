@@ -1,19 +1,14 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { HomePage } from './pages/HomePage';
-import { fetchLatestReport } from './api/client';
 
-const DailyReportPage = lazy(() => import('./pages/DailyReportPage').then(m => ({ default: m.DailyReportPage })));
 const WeatherPage = lazy(() => import('./pages/WeatherPage').then(m => ({ default: m.WeatherPage })));
-const KeywordsPage = lazy(() => import('./pages/KeywordsPage').then(m => ({ default: m.KeywordsPage })));
 const AboutPage = lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 const IssueDetailPage = lazy(() => import('./pages/IssueDetailPage').then(m => ({ default: m.IssueDetailPage })));
-const KeywordDetailPage = lazy(() => import('./pages/KeywordDetailPage'));
-const WeeklyDigestPage = lazy(() => import('./pages/WeeklyDigestPage'));
 const BookmarksPage = lazy(() => import('./pages/BookmarksPage'));
 
 const queryClient = new QueryClient({
@@ -27,29 +22,6 @@ const queryClient = new QueryClient({
 
 function PageLoader() {
   return <div className="text-center py-20 text-slate-400 animate-pulse">로딩 중...</div>;
-}
-
-function DailyReportRedirect() {
-  const { data: latest, isLoading } = useQuery({
-    queryKey: ['daily-report-latest'],
-    queryFn: fetchLatestReport,
-    staleTime: 5 * 60_000,
-  });
-
-  if (isLoading) {
-    return <PageLoader />;
-  }
-
-  if (latest?.report_date) {
-    const dateOnly = String(latest.report_date).slice(0, 10);
-    return <Navigate to={`/daily-report/${dateOnly}`} replace />;
-  }
-
-  return (
-    <div className="text-center py-20 text-slate-500">
-      아직 생성된 리포트가 없습니다.
-    </div>
-  );
 }
 
 function AppRoutes() {
@@ -87,15 +59,10 @@ function AppRoutes() {
               />
             }
           />
-          <Route path="/daily-report" element={<DailyReportRedirect />} />
-          <Route path="/daily-report/:date" element={<DailyReportPage />} />
           <Route path="/entertainment" element={<Navigate to="/?category=movie" replace />} />
-          <Route path="/keywords" element={<KeywordsPage />} />
           <Route path="/weather" element={<WeatherPage />} />
           <Route path="/issue/:postId" element={<IssueDetailPage />} />
-          <Route path="/keyword/:keyword" element={<KeywordDetailPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
-          <Route path="/weekly" element={<WeeklyDigestPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
         </Routes>

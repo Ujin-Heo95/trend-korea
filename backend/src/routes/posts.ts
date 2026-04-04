@@ -4,20 +4,6 @@ import type { PostRow, PostRowWithCluster } from '../db/types.js';
 
 const postsCache = new LRUCache<unknown>(200, 60_000);
 
-/** Batch-fetch keywords from keyword_extractions for given post IDs */
-async function attachKeywords(pg: FastifyInstance['pg'], posts: PostRowWithCluster[]): Promise<void> {
-  if (posts.length === 0) return;
-  const ids = posts.map(p => p.id);
-  const { rows } = await pg.query<{ post_id: number; keywords: string[] }>(
-    `SELECT post_id, keywords FROM keyword_extractions WHERE post_id = ANY($1::int[])`,
-    [ids],
-  );
-  const kwMap = new Map(rows.map(r => [r.post_id, r.keywords]));
-  for (const post of posts) {
-    post.keywords = kwMap.get(post.id) ?? [];
-  }
-}
-
 export async function postsRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: { source?: string; category?: string; subcategory?: string; q?: string; page?: number; limit?: number; sort?: string } }>(
     '/api/posts',
@@ -87,7 +73,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       const [rows, count] = await Promise.all([
         app.pg.query(
           `SELECT p.id, p.source_key, p.source_name, p.title, p.url, p.thumbnail,
-                  p.author, p.view_count, p.comment_count, p.like_count, p.vote_count, p.published_at, p.scraped_at, p.category, p.subcategory, p.metadata, p.ai_summary
+                  p.author, p.view_count, p.comment_count, p.like_count, p.vote_count, p.published_at, p.scraped_at, p.category, p.subcategory, p.metadata
            FROM posts p
            LEFT JOIN post_scores ps ON ps.post_id = p.id
            ${where}
@@ -173,8 +159,6 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
         if (posts.length >= limit) break;
       }
 
-      // 키워드 첨부
-      await attachKeywords(app.pg, posts);
 
       // 영화/공연 카테고리: 최근 스크래핑 시각 포함
       let lastUpdated: string | null = null;
@@ -202,7 +186,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
     const r = await app.pg.query(
       `SELECT p.id, p.source_key, p.source_name, p.title, p.url, p.thumbnail,
               p.author, p.view_count, p.comment_count, p.like_count, p.vote_count, p.published_at,
-              p.scraped_at, p.category, p.metadata, p.ai_summary, COALESCE(ps.trend_score, 0) AS trend_score
+              p.scraped_at, p.category, p.metadata, COALESCE(ps.trend_score, 0) AS trend_score
        FROM posts p
        LEFT JOIN post_scores ps ON ps.post_id = p.id
        WHERE p.scraped_at > NOW() - INTERVAL '6 hours'
@@ -242,9 +226,6 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       posts.push(row);
       if (posts.length >= 20) break;
     }
-
-    // 키워드 첨부
-    await attachKeywords(app.pg, posts);
 
     const result = { posts };
     postsCache.set('trending', result);

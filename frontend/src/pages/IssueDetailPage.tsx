@@ -8,7 +8,6 @@ import { getSourceColor } from '../constants/sourceColors';
 import { ShareButton } from '../components/shared/ShareButton';
 import { VoteButton } from '../components/shared/VoteButton';
 import { ErrorRetry } from '../components/shared/ErrorRetry';
-import { Sparkline } from '../components/shared/Sparkline';
 import { EngagementChart } from '../components/shared/EngagementChart';
 import { AdSlot } from '../components/shared/AdSlot';
 import { IssueDetailSkeleton } from '../components/shared/IssueDetailSkeleton';
@@ -27,15 +26,6 @@ function formatCount(n: number): string {
   if (n >= 10000) return `${(n / 10000).toFixed(1)}만`;
   if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
   return n.toLocaleString();
-}
-
-function trendIcon(changePct: number | null): string {
-  if (changePct === null) return '';
-  if (changePct > 10) return '🔥';
-  if (changePct > 0) return '📈';
-  if (changePct < -10) return '📉';
-  if (changePct < 0) return '↘️';
-  return '➡️';
 }
 
 export const IssueDetailPage: React.FC = () => {
@@ -76,7 +66,7 @@ export const IssueDetailPage: React.FC = () => {
     );
   }
 
-  const { post, trend_score, cluster_members, trend_signals, engagement_history, related_articles, category_popular } = data;
+  const { post, trend_score, cluster_members, engagement_history, category_popular } = data;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 pb-24">
@@ -110,10 +100,7 @@ export const IssueDetailPage: React.FC = () => {
         <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-snug mb-1">
           {post.title}
         </h1>
-        {post.ai_summary && (
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">{post.ai_summary}</p>
-        )}
-        {!post.ai_summary && <div className="mb-3" />}
+        <div className="mb-3" />
 
         {post.thumbnail && (
           <img
@@ -159,86 +146,12 @@ export const IssueDetailPage: React.FC = () => {
         </section>
       )}
 
-      {/* Trend signals section */}
-      {trend_signals.length > 0 && (
-        <section className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">관련 트렌드</h2>
-          <div className="space-y-3">
-            {trend_signals.map(s => (
-              <div key={s.id} className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="font-semibold text-amber-800 dark:text-amber-300">{s.keyword}</span>
-                  {s.naver_change_pct !== null && (
-                    <span className="text-sm">
-                      {trendIcon(s.naver_change_pct)} {s.naver_change_pct > 0 ? '+' : ''}{s.naver_change_pct}%
-                    </span>
-                  )}
-                  {s.google_traffic && (
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Google {s.google_traffic}</span>
-                  )}
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                    s.signal_type === 'confirmed' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
-                  }`}>
-                    {s.signal_type === 'confirmed' ? '확인됨' : 'Google'}
-                  </span>
-                </div>
-                {s.naver_trend_data && s.naver_trend_data.length >= 2 && (
-                  <Sparkline data={s.naver_trend_data} width={200} height={40} className="mb-2" />
-                )}
-                {s.google_articles.length > 0 && (
-                  <div className="space-y-1 mt-2">
-                    {s.google_articles.slice(0, 3).map((a, i) => (
-                      <a
-                        key={i}
-                        href={a.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block text-xs text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 line-clamp-1"
-                      >
-                        <span className="text-slate-400 dark:text-slate-500 mr-1">{a.source}</span>
-                        {a.title}
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* Engagement chart */}
       {engagement_history.length >= 2 && (
         <section className="mb-6">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">조회수 추이</h2>
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
             <EngagementChart data={engagement_history} />
-          </div>
-        </section>
-      )}
-
-      {/* Related articles */}
-      {related_articles.length > 0 && (
-        <section className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">관련 기사</h2>
-          <div className="space-y-2">
-            {related_articles.map(a => (
-              <Link
-                key={a.id}
-                to={`/issue/${a.id}`}
-                className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-              >
-                {a.thumbnail && (
-                  <img src={optimizedImage(a.thumbnail, 96)} alt="" className="w-12 h-9 object-cover rounded flex-shrink-0" loading="lazy" decoding="async" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getSourceColor(a.source_key)}`}>
-                    {a.source_name}
-                  </span>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-1 mt-0.5">{a.title}</p>
-                </div>
-              </Link>
-            ))}
           </div>
         </section>
       )}

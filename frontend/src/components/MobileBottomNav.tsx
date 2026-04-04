@@ -21,16 +21,6 @@ const NAV_ITEMS: NavItem[] = [
       pathname === '/' && !params.get('category'),
   },
   {
-    path: '/daily-report',
-    label: '리포트',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    ),
-    matchFn: (pathname) => pathname.startsWith('/daily-report'),
-  },
-  {
     path: '/?category=movie',
     label: '영화/공연',
     icon: (
@@ -40,16 +30,6 @@ const NAV_ITEMS: NavItem[] = [
     ),
     matchFn: (pathname, params) =>
       pathname === '/' && (params.get('category') === 'movie' || params.get('category') === 'performance'),
-  },
-  {
-    path: '/keywords',
-    label: '이슈태그',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
-      </svg>
-    ),
-    matchFn: (pathname) => pathname === '/keywords',
   },
   {
     path: '/bookmarks',

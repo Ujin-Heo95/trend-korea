@@ -1,5 +1,4 @@
 import type { Pool } from 'pg';
-import { detectBursts } from './keywords.js';
 
 const LN2 = Math.LN2;
 
@@ -98,9 +97,6 @@ export interface ScoreFactors {
   categoryWeight: number;
   velocityBonus: number;
   clusterBonus: number;
-  keywordMomentumBonus: number;
-  trendConfirmationBonus: number;
-  burstBonus: number;
 }
 
 interface SourceStats {
@@ -127,10 +123,7 @@ export function computeScore(factors: ScoreFactors): number {
     * factors.sourceWeight
     * factors.categoryWeight
     * factors.velocityBonus
-    * factors.clusterBonus
-    * factors.keywordMomentumBonus
-    * factors.trendConfirmationBonus
-    * factors.burstBonus;
+    * factors.clusterBonus;
 }
 
 /** Backward-compatible overload for tests / simple usage */
@@ -376,124 +369,6 @@ function velocityToBonus(velocity: VelocityData | undefined): number {
   return 1.0 + Math.min(score / 10.0, 0.5);
 }
 
-/** 키워드 모멘텀 계산 (3h vs 24h 비교) */
-async function calculateKeywordMomentumMap(pool: Pool): Promise<Map<number, number>> {
-  // 3h와 24h keyword_stats를 비교하여 모멘텀 계산
-  const { rows: momentumRows } = await pool.query<{
-    keyword: string;
-    momentum: number;
-  }>(`
-    SELECT k3.keyword,
-      CASE WHEN k24.rate > 0 THEN (k3.rate / k24.rate)::float ELSE 1.0 END AS momentum
-    FROM keyword_stats k3
-    JOIN keyword_stats k24 ON k24.keyword = k3.keyword AND k24.window_hours = 24
-    WHERE k3.window_hours = 3 AND k3.mention_count >= 2
-  `);
-
-  const keywordMomentum = new Map<string, number>();
-  for (const r of momentumRows) {
-    keywordMomentum.set(r.keyword, r.momentum);
-  }
-
-  if (keywordMomentum.size === 0) return new Map();
-
-  // 게시글별 최대 모멘텀 매핑
-  const { rows: postKeywords } = await pool.query<{
-    post_id: number;
-    keywords: string[];
-  }>(`
-    SELECT ke.post_id, ke.keywords
-    FROM keyword_extractions ke
-    JOIN posts p ON p.id = ke.post_id
-    WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
-  `);
-
-  const postMomentumMap = new Map<number, number>();
-  for (const pk of postKeywords) {
-    let maxMomentum = 1.0;
-    for (const kw of pk.keywords) {
-      const m = keywordMomentum.get(kw);
-      if (m !== undefined && m > maxMomentum) maxMomentum = m;
-    }
-    if (maxMomentum > 1.0) {
-      postMomentumMap.set(pk.post_id, maxMomentum);
-    }
-  }
-  return postMomentumMap;
-}
-
-/** 키워드 모멘텀 → bonus [1.0, 1.3] */
-function momentumToBonus(momentum: number | undefined): number {
-  if (!momentum || momentum <= 1.0) return 1.0;
-  return 1.0 + Math.min((momentum - 1.0) * 0.15, 0.3);
-}
-
-/** 교차검증 트렌드 시그널 → 게시글별 bonus 매핑 */
-// signal_type별 보너스 상한: 3중 확인 > GT+Naver > burst+Naver > burst+GT
-const SIGNAL_TYPE_MAX_BONUS: Record<string, number> = {
-  burst_confirmed: 0.30,  // 내부 버스트 + GT + Naver 3중
-  confirmed: 0.25,        // GT + Naver (기존)
-  burst_naver: 0.20,      // 내부 버스트 + Naver
-  burst_google: 0.15,     // 내부 버스트 + GT
-};
-
-async function calculateTrendConfirmationMap(pool: Pool): Promise<Map<number, number>> {
-  const { rows } = await pool.query<{
-    post_id: number;
-    max_convergence: number;
-    best_signal_type: string;
-  }>(`
-    SELECT ke.post_id,
-      MAX(ts.convergence_score)::float AS max_convergence,
-      (ARRAY_AGG(ts.signal_type ORDER BY ts.convergence_score DESC))[1] AS best_signal_type
-    FROM keyword_extractions ke
-    JOIN posts p ON p.id = ke.post_id
-    JOIN trend_signals ts ON ts.keyword = ANY(ke.keywords)
-      AND ts.expires_at > NOW()
-      AND ts.convergence_score > 5
-      AND ts.signal_type IN ('confirmed', 'burst_confirmed', 'burst_naver', 'burst_google')
-    WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
-    GROUP BY ke.post_id
-  `);
-
-  const map = new Map<number, number>();
-  for (const r of rows) {
-    const maxBonus = SIGNAL_TYPE_MAX_BONUS[r.best_signal_type] ?? 0.25;
-    const bonus = 1.0 + Math.min(r.max_convergence / 20.0, maxBonus);
-    map.set(r.post_id, bonus);
-  }
-  return map;
-}
-
-/** 버스트 키워드 → 포스트별 최대 Z-Score 보너스 [1.0, 1.4] */
-async function calculateBurstBonusMap(pool: Pool): Promise<Map<number, number>> {
-  const bursts = await detectBursts(pool);
-  if (bursts.size === 0) return new Map();
-
-  const burstKeywords = [...bursts.keys()];
-  const { rows } = await pool.query<{ post_id: number; keywords: string[] }>(`
-    SELECT ke.post_id, ke.keywords
-    FROM keyword_extractions ke
-    JOIN posts p ON p.id = ke.post_id
-    WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
-      AND ke.keywords && $1::text[]
-  `, [burstKeywords]);
-
-  const map = new Map<number, number>();
-  for (const r of rows) {
-    let maxZ = 0;
-    for (const kw of r.keywords) {
-      const z = bursts.get(kw);
-      if (z !== undefined && z > maxZ) maxZ = z;
-    }
-    if (maxZ >= 2.0) {
-      // bonus: 1.0 + min(z * 0.1, 0.4) → [1.2, 1.4] 범위
-      map.set(r.post_id, 1.0 + Math.min(maxZ * 0.1, 0.4));
-    }
-  }
-  return map;
-}
-
 /** 클러스터 보너스: 로그 곡선 + 카테고리 다양성 + 뉴스 출처 다양성 [1.0, 3.0] */
 async function calculateClusterBonusMap(pool: Pool): Promise<Map<number, number>> {
   const { rows } = await pool.query<{
@@ -557,20 +432,14 @@ export async function calculateScores(pool: Pool): Promise<number> {
     sourceStatsMap,
     channelStatsMap,
     velocityMap,
-    keywordMomentumMap,
-    trendConfirmationMap,
     clusterBonusMap,
-    burstBonusMap,
     categoryBaselines,
     postsResult,
   ] = await Promise.all([
     calculateSourceStats(pool),
     calculateChannelStats(pool),
     calculateVelocityMap(pool).catch(() => new Map<number, VelocityData>()),
-    calculateKeywordMomentumMap(pool).catch(() => new Map<number, number>()),
-    calculateTrendConfirmationMap(pool).catch(() => new Map<number, number>()),
     calculateClusterBonusMap(pool).catch(() => new Map<number, number>()),
-    calculateBurstBonusMap(pool).catch(() => new Map<number, number>()),
     calculateCategoryBaselines(pool),
     pool.query<{
       id: number;
@@ -608,12 +477,8 @@ export async function calculateScores(pool: Pool): Promise<number> {
     // Zero-engagement credibility 가중치
     let credibilityFactor = 0.8;
     if (row.view_count === 0 && row.comment_count === 0 && row.like_count === 0) {
-      const hasTrendSignal = trendConfirmationMap.has(row.id);
-      const hasKeywordMomentum = (keywordMomentumMap.get(row.id) ?? 1.0) > 1.5;
       const hasCluster = clusterBonusMap.has(row.id);
-      if (hasTrendSignal) credibilityFactor = 1.3;
-      else if (hasKeywordMomentum) credibilityFactor = 1.2;
-      else if (hasCluster) credibilityFactor = 1.15;
+      if (hasCluster) credibilityFactor = 1.15;
     }
 
     const channel = getChannel(row.category);
@@ -629,9 +494,6 @@ export async function calculateScores(pool: Pool): Promise<number> {
       categoryWeight: catW,
       velocityBonus: velocityToBonus(velocityMap.get(row.id)),
       clusterBonus: clusterBonusMap.get(row.id) ?? 1.0,
-      keywordMomentumBonus: momentumToBonus(keywordMomentumMap.get(row.id)),
-      trendConfirmationBonus: trendConfirmationMap.get(row.id) ?? 1.0,
-      burstBonus: burstBonusMap.get(row.id) ?? 1.0,
     };
 
     const score = computeScore(factors);

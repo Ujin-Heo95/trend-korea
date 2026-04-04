@@ -44,16 +44,9 @@
 | Sources API | `src/routes/sources.ts` |
 | 중복제거 서비스 | `src/services/dedup.ts` |
 | 트렌드 스코어링 | `src/services/scoring.ts` |
-| 일일 리포트 서비스 | `src/services/dailyReport.ts` |
-| Gemini LLM 서비스 | `src/services/gemini.ts` |
 | Discord 알림 | `src/services/discord.ts` |
 | DB 용량 모니터링 | `src/services/dbMonitor.ts` |
-| Daily Report API | `src/routes/dailyReport.ts` |
 | 이슈 상세 API | `src/routes/issueDetail.ts` |
-| 키워드 추출 서비스 | `src/services/keywords.ts` |
-| 키워드 API | `src/routes/keywords.ts` |
-| 교차 검증 서비스 | `src/services/trendCrossValidator.ts` |
-| 교차 검증 API | `src/routes/trendSignals.ts` |
 | YouTube 키워드 검색 | `src/scrapers/youtube-search.ts` |
 | Daum 검색 스크래퍼 | `src/scrapers/daum-search.ts` |
 | Apify 베이스 | `src/scrapers/apify-base.ts` |

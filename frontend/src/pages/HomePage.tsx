@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useTransition, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useInfinitePosts, useTopics } from '../hooks/usePosts';
+import { useInfinitePosts } from '../hooks/usePosts';
 import type { Post } from '../types';
 import { fetchPosts } from '../api/client';
 import { AdSlot } from '../components/shared/AdSlot';
@@ -17,7 +17,6 @@ import { BookRankingTable } from '../components/BookRankingTable';
 import { OttRankingTable } from '../components/OttRankingTable';
 import { EntertainmentSubTabs, type EntertainmentSub } from '../components/EntertainmentSubTabs';
 import { CommunityRankingList } from '../components/CommunityRankingList';
-import { UnifiedRankingList } from '../components/UnifiedRankingList';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useReadPosts } from '../hooks/useReadPosts';
 import { useVotes } from '../hooks/useVotes';
@@ -63,9 +62,6 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const isEntertainmentTab = category === 'entertainment';
   const isAllTab = !category && !searchQuery;
 
-  // 전체 탭: 토픽 기반 이슈 랭킹
-  const { data: topicsData } = useTopics();
-
   const handleCategoryChange = (cat: string | undefined) => {
     startTransition(() => {
       onCategoryChange(cat);
@@ -85,7 +81,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     ...(isNewsTab && newsSubcategory ? { subcategory: newsSubcategory } : {}),
     ...(searchQuery ? { q: searchQuery } : {}),
     ...(selectedSources.length > 0 ? { source: selectedSources.join(',') } : {}),
-    ...(category === 'community' || isNewsTab ? { sort: sortMode } : {}),
+    ...(isAllTab || category === 'community' || isNewsTab ? { sort: sortMode } : {}),
   };
 
   const {
@@ -220,25 +216,18 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         </p>
       )}
 
-      {/* 전체 탭: 이슈 기반 통합 랭킹 */}
-      {isAllTab && topicsData && topicsData.topics.length > 0 && (
-        <div className="mb-6">
-          <UnifiedRankingList topics={topicsData.topics} />
-        </div>
-      )}
-
       {isLoading ? (
         <div className="grid gap-3">
           {Array.from({ length: 8 }, (_, i) => (
             <PostCardSkeleton key={i} />
           ))}
         </div>
-      ) : allPosts.length === 0 && !isAllTab ? (
+      ) : allPosts.length === 0 ? (
         <div className="text-center py-16 text-slate-400 dark:text-slate-500">
           <p className="text-lg mb-1">검색 결과가 없습니다</p>
           <p className="text-sm">다른 키워드로 검색해 보세요</p>
         </div>
-      ) : isAllTab ? null : (
+      ) : (
         isEntertainmentTab && entertainmentSub === 'movie' ? (
           <MovieRankingTable posts={allPosts} />
         ) : isEntertainmentTab && entertainmentSub === 'music' ? (
@@ -275,7 +264,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         )
       )}
 
-      {!isAllTab && <div ref={sentinelRef} className="h-10" />}
+      <div ref={sentinelRef} className="h-10" />
 
       {category === 'video' && popularVideos && popularVideos.posts.length > 0 && (
         <div className="mt-6 mb-4">
@@ -290,13 +279,13 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         </div>
       )}
 
-      {!isAllTab && isFetchingNextPage && (
+      {isFetchingNextPage && (
         <div className="flex justify-center py-4">
           <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
-      {!isAllTab && !hasNextPage && allPosts.length > 0 && (
+      {!hasNextPage && allPosts.length > 0 && (
         <p className="text-center text-sm text-slate-400 dark:text-slate-500 py-4">모든 글을 불러왔습니다</p>
       )}
     </div>

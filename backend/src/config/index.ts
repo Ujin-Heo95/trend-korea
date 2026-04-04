@@ -4,7 +4,6 @@ interface Config {
   port: number;
   dbUrl: string;
   youtubeApiKey: string;
-  geminiApiKey: string;
   kopisApiKey: string;
   kobisApiKey: string;
   kmdbApiKey: string;
@@ -72,7 +71,6 @@ export const config: Config = {
   port,
   dbUrl,
   youtubeApiKey: process.env.YOUTUBE_API_KEY ?? '',
-  geminiApiKey: process.env.GEMINI_API_KEY ?? '',
   kopisApiKey: process.env.KOPIS_API_KEY ?? '',
   kobisApiKey: process.env.KOBIS_API_KEY ?? '',
   kmdbApiKey: process.env.KMDB_API_KEY ?? '',

@@ -79,24 +79,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
             {post.like_count > 0 && (
               <span className="text-xs text-slate-400 dark:text-slate-500 tabular-nums">추천 {post.like_count.toLocaleString()}</span>
             )}
-            {post.keywords?.slice(0, 2).map(kw => (
-              <span key={kw} className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">
-                {kw}
-              </span>
-            ))}
           </div>
           <p className={`text-sm font-medium line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 ${isRead ? 'text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
             {post.title}
           </p>
-          {post.ai_summary && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
-              <span className="inline-flex items-center gap-0.5 text-indigo-500 dark:text-indigo-400 mr-1">
-                <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0l2 5h5l-4 3.5 1.5 5L8 10.5 3.5 13.5 5 8.5 1 5h5z"/></svg>
-                <span className="text-[10px] font-semibold">AI</span>
-              </span>
-              {post.ai_summary}
-            </p>
-          )}
           <div className="flex items-center gap-2 mt-1">
             <p className="text-xs text-slate-400 dark:text-slate-500">{timeAgo(post.published_at ?? post.scraped_at)}</p>
             {onVote && (

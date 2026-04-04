@@ -14,8 +14,6 @@
 |------|------|
 | 프론트 홈 | `src/pages/HomePage.tsx` |
 | 이슈 상세 페이지 | `src/pages/IssueDetailPage.tsx` |
-| 일일 리포트 페이지 | `src/pages/DailyReportPage.tsx` |
-| 이슈태그 페이지 | `src/pages/KeywordsPage.tsx` |
 | 서비스 소개 | `src/pages/AboutPage.tsx` |
 | 개인정보처리방침 | `src/pages/PrivacyPage.tsx` |
 | API 클라이언트 | `src/api/client.ts` |

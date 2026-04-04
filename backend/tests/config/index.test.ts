@@ -28,7 +28,6 @@ describe('config', () => {
 
   it('has string fields (may be empty if env not set)', () => {
     expect(typeof config.youtubeApiKey).toBe('string');
-    expect(typeof config.geminiApiKey).toBe('string');
     expect(typeof config.discordWebhookUrl).toBe('string');
     expect(typeof config.dbUrl).toBe('string');
   });

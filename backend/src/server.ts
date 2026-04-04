@@ -12,17 +12,11 @@ import { pool, validateConnection, gracefulShutdown } from './db/client.js';
 import { postsRoutes } from './routes/posts.js';
 import { sourcesRoutes } from './routes/sources.js';
 import { healthRoutes } from './routes/health.js';
-import { dailyReportRoutes } from './routes/dailyReport.js';
 import { weatherRoutes } from './routes/weather.js';
-import { keywordsRoutes } from './routes/keywords.js';
-import { trendSignalsRoutes } from './routes/trendSignals.js';
 import { issueDetailRoutes } from './routes/issueDetail.js';
-import { keywordDetailRoutes } from './routes/keywordDetail.js';
 import { ogImageRoutes } from './routes/ogImage.js';
 import { votesRoutes } from './routes/votes.js';
-import { topicsRoutes } from './routes/topics.js';
 import { sitemapRoutes } from './routes/sitemap.js';
-import { weeklyDigestRoutes } from './routes/weeklyDigest.js';
 import { startScheduler } from './scheduler/index.js';
 import { registerPrerender } from './middleware/prerender.js';
 
@@ -93,17 +87,11 @@ export async function buildApp() {
   await app.register(postsRoutes);
   await app.register(sourcesRoutes);
   await app.register(healthRoutes);
-  await app.register(dailyReportRoutes);
   await app.register(weatherRoutes);
-  await app.register(keywordsRoutes);
-  await app.register(trendSignalsRoutes);
   await app.register(issueDetailRoutes);
-  await app.register(keywordDetailRoutes);
   await app.register(ogImageRoutes);
   await app.register(votesRoutes);
-  await app.register(topicsRoutes);
   await app.register(sitemapRoutes);
-  await app.register(weeklyDigestRoutes);
 
   // 봇 프리렌더: API 이외의 봇 요청에 동적 meta 태그 HTML 반환
   registerPrerender(app, pool);

@@ -13,7 +13,6 @@ const STATIC_PAGES = [
   { loc: '/?category=government', changefreq: 'always', priority: '0.7' },
   { loc: '/?category=newsletter', changefreq: 'daily', priority: '0.7' },
   { loc: '/?category=deals', changefreq: 'always', priority: '0.7' },
-  { loc: '/keywords', changefreq: 'hourly', priority: '0.6' },
   { loc: '/weather', changefreq: 'hourly', priority: '0.5' },
   { loc: '/about', changefreq: 'monthly', priority: '0.3' },
   { loc: '/privacy', changefreq: 'monthly', priority: '0.2' },
@@ -40,29 +39,9 @@ export async function sitemapRoutes(app: FastifyInstance): Promise<void> {
       return urlEntry(`/issue/${p.id}`, 'daily', '0.6', lastmod);
     });
 
-    // 일일 리포트 (최근 30일)
-    const { rows: reports } = await app.pg.query<{ report_date: string }>(
-      `SELECT report_date FROM daily_reports
-       WHERE status = 'published'
-       ORDER BY report_date DESC LIMIT 30`,
-    );
-    const reportEntries = reports.map(r =>
-      urlEntry(`/daily-report/${String(r.report_date).slice(0, 10)}`, 'daily', '0.7', r.report_date),
-    );
-
-    // 인기 키워드 SEO 랜딩 페이지 (상위 100개)
-    const { rows: keywords } = await app.pg.query<{ keyword: string }>(
-      `SELECT keyword FROM keyword_stats
-       WHERE window_hours = 3
-       ORDER BY mention_count DESC LIMIT 100`,
-    );
-    const keywordEntries = keywords.map(k =>
-      urlEntry(`/keyword/${encodeURIComponent(k.keyword)}`, 'hourly', '0.5'),
-    );
-
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${[...staticEntries, ...reportEntries, ...postEntries, ...keywordEntries].join('\n')}
+${[...staticEntries, ...postEntries].join('\n')}
 </urlset>`;
 
     return reply

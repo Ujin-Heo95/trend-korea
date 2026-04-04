@@ -33,11 +33,6 @@ const API_DEFINITIONS: readonly {
     },
   },
   {
-    key: 'gemini',
-    envValue: () => config.geminiApiKey,
-    // 설정 여부만 확인 (호출 비용 절약)
-  },
-  {
     key: 'kopis',
     envValue: () => config.kopisApiKey,
     checkFn: async () => {

@@ -1,5 +1,5 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import { fetchPosts, fetchTrending, fetchSources, fetchTrendSignals, fetchTopics, fetchIssueDetail } from '../api/client';
+import { fetchPosts, fetchTrending, fetchSources, fetchIssueDetail } from '../api/client';
 import type { PostsResponse } from '../types';
 
 interface PostsFilter {
@@ -36,22 +36,6 @@ export const useSources = () =>
     queryKey: ['sources'],
     queryFn: fetchSources,
     staleTime: 60_000,
-  });
-
-export const useTrendSignals = () =>
-  useQuery({
-    queryKey: ['trend-signals'],
-    queryFn: fetchTrendSignals,
-    refetchInterval: 60_000,
-    staleTime: 30_000,
-  });
-
-export const useTopics = () =>
-  useQuery({
-    queryKey: ['topics'],
-    queryFn: fetchTopics,
-    refetchInterval: 60_000,
-    staleTime: 30_000,
   });
 
 export const useIssueDetail = (postId: number) =>

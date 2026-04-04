@@ -24,8 +24,6 @@ export interface Post {
   cluster_id?: number | null;
   related_sources?: { id: number; source_name: string; source_key: string; url: string }[];
   metadata?: Record<string, unknown>;
-  keywords?: string[];
-  ai_summary?: string | null;
 }
 
 export interface Source {
@@ -43,140 +41,6 @@ export interface PostsResponse {
   limit: number;
 }
 
-export interface DailyReportSection {
-  category: Category;
-  rank: number;
-  summary: string | null;
-  category_summary: string | null;
-  post_id: number | null;
-  title: string | null;
-  url: string | null;
-  source_name: string | null;
-  view_count: number | null;
-  comment_count: number | null;
-  cluster_size: number | null;
-}
-
-export interface DailyReport {
-  id: number;
-  report_date: string;
-  generated_at: string;
-  status: string;
-  view_count: number;
-  editorial_keywords: string | null;
-  editorial_briefing: string | null;
-  editorial_watch_point: string | null;
-  sections: DailyReportSection[];
-}
-
-export interface DailyReportMeta {
-  id: number;
-  report_date: string;
-  generated_at: string;
-  status: string;
-  view_count: number;
-}
-
-// ── 키워드/이슈태그 ──────────────────────────────────────
-export type KeywordTone = 'positive' | 'negative' | 'neutral' | 'controversy';
-
-export interface KeywordStat {
-  rank: number;
-  keyword: string;
-  count: number;
-  rate: number;
-  burstExplanation?: string;
-  zScore?: number;
-  tone?: KeywordTone;
-}
-
-export interface KeywordStatsResponse {
-  keywords: KeywordStat[];
-  totalPosts: number;
-  window: number;
-  calculatedAt: string | null;
-}
-
-// ── 미니 에디토리얼 ──────────────────────────────────────
-export interface MiniEditorial {
-  id: number;
-  briefing: string;
-  keywords: string[];
-  topic_count: number;
-  created_at: string;
-}
-
-// ── 토픽 종합 ──────────────────────────────────────────
-export interface TopicPost {
-  id: number;
-  title: string;
-  sourceKey: string;
-  sourceName: string;
-  thumbnail: string | null;
-}
-
-export interface TopicSource {
-  key: string;
-  name: string;
-}
-
-export interface Topic {
-  id: string;
-  headline: string;
-  keywords: string[];
-  channels: string[];
-  postCount: number;
-  momentum: 'rising' | 'steady' | 'falling';
-  momentumValue: number;
-  convergenceScore: number;
-  unifiedScore: number;
-  burstScore: number;
-  rank: number;
-  previousRank: number | null;
-  changeType: 'new' | 'up' | 'down' | 'same';
-  changeAmount: number;
-  confidence: 'high' | 'medium' | 'low';
-  representativePosts: TopicPost[];
-  thumbnail: string | null;
-  sources: TopicSource[];
-  sourceCount: number;
-  summaryHeadline: string | null;
-  summaryBody: string | null;
-}
-
-export interface TopicsResponse {
-  topics: Topic[];
-}
-
-// ── 빅카인즈 오늘의 이슈 ────────────────────────────────
-export interface BigKindsRelatedPost {
-  id: number;
-  title: string;
-  url: string;
-  source_name: string;
-  source_key: string;
-}
-
-export interface BigKindsIssue {
-  rank: number;
-  keyword: string;
-  articleCount: number;
-  period: string;
-  bigkindsUrl: string;
-  relatedPosts: BigKindsRelatedPost[];
-}
-
-export interface TrendSignalsResponse {
-  issues: BigKindsIssue[];
-}
-
-// ── 레거시 교차 검증 (이슈 상세에서 사용) ────────────────
-export interface GoogleArticle {
-  title: string;
-  url: string;
-  source: string;
-}
-
 // ── 이슈 상세 ───────────────────────────────────────────
 export interface IssueDetailResponse {
   post: Omit<Post, 'cluster_size' | 'cluster_id' | 'related_sources'>;
@@ -185,15 +49,7 @@ export interface IssueDetailResponse {
     id: number; source_key: string; source_name: string; title: string; url: string;
     view_count: number; comment_count: number; published_at: string | null;
   }[];
-  trend_signals: {
-    id: number; keyword: string; google_traffic: string | null;
-    naver_change_pct: number | null;
-    naver_trend_data: { period: string; ratio: number }[] | null;
-    convergence_score: number; signal_type: string;
-    google_articles: GoogleArticle[];
-  }[];
   engagement_history: { view_count: number; comment_count: number; like_count: number; captured_at: string }[];
-  related_articles: { id: number; title: string; url: string; source_name: string; source_key: string; thumbnail: string | null }[];
   category_popular?: { id: number; title: string; source_name: string; source_key: string; thumbnail: string | null; view_count: number }[];
 }
 
