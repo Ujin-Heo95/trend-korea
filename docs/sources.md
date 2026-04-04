@@ -58,7 +58,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ---
 
-## 2. 현재 소스 현황 (86개 등록, 73개 활성)
+## 2. 현재 소스 현황 (97개 등록, 84개 활성)
 
 | 카테고리 | 소스 | 수집방식 | 우선순위 | 상태 |
 |----------|------|----------|----------|------|
@@ -70,18 +70,22 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | community | reddit_korea, reddit_hanguk | RSS (Atom) | low | 신규 (2026-04-04) |
 | news | yna, hani, sbs, donga, khan, hankyung, mk, kmib | RSS | medium | 안정 |
 | news | chosun, jtbc | RSS | high | 안정 |
-| news | ohmynews | RSS | medium | 신규 (2026-04-04) |
+| news | ohmynews, nocutnews, asiae, segye, bbc_korean, mbn | RSS | medium | nocutnews+ 신규 (2026-04-04) |
+| news | cnn | RSS | low | 신규 (2026-04-04) |
 | news | naver_news_ranking | HTML (euc-kr) | medium | 신규 (2026-04-04) |
 | news | google_news_kr, koreaherald, koreatimes, newsis | RSS | medium | 안정 |
 | news | joins, kbs, mbc, ytn, daum_news, seoul | RSS | high | **disabled** (RSS 서비스 종료/404) |
 | tech | yozm, etnews | RSS | medium | 안정 |
 | tech | boannews | RSS (euc-kr) | medium | 신규 (2026-04-04) |
+| tech | zdnet_kr, itworld_kr | RSS | medium | 신규 (2026-04-04) |
+| tech | nature | RSS | low | 신규 (2026-04-04) |
 | tech | geeknews | RSS | medium | **disabled** (403) |
 | techblog | naver_d2, kakao_tech, toss_tech | RSS | low | 안정 |
 | techblog | daangn_tech, line_tech, banksalad_tech | RSS | low | 신규 (2026-04-04) |
 | video | youtube | API | low | 쿼터 주의 (10K/일) |
 | video | youtube_sbs_news, youtube_ytn, youtube_mbc_news, youtube_kbs_news, youtube_jtbc_news | RSS | medium | 안정 |
 | finance | investing_kr, sedaily, moneytoday | RSS | medium | moneytoday 신규 (2026-04-04) |
+| finance | edaily, bizwatch | RSS | medium | 신규 (2026-04-04) |
 | finance | upbit | API | low | 신규 (2026-04-04), 키 불필요 |
 | finance | krx | API | low | **disabled** (세션 인증 필요) |
 | music | melon_chart | HTML | low | 신규 (2026-04-04) |
@@ -98,6 +102,70 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | blog | daum_blog | API | low | 안정 |
 | sns | apify_instagram, apify_x, apify_tiktok | Apify | medium | **disabled** (토큰 미설정) |
 | alert | kma | RSS | low | **disabled** |
+
+---
+
+## 2-1. 소스별 수집 필드 현황
+
+> ✓=수집중, ✗=미수집, —=해당없음, *=의미변환(변화율 등)
+
+### HTML 커뮤니티
+
+| 소스 | title | url | thumbnail | author | viewCount | commentCount | likeCount | publishedAt |
+|------|:-----:|:---:|:---------:|:------:|:---------:|:------------:|:---------:|:-----------:|
+| dcinside | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ |
+| bobaedream | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | ✗ | ✗ |
+| theqoo | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ |
+| instiz | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ |
+| natepann | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ |
+| todayhumor | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ |
+| clien | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | ✗ |
+| fmkorea | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
+| ruliweb | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| mlbpark | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | ✗ |
+| cook82 | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| inven | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| humoruniv | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| ygosu | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| slrclub | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| etoland | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| melon_chart | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| naver_news_ranking | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+
+### API 스크래퍼
+
+| 소스 | title | url | thumbnail | author | viewCount | commentCount | likeCount | publishedAt | metadata |
+|------|:-----:|:---:|:---------:|:------:|:---------:|:------------:|:---------:|:-----------:|:--------:|
+| youtube | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| youtube_search | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ |
+| kobis_boxoffice | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
+| kopis_boxoffice | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
+| kcisa_performance | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ |
+| naver_datalab | ✓ | ✓ | ✗ | ✓ | ✓* | ✓* | ✗ | ✓ | ✗ |
+| google_trends | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| tour_festival | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ |
+| tour_visitor | ✓ | ✓ | ✗ | ✗ | ✓* | ✓* | ✗ | ✓ | ✓ |
+| upbit | ✓ | ✓ | ✗ | ✗ | ✓* | ✗ | ✗ | ✗ | ✓ |
+| bigkinds | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ |
+| daum_cafe/blog | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ |
+
+### Apify SNS
+
+| 소스 | title | url | thumbnail | author | viewCount | commentCount | likeCount | publishedAt | metadata |
+|------|:-----:|:---:|:---------:|:------:|:---------:|:------------:|:---------:|:-----------:|:--------:|
+| apify_x | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓(retweets) |
+| apify_instagram | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓(likes) |
+| apify_tiktok | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓(shares) |
+
+### RSS 소스 (45+개)
+
+| 유형 | title | url | thumbnail | author | viewCount | commentCount | likeCount | publishedAt |
+|------|:-----:|:---:|:---------:|:------:|:---------:|:------------:|:---------:|:-----------:|
+| 일반 뉴스 RSS | ✓ | ✓ | ✓ | 일부 | ✗ | ✗ | ✗ | ✓ |
+| YouTube RSS | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ |
+| Google Trends RSS | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ |
+
+> RSS thumbnail은 `enclosure`, `media:content`, `media:thumbnail` 태그에서 추출. 피드에 따라 미제공 가능.
 
 ---
 

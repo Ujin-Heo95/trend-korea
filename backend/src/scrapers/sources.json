@@ -809,6 +809,105 @@
       "className": "NaverNewsRankingScraper",
       "priority": "medium",
       "enabled": true
+    },
+    {
+      "key": "nocutnews",
+      "name": "노컷뉴스",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://rss.nocutnews.co.kr/news/news.xml",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "asiae",
+      "name": "아시아경제",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://www.asiae.co.kr/rss/all.htm",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "segye",
+      "name": "세계일보",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://www.segye.com/Articles/RSSList/segye_recent.xml",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "edaily",
+      "name": "이데일리",
+      "category": "finance",
+      "type": "rss",
+      "feedUrl": "http://rss.edaily.co.kr/edaily_news.xml",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "bizwatch",
+      "name": "비즈워치",
+      "category": "finance",
+      "type": "rss",
+      "feedUrl": "https://news.bizwatch.co.kr/rss/service/industry",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "cnn",
+      "name": "CNN",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "http://rss.cnn.com/rss/cnn_latest.rss",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "nature",
+      "name": "네이쳐",
+      "category": "tech",
+      "type": "rss",
+      "feedUrl": "https://www.nature.com/nature.rss",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "bbc_korean",
+      "name": "BBC코리아",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://feeds.bbci.co.uk/korean/rss.xml",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "zdnet_kr",
+      "name": "지디넷코리아",
+      "category": "tech",
+      "type": "rss",
+      "feedUrl": "https://zdnet.co.kr/feed/",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "mbn",
+      "name": "MBN",
+      "category": "news",
+      "type": "rss",
+      "feedUrl": "https://www.mbn.co.kr/rss/",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "itworld_kr",
+      "name": "IT World",
+      "category": "tech",
+      "type": "rss",
+      "feedUrl": "https://www.itworld.co.kr/feed/",
+      "priority": "medium",
+      "enabled": true
     }
   ]
 }
