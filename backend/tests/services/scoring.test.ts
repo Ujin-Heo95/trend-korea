@@ -1,15 +1,43 @@
 import { describe, it, expect } from 'vitest';
-import { computeScore, computeScoreLegacy, getSourceWeight, getCategoryWeight, type ScoreFactors } from '../../src/services/scoring.js';
+import {
+  computeScore, computeScoreLegacy, getSourceWeight, getCategoryWeight,
+  getHalfLife, volumeDampeningFactor, type ScoreFactors,
+} from '../../src/services/scoring.js';
 
 describe('getSourceWeight', () => {
-  it('returns correct weight for known sources', () => {
-    expect(getSourceWeight('yna')).toBe(1.15);
-    expect(getSourceWeight('dcinside')).toBe(1.05);
-    expect(getSourceWeight('youtube')).toBe(1.03);
+  it('returns T1 weight for 통신사·집계', () => {
+    expect(getSourceWeight('yna')).toBe(2.5);
+    expect(getSourceWeight('naver_news_ranking')).toBe(2.5);
+    expect(getSourceWeight('bigkinds_issues')).toBe(2.5);
+    expect(getSourceWeight('youtube')).toBe(2.5);
   });
 
-  it('returns default weight for unknown sources', () => {
-    expect(getSourceWeight('unknown_source')).toBe(0.95);
+  it('returns T2 weight for 방송사+조중', () => {
+    expect(getSourceWeight('sbs')).toBe(2.2);
+    expect(getSourceWeight('kbs')).toBe(2.2);
+    expect(getSourceWeight('chosun')).toBe(2.2);
+  });
+
+  it('returns T3 weight for 주요 언론', () => {
+    expect(getSourceWeight('khan')).toBe(2.0);
+    expect(getSourceWeight('mk')).toBe(2.0);
+    expect(getSourceWeight('hani')).toBe(2.0);
+    expect(getSourceWeight('ytn')).toBe(2.0);
+  });
+
+  it('returns 1.0 for community sources', () => {
+    expect(getSourceWeight('dcinside')).toBe(1.0);
+    expect(getSourceWeight('theqoo')).toBe(1.0);
+    expect(getSourceWeight('natepann')).toBe(1.0);
+  });
+
+  it('returns 0.9 for hotdeal sources', () => {
+    expect(getSourceWeight('ruliweb_hot')).toBe(0.9);
+    expect(getSourceWeight('clien_jirum')).toBe(0.9);
+  });
+
+  it('returns default 0.8 for unknown sources', () => {
+    expect(getSourceWeight('unknown_source')).toBe(0.8);
   });
 });
 
@@ -23,6 +51,71 @@ describe('getCategoryWeight', () => {
   it('returns default weight for null/unknown', () => {
     expect(getCategoryWeight(null)).toBe(1.00);
     expect(getCategoryWeight('unknown')).toBe(1.00);
+  });
+});
+
+describe('getHalfLife', () => {
+  it('community decays fastest (150min)', () => {
+    expect(getHalfLife('community')).toBe(150);
+  });
+
+  it('sns decays even faster (120min)', () => {
+    expect(getHalfLife('sns')).toBe(120);
+  });
+
+  it('news decays at 4h (240min)', () => {
+    expect(getHalfLife('news')).toBe(240);
+  });
+
+  it('video retains longest (360min)', () => {
+    expect(getHalfLife('video')).toBe(360);
+  });
+});
+
+describe('channel-specific decay', () => {
+  it('community at 24h is near zero (<0.2%)', () => {
+    const decay24h = Math.exp(-Math.LN2 * 1440 / 150);
+    expect(decay24h).toBeLessThan(0.002);
+  });
+
+  it('news at 24h retains ~1.5%', () => {
+    const decay24h = Math.exp(-Math.LN2 * 1440 / 240);
+    expect(decay24h).toBeCloseTo(0.0156, 3);
+  });
+
+  it('video at 6h is exactly half', () => {
+    const decay6h = Math.exp(-Math.LN2 * 360 / 360);
+    expect(decay6h).toBeCloseTo(0.5, 5);
+  });
+
+  it('community decays faster than news at same age', () => {
+    const age = 360; // 6h
+    const communityDecay = Math.exp(-Math.LN2 * age / 150);
+    const newsDecay = Math.exp(-Math.LN2 * age / 240);
+    expect(communityDecay).toBeLessThan(newsDecay);
+  });
+});
+
+describe('volumeDampeningFactor', () => {
+  it('returns 1.0 for sources at or below median', () => {
+    expect(volumeDampeningFactor(5, 10)).toBe(1.0);
+    expect(volumeDampeningFactor(10, 10)).toBe(1.0);
+  });
+
+  it('dampens high-volume sources', () => {
+    // 5x median → 1.0 - 0.15 * ln(5) ≈ 0.759
+    const factor = volumeDampeningFactor(50, 10);
+    expect(factor).toBeCloseTo(0.759, 2);
+    expect(factor).toBeLessThan(1.0);
+  });
+
+  it('never goes below 0.7 floor', () => {
+    expect(volumeDampeningFactor(10000, 1)).toBe(0.7);
+  });
+
+  it('handles medianCount <= 0', () => {
+    expect(volumeDampeningFactor(10, 0)).toBe(1.0);
+    expect(volumeDampeningFactor(10, -1)).toBe(1.0);
   });
 });
 
@@ -47,10 +140,10 @@ describe('computeScore (new formula)', () => {
     const factors = makeFactors({
       normalizedEngagement: 2.0,
       decay: 0.5,
-      sourceWeight: 1.15,
+      sourceWeight: 2.5,
       categoryWeight: 1.20,
     });
-    const expected = 2.0 * 0.5 * 1.15 * 1.20;
+    const expected = 2.0 * 0.5 * 2.5 * 1.20;
     expect(computeScore(factors)).toBeCloseTo(expected, 5);
   });
 
@@ -82,14 +175,14 @@ describe('computeScore (new formula)', () => {
     const factors = makeFactors({
       normalizedEngagement: 2.5,
       decay: 0.8,
-      sourceWeight: 1.10,
+      sourceWeight: 2.2,
       categoryWeight: 1.15,
       velocityBonus: 1.3,
       clusterBonus: 1.6,
       keywordMomentumBonus: 1.2,
       trendConfirmationBonus: 1.1,
     });
-    const expected = 2.5 * 0.8 * 1.10 * 1.15 * 1.3 * 1.6 * 1.2 * 1.1;
+    const expected = 2.5 * 0.8 * 2.2 * 1.15 * 1.3 * 1.6 * 1.2 * 1.1;
     expect(computeScore(factors)).toBeCloseTo(expected, 3);
   });
 
@@ -117,21 +210,50 @@ describe('computeScoreLegacy (backward compat)', () => {
     expect(commentOnly).toBeGreaterThan(viewOnly);
   });
 
-  it('score decays over time with 6h half-life', () => {
+  it('score decays with channel-specific half-life (news=4h)', () => {
+    const fresh = computeScoreLegacy(1000, 50, 0, 1.0, 1.0, 1.0, 'news');
+    const fourHours = computeScoreLegacy(1000, 50, 240, 1.0, 1.0, 1.0, 'news');
+    expect(fourHours).toBeCloseTo(fresh / 2, 1);
+  });
+
+  it('community decays at 2.5h half-life', () => {
+    const fresh = computeScoreLegacy(1000, 50, 0, 1.0, 1.0, 1.0, 'community');
+    const halfLife = computeScoreLegacy(1000, 50, 150, 1.0, 1.0, 1.0, 'community');
+    expect(halfLife).toBeCloseTo(fresh / 2, 1);
+  });
+
+  it('default channel (specialized) uses 5h half-life', () => {
     const fresh = computeScoreLegacy(1000, 50, 0, 1.0, 1.0);
-    const sixHours = computeScoreLegacy(1000, 50, 360, 1.0, 1.0);
-    expect(sixHours).toBeCloseTo(fresh / 2, 1);
+    const fiveHours = computeScoreLegacy(1000, 50, 300, 1.0, 1.0);
+    expect(fiveHours).toBeCloseTo(fresh / 2, 1);
   });
 
   it('source and category weights multiply', () => {
     const base = computeScoreLegacy(1000, 50, 60, 1.0, 1.0);
-    const boosted = computeScoreLegacy(1000, 50, 60, 1.15, 1.20);
-    expect(boosted).toBeCloseTo(base * 1.15 * 1.20, 1);
+    const boosted = computeScoreLegacy(1000, 50, 60, 2.5, 1.20);
+    expect(boosted).toBeCloseTo(base * 2.5 * 1.20, 1);
   });
 
   it('cluster bonus applies correctly', () => {
     const single = computeScoreLegacy(1000, 50, 60, 1.0, 1.0, 1.0);
     const clustered = computeScoreLegacy(1000, 50, 60, 1.0, 1.0, 1.3);
     expect(clustered).toBeCloseTo(single * 1.3, 1);
+  });
+});
+
+describe('newsSignal saturation', () => {
+  it('single T1 news gives ~0.36 signal', () => {
+    const signal = Math.min(2.5 / 7.0, 1.0);
+    expect(signal).toBeCloseTo(0.357, 2);
+  });
+
+  it('3 T1 sources saturate to 1.0', () => {
+    const signal = Math.min(7.5 / 7.0, 1.0);
+    expect(signal).toBe(1.0);
+  });
+
+  it('2 T2 sources give ~0.63 signal', () => {
+    const signal = Math.min(4.4 / 7.0, 1.0);
+    expect(signal).toBeCloseTo(0.629, 2);
   });
 });

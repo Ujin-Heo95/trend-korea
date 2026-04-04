@@ -9,23 +9,37 @@
 ### 1.1 공식
 
 ```
-score = (log1p(views) + log1p(comments) × 1.5)
-      × exp(-ln2 × age_minutes / 360)     -- 6시간 반감기 시간 감쇠
-      × source_weight                       -- 소스 신뢰도 (0.85~1.20)
-      × category_weight                     -- 카테고리 부스트 (0.80~1.25)
-      × velocity_bonus                      -- 참여 속도 (향후, 1.0~1.3)
+score = normalizedEngagement × decay × sourceWeight × categoryWeight
+      × velocityBonus × clusterBonus × keywordMomentumBonus
+      × trendConfirmationBonus × burstBonus
 ```
+
+- **decay**: 채널별 차등 반감기 (커뮤니티 2.5h, SNS 2h, 뉴스 4h, 전문 5h, 영상 6h)
+- 최종 점수는 채널 내 백분위 정규화 (0-10 스케일) 적용
+- 소스 볼륨 감쇄: 게시물 과다 소스는 중앙값 대비 로그 감쇄 (하한 0.7)
 
 ### 1.2 가중치 설정
 
 **소스 가중치** (source_weight):
-| 등급 | 소스 | 가중치 |
+| 티어 | 소스 | 가중치 |
 |------|------|--------|
-| 최상 | yna, sbs, khan, mk | 1.15 |
-| 상 | hani, donga, hankyung, geeknews, yozm | 1.10 |
-| 중상 | dcinside, bobaedream, ruliweb, theqoo, instiz, natepann | 1.05 |
-| 중 | youtube, ppomppu | 1.03 |
-| 기본 | 기타 | 0.95 |
+| T1 통신사·집계 | yna, naver_news_ranking, bigkinds_issues, youtube(정규언론) | 2.5 |
+| T2 방송사+조중 | sbs, kbs, mbc, jtbc, chosun, joins | 2.2 |
+| T3 주요 언론 | khan, mk, hani, donga, hankyung, ytn | 2.0 |
+| T4 포털·통합 | daum_news, newsis, google_news_kr | 1.6~1.8 |
+| 테크 | geeknews, yozm, etnews | 1.3~1.5 |
+| 커뮤니티 | dcinside, theqoo, natepann 등 | 1.0 |
+| 핫딜 | ppomppu_hot, clien_jirum 등 | 0.9 |
+| 기본 | 기타 (미등록) | 0.8 |
+
+**채널별 Decay 반감기**:
+| 채널 | 반감기 | 24h후 잔여 | 사유 |
+|------|--------|-----------|------|
+| SNS | 2h | 0.002% | 최고 실시간성 |
+| 커뮤니티 | 2.5h | 0.13% | 실시간 이슈 중심 |
+| 뉴스 | 4h | 1.56% | 시의성 중요 |
+| 전문 | 5h | 0.46% | 중간 수명 |
+| 영상 | 6h | 6.25% | 영상 수명 김 |
 
 **카테고리 가중치** (category_weight):
 | 카테고리 | 가중치 | 사유 |
@@ -35,10 +49,10 @@ score = (log1p(views) + log1p(comments) × 1.5)
 | trend | 1.15 | 트렌드 탐색 목적 |
 | tech | 1.15 | 성장 중인 관심 |
 | finance | 1.10 | 시장 정보 |
-| entertainment | 1.05 | 공연예술/문화 이벤트 |
-| community | 1.00 | 기준선 |
+| community | 1.08 | 커뮤니티 기준선 |
+| movie, performance, travel | 1.05 | 문화·여행 |
+| deals | 1.00 | 거래 정보 |
 | video | 0.95 | 느린 감쇠 |
-| deals | 0.90 | 시의성 낮음 |
 | government | 0.85 | 느린 사이클 |
 | newsletter | 0.80 | 일일 단위 |
 

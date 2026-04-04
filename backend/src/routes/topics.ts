@@ -287,7 +287,9 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
       // 통합 스코어 (다음 포커스 스타일 가중 평균)
       const isBreaking = maxBurst > 3.0;
       const communitySignal = Math.min(communityCount / 5, 1.0);
-      const newsSignal = Math.min(weightedNewsScore / 3.0, 1.0);
+      // 분모 7.0: 평균 T1~T2 가중치(~2.3) × 뉴스 3개사 = 포화
+      const NEWS_SIGNAL_SATURATION = 7.0;
+      const newsSignal = Math.min(weightedNewsScore / NEWS_SIGNAL_SATURATION, 1.0);
       const burstSignal = Math.min(maxBurst / 5, 1.0);
       const convergenceSignal = Math.min(maxConvergence / 20, 1.0);
 

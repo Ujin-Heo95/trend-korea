@@ -2,7 +2,17 @@ import type { Pool } from 'pg';
 import { detectBursts } from './keywords.js';
 
 const LN2 = Math.LN2;
-const HALF_LIFE_MINUTES = 360; // 6시간 반감기
+
+// ─── Channel-specific Decay ───
+// 커뮤니티/SNS는 실시간성 중시, 영상은 수명이 김
+const CHANNEL_HALF_LIFE_MINUTES: Record<Channel, number> = {
+  community: 150,    // 2.5h → 24h후 0.06%
+  sns: 120,          // 2h → 24h후 0.002%
+  news: 240,         // 4h → 24h후 1.56%
+  specialized: 300,  // 5h → 24h후 0.46%
+  video: 360,        // 6h → 24h후 6.25% (기존 유지)
+};
+const DEFAULT_HALF_LIFE_MINUTES = 300; // fallback
 
 // ─── Channel Mapping ───
 
@@ -23,32 +33,35 @@ export function getChannel(category: string | null): Channel {
   return (category ? CATEGORY_TO_CHANNEL[category] : undefined) ?? 'specialized';
 }
 
-// ─── Source & Category Weights (기존 유지) ───
+// ─── Source & Category Weights ───
+// T1(2.5) 통신사·집계  T2(2.2) 방송사+조중  T3(2.0) 주요 언론
+// T4(1.8) 포털·통합  T5(1.3~1.5) 테크  커뮤니티(1.0)  기본(0.8)
 
 const SOURCE_WEIGHTS: Record<string, number> = {
-  // 주요 통신사·일간지
-  yna: 1.15, sbs: 1.15, khan: 1.15, mk: 1.15,
-  chosun: 1.12, joins: 1.12,
-  hani: 1.10, donga: 1.10, hankyung: 1.10,
-  // 방송사
-  kbs: 1.12, mbc: 1.12, jtbc: 1.12, ytn: 1.10,
-  // 포탈·통합
-  daum_news: 1.10, google_news_kr: 1.08, newsis: 1.08,
+  // T1: 통신사 + 뉴스 집계
+  yna: 2.5, naver_news_ranking: 2.5, bigkinds_issues: 2.5,
+  // T2: 방송사 + 조중
+  sbs: 2.2, kbs: 2.2, mbc: 2.2, jtbc: 2.2, chosun: 2.2, joins: 2.2,
+  // T3: 주요 언론
+  khan: 2.0, mk: 2.0, hani: 2.0, donga: 2.0, hankyung: 2.0, ytn: 2.0,
+  // T4: 포털·통합
+  daum_news: 1.8, google_news_kr: 1.6, newsis: 1.8,
+  // YouTube (정규 언론사 = T1, 일반 = 1.2)
+  youtube: 2.5,
   // 테크
-  geeknews: 1.10, yozm: 1.10, etnews: 1.05,
-  naver_d2: 1.05, kakao_tech: 1.05, toss_tech: 1.05,
+  geeknews: 1.3, yozm: 1.3, etnews: 1.5,
+  naver_d2: 1.1, kakao_tech: 1.1, toss_tech: 1.1,
   // 커뮤니티
-  dcinside: 1.05, bobaedream: 1.05, ruliweb: 1.05, theqoo: 1.05,
-  instiz: 1.05, natepann: 1.05,
+  dcinside: 1.0, bobaedream: 1.0, ruliweb: 1.0, theqoo: 1.0,
+  instiz: 1.0, natepann: 1.0,
   // 기타
-  youtube: 1.03, ppomppu: 1.03,
-  kopis_boxoffice: 1.10,
-  bigkinds_issues: 1.15,
-  sports_donga: 1.00,
-  ruliweb_hot: 1.00, clien_jirum: 1.05,
-  quasarzone_deal: 1.00, dcinside_hotdeal: 1.00,
+  ppomppu: 1.0,
+  kopis_boxoffice: 1.2,
+  sports_donga: 1.2,
+  ruliweb_hot: 0.9, clien_jirum: 0.9,
+  quasarzone_deal: 0.9, dcinside_hotdeal: 0.9,
 };
-const DEFAULT_SOURCE_WEIGHT = 0.95;
+const DEFAULT_SOURCE_WEIGHT = 0.8;
 
 const CATEGORY_WEIGHTS: Record<string, number> = {
   alert: 1.25, news: 1.20, trend: 1.15, tech: 1.15,
@@ -64,6 +77,16 @@ export function getSourceWeight(sourceKey: string): number {
 
 export function getCategoryWeight(category: string | null): number {
   return category ? (CATEGORY_WEIGHTS[category] ?? DEFAULT_CATEGORY_WEIGHT) : DEFAULT_CATEGORY_WEIGHT;
+}
+
+export function getHalfLife(channel: Channel): number {
+  return CHANNEL_HALF_LIFE_MINUTES[channel] ?? DEFAULT_HALF_LIFE_MINUTES;
+}
+
+/** 소스별 게시물 볼륨 과대표현 억제 (중앙값 대비 로그 감쇄, 하한 0.7) */
+export function volumeDampeningFactor(sourceCount: number, medianCount: number): number {
+  if (sourceCount <= medianCount || medianCount <= 0) return 1.0;
+  return Math.max(0.7, 1.0 - 0.15 * Math.log(sourceCount / medianCount));
 }
 
 // ─── Score Component Types ───
@@ -118,10 +141,12 @@ export function computeScoreLegacy(
   sourceWeight: number,
   categoryWeight: number,
   clusterBonus: number = 1.0,
+  channel: Channel = 'specialized',
 ): number {
   const rawEngagement = Math.log1p(viewCount) + Math.log1p(commentCount) * 1.5;
   const engagement = rawEngagement > 0 ? rawEngagement : 2.0;
-  const decay = Math.exp(-LN2 * ageMinutes / HALF_LIFE_MINUTES);
+  const halfLife = CHANNEL_HALF_LIFE_MINUTES[channel] ?? DEFAULT_HALF_LIFE_MINUTES;
+  const decay = Math.exp(-LN2 * ageMinutes / halfLife);
   return engagement * decay * sourceWeight * categoryWeight * clusterBonus;
 }
 
@@ -281,9 +306,10 @@ function normalizeEngagement(
     return categoryBaseline;
   }
 
-  // 소스별 통계 우선, 부족하면 채널 통계 fallback
+  // 소스별 통계 우선, 부족하면 채널 통계 fallback (뉴스는 최소 5샘플)
+  const minSample = channel === 'news' ? 5 : 10;
   let stats = sourceStatsMap.get(sourceKey);
-  if (!stats || stats.sampleCount < 10) {
+  if (!stats || stats.sampleCount < minSample) {
     stats = channelStatsMap.get(channel);
   }
   if (!stats || stats.sampleCount < 10) {
@@ -560,7 +586,7 @@ export async function calculateScores(pool: Pool): Promise<number> {
   // 스코어 분포 추적용
   const scores: number[] = [];
   // 채널별 백분위 정규화용
-  const rawScoreEntries: { postId: number; score: number; srcW: number; catW: number; channel: Channel }[] = [];
+  const rawScoreEntries: { postId: number; score: number; srcW: number; catW: number; channel: Channel; sourceKey: string }[] = [];
 
   for (const row of rows) {
     const ageMinutes = (now - new Date(row.scraped_at).getTime()) / 60_000;
@@ -587,7 +613,7 @@ export async function calculateScores(pool: Pool): Promise<number> {
         row.source_key, sourceStatsMap, channelStatsMap, channel,
         catBaseline * credibilityFactor,
       ),
-      decay: Math.exp(-LN2 * ageMinutes / HALF_LIFE_MINUTES),
+      decay: Math.exp(-LN2 * ageMinutes / (CHANNEL_HALF_LIFE_MINUTES[channel] ?? DEFAULT_HALF_LIFE_MINUTES)),
       sourceWeight: srcW,
       categoryWeight: catW,
       velocityBonus: velocityToBonus(velocityMap.get(row.id)),
@@ -599,7 +625,19 @@ export async function calculateScores(pool: Pool): Promise<number> {
 
     const score = computeScore(factors);
     scores.push(score);
-    rawScoreEntries.push({ postId: row.id, score, srcW, catW, channel });
+    rawScoreEntries.push({ postId: row.id, score, srcW, catW, channel, sourceKey: row.source_key });
+  }
+
+  // Step 2.5: 소스 볼륨 감쇄 (과대표현 억제)
+  const sourcePostCounts = new Map<string, number>();
+  for (const entry of rawScoreEntries) {
+    sourcePostCounts.set(entry.sourceKey, (sourcePostCounts.get(entry.sourceKey) ?? 0) + 1);
+  }
+  const countValues = [...sourcePostCounts.values()].sort((a, b) => a - b);
+  const medianCount = countValues[Math.floor(countValues.length / 2)] || 1;
+  for (const entry of rawScoreEntries) {
+    const srcCount = sourcePostCounts.get(entry.sourceKey) ?? 1;
+    entry.score *= volumeDampeningFactor(srcCount, medianCount);
   }
 
   // Step 3: 채널 내 백분위 정규화 (0-10 스케일)
