@@ -224,9 +224,7 @@
         "정치": "https://www.khan.co.kr/rss/rssdata/politic_news.xml",
         "경제": "https://www.khan.co.kr/rss/rssdata/economy_news.xml",
         "사회": "https://www.khan.co.kr/rss/rssdata/society_news.xml",
-        "세계": "https://www.khan.co.kr/rss/rssdata/world_news.xml",
         "연예": "https://www.khan.co.kr/rss/rssdata/culture_news.xml",
-        "스포츠": "https://www.khan.co.kr/rss/rssdata/sports_news.xml",
         "IT/과학": "https://www.khan.co.kr/rss/rssdata/science_news.xml"
       },
       "priority": "medium",
