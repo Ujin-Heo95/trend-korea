@@ -58,14 +58,14 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ---
 
-## 2. 현재 소스 현황 (101개 등록, 79개 활성)
+## 2. 현재 소스 현황 (103개 등록, 82개 활성)
 
 | 카테고리 | 소스 | 수집방식 | 우선순위 | 상태 |
 |----------|------|----------|----------|------|
 | community | dcinside, bobaedream, theqoo, instiz, natepann, todayhumor | HTML | high | 안정 |
 | community | ppomppu, ddanzi | RSS | high | 안정 |
 | community | clien, fmkorea | HTML | medium | fmkorea 봇 차단 (430) |
-| community | mlbpark, cook82, inven, humoruniv, ygosu, slrclub, etoland | HTML | high | 안정 |
+| community | mlbpark, cook82, inven, humoruniv, ygosu, slrclub, etoland, dogdrip | HTML | high/medium | 안정 |
 | community | ruliweb | HTML | high | **disabled** (timeout) |
 | community | reddit_korea, reddit_hanguk | RSS (Atom) | low | **disabled** (비활성화 2026-04-04) |
 | news | yna, hani, sbs, donga, khan, hankyung, mk, kmib | RSS | medium | 안정 |
@@ -79,7 +79,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | tech | boannews | RSS (euc-kr) | medium | 신규 (2026-04-04) |
 | tech | zdnet_kr, itworld_kr | RSS | medium | 신규 (2026-04-04) |
 | tech | nature | RSS | low | 신규 (2026-04-04) |
-| tech | geeknews | RSS | medium | **disabled** (403) |
+| tech | geeknews | HTML | medium | 안정 (RSS→HTML 전환, 2026-04-04) |
 | techblog | naver_d2, kakao_tech, toss_tech | RSS | low | **disabled** (비활성화 2026-04-04) |
 | techblog | daangn_tech, line_tech, banksalad_tech | RSS | low | **disabled** (비활성화 2026-04-04) |
 | video | youtube | API | low | 쿼터 주의 (10K/일) |
@@ -103,6 +103,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | blog | daum_blog | API | low | **disabled** (비활성화 2026-04-04) |
 | sns | apify_instagram, apify_x, apify_tiktok | Apify | medium | **disabled** (토큰 미설정) |
 | alert | kma | RSS | low | **disabled** |
+| alert | airkorea | API | low | 신규 (2026-04-04), DATA_GO_KR_API_KEY 재사용 |
 
 ---
 
@@ -115,7 +116,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | 소스 | title | url | thumbnail | author | viewCount | commentCount | likeCount | publishedAt |
 |------|:-----:|:---:|:---------:|:------:|:---------:|:------------:|:---------:|:-----------:|
 | dcinside | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ |
-| bobaedream | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | ✗ | ✗ |
+| bobaedream | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
 | theqoo | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ |
 | instiz | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ |
 | natepann | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ |
@@ -123,15 +124,17 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | clien | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | ✗ |
 | fmkorea | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
 | ruliweb | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
-| mlbpark | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | ✗ |
-| cook82 | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| inven | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| humoruniv | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| ygosu | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
-| slrclub | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| etoland | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| mlbpark | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| cook82 | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ |
+| inven | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| humoruniv | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| ygosu | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| slrclub | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| etoland | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| dogdrip | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ |
+| geeknews | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | ✓ | ✗ |
 | melon_chart | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
-| naver_news_ranking | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| naver_news_ranking | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
 
 ### HTML 핫딜
 
@@ -157,6 +160,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | upbit | ✓ | ✓ | ✗ | ✗ | ✓* | ✗ | ✗ | ✗ | ✓ |
 | bigkinds | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ |
 | daum_cafe/blog | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ |
+| airkorea | ✓ | ✓ | ✗ | ✗ | ✓* | ✗ | ✗ | ✗ | ✓ |
 
 ### Apify SNS
 
@@ -197,7 +201,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | 다음 뉴스 RSS | HTML 리다이렉트 (2026-04) | Google 뉴스 |
 | 서울신문 RSS | 404 (2026-04) | -- |
 | 스포츠동아 RSS | 빈 응답 (2026-04) | -- |
-| GeekNews RSS | 403 Forbidden (2026-04) | -- |
+| GeekNews RSS | 403 Forbidden (2026-04) | **HTML 전환 완료** (2026-04-04) |
 | Signal.bz | JS SPA, 헤드리스 브라우저 필요 | 네이버 뉴스 랭킹 |
 | 한국일보 RSS | RSS 없음, HTML 반환 (2026-04) | Google 뉴스 |
 | 프레시안 RSS | HTML 반환 (2026-04) | -- |
@@ -229,9 +233,9 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ### Tier 3 — HTML (일부 연동 완료)
 
-**연동 완료**: 멜론 차트, 네이버 뉴스 랭킹, 클리앙 알뜰구매, 퀘사이사존 핫딜, DC 핫딜갤러리
+**연동 완료**: 멜론 차트, 네이버 뉴스 랭킹, 클리앙 알뜰구매, 퀘사이사존 핫딜, DC 핫딜갤러리, 개드립, GeekNews (HTML)
 **JS SPA (헤드리스 필요)**: Signal.bz, 어미새(eomisae.co.kr, 패션/라이프 핫딜)
-**미연동 (복잡)**: 개드립, 아카라이브, 네이버 웹툰 랭킹, 나무위키
+**미연동 (복잡)**: 아카라이브, 네이버 웹툰 랭킹, 나무위키
 
 ### Tier 4 — 고급/유료 (~7개)
 

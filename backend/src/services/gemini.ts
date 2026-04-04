@@ -243,6 +243,63 @@ JSON 형식: {"topKeywords":["kw1","kw2",...],"digest":"...","outlook":"..."}`,
   }
 }
 
+/**
+ * 토픽(이슈)별 브리핑 카드 배치 생성
+ * 반환: { headline: "카테고리 | 캐치 헤드라인 이모지", body: "~요체 3-4문장" }
+ */
+export async function summarizeTopicsBatch(
+  topics: readonly { channel: string; keywords: string[]; postTitles: string[] }[],
+): Promise<({ headline: string; body: string } | null)[]> {
+  const m = getModel();
+  if (!m || topics.length === 0) return topics.map(() => null);
+
+  try {
+    const numbered = topics.map((t, i) => {
+      const titles = t.postTitles.slice(0, 5).map((tt, j) => `  ${j + 1}. ${tt}`).join('\n');
+      return `${i + 1}. [${t.channel}] 키워드: ${t.keywords.join(', ')}\n${titles}`;
+    }).join('\n\n');
+
+    const result = await m.generateContent(
+      `당신은 한국 트렌드 큐레이터입니다. 아래 이슈들을 각각 브리핑 카드로 만들어주세요.
+
+규칙:
+- headline: "채널 | 캐치 헤드라인 + 이모지 1-2개" (40자 이내)
+- body: 친근한 ~요체로 3-4문장 (150-200자). 핵심→배경→시사점 순서. 간결하고 읽기 쉽게.
+- 예시:
+  headline: "IT | 인스타그램, 돈 내면 스토리 몰래 볼 수 있다고? 🤳💸"
+  body: "메타가 인스타그램 유료 구독 서비스를 시범 운영하고 있어요. 여러 유료 기능 중 다른 사람의 스토리를 몰래 볼 수 있는 기능에 이목이 쏠리고 있는데요. 최근 멕시코·일본·필리핀에서 테스트를 시작했다고 알려졌고, 구독료는 월 1~2달러 수준이라고."
+
+이슈 목록:
+${numbered}
+
+JSON 배열로 응답: [{"headline":"...","body":"..."},...]`,
+    );
+    await delay(100);
+
+    const text = result.response.text().trim();
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      console.error('[gemini] topic summary: no JSON array:', text.slice(0, 200));
+      return topics.map(() => null);
+    }
+
+    const parsed: unknown = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(parsed)) return topics.map(() => null);
+
+    return topics.map((_, i) => {
+      const item = parsed[i];
+      if (!item || typeof item !== 'object') return null;
+      const h = (item as Record<string, unknown>).headline;
+      const b = (item as Record<string, unknown>).body;
+      if (typeof h !== 'string' || typeof b !== 'string') return null;
+      return { headline: h.trim(), body: b.trim() };
+    });
+  } catch (err) {
+    console.error('[gemini] topic summary failed:', (err as Error).message);
+    return topics.map(() => null);
+  }
+}
+
 export async function generateEditorial(
   categoryTitles: Record<string, string[]>,
 ): Promise<string | null> {

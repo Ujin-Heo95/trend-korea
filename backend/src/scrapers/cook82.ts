@@ -14,11 +14,11 @@ export class Cook82Scraper extends BaseScraper {
     const posts: ScrapedPost[] = [];
     const seenUrls = new Set<string>();
 
-    $('a[href*="read.php"]:not(.photolink)').each((_, el) => {
-      const href = $(el).attr('href') ?? '';
-      const title = $(el).text().trim();
+    $('#bbs table tbody tr:not(.noticeList)').each((_, el) => {
+      const a = $(el).find('td.title a[href*="read.php"]').first();
+      const href = a.attr('href') ?? '';
+      const title = a.text().trim();
       if (!title || title.length < 3) return;
-      // 숫자만으로 구성된 제목은 비게시글 링크
       if (/^\d+$/.test(title)) return;
 
       let url: string;
@@ -30,10 +30,15 @@ export class Cook82Scraper extends BaseScraper {
         url = `https://www.82cook.com/entiz/${href.replace(/^\.\.\//, '')}`;
       }
 
-      if (!seenUrls.has(url)) {
-        seenUrls.add(url);
-        posts.push({ sourceKey: 'cook82', sourceName: '82쿡', title, url });
-      }
+      if (seenUrls.has(url)) return;
+      seenUrls.add(url);
+
+      const author = $(el).find('td.user_function').text().trim() || undefined;
+      const commentCount = parseInt($(el).find('td.title em').text()) || undefined;
+      const cells = $(el).find('td.numbers:not(.regdate)');
+      const viewCount = parseInt(cells.last().text().replace(/,/g, '')) || undefined;
+
+      posts.push({ sourceKey: 'cook82', sourceName: '82쿡', title, url, author, viewCount, commentCount });
     });
 
     return posts.slice(0, 30);

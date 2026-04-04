@@ -275,10 +275,11 @@
       "key": "geeknews",
       "name": "GeekNews",
       "category": "tech",
-      "type": "rss",
-      "feedUrl": "https://news.hada.io/rss",
+      "type": "html",
+      "module": "./geeknews.js",
+      "className": "GeeknewsScraper",
       "priority": "medium",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "yozm",
@@ -297,6 +298,16 @@
       "feedUrl": "https://www.weather.go.kr/w/rss/rss.xml",
       "priority": "low",
       "enabled": false
+    },
+    {
+      "key": "airkorea",
+      "name": "에어코리아",
+      "category": "alert",
+      "type": "api",
+      "module": "./airkorea.js",
+      "className": "AirKoreaScraper",
+      "priority": "low",
+      "enabled": true
     },
     {
       "key": "ppomppu_hot",
@@ -833,6 +844,16 @@
       "type": "rss",
       "feedUrl": "https://www.boannews.com/media/news_rss.xml",
       "encoding": "euc-kr",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "dogdrip",
+      "name": "개드립",
+      "category": "community",
+      "type": "html",
+      "module": "./dogdrip.js",
+      "className": "DogdripScraper",
       "priority": "medium",
       "enabled": true
     },

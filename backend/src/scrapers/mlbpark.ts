@@ -23,7 +23,10 @@ export class MlbparkScraper extends BaseScraper {
       const commentMatch = $(el).find('.replycnt').text().match(/\[(\d+)\]/);
       const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
 
-      posts.push({ sourceKey: 'mlbpark', sourceName: 'MLB파크', title, url: href, viewCount, commentCount });
+      const author = $(el).find('.nick').text().trim() || undefined;
+      const likeCount = parseInt($(el).find('td.recomm, .recomm').text().replace(/[^0-9]/g, '')) || undefined;
+
+      posts.push({ sourceKey: 'mlbpark', sourceName: 'MLB파크', title, url: href, author, viewCount, commentCount, likeCount });
     });
 
     return posts.slice(0, 30);

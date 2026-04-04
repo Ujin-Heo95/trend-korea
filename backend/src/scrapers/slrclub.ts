@@ -13,18 +13,23 @@ export class SlrclubScraper extends BaseScraper {
 
     const posts: ScrapedPost[] = [];
 
-    $('a[href*="vx2.php"][href*="hot_article"]').each((_, el) => {
-      const href = $(el).attr('href') ?? '';
-      const title = $(el).text().trim();
+    $('tr:has(td.sbj a[href*="vx2.php"][href*="hot_article"])').each((_, el) => {
+      const a = $(el).find('td.sbj a[href*="vx2.php"]').first();
+      const href = a.attr('href') ?? '';
+      const title = a.text().trim();
       if (!title || title.length < 3) return;
 
       const url = href.startsWith('http')
         ? href
         : `https://www.slrclub.com${href.startsWith('/') ? '' : '/bbs/'}${href}`;
 
-      if (title && url) {
-        posts.push({ sourceKey: 'slrclub', sourceName: 'SLR클럽', title, url });
-      }
+      const author = $(el).find('td.list_name span').text().trim() || undefined;
+      const commentMatch = $(el).find('td.sbj').text().match(/\[(\d+)\]/);
+      const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
+      const viewCount = parseInt($(el).find('td.list_click').text().replace(/,/g, '')) || undefined;
+      const likeCount = parseInt($(el).find('td.list_vote').text().replace(/,/g, '')) || undefined;
+
+      posts.push({ sourceKey: 'slrclub', sourceName: 'SLR클럽', title, url, author, viewCount, commentCount, likeCount });
     });
 
     return posts.slice(0, 30);

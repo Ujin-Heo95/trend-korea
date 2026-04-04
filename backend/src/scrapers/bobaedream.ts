@@ -26,6 +26,9 @@ export class BobaedreamScraper extends BaseScraper {
       const commentText = $(el).closest('td').find('.totreply').first().text().trim();
       const commentCount = parseInt(commentText) || undefined;
 
+      const viewCount = parseInt($(el).closest('tr').find('td.count').text().replace(/[^0-9]/g, '')) || undefined;
+      const likeCount = parseInt($(el).closest('tr').find('td.recomm font').first().text().replace(/[^0-9]/g, '')) || undefined;
+
       if (title && url) {
         posts.push({
           sourceKey: 'bobaedream',
@@ -33,7 +36,9 @@ export class BobaedreamScraper extends BaseScraper {
           title,
           url,
           author,
+          viewCount,
           commentCount,
+          likeCount,
         });
       }
     });

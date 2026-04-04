@@ -50,7 +50,7 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포 + Supabas
 ## Current Phase
 
 v0.12.0 — 신규 로드맵 P0 진행중.
-소스 101개 등록 (79개 활성) + 295 tests (백엔드 250 + 프론트 45) + E2E 5건 + Supabase 500MB 서울.
+소스 103개 등록 (82개 활성) + 295 tests (백엔드 250 + 프론트 45) + E2E 5건 + Supabase 500MB 서울.
 
 **완료**: P0 도메인+Umami+URL (2026-04-03) + P1 SEO파이프라인+Security Headers (2026-04-04) + P2 보안·품질·기술부채 전면 해소 (2026-04-04)
 **다음**: P0 사업자·모니터링 (사용자 개입) → P1 런칭·마케팅 → P3 리텐션 → P4 스케일.

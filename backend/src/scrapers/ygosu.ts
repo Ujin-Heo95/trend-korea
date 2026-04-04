@@ -13,21 +13,24 @@ export class YgosuScraper extends BaseScraper {
 
     const posts: ScrapedPost[] = [];
 
-    $('a[href*="/board/best_article/"]').each((_, el) => {
-      const href = $(el).attr('href') ?? '';
+    $('tr:has(td.tit a[href*="/board/best_article/"])').each((_, el) => {
+      const a = $(el).find('td.tit a[href*="/board/best_article/"]').first();
+      const href = a.attr('href') ?? '';
       if (href.includes('/notice/') || href.includes('/ad/')) return;
 
-      const rawTitle = $(el).text().trim();
-      const title = rawTitle.replace(/\s*\(\d+\)\s*$/, '').trim();
+      const linkText = a.text().trim();
+      const title = linkText.replace(/\s*\(\d+\)\s*$/, '').trim();
       if (!title || title.length < 5) return;
 
-      const commentMatch = rawTitle.match(/\((\d+)\)\s*$/);
-      const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
       const url = href.startsWith('http') ? href : `https://www.ygosu.com${href}`;
+      const commentMatch = $(el).find('.reply_cnt').text().match(/\((\d+)\)/);
+      const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
+      const author = $(el).find('td.name a').text().trim() || undefined;
+      const viewCount = parseInt($(el).find('td.view').text().replace(/,/g, '')) || undefined;
+      const voteText = $(el).find('td.vote').text().trim();
+      const likeCount = parseInt(voteText.replace(/[^0-9]/g, '')) || undefined;
 
-      if (title && url) {
-        posts.push({ sourceKey: 'ygosu', sourceName: '와이고수', title, url, commentCount });
-      }
+      posts.push({ sourceKey: 'ygosu', sourceName: '와이고수', title, url, author, viewCount, commentCount, likeCount });
     });
 
     return posts.slice(0, 30);

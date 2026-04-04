@@ -137,56 +137,73 @@ describe('ClienScraper', () => {
 
 // ─── Cook82 ──────────────────────────────────────────────────
 describe('Cook82Scraper', () => {
-  const html = `<html><body>
-    <a href="read.php?num=12345">82쿡 인기글 제목</a>
-    <a href="../read.php?num=67890">두번째 글</a>
-    <a href="read.php?num=99">AB</a>
-  </body></html>`;
+  const html = `<html><body><div id="bbs"><table><tbody>
+    <tr class="noticeList"><td></td><td class="title"><a class="bbs_title_word" href="read.php?bn=15&num=999">공지</a></td><td class="user_function">admin</td><td class="regdate numbers">2025.01.01</td><td class="numbers">100</td></tr>
+    <tr><td class="numbers">1</td><td class="title"><a href="read.php?num=12345">82쿡 인기글 제목</a> <em>5</em></td><td class="user_function">작성자A</td><td class="regdate numbers">16:00</td><td class="numbers">1,234</td></tr>
+    <tr><td class="numbers">2</td><td class="title"><a href="../read.php?num=67890">두번째 글</a></td><td class="user_function">작성자B</td><td class="regdate numbers">15:00</td><td class="numbers">567</td></tr>
+    <tr><td class="numbers">3</td><td class="title"><a href="read.php?num=99">AB</a></td><td class="user_function">X</td><td class="regdate numbers">14:00</td><td class="numbers">10</td></tr>
+  </tbody></table></div></body></html>`;
 
   beforeEach(() => {
     vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(html));
   });
 
-  it('parses posts', async () => {
+  it('parses posts with author, viewCount, commentCount', async () => {
     const scraper = new Cook82Scraper(pool);
     const posts = await scraper.fetch();
-    // "AB" has length < 3, filtered
+    // notice => filtered, "AB" has length < 3 => filtered
     expect(posts).toHaveLength(2);
     expect(posts[0]).toMatchObject({
       sourceKey: 'cook82',
       sourceName: '82쿡',
       title: '82쿡 인기글 제목',
       url: 'https://www.82cook.com/entiz/read.php?num=12345',
+      author: '작성자A',
+      viewCount: 1234,
+      commentCount: 5,
     });
-    expect(posts[1].url).toBe('https://www.82cook.com/entiz/read.php?num=67890');
+    expect(posts[1]).toMatchObject({
+      url: 'https://www.82cook.com/entiz/read.php?num=67890',
+      author: '작성자B',
+      viewCount: 567,
+    });
   });
 });
 
 // ─── Etoland ─────────────────────────────────────────────────
 describe('EtolandScraper', () => {
   const html = `<html><body>
-    <a href="board.php?bo_table=etohumor01&wr_id=123">에토랜드 인기글</a>
-    <a href="../bbs/board.php?bo_table=etohumor01&wr_id=456">두번째 글</a>
-    <a href="board.php?bo_table=etohumor01&wr_id=789">※공지사항</a>
-    <a href="board.php?bo_table=etohumor01&wr_id=101">OK</a>
+    <li class="list notice" style=""><div class="subject"><a href="board.php?bo_table=etohumor01&wr_id=999" class="subject_a">공지</a></div></li>
+    <li class="list " style=""><div class="subject"><a href="board.php?bo_table=etohumor01&wr_id=123" class="subject_a">에토랜드 인기글</a><a href="#" class="comment_count"><b>(8)</b></a></div><div class="writer"><span class="member">작성자A</span></div><div class="views">3,456</div><div class="sympathys">12</div></li>
+    <li class="list " style=""><div class="subject"><a href="../bbs/board.php?bo_table=etohumor01&wr_id=456" class="subject_a">두번째 글</a></div><div class="writer"><span class="member">작성자B</span></div><div class="views">789</div><div class="sympathys">0</div></li>
+    <li class="list " style=""><div class="subject"><a href="board.php?bo_table=etohumor01&wr_id=789" class="subject_a">※공지사항</a></div></li>
+    <li class="list " style=""><div class="subject"><a href="board.php?bo_table=etohumor01&wr_id=101" class="subject_a">OK</a></div></li>
   </body></html>`;
 
   beforeEach(() => {
     vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(html));
   });
 
-  it('parses posts and filters short/notice titles', async () => {
+  it('parses posts with engagement, filters notice/short/※', async () => {
     const scraper = new EtolandScraper(pool);
     const posts = await scraper.fetch();
-    // "※공지사항" starts with ※ => filtered, "OK" length < 3 => filtered
+    // notice class => filtered, "※공지사항" starts with ※ => filtered, "OK" length < 3 => filtered
     expect(posts).toHaveLength(2);
     expect(posts[0]).toMatchObject({
       sourceKey: 'etoland',
       sourceName: '에토랜드',
       title: '에토랜드 인기글',
       url: 'https://www.etoland.co.kr/bbs/board.php?bo_table=etohumor01&wr_id=123',
+      author: '작성자A',
+      viewCount: 3456,
+      commentCount: 8,
+      likeCount: 12,
     });
-    expect(posts[1].url).toBe('https://www.etoland.co.kr/bbs/board.php?bo_table=etohumor01&wr_id=456');
+    expect(posts[1]).toMatchObject({
+      url: 'https://www.etoland.co.kr/bbs/board.php?bo_table=etohumor01&wr_id=456',
+      author: '작성자B',
+      viewCount: 789,
+    });
   });
 });
 
@@ -291,17 +308,17 @@ describe('InstizScraper', () => {
 
 // ─── Inven ───────────────────────────────────────────────────
 describe('InvenScraper', () => {
-  const html = `<html><body>
-    <a class="subject-link" href="/board/it/2652/111">인벤  인기글  제목</a>
-    <a class="subject-link" href="https://www.inven.co.kr/board/it/2652/222">두번째 글</a>
-    <a class="subject-link" href="/board/it/2652/333">AB</a>
-  </body></html>`;
+  const html = `<html><body><table><tbody>
+    <tr><td class="num"><span>111</span></td><td class="tit"><div class="text-wrap"><div><a class="subject-link" href="/board/it/2652/111">인벤  인기글  제목</a></div><span class="con-comment">[3]</span></div></td><td class="user"><span class="layerNickName">유저A</span></td><td class="date">04-01</td><td class="view">2,345</td><td class="reco">7</td></tr>
+    <tr><td class="num"><span>222</span></td><td class="tit"><div class="text-wrap"><div><a class="subject-link" href="https://www.inven.co.kr/board/it/2652/222">두번째 글</a></div></div></td><td class="user"><span class="layerNickName">유저B</span></td><td class="date">04-01</td><td class="view">100</td><td class="reco">0</td></tr>
+    <tr><td class="num"><span>333</span></td><td class="tit"><div class="text-wrap"><div><a class="subject-link" href="/board/it/2652/333">AB</a></div></div></td><td class="user"><span>X</span></td><td class="date">04-01</td><td class="view">1</td><td class="reco">0</td></tr>
+  </tbody></table></body></html>`;
 
   beforeEach(() => {
     vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(html));
   });
 
-  it('parses posts and normalizes whitespace', async () => {
+  it('parses posts with engagement and normalizes whitespace', async () => {
     const scraper = new InvenScraper(pool);
     const posts = await scraper.fetch();
     // "AB" length < 3 => filtered
@@ -311,8 +328,16 @@ describe('InvenScraper', () => {
       sourceName: '인벤',
       title: '인벤 인기글 제목',
       url: 'https://www.inven.co.kr/board/it/2652/111',
+      author: '유저A',
+      viewCount: 2345,
+      commentCount: 3,
+      likeCount: 7,
     });
-    expect(posts[1].url).toBe('https://www.inven.co.kr/board/it/2652/222');
+    expect(posts[1]).toMatchObject({
+      url: 'https://www.inven.co.kr/board/it/2652/222',
+      author: '유저B',
+      viewCount: 100,
+    });
   });
 });
 
@@ -473,17 +498,17 @@ describe('RuliwebScraper', () => {
 
 // ─── SLRClub ─────────────────────────────────────────────────
 describe('SlrclubScraper', () => {
-  const html = `<html><body>
-    <a href="vx2.php?id=hot_article&no=111">SLR 인기글</a>
-    <a href="/bbs/vx2.php?id=hot_article&no=222">두번째 글</a>
-    <a href="vx2.php?id=hot_article&no=333">AB</a>
-  </body></html>`;
+  const html = `<html><body><table>
+    <tr><td class="list_num">111</td><td class="list_ctgry">자유게시판</td><td class="sbj"><a href="vx2.php?id=hot_article&no=111">SLR 인기글</a> [5]</td><td class="list_name"><span>작성자A</span></td><td class="list_date">15:00</td><td class="list_vote">3</td><td class="list_click">1,234</td></tr>
+    <tr><td class="list_num">222</td><td class="list_ctgry">자유게시판</td><td class="sbj"><a href="/bbs/vx2.php?id=hot_article&no=222">두번째 글</a></td><td class="list_name"><span>작성자B</span></td><td class="list_date">14:00</td><td class="list_vote">0</td><td class="list_click">567</td></tr>
+    <tr><td class="list_num">333</td><td class="list_ctgry">자유게시판</td><td class="sbj"><a href="vx2.php?id=hot_article&no=333">AB</a></td><td class="list_name"><span>X</span></td><td class="list_date">13:00</td><td class="list_vote">0</td><td class="list_click">10</td></tr>
+  </table></body></html>`;
 
   beforeEach(() => {
     vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(html));
   });
 
-  it('parses posts and filters short titles', async () => {
+  it('parses posts with engagement and filters short titles', async () => {
     const scraper = new SlrclubScraper(pool);
     const posts = await scraper.fetch();
     // "AB" length < 3 => filtered
@@ -493,8 +518,16 @@ describe('SlrclubScraper', () => {
       sourceName: 'SLR클럽',
       title: 'SLR 인기글',
       url: 'https://www.slrclub.com/bbs/vx2.php?id=hot_article&no=111',
+      author: '작성자A',
+      viewCount: 1234,
+      commentCount: 5,
+      likeCount: 3,
     });
-    expect(posts[1].url).toBe('https://www.slrclub.com/bbs/vx2.php?id=hot_article&no=222');
+    expect(posts[1]).toMatchObject({
+      url: 'https://www.slrclub.com/bbs/vx2.php?id=hot_article&no=222',
+      author: '작성자B',
+      viewCount: 567,
+    });
   });
 });
 
@@ -594,18 +627,18 @@ describe('TodayhumorScraper', () => {
 
 // ─── Ygosu ───────────────────────────────────────────────────
 describe('YgosuScraper', () => {
-  const html = `<html><body>
-    <a href="/community/board/best_article/111">와이고수 인기글 (23)</a>
-    <a href="https://www.ygosu.com/community/board/best_article/222">댓글 없는 글 제목</a>
-    <a href="/community/board/best_article/notice/333">공지사항 글</a>
-    <a href="/community/board/best_article/444">짧음</a>
-  </body></html>`;
+  const html = `<html><body><table><tbody>
+    <tr><td colspan="2" class="tit"><span class="category">[엽게]</span> <a href="/board/best_article/yeobgi/111">와이고수 인기글 <span class="reply_cnt">(23)</span></a></td><td class="name"><a href="#">작성자A</a></td><td class="view hit3">5,678</td><td class="day">26.04.03</td><td class="vote"><img alt="추천" src="ico.gif"/> 15</td></tr>
+    <tr><td colspan="2" class="tit"><a href="https://www.ygosu.com/board/best_article/free/222">댓글 없는 글 제목</a></td><td class="name"><a href="#">작성자B</a></td><td class="view">1,000</td><td class="day">26.04.03</td><td class="vote"> 0</td></tr>
+    <tr><td class="num">공지</td><td class="tit"><a href="/board/best_article/notice/333">공지사항 글</a></td><td class="name"></td><td class="view"></td><td class="day"></td><td class="vote"></td></tr>
+    <tr><td colspan="2" class="tit"><a href="/board/best_article/yeobgi/444">짧음</a></td><td class="name"><a href="#">X</a></td><td class="view">10</td><td class="day">26.04.03</td><td class="vote"> 0</td></tr>
+  </tbody></table></body></html>`;
 
   beforeEach(() => {
     vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(html));
   });
 
-  it('parses posts, extracts comment from title suffix, filters notice/short', async () => {
+  it('parses posts with engagement, filters notice/short', async () => {
     const scraper = new YgosuScraper(pool);
     const posts = await scraper.fetch();
     // notice => filtered, "짧음" length < 5 => filtered
@@ -614,11 +647,16 @@ describe('YgosuScraper', () => {
       sourceKey: 'ygosu',
       sourceName: '와이고수',
       title: '와이고수 인기글',
-      url: 'https://www.ygosu.com/community/board/best_article/111',
+      url: 'https://www.ygosu.com/board/best_article/yeobgi/111',
+      author: '작성자A',
+      viewCount: 5678,
       commentCount: 23,
+      likeCount: 15,
     });
     expect(posts[1]).toMatchObject({
       title: '댓글 없는 글 제목',
+      author: '작성자B',
+      viewCount: 1000,
       commentCount: undefined,
     });
   });

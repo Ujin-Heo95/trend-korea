@@ -14,18 +14,25 @@ export class EtolandScraper extends BaseScraper {
 
     const posts: ScrapedPost[] = [];
 
-    $('a[href*="etohumor01"][href*="wr_id="]').each((_, el) => {
-      const href = $(el).attr('href') ?? '';
-      const title = $(el).text().trim();
+    $("li.list:not(.notice)").each((_, el) => {
+      const a = $(el).find('a.subject_a[href*="etohumor01"][href*="wr_id="]').first();
+      if (!a.length) return;
+
+      const href = a.attr('href') ?? '';
+      const title = a.text().trim();
       if (!title || title.length < 3 || title.startsWith('※')) return;
 
       const url = href.startsWith('http')
         ? href
         : `https://www.etoland.co.kr/bbs/${href.replace(/^\.\.\/bbs\//, '')}`;
 
-      if (title && url) {
-        posts.push({ sourceKey: 'etoland', sourceName: '에토랜드', title, url });
-      }
+      const author = $(el).find("div.writer span.member").text().trim() || undefined;
+      const viewCount = parseInt($(el).find("div.views").text().replace(/,/g, '').trim()) || undefined;
+      const likeCount = parseInt($(el).find("div.sympathys").text().trim()) || undefined;
+      const commentMatch = $(el).find("a.comment_count").text().match(/\((\d+)\)/);
+      const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
+
+      posts.push({ sourceKey: 'etoland', sourceName: '에토랜드', title, url, author, viewCount, commentCount, likeCount });
     });
 
     return posts.slice(0, 30);

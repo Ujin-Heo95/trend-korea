@@ -111,6 +111,12 @@ export interface TopicPost {
   title: string;
   sourceKey: string;
   sourceName: string;
+  thumbnail: string | null;
+}
+
+export interface TopicSource {
+  key: string;
+  name: string;
 }
 
 export interface Topic {
@@ -130,6 +136,11 @@ export interface Topic {
   changeAmount: number;
   confidence: 'high' | 'medium' | 'low';
   representativePosts: TopicPost[];
+  thumbnail: string | null;
+  sources: TopicSource[];
+  sourceCount: number;
+  summaryHeadline: string | null;
+  summaryBody: string | null;
 }
 
 export interface TopicsResponse {

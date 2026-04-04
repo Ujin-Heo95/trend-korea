@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { LRUCache } from '../cache/lru.js';
 import { detectBursts } from '../services/keywords.js';
+import { getSourceWeight } from '../services/scoring.js';
+import { summarizeTopicsBatch } from '../services/gemini.js';
 
 // ─── Types ───
 
@@ -9,6 +11,12 @@ interface TopicPost {
   title: string;
   sourceKey: string;
   sourceName: string;
+  thumbnail: string | null;
+}
+
+interface TopicSource {
+  key: string;
+  name: string;
 }
 
 interface Topic {
@@ -28,6 +36,11 @@ interface Topic {
   changeAmount: number;
   confidence: 'high' | 'medium' | 'low';
   representativePosts: TopicPost[];
+  thumbnail: string | null;
+  sources: TopicSource[];
+  sourceCount: number;
+  summaryHeadline: string | null;
+  summaryBody: string | null;
 }
 
 // ─── Helpers ───
@@ -143,7 +156,8 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
       app.pg.query<{
         id: number; title: string; source_key: string;
         source_name: string; category: string | null; view_count: number;
-      }>(`SELECT id, title, source_key, source_name, category, view_count
+        thumbnail: string | null;
+      }>(`SELECT id, title, source_key, source_name, category, view_count, thumbnail
           FROM posts WHERE id = ANY($1::int[])`, [postIds]),
       app.pg.query<{ post_id: number; cluster_id: number }>(
         `SELECT post_id, cluster_id FROM post_cluster_members WHERE post_id = ANY($1::int[])`, [postIds]),
@@ -214,16 +228,20 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
 
       const kwFreq = new Map<string, number>();
       const channels = new Set<string>();
-      let newsCount = 0;
+      let weightedNewsScore = 0;
       let communityCount = 0;
+      const sourceMap = new Map<string, string>(); // key → name
 
       for (const pid of memberIds) {
         const post = postMap.get(pid);
         if (!post) continue;
         const ch = categoryToChannel(post.category);
         channels.add(ch);
-        if (ch === '뉴스') newsCount++;
+        if (['news', 'press', 'government'].includes(post.category ?? '')) {
+          weightedNewsScore += getSourceWeight(post.source_key);
+        }
         if (ch === '커뮤니티') communityCount++;
+        sourceMap.set(post.source_key, post.source_name);
 
         const kws = postKeywords.get(pid) ?? [];
         for (const kw of kws) {
@@ -247,7 +265,7 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
         .map(({ pid }) => {
           const p = postMap.get(pid);
           if (!p) return null;
-          return { id: p.id, title: p.title, sourceKey: p.source_key, sourceName: p.source_name };
+          return { id: p.id, title: p.title, sourceKey: p.source_key, sourceName: p.source_name, thumbnail: p.thumbnail ?? null };
         })
         .filter((p): p is TopicPost => p !== null);
 
@@ -269,7 +287,7 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
       // 통합 스코어 (다음 포커스 스타일 가중 평균)
       const isBreaking = maxBurst > 3.0;
       const communitySignal = Math.min(communityCount / 5, 1.0);
-      const newsSignal = Math.min(newsCount / 3, 1.0);
+      const newsSignal = Math.min(weightedNewsScore / 3.0, 1.0);
       const burstSignal = Math.min(maxBurst / 5, 1.0);
       const convergenceSignal = Math.min(maxConvergence / 20, 1.0);
 
@@ -284,6 +302,15 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
         burstSignal * wBurst +
         convergenceSignal * wConvergence
       ) * Math.log2(memberIds.length + 1) * maxMomentum;
+
+      // 소스 목록: 가중치 내림차순 정렬
+      const sources: TopicSource[] = [...sourceMap.entries()]
+        .map(([key, name]) => ({ key, name, w: getSourceWeight(key) }))
+        .sort((a, b) => b.w - a.w)
+        .map(({ key, name }) => ({ key, name }));
+
+      // 대표 썸네일: 첫 번째 thumbnail이 있는 representativePost
+      const thumbnail = representativePosts.find(p => p.thumbnail)?.thumbnail ?? null;
 
       topics.push({
         id: hashKeywords(sortedKws),
@@ -302,6 +329,11 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
         changeAmount: 0,
         confidence: classifyConfidence(channelArr, maxConvergence),
         representativePosts,
+        thumbnail,
+        sources,
+        sourceCount: sources.length,
+        summaryHeadline: null,
+        summaryBody: null,
       });
     }
 
@@ -347,6 +379,26 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
         topic.changeType = 'same';
         topic.changeAmount = 0;
       }
+    }
+
+    // AI 브리핑 요약 생성 (캐시 덕분에 60초에 1회만 호출)
+    try {
+      const summaryInputs = finalTopics.map(t => ({
+        channel: t.channels[0] ?? '기타',
+        keywords: t.keywords,
+        postTitles: t.representativePosts.map(p => p.title),
+      }));
+      const summaries = await summarizeTopicsBatch(summaryInputs);
+      for (let i = 0; i < finalTopics.length; i++) {
+        const s = summaries[i];
+        if (s) {
+          finalTopics[i].summaryHeadline = s.headline;
+          finalTopics[i].summaryBody = s.body;
+        }
+      }
+    } catch {
+      // 요약 실패해도 토픽 자체는 반환
+      console.error('[topics] summary generation failed, continuing without summaries');
     }
 
     // 현재 랭킹 저장 (위치변동 추적용)

@@ -55,6 +55,7 @@ const API_KEY_REQUIREMENTS: Record<string, { key: keyof typeof config; label: st
   tour_festival:  { key: 'dataGoKrApiKey',   label: 'DATA_GO_KR_API_KEY' },
   tour_visitor:   { key: 'dataGoKrApiKey',   label: 'DATA_GO_KR_API_KEY' },
   kcisa_performance:{ key: 'dataGoKrApiKey',  label: 'DATA_GO_KR_API_KEY' },
+  airkorea:         { key: 'dataGoKrApiKey',   label: 'DATA_GO_KR_API_KEY' },
 };
 
 let cachedScrapers: readonly ResolvedScraper[] | null = null;

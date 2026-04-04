@@ -28,21 +28,29 @@ export class NaverNewsRankingScraper extends BaseScraper {
     const $ = cheerio.load(html);
     const posts: ScrapedPost[] = [];
 
-    $('a.list_title').each((i, el) => {
-      if (i >= 30) return;
+    $('div.rankingnews_box').each((_, box) => {
+      const author = $(box).find('strong.rankingnews_name').text().trim() || undefined;
 
-      const title = $(el).text().trim();
-      const href = $(el).attr('href') ?? '';
-      if (!title || !href) return;
+      $(box).find('ul.rankingnews_list li').each((_, el) => {
+        if (posts.length >= 30) return;
 
-      const url = href.startsWith('http') ? href : `https://news.naver.com${href}`;
+        const a = $(el).find('a.list_title');
+        const title = a.text().trim();
+        const href = a.attr('href') ?? '';
+        if (!title || !href) return;
 
-      posts.push({
-        sourceKey: 'naver_news_ranking',
-        sourceName: '네이버 뉴스 랭킹',
-        title,
-        url,
-        category: 'news',
+        const url = href.startsWith('http') ? href : `https://news.naver.com${href}`;
+        const thumbnail = $(el).find('a.list_img img').attr('src') || undefined;
+
+        posts.push({
+          sourceKey: 'naver_news_ranking',
+          sourceName: '네이버 뉴스 랭킹',
+          title,
+          url,
+          thumbnail,
+          author,
+          category: 'news',
+        });
       });
     });
 
