@@ -15,6 +15,10 @@ import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
 import { BookRankingTable } from '../components/BookRankingTable';
 import { OttRankingTable } from '../components/OttRankingTable';
 import { EntertainmentSubTabs, type EntertainmentSub } from '../components/EntertainmentSubTabs';
+import { TravelSubTabs, type TravelSub } from '../components/TravelSubTabs';
+import { TravelHotplaceView } from '../components/TravelHotplaceView';
+import { TravelFestivalCard } from '../components/TravelFestivalCard';
+import { TravelPhotoGallery } from '../components/TravelPhotoGallery';
 import { CommunityRankingList } from '../components/CommunityRankingList';
 import { IssueRankingList } from '../components/IssueRankingList';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -40,6 +44,14 @@ const ENTERTAINMENT_CATEGORY_MAP: Record<EntertainmentSub, string> = {
   performance: 'performance',
 };
 
+const TRAVEL_SOURCE_MAP: Record<TravelSub, string | undefined> = {
+  all: undefined,
+  hotplace: 'tour_visitor,kcisa_travel',
+  festival: 'kcisa_festival',
+  photo: 'tour_photo',
+  news: 'traveltimes',
+};
+
 interface Props {
   category: string | undefined;
   onCategoryChange: (cat: string | undefined) => void;
@@ -56,9 +68,11 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const [sortMode, setSortMode] = useState<'trending' | 'latest'>('trending');
   const [newsSubcategory, setNewsSubcategory] = useState<string | undefined>(undefined);
   const [entertainmentSub, setEntertainmentSub] = useState<EntertainmentSub>('all');
+  const [travelSub, setTravelSub] = useState<TravelSub>('all');
   const [, startTransition] = useTransition();
   const isNewsTab = category === 'news,press,newsletter,tech,finance';
   const isEntertainmentTab = category === 'entertainment';
+  const isTravelTab = category === 'travel';
   const isAllTab = !category && !searchQuery;
 
   const handleCategoryChange = (cat: string | undefined) => {
@@ -68,6 +82,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       setSortMode('trending');
       setNewsSubcategory(undefined);
       setEntertainmentSub('all');
+      setTravelSub('all');
     });
   };
 
@@ -75,11 +90,13 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     ? ENTERTAINMENT_CATEGORY_MAP[entertainmentSub]
     : category;
 
+  const travelSource = isTravelTab && travelSub !== 'all' ? TRAVEL_SOURCE_MAP[travelSub] : undefined;
+
   const filter = {
     ...(resolvedCategory ? { category: resolvedCategory } : {}),
     ...(isNewsTab && newsSubcategory ? { subcategory: newsSubcategory } : {}),
     ...(searchQuery ? { q: searchQuery } : {}),
-    ...(selectedSources.length > 0 ? { source: selectedSources.join(',') } : {}),
+    ...(travelSource ? { source: travelSource } : selectedSources.length > 0 ? { source: selectedSources.join(',') } : {}),
     ...(isAllTab || category === 'community' || isNewsTab ? { sort: sortMode } : {}),
   };
 
@@ -143,6 +160,10 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
 
       {isEntertainmentTab && (
         <EntertainmentSubTabs selected={entertainmentSub} onChange={setEntertainmentSub} />
+      )}
+
+      {isTravelTab && (
+        <TravelSubTabs selected={travelSub} onChange={setTravelSub} />
       )}
 
       {(category === 'community' || isNewsTab) && (
@@ -216,6 +237,14 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           <OttRankingTable posts={allPosts} />
         ) : isEntertainmentTab && entertainmentSub === 'all' ? (
           <EntertainmentAllView posts={allPosts} />
+        ) : isTravelTab && travelSub === 'hotplace' ? (
+          <TravelHotplaceView posts={allPosts} />
+        ) : isTravelTab && travelSub === 'festival' ? (
+          <TravelFestivalCard posts={allPosts} />
+        ) : isTravelTab && travelSub === 'photo' ? (
+          <TravelPhotoGallery posts={allPosts} />
+        ) : isTravelTab && travelSub === 'all' ? (
+          <TravelAllView posts={allPosts} />
         ) : category === 'community' && selectedSources.length === 0 && sortMode === 'trending' ? (
           <CommunityRankingList posts={allPosts} isRead={isRead} onRead={markAsRead} />
         ) : (
@@ -296,5 +325,67 @@ function EntertainmentAllView({ posts }: { posts: Post[] }) {
   }
 
   return <div className="space-y-6">{sections.map(s => <div key={s.key}>{s.component}</div>)}</div>;
+}
+
+// ── 여행 전체 뷰 ──
+
+function TravelAllView({ posts }: { posts: Post[] }) {
+  const grouped = useMemo(() => {
+    const map: Record<string, Post[]> = {};
+    for (const p of posts) {
+      (map[p.source_key] ??= []).push(p);
+    }
+    return map;
+  }, [posts]);
+
+  const visitorPosts = [...(grouped['tour_visitor'] ?? []), ...(grouped['kcisa_travel'] ?? [])];
+  const festivalPosts = grouped['kcisa_festival'] ?? [];
+  const photoPosts = grouped['tour_photo'] ?? [];
+  const newsPosts = grouped['traveltimes'] ?? [];
+
+  const sections: { key: string; label: string; component: React.ReactNode }[] = [
+    visitorPosts.length > 0
+      ? { key: 'hotplace', label: '핫플레이스', component: <TravelHotplaceView posts={visitorPosts} /> }
+      : null,
+    festivalPosts.length > 0
+      ? { key: 'festival', label: '축제/행사', component: <TravelFestivalCard posts={festivalPosts.slice(0, 10)} /> }
+      : null,
+    photoPosts.length > 0
+      ? { key: 'photo', label: '관광사진', component: <TravelPhotoGallery posts={photoPosts.slice(0, 9)} /> }
+      : null,
+    newsPosts.length > 0
+      ? {
+          key: 'news',
+          label: '여행뉴스',
+          component: (
+            <div className="grid gap-3">
+              {newsPosts.slice(0, 5).map(post => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </div>
+          ),
+        }
+      : null,
+  ].filter((s): s is NonNullable<typeof s> => s !== null);
+
+  if (sections.length === 0) {
+    return (
+      <div className="text-center py-16 text-slate-400 dark:text-slate-500">
+        <p className="text-lg mb-1">여행 데이터가 없습니다</p>
+        <p className="text-sm">데이터 수집 후 표시됩니다</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {sections.map(s => (
+        <div key={s.key}>
+          <h3 className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">{s.label}</h3>
+          {s.component}
+        </div>
+      ))}
+    </div>
+  );
 }
 

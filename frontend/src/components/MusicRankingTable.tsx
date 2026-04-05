@@ -10,6 +10,7 @@ interface MusicMeta {
   artist: string;
   album?: string;
   songNo?: string;
+  rankChange?: string;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -32,6 +33,14 @@ function parseMusicMeta(post: Post): MusicMeta | null {
     title: match[2],
     artist: match[3],
   };
+}
+
+function MusicRankChangeLabel({ change }: { change?: string }) {
+  if (!change || change === '-') return <span className="text-xs text-slate-400 dark:text-slate-500">-</span>;
+  if (change === 'NEW') return <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded">NEW</span>;
+  if (change.startsWith('+')) return <span className="text-xs text-red-500 font-medium">▲{change.slice(1)}</span>;
+  if (change.startsWith('-')) return <span className="text-xs text-blue-500 font-medium">▼{change.slice(1)}</span>;
+  return <span className="text-xs text-slate-400 dark:text-slate-500">-</span>;
 }
 
 export const MusicRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
@@ -102,6 +111,7 @@ export const MusicRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
         <thead className="sticky top-0 bg-white dark:bg-slate-800 z-[5]">
           <tr className="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
             <th className="py-2 px-3 text-center w-14">순위</th>
+            <th className="py-2 px-3 text-center w-14">변동</th>
             <th className="py-2 px-2 w-14"></th>
             <th className="py-2 px-3 text-left">곡명</th>
             <th className="py-2 px-3 text-left w-40">아티스트</th>
@@ -114,6 +124,9 @@ export const MusicRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
             <tr key={post.id} className="border-b border-slate-50 dark:border-slate-700 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 transition-colors">
               <td className="py-3 px-3 text-center">
                 <RankBadge rank={meta.rank} />
+              </td>
+              <td className="py-3 px-3 text-center">
+                <MusicRankChangeLabel change={meta.rankChange} />
               </td>
               <td className="py-3 px-2">
                 <PosterImage
@@ -174,6 +187,7 @@ export const MusicRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
                 {meta.artist}{meta.album ? ` · ${meta.album}` : ''}
               </p>
             </div>
+            <MusicRankChangeLabel change={meta.rankChange} />
           </a>
         ))}
       </div>
