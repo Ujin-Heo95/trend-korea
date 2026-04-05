@@ -3,6 +3,7 @@ import { parseStringPromise } from 'xml2js';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
+import { koreanDnsHttpsAgent } from './korean-dns.js';
 
 /**
  * KCISA (한국문화정보원) API 공통 베이스.
@@ -110,6 +111,7 @@ export abstract class KcisaBaseScraper extends BaseScraper {
       },
       timeout: 15000,
       responseType: 'text',
+      httpsAgent: koreanDnsHttpsAgent,
     });
 
     const items = await parseKcisaXml(data);
