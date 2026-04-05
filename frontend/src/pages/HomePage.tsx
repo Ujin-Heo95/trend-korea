@@ -148,7 +148,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
 
       {(category === 'community' || isNewsTab) && (
         <>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-4">
             {category === 'community' ? (
               <div className="flex-1 overflow-hidden">
                 <SourceFilterChips selected={selectedSources} onChange={setSelectedSources} />
@@ -156,23 +156,23 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
             ) : (
               <div className="flex-1" />
             )}
-            <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-0.5 flex-shrink-0 ml-3">
+            <div className="flex gap-1.5 flex-shrink-0 ml-3">
               <button
                 onClick={() => setSortMode('trending')}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
                   sortMode === 'trending'
-                    ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
+                    ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-blue-200 dark:hover:border-blue-500'
                 }`}
               >
                 인기순
               </button>
               <button
                 onClick={() => setSortMode('latest')}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
                   sortMode === 'latest'
-                    ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
+                    ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-blue-200 dark:hover:border-blue-500'
                 }`}
               >
                 최신순

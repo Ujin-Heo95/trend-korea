@@ -3,15 +3,7 @@ import { Link } from 'react-router-dom';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { optimizedImage } from '../utils/imageProxy';
-
-function timeAgo(iso: string): string {
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return '방금 전';
-  if (m < 60) return `${m}분 전`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}시간 전`;
-  return `${Math.floor(h / 24)}일 전`;
-}
+import { timeAgo } from '../utils/timeAgo';
 
 export const BookmarksPage: React.FC = () => {
   useDocumentTitle('북마크');
@@ -48,7 +40,7 @@ export const BookmarksPage: React.FC = () => {
                 <div className="flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
                   <img
                     src={optimizedImage(post.thumbnail, 128)}
-                    alt=""
+                    alt={post.title}
                     loading="lazy"
                     decoding="async"
                     className="w-full h-full object-cover"

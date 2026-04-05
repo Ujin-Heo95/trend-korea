@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCount } from '../../utils/formatCount';
 
 interface DataPoint {
   view_count: number;
@@ -37,8 +38,6 @@ export const EngagementChart: React.FC<EngagementChartProps> = ({ data, width = 
     const d = new Date(iso);
     return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
   };
-
-  const formatCount = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(1)}만` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n));
 
   // Y-axis labels: min, mid, max
   const yLabels = [max, Math.round((max + min) / 2), min];

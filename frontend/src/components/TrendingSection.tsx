@@ -9,7 +9,7 @@ export const TrendingSection: React.FC = () => {
   if (isLoading) {
     return (
       <div className="mb-6">
-        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">🔥 지금 뜨는 글</h2>
+        <h2 className="text-base font-bold text-slate-500 dark:text-slate-400 mb-3">🔥 지금 뜨는 글</h2>
         <div className="flex gap-3 overflow-x-auto pb-2">
           {Array.from({ length: 5 }, (_, i) => (
             <div key={i} className="flex-shrink-0 w-64 h-24 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 animate-pulse" />
@@ -24,7 +24,7 @@ export const TrendingSection: React.FC = () => {
 
   return (
     <div className="mb-6">
-      <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">🔥 지금 뜨는 글</h2>
+      <h2 className="text-base font-bold text-slate-500 dark:text-slate-400 mb-3">🔥 지금 뜨는 글</h2>
       <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
         {posts.slice(0, 10).map((post, i) => (
           <Link

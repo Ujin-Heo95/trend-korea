@@ -6,15 +6,7 @@ import { ShareButton } from './shared/ShareButton';
 import { VoteButton } from './shared/VoteButton';
 import { BookmarkButton } from './shared/BookmarkButton';
 import { optimizedImage } from '../utils/imageProxy';
-
-function timeAgo(iso: string): string {
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return '방금 전';
-  if (m < 60) return `${m}분 전`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}시간 전`;
-  return `${Math.floor(h / 24)}일 전`;
-}
+import { timeAgo } from '../utils/timeAgo';
 
 const RANK_STYLES: Record<number, string> = {
   1: 'bg-gradient-to-br from-amber-400 to-yellow-500 text-white shadow-sm',
@@ -50,6 +42,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
       }`}
       style={style}
     >
+      {/* Clickable content area */}
       <Link
         to={`/issue/${post.id}`}
         onClick={() => onRead?.(post.url)}
@@ -62,7 +55,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
         )}
         {post.thumbnail && (
           <div className="flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
-            <img src={optimizedImage(post.thumbnail, 128)} alt="" loading="lazy" decoding="async" width={64} height={48} className="w-full h-full object-cover" />
+            <img src={optimizedImage(post.thumbnail, 128)} alt={post.title} loading="lazy" decoding="async" width={64} height={48} className="w-full h-full object-cover" />
           </div>
         )}
         <div className="flex-1 min-w-0">
@@ -83,16 +76,18 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
           <p className={`text-sm font-medium line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 ${isRead ? 'text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
             {post.title}
           </p>
-          <div className="flex items-center gap-2 mt-1">
-            <p className="text-xs text-slate-400 dark:text-slate-500">{timeAgo(post.published_at ?? post.scraped_at)}</p>
-            {onVote && (
-              <VoteButton postId={post.id} voteCount={post.vote_count} hasVoted={hasVoted ?? false} onVote={onVote} />
-            )}
-            <BookmarkButton post={post} />
-            <ShareButton url={post.url} title={post.title} thumbnail={post.thumbnail} />
-          </div>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{timeAgo(post.published_at ?? post.scraped_at)}</p>
         </div>
       </Link>
+
+      {/* Action buttons — outside Link for proper tap targets */}
+      <div className="flex items-center gap-3 px-4 pb-3 -mt-1">
+        {onVote && (
+          <VoteButton postId={post.id} voteCount={post.vote_count} hasVoted={hasVoted ?? false} onVote={onVote} />
+        )}
+        <BookmarkButton post={post} />
+        <ShareButton url={post.url} title={post.title} thumbnail={post.thumbnail} />
+      </div>
       {hasClusters && (
         <div className="px-4 pb-2">
           <button

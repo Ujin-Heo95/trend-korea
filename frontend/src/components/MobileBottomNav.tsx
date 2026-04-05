@@ -49,7 +49,7 @@ export const MobileBottomNav: React.FC = () => {
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-50 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 sm:hidden pb-[env(safe-area-inset-bottom)]">
-      <div className="flex justify-around items-center h-14">
+      <div className="flex justify-around items-center h-12">
         {NAV_ITEMS.map(({ path, label, icon, matchFn }) => {
           const active = matchFn(pathname, searchParams);
           return (
@@ -62,7 +62,7 @@ export const MobileBottomNav: React.FC = () => {
               }`}
             >
               {icon}
-              <span className="text-[10px] font-medium">{label}</span>
+              <span className="text-xs font-normal">{label}</span>
             </Link>
           );
         })}

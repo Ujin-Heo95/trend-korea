@@ -1,5 +1,6 @@
 import React from 'react';
 import { getSourceColor } from '../constants/sourceColors';
+import { HorizontalScrollRow } from './shared/HorizontalScrollRow';
 
 const COMMUNITY_SOURCES = [
   { key: 'dcinside', name: 'DC인사이드' },
@@ -37,13 +38,13 @@ export const SourceFilterChips: React.FC<Props> = ({ selected, onChange }) => {
   };
 
   return (
-    <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
+    <HorizontalScrollRow className="gap-2 pb-2">
       <button
         onClick={() => onChange([])}
-        className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+        className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ${
           isAll
-            ? 'bg-blue-600 text-white shadow-sm'
-            : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600 hover:border-blue-300'
+            ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700'
+            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-blue-200 dark:hover:border-blue-500'
         }`}
       >
         전체
@@ -55,16 +56,16 @@ export const SourceFilterChips: React.FC<Props> = ({ selected, onChange }) => {
           <button
             key={key}
             onClick={() => toggle(key)}
-            className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ${
               active
-                ? `${color} ring-1 ring-current shadow-sm`
-                : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600 hover:border-slate-300'
+                ? `${color} border-current/20 shadow-sm`
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-blue-200 dark:hover:border-blue-500'
             }`}
           >
             {name}
           </button>
         );
       })}
-    </div>
+    </HorizontalScrollRow>
   );
 };

@@ -1,0 +1,79 @@
+/* ── Design Tokens ─────────────────────────────────────
+   Single source of truth for WeekLit's visual language.
+   Components consume these via var(--token) or continue
+   using Tailwind classes that map to the same values.
+   ──────────────────────────────────────────────────── */
+
+:root {
+  /* ── Semantic Colors ── */
+  --color-active: theme(colors.blue.600);
+  --color-active-hover: theme(colors.blue.700);
+  --color-active-subtle: theme(colors.blue.50);
+  --color-active-text: theme(colors.blue.700);
+
+  --color-surface: theme(colors.white);
+  --color-surface-alt: theme(colors.slate.50);
+  --color-surface-raised: theme(colors.white);
+
+  --color-border: theme(colors.slate.200);
+  --color-border-hover: theme(colors.blue.300);
+
+  --color-text-primary: theme(colors.slate.800);
+  --color-text-secondary: theme(colors.slate.500);
+  --color-text-muted: theme(colors.slate.400);
+
+  /* ── Secondary Tab (sub-tabs, chips, sort toggles) ── */
+  --tab-secondary-active-bg: theme(colors.blue.50);
+  --tab-secondary-active-text: theme(colors.blue.700);
+  --tab-secondary-active-border: theme(colors.blue.200);
+  --tab-secondary-inactive-bg: theme(colors.white);
+  --tab-secondary-inactive-text: theme(colors.slate.600);
+  --tab-secondary-inactive-border: theme(colors.slate.200);
+
+  /* ── Spacing Scale (4px grid) ── */
+  --space-xs: 0.25rem;   /* 4px */
+  --space-sm: 0.5rem;    /* 8px */
+  --space-md: 0.75rem;   /* 12px */
+  --space-lg: 1rem;      /* 16px */
+  --space-xl: 1.5rem;    /* 24px */
+  --space-2xl: 2rem;     /* 32px */
+
+  /* ── Border Radius ── */
+  --radius-sm: 0.375rem;  /* 6px */
+  --radius-md: 0.5rem;    /* 8px */
+  --radius-lg: 0.75rem;   /* 12px */
+  --radius-full: 9999px;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+}
+
+/* ── Dark Mode Overrides ── */
+.dark {
+  --color-active: theme(colors.blue.500);
+  --color-active-hover: theme(colors.blue.400);
+  --color-active-subtle: color-mix(in oklch, theme(colors.blue.900) 40%, transparent);
+  --color-active-text: theme(colors.blue.300);
+
+  --color-surface: theme(colors.slate.800);
+  --color-surface-alt: theme(colors.slate.900);
+  --color-surface-raised: theme(colors.slate.800);
+
+  --color-border: theme(colors.slate.700);
+  --color-border-hover: theme(colors.blue.500);
+
+  --color-text-primary: theme(colors.slate.100);
+  --color-text-secondary: theme(colors.slate.400);
+  --color-text-muted: theme(colors.slate.500);
+
+  --tab-secondary-active-bg: color-mix(in oklch, theme(colors.blue.900) 40%, transparent);
+  --tab-secondary-active-text: theme(colors.blue.300);
+  --tab-secondary-active-border: theme(colors.blue.700);
+  --tab-secondary-inactive-bg: theme(colors.slate.800);
+  --tab-secondary-inactive-text: theme(colors.slate.400);
+  --tab-secondary-inactive-border: theme(colors.slate.600);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+}

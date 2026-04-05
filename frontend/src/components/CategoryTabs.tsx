@@ -1,4 +1,5 @@
 import React from 'react';
+import { HorizontalScrollRow } from './shared/HorizontalScrollRow';
 
 const CATEGORIES: { key: string | undefined; label: string; icon: string }[] = [
   { key: undefined,                                                label: '전체',        icon: '📋' },
@@ -17,7 +18,7 @@ interface Props {
 }
 
 export const CategoryTabs: React.FC<Props> = ({ selected, onChange }) => (
-  <div role="tablist" aria-label="카테고리" className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+  <HorizontalScrollRow role="tablist" ariaLabel="카테고리" className="gap-2 pb-2 mb-4">
     {CATEGORIES.map(({ key, label, icon }) => {
       const isSelected = selected === key;
       return (
@@ -38,5 +39,5 @@ export const CategoryTabs: React.FC<Props> = ({ selected, onChange }) => (
         </button>
       );
     })}
-  </div>
+  </HorizontalScrollRow>
 );

@@ -1,3 +1,4 @@
+@import "./styles/tokens.css";
 @import "tailwindcss";
 
 /* --- Dark mode (class-based, Tailwind v4) --- */
@@ -64,6 +65,24 @@ body {
 }
 .snap-start {
   scroll-snap-align: start;
+}
+
+/* --- Scroll fade: indicates overflow on horizontal scroll rows --- */
+.scroll-fade {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 20px,
+    black calc(100% - 20px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 20px,
+    black calc(100% - 20px),
+    transparent 100%
+  );
 }
 
 /* --- Accessibility: respect reduced motion --- */

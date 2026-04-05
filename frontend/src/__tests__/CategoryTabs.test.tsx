@@ -6,7 +6,7 @@ import { CategoryTabs } from '../components/CategoryTabs';
 
 describe('CategoryTabs', () => {
   const expectedLabels = [
-    '전체', '커뮤니티', '뉴스', '테크', '영상', '핫딜', '생활', '영화', '공연/전시', 'SNS',
+    '전체', '커뮤니티', '뉴스', '영상', '핫딜', '엔터테인먼트', '여행', 'SNS',
   ];
 
   it('renders all category tabs', () => {
@@ -22,7 +22,7 @@ describe('CategoryTabs', () => {
     const onChange = vi.fn();
     render(<CategoryTabs selected={undefined} onChange={onChange} />);
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(10);
+    expect(tabs).toHaveLength(8);
   });
 
   it('marks the selected tab with aria-selected=true', () => {
@@ -89,7 +89,7 @@ describe('CategoryTabs', () => {
     render(<CategoryTabs selected={undefined} onChange={onChange} />);
 
     await user.click(screen.getByRole('tab', { name: /뉴스/ }));
-    expect(onChange).toHaveBeenCalledWith('news,press,newsletter');
+    expect(onChange).toHaveBeenCalledWith('news,press,newsletter,tech');
   });
 
   it('has proper tablist role on container', () => {

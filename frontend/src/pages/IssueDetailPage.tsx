@@ -12,21 +12,8 @@ import { EngagementChart } from '../components/shared/EngagementChart';
 import { AdSlot } from '../components/shared/AdSlot';
 import { IssueDetailSkeleton } from '../components/shared/IssueDetailSkeleton';
 import { optimizedImage } from '../utils/imageProxy';
-
-function timeAgo(iso: string): string {
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return '방금 전';
-  if (m < 60) return `${m}분 전`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}시간 전`;
-  return `${Math.floor(h / 24)}일 전`;
-}
-
-function formatCount(n: number): string {
-  if (n >= 10000) return `${(n / 10000).toFixed(1)}만`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
-  return n.toLocaleString();
-}
+import { timeAgo } from '../utils/timeAgo';
+import { formatCount } from '../utils/formatCount';
 
 export const IssueDetailPage: React.FC = () => {
   const { postId } = useParams<{ postId: string }>();
@@ -69,7 +56,7 @@ export const IssueDetailPage: React.FC = () => {
   const { post, trend_score, cluster_members, engagement_history, category_popular } = data;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 pb-24">
+    <div className="max-w-3xl mx-auto px-4 py-6 pb-20 sm:pb-6">
       {/* Back navigation */}
       <button
         onClick={handleBack}
@@ -105,8 +92,8 @@ export const IssueDetailPage: React.FC = () => {
         {post.thumbnail && (
           <img
             src={optimizedImage(post.thumbnail, 640)}
-            alt=""
-            className="w-full max-h-64 object-cover rounded-xl mb-4"
+            alt={post.title}
+            className="w-full max-h-48 sm:max-h-64 object-cover rounded-xl mb-4"
             loading="lazy"
             decoding="async"
           />
@@ -168,7 +155,7 @@ export const IssueDetailPage: React.FC = () => {
                 className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
               >
                 {p.thumbnail && (
-                  <img src={optimizedImage(p.thumbnail, 96)} alt="" className="w-12 h-9 object-cover rounded flex-shrink-0" loading="lazy" decoding="async" />
+                  <img src={optimizedImage(p.thumbnail, 96)} alt={p.title} className="w-12 h-9 object-cover rounded flex-shrink-0" loading="lazy" decoding="async" />
                 )}
                 <div className="flex-1 min-w-0">
                   <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getSourceColor(p.source_key)}`}>
@@ -189,26 +176,24 @@ export const IssueDetailPage: React.FC = () => {
       <AdSlot slotId="issue-detail" format="rectangle" className="my-6" />
 
       {/* Action buttons */}
-      <div className="flex flex-col gap-3 mt-8">
+      <div className="flex items-center gap-3 mt-6">
         <a
           href={post.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors text-sm"
+          className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors text-sm"
         >
           원문 보기
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
         </a>
-        <div className="flex justify-center">
-          <ShareButton
-            url={`${window.location.origin}/issue/${post.id}`}
-            title={post.title}
-            description={`${post.source_name} — ${post.title}`}
-            thumbnail={post.thumbnail ?? undefined}
-          />
-        </div>
+        <ShareButton
+          url={`${window.location.origin}/issue/${post.id}`}
+          title={post.title}
+          description={`${post.source_name} — ${post.title}`}
+          thumbnail={post.thumbnail ?? undefined}
+        />
       </div>
     </div>
   );

@@ -2,12 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import type { Post } from '../types';
 import { getSourceColor } from '../constants/sourceColors';
-
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1).replace(/\.0$/, '')}K`;
-  return String(n);
-}
+import { formatCount } from '../utils/formatCount';
 
 interface Props {
   posts: Post[];
@@ -16,7 +11,7 @@ interface Props {
 }
 
 export const CommunityRankingList: React.FC<Props> = ({ posts, isRead, onRead }) => (
-  <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700/50">
+  <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm divide-y divide-slate-100 dark:divide-slate-700/50">
     {posts.map((post, i) => {
       const rank = i + 1;
       const read = isRead?.(post.url);
@@ -25,7 +20,7 @@ export const CommunityRankingList: React.FC<Props> = ({ posts, isRead, onRead })
           key={post.id}
           to={`/issue/${post.id}`}
           onClick={() => onRead?.(post.url)}
-          className={`flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group ${
+          className={`flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group ${
             read ? 'opacity-50' : ''
           }`}
         >
@@ -37,7 +32,7 @@ export const CommunityRankingList: React.FC<Props> = ({ posts, isRead, onRead })
           </span>
 
           {/* Source badge */}
-          <span className={`flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded ${getSourceColor(post.source_key, post.category)}`}>
+          <span className={`flex-shrink-0 text-xs font-medium px-1.5 py-0.5 rounded ${getSourceColor(post.source_key, post.category)}`}>
             {post.source_name}
           </span>
 

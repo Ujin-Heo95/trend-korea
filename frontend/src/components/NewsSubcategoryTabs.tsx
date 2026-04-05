@@ -1,4 +1,5 @@
 import React from 'react';
+import { HorizontalScrollRow } from './shared/HorizontalScrollRow';
 
 const SUBCATEGORIES: { key: string | undefined; label: string }[] = [
   { key: undefined, label: '전체' },
@@ -18,19 +19,19 @@ interface Props {
 }
 
 export const NewsSubcategoryTabs: React.FC<Props> = ({ selected, onChange }) => (
-  <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+  <HorizontalScrollRow className="gap-2 pb-2 mb-4">
     {SUBCATEGORIES.map(({ key, label }) => (
       <button
         key={label}
         onClick={() => onChange(key)}
-        className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+        className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ${
           selected === key
-            ? 'bg-blue-500 text-white shadow-sm'
-            : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+            ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700'
+            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-blue-200 dark:hover:border-blue-500'
         }`}
       >
         {label}
       </button>
     ))}
-  </div>
+  </HorizontalScrollRow>
 );
