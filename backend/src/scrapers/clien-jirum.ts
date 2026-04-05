@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { fetchHtml } from './http-utils.js';
+import { fetchHtml, parseKoreanDate } from './http-utils.js';
 
 export class ClienJirumScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
@@ -13,24 +13,42 @@ export class ClienJirumScraper extends BaseScraper {
 
     const posts: ScrapedPost[] = [];
 
-    $('a.list_subject').each((_, el) => {
+    // 게시글 링크: /service/board/jirum/{id} 패턴
+    $('a[href*="/service/board/jirum/"]').each((_, el) => {
       const href = $(el).attr('href') ?? '';
-      if (!href || href.includes('/rule/') || href.includes('/annonce/')) return;
+      // 공지/규칙 제외, 실제 게시글 ID가 있는 링크만
+      if (!href || href.includes('/rule') || href.includes('/annonce') || !/\/jirum\/\d+/.test(href)) return;
 
       const title = $(el).text().trim();
+      if (!title || title.length < 2) return;
+
       const url = href.startsWith('http') ? href : `https://www.clien.net${href.split('?')[0]}`;
-      const listItem = $(el).closest('.list_item');
-      const hit = listItem.find('.hit').text().trim();
+
+      // 상위 리스트 아이템에서 메타데이터 추출
+      const listItem = $(el).closest('.list_item, tr, li, div[class*="item"]');
+      const hit = listItem.find('.hit, .view_count, .count').text().trim();
       const viewCount = parseHit(hit);
-      const likeCount = parseInt(listItem.find('.symph_count, .list_symph .num').text().trim()) || undefined;
-      const thumbnail = listItem.find('.list_image img').attr('src') || undefined;
+      const likeCount = parseInt(listItem.find('.symph_count, .list_symph .num, .like').text().trim()) || undefined;
+      const commentText = listItem.find('.rp_count, .comment_count, .reply_symph').text().trim();
+      const commentCount = parseInt(commentText.replace(/[[\]()]/g, '')) || undefined;
+      const thumbnail = listItem.find('img[src*="clien"], img.list_image, .thumbnail img').attr('src') || undefined;
+      const dateText = listItem.find('.timestamp, .regdate, .date, time').text().trim();
+      const publishedAt = parseKoreanDate(dateText);
 
       if (title && url) {
-        posts.push({ sourceKey: 'clien_jirum', sourceName: '클리앙 알뜰구매', title, url, thumbnail, viewCount, likeCount });
+        posts.push({ sourceKey: 'clien_jirum', sourceName: '클리앙 알뜰구매', title, url, thumbnail, viewCount, commentCount, likeCount, publishedAt });
       }
     });
 
-    return posts.slice(0, 30);
+    // URL 기준 중복 제거
+    const seen = new Set<string>();
+    const unique = posts.filter(p => {
+      if (seen.has(p.url)) return false;
+      seen.add(p.url);
+      return true;
+    });
+
+    return unique.slice(0, 30);
   }
 }
 

@@ -19,7 +19,7 @@ export class FmkoreaScraper extends BaseScraper {
         'Sec-Fetch-User': '?1',
         'Upgrade-Insecure-Requests': '1',
       },
-      delay: [1500, 3500],
+      delay: [2000, 5000],
     });
 
     const posts: ScrapedPost[] = [];

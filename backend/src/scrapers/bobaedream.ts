@@ -17,34 +17,40 @@ export class BobaedreamScraper extends BaseScraper {
     const $ = cheerio.load(data);
     const posts: ScrapedPost[] = [];
 
-    $('tr.best a.bsubject').each((_, el) => {
-      const href = $(el).attr('href') ?? '';
-      if (!href.includes('code=freeb')) return;
+    // 공지 제외, freeb 링크가 있는 모든 행 선택
+    $('tr').each((_, el) => {
+      const a = $(el).find('a[href*="code=freeb"]').first();
+      const href = a.attr('href') ?? '';
+      if (!href || !href.includes('code=freeb')) return;
 
-      const title = ($(el).attr('title') ?? $(el).text()).trim();
+      const title = (a.attr('title') ?? a.text()).trim();
+      if (!title || title.length < 2) return;
+
       const url = href.startsWith('http') ? href : `https://www.bobaedream.co.kr${href}`;
-      const author = $(el).closest('tr').find('.author').text().trim() || undefined;
-      const commentText = $(el).closest('td').find('.totreply').first().text().trim();
-      const commentCount = parseInt(commentText) || undefined;
+      const author = $(el).find('.author, td.author, .nick').text().trim() || undefined;
 
-      const viewCount = parseInt($(el).closest('tr').find('td.count').text().replace(/[^0-9]/g, '')) || undefined;
-      const likeCount = parseInt($(el).closest('tr').find('td.recomm font').first().text().replace(/[^0-9]/g, '')) || undefined;
-      const dateText = $(el).closest('tr').find('td.date').text().trim();
+      // 댓글 수: 제목 옆 [N] 또는 .totreply
+      const commentEl = $(el).find('.totreply, .cmt_num').first();
+      const commentCount = parseInt(commentEl.text().replace(/[[\]()]/g, '')) || undefined;
+
+      // 조회수, 추천수
+      const cells = $(el).find('td');
+      const viewCount = parseInt($(el).find('td.count, td.hit').text().replace(/[^0-9]/g, '')) || undefined;
+      const likeCount = parseInt($(el).find('td.recomm font, td.recomm').first().text().replace(/[^0-9]/g, '')) || undefined;
+      const dateText = $(el).find('td.date').text().trim();
       const publishedAt = parseKoreanDate(dateText);
 
-      if (title && url) {
-        posts.push({
-          sourceKey: 'bobaedream',
-          sourceName: '보배드림',
-          title,
-          url,
-          author,
-          viewCount,
-          commentCount,
-          likeCount,
-          publishedAt,
-        });
-      }
+      posts.push({
+        sourceKey: 'bobaedream',
+        sourceName: '보배드림',
+        title,
+        url,
+        author,
+        viewCount,
+        commentCount,
+        likeCount,
+        publishedAt,
+      });
     });
 
     return posts.slice(0, 30);

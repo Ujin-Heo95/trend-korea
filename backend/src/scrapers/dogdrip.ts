@@ -9,6 +9,7 @@ export class DogdripScraper extends BaseScraper {
   async fetch(): Promise<ScrapedPost[]> {
     const $ = await fetchHtml('https://www.dogdrip.net/dogdrip?sort_index=popular', {
       headers: { Referer: 'https://www.dogdrip.net/' },
+      delay: [1500, 3500],
     });
 
     const posts: ScrapedPost[] = [];

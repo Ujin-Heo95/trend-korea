@@ -17,13 +17,20 @@ export class YoutubeSearchScraper extends BaseScraper {
   }
 
   async fetch(): Promise<ScrapedPost[]> {
-    if (!this.apiKey) return [];
+    if (!this.apiKey) {
+      logger.warn('[youtube-search] API key missing — skipping');
+      return [];
+    }
 
     const shouldRun = await this.checkCooldown();
     if (!shouldRun) return [];
 
-    const keywords = await this.getTopKeywords();
-    if (!keywords.length) return [];
+    let keywords = await this.getTopKeywords();
+    if (!keywords.length) {
+      logger.warn('[youtube-search] no trend keywords — using fallback');
+      keywords = await this.getFallbackKeywords();
+      if (!keywords.length) return [];
+    }
 
     const groups = chunk(keywords, KEYWORDS_PER_QUERY).slice(0, MAX_QUERIES);
     const results: ScrapedPost[] = [];
@@ -46,7 +53,7 @@ export class YoutubeSearchScraper extends BaseScraper {
     try {
       const { rows } = await this.pool.query<{ started_at: Date }>(
         `SELECT started_at FROM scraper_runs
-         WHERE source_key = 'youtube_search' AND status = 'success'
+         WHERE source_key = 'youtube_search' AND error_message IS NULL
          ORDER BY started_at DESC LIMIT 1`
       );
       if (!rows.length) return true;
@@ -64,6 +71,38 @@ export class YoutubeSearchScraper extends BaseScraper {
       [MAX_KEYWORDS]
     );
     return rows.map(r => r.keyword);
+  }
+
+  /** trend_keywords가 비었을 때 최근 인기 포스트 제목에서 키워드 추출 */
+  private async getFallbackKeywords(): Promise<string[]> {
+    try {
+      const { rows } = await this.pool.query<{ title: string }>(
+        `SELECT DISTINCT title FROM posts
+         WHERE scraped_at > NOW() - INTERVAL '6 hours'
+           AND category IN ('community', 'news')
+         ORDER BY title
+         LIMIT 200`
+      );
+      if (!rows.length) return [];
+
+      const stopWords = new Set(['것이', '하는', '있는', '그리고', '하지만', '때문', '이번', '오늘', '내일', '최근', '현재', '대한', '관련', '이상', '이하', '이후', '이전']);
+      const freq = new Map<string, number>();
+      for (const { title } of rows) {
+        const words = title.match(/[가-힣]{2,}/g) ?? [];
+        for (const w of words) {
+          if (w.length < 2 || stopWords.has(w)) continue;
+          freq.set(w, (freq.get(w) ?? 0) + 1);
+        }
+      }
+
+      return [...freq.entries()]
+        .filter(([, count]) => count >= 3)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, MAX_KEYWORDS)
+        .map(([word]) => word);
+    } catch {
+      return [];
+    }
   }
 
   private async searchVideos(keywords: string[]): Promise<ScrapedPost[]> {

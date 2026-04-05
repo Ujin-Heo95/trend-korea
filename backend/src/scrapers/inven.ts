@@ -13,20 +13,26 @@ export class InvenScraper extends BaseScraper {
 
     const posts: ScrapedPost[] = [];
 
-    $('tr:has(a.subject-link)').each((_, el) => {
-      const a = $(el).find('a.subject-link').first();
-      const href = a.attr('href') ?? '';
-      const title = a.text().replace(/\[.*?\]/g, '').trim().replace(/\s+/g, ' ');
+    // 인벤 게시판: tr.tr 행 내 제목 링크 (bbsSubject 또는 subject-link)
+    $('a.bbsSubject, a.subject-link').each((_, el) => {
+      const href = $(el).attr('href') ?? '';
+      const title = $(el).text().replace(/\[.*?\]/g, '').trim().replace(/\s+/g, ' ');
       if (!title || title.length < 3) return;
 
       const url = href.startsWith('http') ? href : `https://www.inven.co.kr${href}`;
-      const commentMatch = $(el).find('.con-comment').text().match(/\[(\d+)\]/);
-      const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
-      const author = $(el).find('td.user .layerNickName, td.user span').last().text().trim() || undefined;
-      const viewCount = parseInt($(el).find('td.view').text().replace(/,/g, '')) || undefined;
-      const likeCount = parseInt($(el).find('td.reco').text().replace(/,/g, '')) || undefined;
 
-      const dateText = $(el).find('td.date').text().trim();
+      const row = $(el).closest('tr');
+
+      // 댓글 수: span.sj_cm 또는 .con-comment
+      const commentText = row.find('.sj_cm, .con-comment').text();
+      const commentMatch = commentText.match(/\[?(\d+)\]?/);
+      const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
+
+      const author = row.find('td.user .layerNickName, td.user span, td.writer').last().text().trim() || undefined;
+      const viewCount = parseInt(row.find('td.view, td.read').text().replace(/,/g, '')) || undefined;
+      const likeCount = parseInt(row.find('td.reco, td.recommend').text().replace(/,/g, '')) || undefined;
+
+      const dateText = row.find('td.date').text().trim();
       const publishedAt = parseKoreanDate(dateText);
       posts.push({ sourceKey: 'inven', sourceName: '인벤', title, url, author, viewCount, commentCount, likeCount, publishedAt });
     });

@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
 import { config } from '../config/index.js';
+import { logger } from '../utils/logger.js';
 
 interface VisitorItem {
   readonly baseYmd: string;
@@ -68,7 +69,7 @@ function computeRegionTrends(items: readonly VisitorItem[]): readonly RegionStat
 
   for (const [region, dayMap] of regionDays) {
     const sorted = [...dayMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-    if (sorted.length < 4) continue;
+    if (sorted.length < 2) continue;
 
     // 최근 3일 vs 이전 나머지
     const recentDays = sorted.slice(-3);
@@ -106,7 +107,10 @@ export class TourVisitorScraper extends BaseScraper {
   }
 
   async fetch(): Promise<ScrapedPost[]> {
-    if (!config.dataGoKrApiKey) return [];
+    if (!config.dataGoKrApiKey) {
+      logger.warn('[tour_visitor] DATA_GO_KR_API_KEY missing — skipping');
+      return [];
+    }
 
     // 쿨다운 체크
     const now = Date.now();
@@ -119,28 +123,38 @@ export class TourVisitorScraper extends BaseScraper {
     const startDate = new Date(endDate);
     startDate.setDate(startDate.getDate() - 7);
 
-    const { data } = await axios.get<DataLabResponse>(
-      'https://apis.data.go.kr/B551011/DataLabService/metcoRegnVisitrDDList',
-      {
-        params: {
-          serviceKey: config.dataGoKrApiKey,
-          MobileOS: 'ETC',
-          MobileApp: 'WeekLit',
-          _type: 'json',
-          numOfRows: 1000,
-          pageNo: 1,
-          startYmd: formatDate(startDate),
-          endYmd: formatDate(endDate),
+    let data: DataLabResponse;
+    try {
+      const res = await axios.get<DataLabResponse>(
+        'https://apis.data.go.kr/B551011/DataLabService/metcoRegnVisitrDDList',
+        {
+          params: {
+            serviceKey: config.dataGoKrApiKey,
+            MobileOS: 'ETC',
+            MobileApp: 'WeekLit',
+            _type: 'json',
+            numOfRows: 1000,
+            pageNo: 1,
+            startYmd: formatDate(startDate),
+            endYmd: formatDate(endDate),
+          },
+          timeout: 15000,
         },
-        timeout: 15000,
-      },
-    );
+      );
+      data = res.data;
+    } catch (err) {
+      logger.error({ err, startYmd: formatDate(startDate), endYmd: formatDate(endDate) }, '[tour_visitor] API request failed');
+      throw err;
+    }
 
     if (data.response?.header?.resultCode !== '0000') {
-      throw new Error(`[tour_visitor] API error: ${data.response?.header?.resultMsg}`);
+      const msg = `[tour_visitor] API error: ${data.response?.header?.resultCode} ${data.response?.header?.resultMsg}`;
+      logger.error(msg);
+      throw new Error(msg);
     }
 
     const items = parseItems(data);
+    logger.info({ itemCount: items.length }, '[tour_visitor] items fetched');
     const trends = computeRegionTrends(items);
 
     return trends.map((stat): ScrapedPost => {

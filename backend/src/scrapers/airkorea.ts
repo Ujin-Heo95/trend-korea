@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
 import { config } from '../config/index.js';
+import { logger } from '../utils/logger.js';
 
 interface AirQualityItem {
   readonly stationName: string;
@@ -38,7 +39,10 @@ export class AirKoreaScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
 
   async fetch(): Promise<ScrapedPost[]> {
-    if (!config.dataGoKrApiKey) return [];
+    if (!config.dataGoKrApiKey) {
+      logger.warn('[airkorea] DATA_GO_KR_API_KEY missing — skipping');
+      return [];
+    }
 
     const posts: ScrapedPost[] = [];
 
@@ -91,8 +95,8 @@ export class AirKoreaScraper extends BaseScraper {
             co: parseFloat(item.coValue ?? '') || undefined,
           },
         });
-      } catch {
-        // Skip failed city, continue with others
+      } catch (err) {
+        logger.warn({ err, sido }, '[airkorea] city data fetch failed');
       }
     }
 
