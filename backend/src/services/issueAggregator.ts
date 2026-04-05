@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 import { buildKeywordIndex, matchPostToKeywords, computeTrendSignalBonus } from './trendSignals.js';
 import { getChannel } from './scoring-weights.js';
+import { bigrams, jaccardSimilarity } from './dedup.js';
 
 // ─── Types ───
 
@@ -75,8 +76,11 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
   // Step 3: Merge related clusters via trend keywords
   const mergedGroups = await mergeViaTrendKeywords(pool, clusterGroups, posts);
 
+  // Step 3.5: Deduplicate issues by title similarity
+  const dedupedGroups = deduplicateIssuesByTitle(mergedGroups);
+
   // Step 4: Filter (must have news) and score
-  const scoredIssues = scoreAndFilter(mergedGroups);
+  const scoredIssues = scoreAndFilter(dedupedGroups);
 
   // Step 5: Take top N and prepare for summarization
   const topIssues = scoredIssues.slice(0, MAX_ISSUES);
@@ -276,6 +280,69 @@ async function mergeViaTrendKeywords(
   return issueGroups;
 }
 
+// ─── Step 3.5: Deduplicate Issues by Title Similarity ───
+
+const ISSUE_DEDUP_THRESHOLD = 0.55;
+
+function deduplicateIssuesByTitle(groups: readonly IssueGroup[]): IssueGroup[] {
+  if (groups.length <= 1) return [...groups];
+
+  // Compute representative title bigrams for each group
+  const bigramSets = groups.map(g => {
+    const sorted = [...g.newsPosts].sort((a, b) => b.trendScore - a.trendScore);
+    const title = sorted[0]?.title ?? g.communityPosts[0]?.title ?? '';
+    return bigrams(title);
+  });
+
+  // Union-Find
+  const parent = Array.from({ length: groups.length }, (_, i) => i);
+
+  function find(x: number): number {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]];
+      x = parent[x];
+    }
+    return x;
+  }
+
+  function union(a: number, b: number): void {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
+  }
+
+  // Pairwise comparison
+  for (let i = 0; i < groups.length; i++) {
+    for (let j = i + 1; j < groups.length; j++) {
+      if (find(i) === find(j)) continue;
+      if (jaccardSimilarity(bigramSets[i], bigramSets[j]) >= ISSUE_DEDUP_THRESHOLD) {
+        union(i, j);
+      }
+    }
+  }
+
+  // Collect merged groups
+  const merged = new Map<number, IssueGroup>();
+  for (let i = 0; i < groups.length; i++) {
+    const root = find(i);
+    const existing = merged.get(root);
+    if (!existing) {
+      merged.set(root, groups[i]);
+    } else {
+      merged.set(root, {
+        clusterIds: new Set([...existing.clusterIds, ...groups[i].clusterIds]),
+        standalonePostIds: new Set([...existing.standalonePostIds, ...groups[i].standalonePostIds]),
+        newsPosts: [...existing.newsPosts, ...groups[i].newsPosts],
+        communityPosts: [...existing.communityPosts, ...groups[i].communityPosts],
+        matchedKeywords: [...new Set([...existing.matchedKeywords, ...groups[i].matchedKeywords])],
+        trendSignalScore: Math.max(existing.trendSignalScore, groups[i].trendSignalScore),
+      });
+    }
+  }
+
+  return [...merged.values()];
+}
+
 // ─── Step 4: Score and Filter ───
 
 function scoreAndFilter(groups: readonly IssueGroup[]): IssueGroup[] {
@@ -313,8 +380,8 @@ function buildIssueRow(group: IssueGroup): IssueRow {
     communityScore * COMMUNITY_WEIGHT +
     group.trendSignalScore * TREND_SIGNAL_WEIGHT;
 
-  // Derive category label from canonical post
-  const categoryLabel = deriveCategoryLabel(canonicalPost?.category);
+  // Derive category label from canonical post title
+  const categoryLabel = deriveCategoryLabel(canonicalPost?.title ?? '');
 
   // Find best thumbnail
   const thumbnail = canonicalPost?.thumbnail
@@ -339,12 +406,23 @@ function buildIssueRow(group: IssueGroup): IssueRow {
   };
 }
 
-function deriveCategoryLabel(category: string | null): string {
-  switch (category) {
-    case 'news': case 'press': return '뉴스';
-    case 'community': return '커뮤니티';
-    default: return '종합';
+// ─── Title-based Category Inference ───
+
+const CATEGORY_KEYWORDS: readonly [RegExp, string][] = [
+  [/정치|국회|대통령|여당|야당|총리|선거|탄핵|국정|개헌/, '정치'],
+  [/경제|증시|코스피|금리|환율|부동산|주가|투자|물가|GDP/, '경제'],
+  [/연예|아이돌|드라마|배우|가수|예능|방송|K팝|컴백/, '연예'],
+  [/스포츠|야구|축구|농구|올림픽|KBO|K리그|EPL|NBA/, '스포츠'],
+  [/IT|AI|인공지능|반도체|테크|과학|우주|로봇|SW|앱/, 'IT과학'],
+  [/세계|미국|중국|일본|러시아|우크라|트럼프|바이든|유럽|NATO/, '세계'],
+  [/생활|날씨|건강|교통|맛집|여행|육아|교육|의료/, '생활'],
+];
+
+function deriveCategoryLabel(title: string): string {
+  for (const [pattern, label] of CATEGORY_KEYWORDS) {
+    if (pattern.test(title)) return label;
   }
+  return '사회';
 }
 
 // ─── Step 6: Write to DB ───
@@ -356,10 +434,8 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
   try {
     await client.query('BEGIN');
 
-    // Delete previous cycle's rankings (keep only unexpired for cache)
-    await client.query(
-      `DELETE FROM issue_rankings WHERE calculated_at < NOW() - INTERVAL '10 minutes'`
-    );
+    // Delete all previous rankings — transaction ensures atomic swap (MVCC)
+    await client.query(`DELETE FROM issue_rankings`);
 
     // Insert new rankings
     const values: string[] = [];
