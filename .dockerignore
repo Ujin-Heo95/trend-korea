@@ -1,0 +1,12 @@
+node_modules
+backend/node_modules
+frontend/node_modules
+backend/dist
+frontend/dist
+.git
+*.md
+docs
+e2e
+.github
+backend/tests
+playwright.config.ts

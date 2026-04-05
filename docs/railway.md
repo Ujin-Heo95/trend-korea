@@ -105,15 +105,22 @@ const frontendDist = resolve(import.meta.dirname, '../../frontend/dist');
 | 항목 | 값 |
 |------|------|
 | 도메인 등록 | GoDaddy (`weeklit.net`) |
-| `www` CNAME | **Railway 대시보드에서 확인** (이전: `dylyy7pc.up.railway.app` — 구 서비스) |
-| naked domain | GoDaddy 301 리다이렉트 → `www.weeklit.net` (루트 A 레코드 삭제 불가) |
-| TXT 레코드 | `_railway-verify.www`, `_railway-verify` 추가 완료 |
+| DNS 관리 | **Cloudflare** (Free, 2026-04-05 이전) |
+| 네임서버 | `micah.ns.cloudflare.com`, `rosa.ns.cloudflare.com` |
+| `@` CNAME | Railway 서비스 도메인 → Cloudflare CNAME flattening (Proxied) |
+| `www` CNAME | Railway 서비스 도메인 (Proxied) |
+| TXT 레코드 | `_railway-verify.www`, `_railway-verify` |
 | CORS | `https://weeklit.net,https://www.weeklit.net` (www 포함 필수) |
 | Railway 내부 도메인 | `trend-korea-production.up.railway.app` (직접 접근 가능) |
+| SSL/TLS | Cloudflare Full (Strict) |
 
-**주의**: 커스텀 도메인의 CNAME 타깃은 Railway 서비스별로 다르다.
-서비스를 변경/삭제하면 CNAME 타깃도 변경되므로 GoDaddy DNS를 반드시 업데이트해야 한다.
-`railway domain` CLI로 확인하거나 Railway 대시보드 → 서비스 → Settings → Networking에서 확인.
+**Cloudflare 설정**:
+- naked domain(`weeklit.net`)은 CNAME flattening으로 직접 서빙 (GoDaddy 301 리다이렉트 불필요)
+- Proxied 모드: CDN 캐싱 + DDoS 방어 + Brotli 압축
+- `/api/*` 경로: Bypass Cache
+
+**주의**: Railway 서비스를 변경/삭제하면 CNAME 타깃도 Cloudflare DNS에서 업데이트해야 한다.
+`railway domain` CLI 또는 Railway 대시보드 → Settings → Networking에서 확인.
 
 ---
 
