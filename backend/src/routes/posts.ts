@@ -60,12 +60,18 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
         conditions.push(`p.title ILIKE $${params.push(`%${escapedQ}%`)}`);
       }
 
+      // Trending: limit scan to 48h window (scoring only covers 24h)
+      if (isTrending) {
+        conditions.push(`p.scraped_at > NOW() - INTERVAL '48 hours'`);
+      }
+
       const whereParamCount = params.length;
       const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       // Over-fetch to compensate for cluster dedup filtering
       const fetchLimit = Math.ceil(limit * 1.5);
 
+      const scoreJoin = isTrending ? 'LEFT JOIN post_scores ps ON ps.post_id = p.id' : '';
       const orderBy = isTrending
         ? 'COALESCE(ps.trend_score, 0) DESC, p.id DESC'
         : 'COALESCE(p.published_at, p.first_scraped_at) DESC, p.id DESC';
@@ -75,7 +81,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
           `SELECT p.id, p.source_key, p.source_name, p.title, p.url, p.thumbnail,
                   p.author, p.view_count, p.comment_count, p.like_count, p.vote_count, p.published_at, p.first_scraped_at, p.scraped_at, p.category, p.subcategory, p.metadata
            FROM posts p
-           LEFT JOIN post_scores ps ON ps.post_id = p.id
+           ${scoreJoin}
            ${where}
            ORDER BY ${orderBy}
            LIMIT $${params.push(fetchLimit)} OFFSET $${params.push(offset)}`,
