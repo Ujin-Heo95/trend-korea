@@ -26,12 +26,7 @@ function PageLoader() {
   return <div className="text-center py-20 text-slate-400 animate-pulse">로딩 중...</div>;
 }
 
-function AppRoutes() {
-  const location = useLocation();
-  if (location.pathname === '/admin') {
-    return <Suspense fallback={<PageLoader />}><AdminPage /></Suspense>;
-  }
-
+function MainRoutes() {
   const [params, setParams] = useSearchParams();
   const category = params.get('category') || undefined;
   const searchQuery = params.get('q') ?? '';
@@ -77,6 +72,14 @@ function AppRoutes() {
       </Suspense>
     </Layout>
   );
+}
+
+function AppRoutes() {
+  const location = useLocation();
+  if (location.pathname === '/admin') {
+    return <Suspense fallback={<PageLoader />}><AdminPage /></Suspense>;
+  }
+  return <MainRoutes />;
 }
 
 export default function App() {
