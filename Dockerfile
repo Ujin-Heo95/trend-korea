@@ -20,9 +20,6 @@ RUN npm run build --workspace=frontend
 # Build backend (tsc + copy migrations → backend/dist/)
 RUN npm run build --workspace=backend
 
-# Verify build artifacts exist
-RUN ls -la backend/dist/server.js frontend/dist/index.html
-
 # ── Stage 2: Production ────────────────────────────────
 FROM node:20-slim
 

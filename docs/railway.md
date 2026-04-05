@@ -17,57 +17,57 @@ Railway Project: satisfied-youthfulness
 
 ---
 
-## 2. 빌드 프로세스 (Railpack)
+## 2. 빌드 프로세스 (Dockerfile)
 
-Railway는 **Railpack**(Nixpacks 후속)으로 자동 빌드한다.
+### 2.1 Railway 대시보드 빌드 설정
 
-### 2.1 Railpack 동작 순서
+| 설정 항목 | 값 | 비고 |
+|-----------|------|------|
+| Builder | **Dockerfile** | ~~Railpack~~ → Dockerfile로 변경 (2026-04-05) |
+| Dockerfile Path | `Dockerfile` | 프로젝트 루트 |
+| Custom Build Command | **(비워둠)** | ⚠️ 값이 있으면 Railpack이 강제 사용됨 |
+| Metal Build Environment | Metal | 신규 빌드 환경 |
+| Watch Paths | (없음) | 전체 감지 |
+
+> **변경 이력**: Railpack v0.23.0이 모노레포 워크스페이스를 별도 Docker 이미지로 분리 빌드하면서
+> backend 컨테이너에 `frontend/dist` 미포함 → SPA 404 발생.
+> 커스텀 Dockerfile로 전환하여 단일 이미지에 frontend+backend 빌드 결과물 포함.
+
+### 2.2 Dockerfile 빌드 순서
 
 ```
-1. 모노레포 감지 (root package.json의 workspaces)
+1. node:20-slim 기반 multi-stage build
 2. npm ci (전체 워크스페이스 의존성 설치)
-3. 프론트엔드 자동 빌드 (railpack-frontend 이미지 사용)
-   → frontend/package.json의 "build" 실행: tsc && vite build
-   → 결과물: frontend/dist/
-4. 백엔드 빌드
-   → backend/package.json의 "build" 실행: tsc && cp -r src/db/migrations dist/db/migrations
-   → 결과물: backend/dist/
-5. Docker 이미지 생성 + Railway 레지스트���에 push
+3. frontend 빌드: tsc && vite build → frontend/dist/
+4. backend 빌드: tsc && cp -r src/db/migrations dist/db/migrations → backend/dist/
+5. production 이미지: npm ci --omit=dev + 빌드 결과물 복사
+6. CMD: migrate.js 실행 → server.js 시작
 ```
 
-### 2.2 빌드 스크립트 — 절대 금지 사항
+### 2.3 빌드 관련 주의사항
 
-```jsonc
-// backend/package.json
-{
-  // ✅ 올바른 빌드 스크립트
-  "build": "tsc && cp -r src/db/migrations dist/db/migrations",
-
-  // ❌ 절대 이렇게 하지 마라 — Railway 빌드 컨텍스트에 ../frontend 없음
-  "build": "cd ../frontend && npm run build && cd ../backend && tsc && ..."
-}
-```
-
-**이유**: Railpack은 각 워크스페이스를 격리된 컨텍스트에서 빌드.
-`cd ../frontend`는 빌드 컨테이너에서 경로가 존재하지 않아 `sh: 1: cd: can't cd to ../frontend`로 실패.
-프론트엔드 빌드는 Railpack이 `railpack-frontend` 이미지로 **자동** 처리하므로 ��동 지정 불필요.
+- **Custom Build Command를 절대 설정하지 마라** — 설정하면 Dockerfile이 무시되고 Railpack이 강제 사용됨
+- `Dockerfile`, `.dockerignore`는 프로젝트 루트에 위치
+- `railway.toml`에 `builder = "DOCKERFILE"` 지정됨 (대시보드 설정과 이중 보호)
 
 ---
 
 ## 3. 시작 프로세스
 
-```jsonc
-// backend/package.json
-{
-  "start": "node dist/db/migrate.js && node dist/server.js"
-}
+**실행 스크립트**: `start.sh` (프로젝트 루트)
+
+```sh
+#!/bin/sh
+set -e
+node backend/dist/db/migrate.js   # 1. 마이그레이션 (멱등성)
+exec node backend/dist/server.js   # 2. Fastify 시작 + 스케줄러
 ```
 
-**순서**:
-1. `migrate.js` — `schema_migrations` 테이블 기반 마이그레이션 (멱등성 보장)
-2. `server.js` — Fastify 시작, 스케줄러 등록, 포트 바인딩
+- `railway.toml`의 `startCommand = "./start.sh"`가 Dockerfile CMD를 오버라이드
+- 마이그레이션: `schema_migrations` 테이블 기반, 실패 시 `process.exit(1)` → Railway 컨테이너 재시작
+- `exec`: 서버 프로세스를 PID 1으로 실행 (graceful shutdown 시그널 수신)
 
-**주의**: 마이그레이션 실패 시 `process.exit(1)` → Railway가 컨테이너 재시작.
+**주의**: Railway 대시보드의 **Start Command**는 비워둘 것 — `railway.toml`이 관리.
 
 ---
 
