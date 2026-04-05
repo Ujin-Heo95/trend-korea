@@ -18,9 +18,9 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포 + Supabas
 
 - **Backend**: Fastify 5, TypeScript, node-cron, cheerio, rss-parser, p-limit — 상세 컨벤션 → `backend/CLAUDE.md`
 - **Frontend**: React 18, Vite 5, Tailwind v4, React Query v5 — 상세 컨벤션 → `frontend/CLAUDE.md`
-- **DB**: PostgreSQL 17.6 (Supabase 500MB 무료)
+- **DB**: PostgreSQL 17.6 (Supabase Pro 8GB 서울)
 - **Testing**: Vitest + axios mock + fixture HTML
-- **Deploy**: Railway auto-detect, Supabase 서울 리전
+- **Deploy**: Railway Railpack 단일 서비스 (백+프론트 SPA) — 상세 → `docs/railway.md`
 
 ## Conventions
 
@@ -37,6 +37,7 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포 + Supabas
 | 시스템 구조 파악 | `docs/architecture.md` |
 | 스크래퍼 추가/수정 | `docs/sources.md` |
 | 스코어링/중복제거 | `docs/scoring.md` |
+| Railway 배포/설정 | `docs/railway.md` |
 | 인프라/비용 결정 | `docs/scaling.md` |
 | 비즈니스/수익 분석 | `docs/business/financials.md` |
 | 마케팅/SEO | `docs/business/marketing.md` |
@@ -50,7 +51,7 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포 + Supabas
 ## Current Phase
 
 v0.12.0 — 신규 로드맵 P0 진행중.
-소스 120개 등록 (95개 활성) + 345 tests (백엔드 305 + 프론트 40) + Supabase 500MB 서울.
+소스 120개 등록 (95개 활성) + 345 tests (백엔드 305 + 프론트 40) + Supabase Pro 8GB 서울.
 채널별 분기 스코어링 — 커뮤니티(소스차등+적응감쇠+트렌드신호) / 뉴스(서브카테고리정규화+속보감지+트렌드신호). 비스코어링 탭은 최신순만.
 
 **완료**: P0 도메인+Umami+URL (2026-04-03) + P1 SEO파이프라인+Security Headers (2026-04-04) + P2 보안·품질·기술부채 전면 해소 (2026-04-04)
