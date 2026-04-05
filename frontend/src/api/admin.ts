@@ -48,7 +48,7 @@ export function isAuthedHealth(data: unknown): data is HealthResponse {
 }
 
 export const fetchHealthAdmin = (token: string): Promise<unknown> =>
-  axios.get('/health', {
+  axios.get('/api/health', {
     headers: { Authorization: `Bearer ${token}` },
   }).then(r => r.data);
 

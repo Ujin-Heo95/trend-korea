@@ -10,7 +10,7 @@ interface ScraperRunRow {
 }
 
 export async function healthRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/health', async (req: FastifyRequest, reply: FastifyReply) => {
+  const handler = async (req: FastifyRequest, reply: FastifyReply) => {
     const token = req.headers.authorization?.replace('Bearer ', '');
     const isProduction = config.nodeEnv === 'production';
     // 프로덕션에서 ADMIN_TOKEN 미설정 시 어드민 접근 거부
@@ -86,5 +86,7 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
       },
       api_keys: apiKeys,
     });
-  });
+  };
+  app.get('/health', handler);
+  app.get('/api/health', handler);
 }
