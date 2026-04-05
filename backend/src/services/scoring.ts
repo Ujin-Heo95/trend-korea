@@ -71,9 +71,12 @@ async function _calculateScores(pool: Pool): Promise<number> {
       view_count: number;
       comment_count: number;
       like_count: number;
+      published_at: Date | null;
+      first_scraped_at: Date;
       scraped_at: Date;
     }>(`
-      SELECT p.id, p.source_key, p.category, p.title, p.view_count, p.comment_count, p.like_count, p.scraped_at
+      SELECT p.id, p.source_key, p.category, p.title, p.view_count, p.comment_count, p.like_count,
+             p.published_at, p.first_scraped_at, p.scraped_at
       FROM posts p
       WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
         AND COALESCE(p.category, '') IN ('news', 'press', 'community')
@@ -101,7 +104,9 @@ async function _calculateScores(pool: Pool): Promise<number> {
   }[] = [];
 
   for (const row of rows) {
-    const ageMinutes = (now - new Date(row.scraped_at).getTime()) / 60_000;
+    // 실제 게시 시점 기준 decay: published_at → first_scraped_at → scraped_at 순 폴백
+    const postOrigin = row.published_at ?? row.first_scraped_at ?? row.scraped_at;
+    const ageMinutes = (now - new Date(postOrigin).getTime()) / 60_000;
     const channel = getChannel(row.category);
     const isCommunity = channel === 'community';
     const isNews = channel === 'news';
