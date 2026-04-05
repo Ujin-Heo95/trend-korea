@@ -1,11 +1,10 @@
 import { Resolver } from 'node:dns/promises';
+import dns from 'node:dns';
 import { Agent as HttpsAgent } from 'node:https';
-import { Agent as HttpAgent } from 'node:http';
-import type { LookupFunction } from 'node:net';
 
 /**
  * api.kcisa.kr 등 한국 정부 API 도메인은 해외 DNS에서 해석 불가.
- * KT 공용 DNS(168.126.63.1)를 사용하여 ���접 해석.
+ * KT 공용 DNS(168.126.63.1)를 사용하여 직접 해석.
  */
 
 const KOREAN_DNS_SERVERS = ['168.126.63.1', '168.126.63.2'];
@@ -32,35 +31,44 @@ async function resolveKoreanDomain(hostname: string): Promise<string> {
       return addresses[0];
     }
   } catch {
-    // Korean DNS도 실패 시 하드코딩 IP 폴백
+    // Korean DNS 실패 → IP 폴백
   }
 
   const fallback = FALLBACK_IPS[hostname];
-  if (fallback) return fallback;
+  if (fallback) {
+    dnsCache.set(hostname, { ip: fallback, expiry: Date.now() + CACHE_TTL_MS });
+    return fallback;
+  }
 
   throw new Error(`[korean-dns] cannot resolve ${hostname}`);
 }
 
-const koreanLookup: LookupFunction = (hostname, _options, callback) => {
+/**
+ * Node.js http.Agent lookup 호환 함수.
+ * hostname, options, callback 형태 + hostname, callback 형태 모두 처리.
+ */
+function koreanLookup(
+  hostname: string,
+  optionsOrCallback: unknown,
+  maybeCallback?: unknown,
+): void {
+  // 오버로드 해석: (hostname, callback) 또는 (hostname, options, callback)
+  const cb = (typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback) as
+    (err: NodeJS.ErrnoException | null, address: string, family: number) => void;
+
   if (!KOREAN_DOMAINS.has(hostname)) {
-    // 한국 도메인이 아니면 시스템 기본 DNS 사용
-    import('node:dns').then(dns => {
-      dns.lookup(hostname, callback as Parameters<typeof dns.lookup>[1]);
-    });
+    // 한국 도메인이 아니면 시스템 기본 DNS
+    const opts = typeof optionsOrCallback === 'function' ? { family: 4 } : (optionsOrCallback as dns.LookupOptions);
+    dns.lookup(hostname, { ...opts, all: false }, cb as (err: NodeJS.ErrnoException | null, address: string, family: number) => void);
     return;
   }
 
   resolveKoreanDomain(hostname)
-    .then(ip => callback(null, ip, 4))
-    .catch(err => callback(err as NodeJS.ErrnoException, '', 4));
-};
+    .then(ip => cb(null, ip, 4))
+    .catch(err => cb(err as NodeJS.ErrnoException, '', 4));
+}
 
 export const koreanDnsHttpsAgent = new HttpsAgent({
-  lookup: koreanLookup,
-  keepAlive: true,
-});
-
-export const koreanDnsHttpAgent = new HttpAgent({
-  lookup: koreanLookup,
+  lookup: koreanLookup as unknown as HttpsAgent['options']['lookup'],
   keepAlive: true,
 });
