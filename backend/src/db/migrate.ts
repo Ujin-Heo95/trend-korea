@@ -48,6 +48,7 @@ const migrations = [
   '039_finance_subcategory.sql',
   '040_content_snippet.sql',
   '041_scoring_config.sql',
+  '042_issue_rankings_v2.sql',
 ];
 
 try {

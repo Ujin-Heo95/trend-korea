@@ -1,22 +1,51 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useIssueRankings } from '../hooks/useIssueRankings';
 import { getSourceColor } from '../constants/sourceColors';
-import type { IssueRanking, IssueRelatedPost } from '../types';
+import type { IssueRanking, IssueRelatedPost, ChannelTag } from '../types';
 
 // ─── Category Badge Colors ───
 
 const CATEGORY_BADGE: Record<string, string> = {
-  '사회': 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-  '경제': 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-  '정치': 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-  'IT과학': 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
-  '연예': 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300',
-  '스포츠': 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-  '생활': 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',
-  '세계': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+  '사회': 'text-blue-600 dark:text-blue-400',
+  '경제': 'text-amber-600 dark:text-amber-400',
+  '정치': 'text-red-600 dark:text-red-400',
+  'IT과학': 'text-violet-600 dark:text-violet-400',
+  '연예': 'text-pink-600 dark:text-pink-400',
+  '스포츠': 'text-green-600 dark:text-green-400',
+  '생활': 'text-teal-600 dark:text-teal-400',
+  '세계': 'text-indigo-600 dark:text-indigo-400',
 };
 
-const DEFAULT_BADGE = 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300';
+const CHANNEL_TAG_STYLES: Record<ChannelTag, { default: string; active: string; label: string }> = {
+  news: {
+    default: 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400',
+    active: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+    label: '뉴스',
+  },
+  community: {
+    default: 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400',
+    active: 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+    label: '커뮤니티',
+  },
+  portal: {
+    default: 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400',
+    active: 'border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-900/30 dark:text-green-300',
+    label: '포털',
+  },
+  sns: {
+    default: 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400',
+    active: 'border-pink-300 bg-pink-50 text-pink-700 dark:border-pink-700 dark:bg-pink-900/30 dark:text-pink-300',
+    label: 'SNS',
+  },
+};
+
+// ─── Category Fallback Icons ───
+
+const CATEGORY_ICONS: Record<string, string> = {
+  '사회': '📰', '경제': '📈', '정치': '🏛️', 'IT과학': '💻',
+  '연예': '⭐', '스포츠': '⚽', '생활': '🏠', '세계': '🌍',
+};
 
 // ─── Main Component ───
 
@@ -36,7 +65,7 @@ export const IssueRankingList: React.FC = () => {
   if (data.issues.length === 0) {
     return (
       <div className="text-center py-16 text-slate-400 dark:text-slate-500">
-        <p className="text-lg mb-1">이슈 데이터를 준비 중입니다</p>
+        <p className="text-lg mb-1">이슈 데이��를 준비 중입니다</p>
         <p className="text-sm">잠시만 기다려 주세요</p>
       </div>
     );
@@ -44,6 +73,7 @@ export const IssueRankingList: React.FC = () => {
 
   return (
     <div className="space-y-3">
+      <AggregationTimestamp calculatedAt={data.calculated_at} />
       {data.issues.map((issue) => (
         <IssueCard key={issue.id} issue={issue} />
       ))}
@@ -51,89 +81,188 @@ export const IssueRankingList: React.FC = () => {
   );
 };
 
+// ─── Aggregation Timestamp ───
+
+const AggregationTimestamp: React.FC<{ calculatedAt: string | null }> = ({ calculatedAt }) => {
+  if (!calculatedAt) return null;
+
+  const date = new Date(calculatedAt);
+  const formatted = new Intl.DateTimeFormat('ko-KR', {
+    month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(date);
+
+  const kstHour = (new Date().getUTCHours() + 9) % 24;
+  const isQuiet = kstHour >= 2 && kstHour < 6;
+
+  return (
+    <div className="flex items-center justify-end gap-2 text-xs text-slate-400 dark:text-slate-500 mb-1 px-1">
+      <span>기준: {formatted} 업데이트</span>
+      {isQuiet && (
+        <span className="text-amber-500 dark:text-amber-400">
+          야간 시간대 — 이전 데이터 표시 중
+        </span>
+      )}
+    </div>
+  );
+};
+
+// ─── Rank Change Indicator ───
+
+const RankChangeIndicator: React.FC<{ change: number | null }> = ({ change }) => {
+  if (change === null) {
+    return (
+      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400">
+        NEW
+      </span>
+    );
+  }
+  if (change > 0) {
+    return <span className="text-xs font-medium text-rose-500 dark:text-rose-400">▲{change}</span>;
+  }
+  if (change < 0) {
+    return <span className="text-xs font-medium text-blue-500 dark:text-blue-400">▼{Math.abs(change)}</span>;
+  }
+  return <span className="text-xs text-slate-400 dark:text-slate-500">—</span>;
+};
+
 // ─── Issue Card ───
 
 const IssueCard: React.FC<{ issue: IssueRanking }> = ({ issue }) => {
-  const [expanded, setExpanded] = useState(false);
-  const totalPosts = issue.news_post_count + issue.community_post_count;
+  const [activeChannels, setActiveChannels] = useState<Set<ChannelTag>>(new Set());
+
+  const toggleChannel = (tag: ChannelTag) => {
+    setActiveChannels(prev => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  };
+
+  const categoryColor = CATEGORY_BADGE[issue.category_label ?? ''] ?? 'text-slate-600 dark:text-slate-400';
+  const fallbackIcon = CATEGORY_ICONS[issue.category_label ?? ''] ?? '📰';
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-      {/* Header */}
       <div className="px-4 py-3">
         <div className="flex items-start gap-3">
-          {/* Rank */}
-          <span className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${
-            issue.rank <= 3
-              ? 'bg-blue-600 text-white dark:bg-blue-500'
-              : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
-          }`}>
-            {issue.rank}
-          </span>
+          {/* Rank + Change */}
+          <div className="flex-shrink-0 flex flex-col items-center gap-0.5">
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${
+              issue.rank <= 3
+                ? 'bg-blue-600 text-white dark:bg-blue-500'
+                : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
+            }`}>
+              {issue.rank}
+            </span>
+            <RankChangeIndicator change={issue.rank_change} />
+          </div>
 
+          {/* Content */}
           <div className="flex-1 min-w-0">
-            {/* Category + Title */}
-            <div className="flex items-center gap-2 mb-1.5">
+            {/* Category | Title */}
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50 leading-snug mb-1.5">
               {issue.category_label && (
-                <span className={`flex-shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${
-                  CATEGORY_BADGE[issue.category_label] ?? DEFAULT_BADGE
-                }`}>
+                <span className={`${categoryColor} font-medium`}>
                   {issue.category_label}
                 </span>
               )}
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50 line-clamp-2 leading-snug">
-                {issue.title}
-              </h3>
-            </div>
+              {issue.category_label && <span className="text-slate-300 dark:text-slate-600 mx-1">|</span>}
+              {issue.title}
+            </h3>
 
-            {/* Summary */}
+            {/* Summary — full text, no clamp */}
             {issue.summary && (
-              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-2 line-clamp-3">
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-2">
                 {issue.summary}
               </p>
             )}
 
-            {/* Expand toggle */}
-            {totalPosts > 0 && (
-              <button
-                onClick={() => setExpanded(!expanded)}
-                className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-              >
-                <svg
-                  className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                <span>
-                  {issue.news_post_count > 0 && `뉴스 ${issue.news_post_count}건`}
-                  {issue.news_post_count > 0 && issue.community_post_count > 0 && ' · '}
-                  {issue.community_post_count > 0 && `커뮤니티 ${issue.community_post_count}건`}
-                </span>
-              </button>
-            )}
+            {/* "자세히 보기" → detail page */}
+            <Link
+              to={`/issue/${issue.id}`}
+              className="text-xs text-blue-600 dark:text-blue-400 hover:underline mb-2 inline-block"
+            >
+              자세히 보기
+            </Link>
+
+            {/* Channel Tags */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {issue.channel_tags.map(tag => {
+                const style = CHANNEL_TAG_STYLES[tag];
+                const isActive = activeChannels.has(tag);
+                const count = tag === 'news'
+                  ? issue.news_post_count + issue.video_post_count
+                  : tag === 'community'
+                    ? issue.community_post_count
+                    : 0;
+
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => toggleChannel(tag)}
+                    className={`px-2 py-0.5 rounded-full border text-[11px] font-medium transition-colors ${
+                      isActive ? style.active : style.default
+                    }`}
+                  >
+                    {style.label}{count > 0 ? ` ${count}` : ''}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Thumbnail */}
-          {issue.thumbnail && (
-            <img
-              src={issue.thumbnail}
-              alt=""
-              className="flex-shrink-0 w-16 h-16 rounded-lg object-cover"
-              loading="lazy"
-            />
-          )}
+          <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+            {issue.thumbnail ? (
+              <img
+                src={issue.thumbnail}
+                alt=""
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <span className="text-2xl">{fallbackIcon}</span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Expanded: Related Posts */}
-      {expanded && (
+      {/* Expanded Channel Content */}
+      {activeChannels.size > 0 && (
         <div className="border-t border-slate-100 dark:border-slate-700/50 px-4 py-2 space-y-1">
-          {issue.news_posts.length > 0 && (
-            <PostGroup label="뉴스" posts={issue.news_posts} />
+          {activeChannels.has('news') && (
+            <>
+              {issue.news_posts.length > 0 && <PostGroup label="뉴스" posts={issue.news_posts} />}
+              {issue.video_posts.length > 0 && <PostGroup label="영상" posts={issue.video_posts} />}
+            </>
           )}
-          {issue.community_posts.length > 0 && (
+          {activeChannels.has('community') && issue.community_posts.length > 0 && (
             <PostGroup label="커뮤니티" posts={issue.community_posts} />
+          )}
+          {activeChannels.has('portal') && issue.matched_keywords.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1 mt-1">포털 ��렌드</p>
+              <div className="flex flex-wrap gap-1">
+                {issue.matched_keywords.map((kw) => (
+                  <span key={kw} className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                    {kw}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {activeChannels.has('sns') && issue.sns_keywords.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1 mt-1">SNS 트렌드</p>
+              <div className="flex flex-wrap gap-1">
+                {issue.sns_keywords.map((kw) => (
+                  <span key={kw} className="text-xs px-2 py-0.5 rounded-full bg-pink-50 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300">
+                    {kw}
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -178,15 +307,20 @@ function IssueRankingSkeleton() {
       {Array.from({ length: 8 }, (_, i) => (
         <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 animate-pulse">
           <div className="flex items-start gap-3">
-            <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700" />
+            <div className="flex flex-col items-center gap-1">
+              <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700" />
+              <div className="w-6 h-3 rounded bg-slate-200 dark:bg-slate-700" />
+            </div>
             <div className="flex-1 space-y-2">
-              <div className="flex gap-2">
-                <div className="w-12 h-5 rounded-full bg-slate-200 dark:bg-slate-700" />
-                <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />
-              </div>
+              <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />
               <div className="h-4 bg-slate-100 dark:bg-slate-700/50 rounded w-full" />
               <div className="h-4 bg-slate-100 dark:bg-slate-700/50 rounded w-2/3" />
+              <div className="flex gap-1.5 mt-1">
+                <div className="w-14 h-5 rounded-full bg-slate-200 dark:bg-slate-700" />
+                <div className="w-16 h-5 rounded-full bg-slate-200 dark:bg-slate-700" />
+              </div>
             </div>
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-slate-200 dark:bg-slate-700" />
           </div>
         </div>
       ))}

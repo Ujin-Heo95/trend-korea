@@ -15,6 +15,19 @@ interface RelatedPost {
   comment_count: number;
 }
 
+type ChannelTag = 'news' | 'community' | 'portal' | 'sns';
+
+// Portal trend source keys
+const PORTAL_SOURCES = new Set([
+  'google_trends', 'naver_datalab', 'bigkinds_issues',
+  'nate_realtime', 'zum_realtime', 'wikipedia_ko',
+]);
+
+// SNS trend source keys
+const SNS_SOURCES = new Set([
+  'apify_x_trending', 'apify_instagram', 'apify_tiktok',
+]);
+
 export async function issueRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: { page?: number; limit?: number } }>(
     '/api/issues',
@@ -111,15 +124,18 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         }
         for (const pid of issue.standalone_post_ids) issuePostIds.add(pid);
 
-        // Split into news/community
+        // Split into news/community/video
         const newsPosts: RelatedPost[] = [];
         const communityPosts: RelatedPost[] = [];
+        const videoPosts: RelatedPost[] = [];
         for (const pid of issuePostIds) {
           const post = postsMap.get(pid);
           if (!post) continue;
           const { category, ...rest } = post;
           if (category === 'news' || category === 'press') {
             newsPosts.push(rest);
+          } else if (category === 'video' || category === 'video_popular') {
+            videoPosts.push(rest);
           } else {
             communityPosts.push(rest);
           }
@@ -128,6 +144,28 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         // Sort by view_count desc
         newsPosts.sort((a, b) => b.view_count - a.view_count);
         communityPosts.sort((a, b) => b.view_count - a.view_count);
+        videoPosts.sort((a, b) => b.view_count - a.view_count);
+
+        // Classify matched_trend_keywords into portal vs sns
+        const portalKeywords: string[] = [];
+        const snsKeywords: string[] = [];
+        for (const kw of issue.matched_trend_keywords) {
+          // Keywords include source prefix from trendSignals matching
+          // Check cross_validation_sources for channel classification
+        }
+        // Use cross_validation_sources to determine portal/sns presence
+        const cvSources = issue.cross_validation_sources ?? [];
+        for (const src of cvSources) {
+          if (PORTAL_SOURCES.has(src)) portalKeywords.push(src);
+          if (SNS_SOURCES.has(src)) snsKeywords.push(src);
+        }
+
+        // Build channel tags
+        const channelTags: ChannelTag[] = [];
+        if (newsPosts.length > 0 || videoPosts.length > 0) channelTags.push('news');
+        if (communityPosts.length > 0) channelTags.push('community');
+        if (portalKeywords.length > 0 || issue.matched_trend_keywords.length > 0) channelTags.push('portal');
+        if (snsKeywords.length > 0) channelTags.push('sns');
 
         return {
           id: issue.id,
@@ -137,11 +175,22 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
           category_label: issue.category_label,
           issue_score: issue.issue_score,
           thumbnail: issue.representative_thumbnail,
+          stable_id: issue.stable_id,
+          rank_change: issue.rank_change,
+          // Posts by channel
           news_posts: newsPosts.slice(0, 10),
           community_posts: communityPosts.slice(0, 10),
+          video_posts: videoPosts.slice(0, 10),
+          // Keywords
           matched_keywords: issue.matched_trend_keywords,
+          portal_keywords: [...new Set(portalKeywords)],
+          sns_keywords: [...new Set(snsKeywords)],
+          // Counts
           news_post_count: issue.news_post_count,
           community_post_count: issue.community_post_count,
+          video_post_count: issue.video_post_count,
+          // Channel tags
+          channel_tags: channelTags,
         };
       });
 

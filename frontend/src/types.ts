@@ -56,6 +56,8 @@ export interface IssueRelatedPost {
   comment_count: number;
 }
 
+export type ChannelTag = 'news' | 'community' | 'portal' | 'sns';
+
 export interface IssueRanking {
   id: number;
   rank: number;
@@ -64,11 +66,22 @@ export interface IssueRanking {
   category_label: string | null;
   issue_score: number;
   thumbnail: string | null;
+  stable_id: string | null;
+  rank_change: number | null; // null=NEW, 0=동일, +N=상승, -N=하락
+  // Posts by channel
   news_posts: IssueRelatedPost[];
   community_posts: IssueRelatedPost[];
+  video_posts: IssueRelatedPost[];
+  // Keywords
   matched_keywords: string[];
+  portal_keywords: string[];
+  sns_keywords: string[];
+  // Counts
   news_post_count: number;
   community_post_count: number;
+  video_post_count: number;
+  // Channel tags
+  channel_tags: ChannelTag[];
 }
 
 export interface IssueRankingResponse {

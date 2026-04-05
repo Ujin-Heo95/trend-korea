@@ -1,7 +1,9 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
+import { createHash } from 'crypto';
 import { buildKeywordIndex, matchPostToKeywords, computeTrendSignalBonus } from './trendSignals.js';
 import { getChannel } from './scoring-weights.js';
 import { bigrams, jaccardSimilarity } from './dedup.js';
+import { getScoringConfig } from './scoringConfig.js';
 
 // ─── Types ───
 
@@ -10,6 +12,7 @@ interface ScoredPost {
   readonly sourceKey: string;
   readonly category: string | null;
   readonly title: string;
+  readonly contentSnippet: string | null;
   readonly thumbnail: string | null;
   readonly trendScore: number;
   readonly clusterId: number | null;
@@ -20,6 +23,7 @@ interface IssueGroup {
   readonly standalonePostIds: Set<number>;
   readonly newsPosts: readonly ScoredPost[];
   readonly communityPosts: readonly ScoredPost[];
+  readonly videoPosts: readonly ScoredPost[];
   readonly matchedKeywords: readonly string[];
   readonly trendSignalScore: number;
 }
@@ -31,30 +35,41 @@ interface IssueRow {
   readonly issueScore: number;
   readonly newsScore: number;
   readonly communityScore: number;
+  readonly videoScore: number;
   readonly trendSignalScore: number;
   readonly newsPostCount: number;
   readonly communityPostCount: number;
+  readonly videoPostCount: number;
   readonly representativeThumbnail: string | null;
   readonly clusterIds: readonly number[];
   readonly standalonePostIds: readonly number[];
   readonly matchedTrendKeywords: readonly string[];
+  readonly rankChange: number | null;
+  readonly stableId: string;
 }
 
-// ─── Constants (코드 기본값 — DB 설정으로 오버라이드 가능) ───
+// ─── Constants ───
 
 const DEFAULT_ISSUE_WINDOW_HOURS = 12;
 const DEFAULT_MAX_ISSUES = 30;
 const DEFAULT_NEWS_WEIGHT = 1.0;
 const DEFAULT_COMMUNITY_WEIGHT = 0.3;
+const DEFAULT_VIDEO_NEWS_WEIGHT = 1.0;
+const DEFAULT_VIDEO_GENERAL_WEIGHT = 0.4;
 const DEFAULT_TREND_SIGNAL_WEIGHT = 0.5;
 
-import { getScoringConfig } from './scoringConfig.js';
+const NEWS_VIDEO_SOURCES = new Set([
+  'youtube_sbs_news', 'youtube_ytn', 'youtube_mbc_news',
+  'youtube_kbs_news', 'youtube_jtbc_news',
+]);
 
 interface IssueConfig {
   readonly issueWindowHours: number;
   readonly maxIssues: number;
   readonly newsWeight: number;
   readonly communityWeight: number;
+  readonly videoNewsWeight: number;
+  readonly videoGeneralWeight: number;
   readonly trendSignalWeight: number;
   readonly issueDedupThreshold: number;
 }
@@ -67,9 +82,18 @@ async function loadIssueConfig(): Promise<IssueConfig> {
     maxIssues: (group['MAX_ISSUES'] as number) ?? DEFAULT_MAX_ISSUES,
     newsWeight: (group['NEWS_WEIGHT'] as number) ?? DEFAULT_NEWS_WEIGHT,
     communityWeight: (group['COMMUNITY_WEIGHT'] as number) ?? DEFAULT_COMMUNITY_WEIGHT,
+    videoNewsWeight: (group['VIDEO_NEWS_WEIGHT'] as number) ?? DEFAULT_VIDEO_NEWS_WEIGHT,
+    videoGeneralWeight: (group['VIDEO_GENERAL_WEIGHT'] as number) ?? DEFAULT_VIDEO_GENERAL_WEIGHT,
     trendSignalWeight: (group['TREND_SIGNAL_WEIGHT'] as number) ?? DEFAULT_TREND_SIGNAL_WEIGHT,
     issueDedupThreshold: (group['ISSUE_DEDUP_THRESHOLD'] as number) ?? 0.55,
   };
+}
+
+// ─── Stable ID ───
+
+function computeStableId(clusterIds: readonly number[], standalonePostIds: readonly number[]): string {
+  const key = [...clusterIds].sort().join(',') + '|' + [...standalonePostIds].sort().join(',');
+  return createHash('md5').update(key).digest('hex').slice(0, 12);
 }
 
 // ─── Main Entry Point ───
@@ -90,17 +114,18 @@ export async function aggregateIssues(pool: Pool): Promise<number> {
 }
 
 async function _aggregateIssues(pool: Pool): Promise<number> {
-  // Step 0: DB에서 이슈 설정 로드
   const cfg = await loadIssueConfig().catch((): IssueConfig => ({
     issueWindowHours: DEFAULT_ISSUE_WINDOW_HOURS,
     maxIssues: DEFAULT_MAX_ISSUES,
     newsWeight: DEFAULT_NEWS_WEIGHT,
     communityWeight: DEFAULT_COMMUNITY_WEIGHT,
+    videoNewsWeight: DEFAULT_VIDEO_NEWS_WEIGHT,
+    videoGeneralWeight: DEFAULT_VIDEO_GENERAL_WEIGHT,
     trendSignalWeight: DEFAULT_TREND_SIGNAL_WEIGHT,
     issueDedupThreshold: 0.55,
   }));
 
-  // Step 1: Fetch scored posts from the last N hours
+  // Step 1: Fetch scored posts (now includes video)
   const posts = await fetchScoredPosts(pool, cfg.issueWindowHours);
   if (posts.length === 0) return 0;
 
@@ -108,41 +133,43 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
   const clusterGroups = buildClusterGroups(posts);
 
   // Step 3: Merge related clusters via trend keywords
-  const mergedGroups = await mergeViaTrendKeywords(pool, clusterGroups, posts);
+  const mergedGroups = await mergeViaTrendKeywords(pool, clusterGroups);
 
   // Step 3.5: Deduplicate issues by title similarity
   const dedupedGroups = deduplicateIssuesByTitle(mergedGroups, cfg.issueDedupThreshold);
 
-  // Step 4: Filter (must have news) and score
+  // Step 4: Filter and score (includes video)
   const scoredIssues = scoreAndFilter(dedupedGroups, cfg);
 
-  // Step 5: Take top N and prepare for summarization
+  // Step 5: Take top N
   const topIssues = scoredIssues.slice(0, cfg.maxIssues);
 
-  // Step 6: Try Gemini summarization (handled externally, pass-through here)
-  // Summaries are generated separately and cached; here we use canonical title
+  // Step 6: Build issue rows with stable IDs
   const issueRows = topIssues.map(g => buildIssueRow(g, cfg));
 
-  // Step 7: Write to DB (delete old → insert new, atomic)
-  return await writeIssueRankings(pool, issueRows);
+  // Step 7: Calculate rank changes vs previous hourly snapshot
+  const rankedRows = await calculateRankChanges(pool, issueRows);
+
+  // Step 8: Write to DB (delete old → insert new, atomic)
+  return await writeIssueRankings(pool, rankedRows);
 }
 
-// ─── Step 1: Fetch Posts ───
+// ─── Step 1: Fetch Posts (now includes video) ───
 
-async function fetchScoredPosts(pool: Pool, windowHours: number = DEFAULT_ISSUE_WINDOW_HOURS): Promise<ScoredPost[]> {
+async function fetchScoredPosts(pool: Pool, windowHours: number): Promise<ScoredPost[]> {
   const { rows } = await pool.query<{
     id: number; source_key: string; category: string | null;
-    title: string; thumbnail: string | null; trend_score: number;
-    cluster_id: number | null;
+    title: string; content_snippet: string | null; thumbnail: string | null;
+    trend_score: number; cluster_id: number | null;
   }>(`
-    SELECT p.id, p.source_key, p.category, p.title, p.thumbnail,
+    SELECT p.id, p.source_key, p.category, p.title, p.content_snippet, p.thumbnail,
            COALESCE(ps.trend_score, 0) AS trend_score,
            pcm.cluster_id
     FROM posts p
     LEFT JOIN post_scores ps ON ps.post_id = p.id
     LEFT JOIN post_cluster_members pcm ON pcm.post_id = p.id
     WHERE p.scraped_at > NOW() - INTERVAL '${windowHours} hours'
-      AND COALESCE(p.category, '') IN ('news', 'press', 'community')
+      AND COALESCE(p.category, '') IN ('news', 'press', 'community', 'video', 'video_popular')
     ORDER BY COALESCE(ps.trend_score, 0) DESC
   `);
 
@@ -151,6 +178,7 @@ async function fetchScoredPosts(pool: Pool, windowHours: number = DEFAULT_ISSUE_
     sourceKey: r.source_key,
     category: r.category,
     title: r.title,
+    contentSnippet: r.content_snippet,
     thumbnail: r.thumbnail,
     trendScore: r.trend_score,
     clusterId: r.cluster_id,
@@ -160,7 +188,7 @@ async function fetchScoredPosts(pool: Pool, windowHours: number = DEFAULT_ISSUE_
 // ─── Step 2: Build Cluster Groups ───
 
 interface ClusterGroup {
-  clusterId: number | null; // null = standalone
+  clusterId: number | null;
   posts: ScoredPost[];
 }
 
@@ -182,10 +210,12 @@ function buildClusterGroups(posts: readonly ScoredPost[]): ClusterGroup[] {
   for (const [clusterId, clusterPosts] of clusterMap) {
     groups.push({ clusterId, posts: clusterPosts });
   }
-  // High-score standalone news posts become their own groups
+
+  // High-score standalone news/news-video posts become their own groups
   for (const post of standalone) {
     const ch = getChannel(post.category);
-    if (ch === 'news' && post.trendScore > 0) {
+    const isNewsVideo = ch === 'video' && NEWS_VIDEO_SOURCES.has(post.sourceKey);
+    if ((ch === 'news' || isNewsVideo) && post.trendScore > 0) {
       groups.push({ clusterId: null, posts: [post] });
     }
   }
@@ -198,23 +228,23 @@ function buildClusterGroups(posts: readonly ScoredPost[]): ClusterGroup[] {
 async function mergeViaTrendKeywords(
   pool: Pool,
   groups: ClusterGroup[],
-  _allPosts: readonly ScoredPost[],
 ): Promise<IssueGroup[]> {
   const keywordIndex = await buildKeywordIndex(pool);
 
-  // For each group, find matching trend keywords
   type GroupWithKeywords = { group: ClusterGroup; keywords: Set<string> };
   const groupsWithKw: GroupWithKeywords[] = groups.map(g => {
     const keywords = new Set<string>();
     for (const post of g.posts) {
-      const match = matchPostToKeywords(post.title, keywordIndex);
+      // Use title + content_snippet for richer matching
+      const matchText = post.contentSnippet
+        ? `${post.title} ${post.contentSnippet}`
+        : post.title;
+      const match = matchPostToKeywords(matchText, keywordIndex);
       for (const src of match.matchedSources) {
-        // Use source+keyword combo for more precise matching
         keywords.add(src);
       }
-      // Also extract matched keyword text for display
       for (const entry of keywordIndex) {
-        const m = matchPostToKeywords(post.title, [entry]);
+        const m = matchPostToKeywords(matchText, [entry]);
         if (m.matchedSources.size > 0) {
           keywords.add(`kw:${entry.keyword}`);
         }
@@ -223,7 +253,7 @@ async function mergeViaTrendKeywords(
     return { group: g, keywords };
   });
 
-  // Union-Find for merging groups that share trend keywords
+  // Union-Find
   const parent = Array.from({ length: groupsWithKw.length }, (_, i) => i);
 
   function find(x: number): number {
@@ -240,25 +270,23 @@ async function mergeViaTrendKeywords(
     if (ra !== rb) parent[ra] = rb;
   }
 
-  // Build keyword → group index
   const kwToGroups = new Map<string, number[]>();
   for (let i = 0; i < groupsWithKw.length; i++) {
     for (const kw of groupsWithKw[i].keywords) {
-      if (!kw.startsWith('kw:')) continue; // Only merge on actual keywords
+      if (!kw.startsWith('kw:')) continue;
       const arr = kwToGroups.get(kw) ?? [];
       arr.push(i);
       kwToGroups.set(kw, arr);
     }
   }
 
-  // Merge groups sharing the same keyword
   for (const indices of kwToGroups.values()) {
     for (let i = 1; i < indices.length; i++) {
       union(indices[0], indices[i]);
     }
   }
 
-  // Collect merged groups
+  // Collect merged groups — split posts into news/community/video
   const merged = new Map<number, { groups: ClusterGroup[]; keywords: Set<string> }>();
   for (let i = 0; i < groupsWithKw.length; i++) {
     const root = find(i);
@@ -270,13 +298,13 @@ async function mergeViaTrendKeywords(
     merged.set(root, entry);
   }
 
-  // Convert to IssueGroup
   const issueGroups: IssueGroup[] = [];
   for (const { groups: mergedGroupList, keywords } of merged.values()) {
     const clusterIds = new Set<number>();
     const standalonePostIds = new Set<number>();
     const newsPosts: ScoredPost[] = [];
     const communityPosts: ScoredPost[] = [];
+    const videoPosts: ScoredPost[] = [];
 
     for (const g of mergedGroupList) {
       if (g.clusterId !== null) clusterIds.add(g.clusterId);
@@ -284,6 +312,8 @@ async function mergeViaTrendKeywords(
         const ch = getChannel(post.category);
         if (ch === 'news') {
           newsPosts.push(post);
+        } else if (ch === 'video') {
+          videoPosts.push(post);
         } else {
           communityPosts.push(post);
         }
@@ -291,21 +321,20 @@ async function mergeViaTrendKeywords(
       }
     }
 
-    // Extract display keywords
     const matchedKeywords = [...keywords]
       .filter(k => k.startsWith('kw:'))
       .map(k => k.slice(3));
 
-    // Calculate trend signal score from keyword matches
-    const representativeTitle = newsPosts[0]?.title ?? communityPosts[0]?.title ?? '';
+    const representativeTitle = newsPosts[0]?.title ?? videoPosts[0]?.title ?? communityPosts[0]?.title ?? '';
     const match = matchPostToKeywords(representativeTitle, keywordIndex);
-    const trendSignalScore = computeTrendSignalBonus(match) - 1.0; // normalize to 0-based
+    const trendSignalScore = computeTrendSignalBonus(match) - 1.0;
 
     issueGroups.push({
       clusterIds,
       standalonePostIds,
       newsPosts,
       communityPosts,
+      videoPosts,
       matchedKeywords,
       trendSignalScore: Math.max(0, trendSignalScore),
     });
@@ -316,19 +345,15 @@ async function mergeViaTrendKeywords(
 
 // ─── Step 3.5: Deduplicate Issues by Title Similarity ───
 
-const DEFAULT_ISSUE_DEDUP_THRESHOLD = 0.55;
-
-function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: number = DEFAULT_ISSUE_DEDUP_THRESHOLD): IssueGroup[] {
+function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: number = 0.55): IssueGroup[] {
   if (groups.length <= 1) return [...groups];
 
-  // Compute representative title bigrams for each group
   const bigramSets = groups.map(g => {
     const sorted = [...g.newsPosts].sort((a, b) => b.trendScore - a.trendScore);
-    const title = sorted[0]?.title ?? g.communityPosts[0]?.title ?? '';
+    const title = sorted[0]?.title ?? g.videoPosts[0]?.title ?? g.communityPosts[0]?.title ?? '';
     return bigrams(title);
   });
 
-  // Union-Find
   const parent = Array.from({ length: groups.length }, (_, i) => i);
 
   function find(x: number): number {
@@ -345,7 +370,6 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
     if (ra !== rb) parent[ra] = rb;
   }
 
-  // Pairwise comparison
   for (let i = 0; i < groups.length; i++) {
     for (let j = i + 1; j < groups.length; j++) {
       if (find(i) === find(j)) continue;
@@ -355,7 +379,6 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
     }
   }
 
-  // Collect merged groups
   const merged = new Map<number, IssueGroup>();
   for (let i = 0; i < groups.length; i++) {
     const root = find(i);
@@ -368,6 +391,7 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
         standalonePostIds: new Set([...existing.standalonePostIds, ...groups[i].standalonePostIds]),
         newsPosts: [...existing.newsPosts, ...groups[i].newsPosts],
         communityPosts: [...existing.communityPosts, ...groups[i].communityPosts],
+        videoPosts: [...existing.videoPosts, ...groups[i].videoPosts],
         matchedKeywords: [...new Set([...existing.matchedKeywords, ...groups[i].matchedKeywords])],
         trendSignalScore: Math.max(existing.trendSignalScore, groups[i].trendSignalScore),
       });
@@ -377,74 +401,83 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
   return [...merged.values()];
 }
 
-// ─── Step 4: Score and Filter ───
+// ─── Step 4: Score and Filter (includes video) ───
 
-function scoreAndFilter(groups: readonly IssueGroup[], cfg?: IssueConfig): IssueGroup[] {
-  const newsW = cfg?.newsWeight ?? DEFAULT_NEWS_WEIGHT;
-  const commW = cfg?.communityWeight ?? DEFAULT_COMMUNITY_WEIGHT;
-  const trendW = cfg?.trendSignalWeight ?? DEFAULT_TREND_SIGNAL_WEIGHT;
+function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): IssueGroup[] {
+  // Filter: must have ≥1 news post OR ≥1 news-channel video post
+  const anchored = groups.filter(g =>
+    g.newsPosts.length > 0 ||
+    g.videoPosts.some(p => NEWS_VIDEO_SOURCES.has(p.sourceKey)),
+  );
 
-  // Filter: must have at least 1 news post
-  const withNews = groups.filter(g => g.newsPosts.length > 0);
-
-  // Score
-  const scored = withNews.map(g => {
+  const scored = anchored.map(g => {
     const newsScore = g.newsPosts.reduce((sum, p) => sum + p.trendScore, 0);
     const communityScore = g.communityPosts.reduce((sum, p) => sum + p.trendScore, 0);
+    const videoScore = g.videoPosts.reduce((sum, p) => {
+      const w = NEWS_VIDEO_SOURCES.has(p.sourceKey) ? cfg.videoNewsWeight : cfg.videoGeneralWeight;
+      return sum + p.trendScore * w;
+    }, 0);
     const issueScore =
-      newsScore * newsW +
-      communityScore * commW +
-      g.trendSignalScore * trendW;
-    return { group: g, issueScore, newsScore, communityScore };
+      newsScore * cfg.newsWeight +
+      communityScore * cfg.communityWeight +
+      videoScore +
+      g.trendSignalScore * cfg.trendSignalWeight;
+    return { group: g, issueScore };
   });
 
-  // Sort descending
   scored.sort((a, b) => b.issueScore - a.issueScore);
-
   return scored.map(s => s.group);
 }
 
 // ─── Step 5: Build Issue Row ───
 
-function buildIssueRow(group: IssueGroup, cfg?: IssueConfig): IssueRow {
-  const newsW = cfg?.newsWeight ?? DEFAULT_NEWS_WEIGHT;
-  const commW = cfg?.communityWeight ?? DEFAULT_COMMUNITY_WEIGHT;
-  const trendW = cfg?.trendSignalWeight ?? DEFAULT_TREND_SIGNAL_WEIGHT;
-
-  // Use highest-scoring news post title as default title
+function buildIssueRow(group: IssueGroup, cfg: IssueConfig): IssueRow {
   const sortedNews = [...group.newsPosts].sort((a, b) => b.trendScore - a.trendScore);
-  const canonicalPost = sortedNews[0];
+  const sortedVideo = [...group.videoPosts].sort((a, b) => b.trendScore - a.trendScore);
+  const canonicalPost = sortedNews[0] ?? sortedVideo[0];
 
   const newsScore = group.newsPosts.reduce((sum, p) => sum + p.trendScore, 0);
   const communityScore = group.communityPosts.reduce((sum, p) => sum + p.trendScore, 0);
+  const videoScore = group.videoPosts.reduce((sum, p) => {
+    const w = NEWS_VIDEO_SOURCES.has(p.sourceKey) ? cfg.videoNewsWeight : cfg.videoGeneralWeight;
+    return sum + p.trendScore * w;
+  }, 0);
   const issueScore =
-    newsScore * newsW +
-    communityScore * commW +
-    group.trendSignalScore * trendW;
+    newsScore * cfg.newsWeight +
+    communityScore * cfg.communityWeight +
+    videoScore +
+    group.trendSignalScore * cfg.trendSignalWeight;
 
-  // Derive category label from canonical post title
   const categoryLabel = deriveCategoryLabel(canonicalPost?.title ?? '');
 
-  // Find best thumbnail
+  // Find best thumbnail — check news, then video, then community
   const thumbnail = canonicalPost?.thumbnail
     ?? group.newsPosts.find(p => p.thumbnail)?.thumbnail
+    ?? group.videoPosts.find(p => p.thumbnail)?.thumbnail
     ?? group.communityPosts.find(p => p.thumbnail)?.thumbnail
     ?? null;
 
+  const clusterIds = [...group.clusterIds];
+  const standalonePostIds = [...group.standalonePostIds];
+
   return {
     title: canonicalPost?.title ?? '알 수 없는 이슈',
-    summary: null, // Filled by Gemini summarizer separately
+    summary: null,
     categoryLabel,
     issueScore,
     newsScore,
     communityScore,
+    videoScore,
     trendSignalScore: group.trendSignalScore,
     newsPostCount: group.newsPosts.length,
     communityPostCount: group.communityPosts.length,
+    videoPostCount: group.videoPosts.length,
     representativeThumbnail: thumbnail,
-    clusterIds: [...group.clusterIds],
-    standalonePostIds: [...group.standalonePostIds],
+    clusterIds,
+    standalonePostIds,
     matchedTrendKeywords: group.matchedKeywords,
+    rankChange: null, // filled by calculateRankChanges
+    stableId: computeStableId(clusterIds, standalonePostIds),
   };
 }
 
@@ -467,48 +500,115 @@ function deriveCategoryLabel(title: string): string {
   return '사회';
 }
 
-// ─── Step 6: Write to DB ───
+// ─── Step 7: Calculate Rank Changes ───
+
+async function calculateRankChanges(
+  pool: Pool,
+  issues: readonly IssueRow[],
+): Promise<IssueRow[]> {
+  // Fetch the latest hourly snapshot
+  const { rows: prevRows } = await pool.query<{
+    rank_position: number;
+    stable_id: string | null;
+    cluster_ids: number[];
+    standalone_post_ids: number[];
+  }>(`
+    SELECT rank_position, stable_id, cluster_ids, standalone_post_ids
+    FROM issue_rankings_history
+    WHERE batch_id = (SELECT MAX(batch_id) FROM issue_rankings_history)
+    ORDER BY rank_position ASC
+  `);
+
+  if (prevRows.length === 0) {
+    // No previous snapshot — all issues are NEW
+    return issues.map(issue => ({ ...issue, rankChange: null }));
+  }
+
+  return issues.map((issue, idx) => {
+    const newRank = idx + 1;
+
+    // Try matching by stable_id first
+    let prevRank: number | null = null;
+    const byStableId = prevRows.find(r => r.stable_id && r.stable_id === issue.stableId);
+    if (byStableId) {
+      prevRank = byStableId.rank_position;
+    } else {
+      // Fallback: match by 50%+ cluster/standalone overlap
+      for (const prev of prevRows) {
+        const prevIds = new Set([...prev.cluster_ids, ...prev.standalone_post_ids]);
+        const currIds = [...issue.clusterIds, ...issue.standalonePostIds];
+        if (prevIds.size === 0 && currIds.length === 0) continue;
+        const overlap = currIds.filter(id => prevIds.has(id)).length;
+        const maxSize = Math.max(prevIds.size, currIds.length);
+        if (maxSize > 0 && overlap / maxSize >= 0.5) {
+          prevRank = prev.rank_position;
+          break;
+        }
+      }
+    }
+
+    const rankChange = prevRank === null ? null : prevRank - newRank;
+    return { ...issue, rankChange };
+  });
+}
+
+// ─── Step 8: Write to DB ───
 
 async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Promise<number> {
   if (issues.length === 0) return 0;
 
+  // Quiet hours: extend expires_at if next batch would be in quiet hours
+  const kstHour = (new Date().getUTCHours() + 9) % 24;
+  let ttlMs = 6 * 60 * 60 * 1000; // default 6h
+  if (kstHour >= 1 && kstHour < 6) {
+    // Extend to cover quiet hours until 07:00 KST
+    const now = new Date();
+    const expiresKST = new Date(now);
+    expiresKST.setUTCHours(22, 0, 0, 0); // 07:00 KST = 22:00 UTC
+    if (expiresKST <= now) expiresKST.setUTCDate(expiresKST.getUTCDate() + 1);
+    ttlMs = expiresKST.getTime() - now.getTime();
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await client.query('DELETE FROM issue_rankings');
 
-    // Delete all previous rankings — transaction ensures atomic swap (MVCC)
-    await client.query(`DELETE FROM issue_rankings`);
-
-    // Insert new rankings
     const values: string[] = [];
     const params: unknown[] = [];
     for (const issue of issues) {
       const i = params.length;
       values.push(
-        `($${i+1},$${i+2},$${i+3},$${i+4},$${i+5},$${i+6},$${i+7},$${i+8},$${i+9},$${i+10},$${i+11},$${i+12},$${i+13})`
+        `($${i+1},$${i+2},$${i+3},$${i+4},$${i+5},$${i+6},$${i+7},$${i+8},$${i+9},$${i+10},$${i+11},$${i+12},$${i+13},$${i+14},$${i+15},$${i+16},$${i+17},NOW(),NOW()+$${i+18}::interval)`,
       );
       params.push(
-        issue.title,
-        issue.summary,
-        issue.categoryLabel,
-        issue.issueScore,
-        issue.newsScore,
-        issue.communityScore,
-        issue.trendSignalScore,
-        issue.newsPostCount,
-        issue.communityPostCount,
-        issue.representativeThumbnail,
-        issue.clusterIds,
-        issue.standalonePostIds,
-        issue.matchedTrendKeywords,
+        issue.title,                    // 1
+        issue.summary,                  // 2
+        issue.categoryLabel,            // 3
+        issue.issueScore,               // 4
+        issue.newsScore,                // 5
+        issue.communityScore,           // 6
+        issue.trendSignalScore,         // 7
+        issue.videoScore,               // 8
+        issue.newsPostCount,            // 9
+        issue.communityPostCount,       // 10
+        issue.videoPostCount,           // 11
+        issue.representativeThumbnail,  // 12
+        issue.clusterIds,               // 13
+        issue.standalonePostIds,        // 14
+        issue.matchedTrendKeywords,     // 15
+        issue.rankChange,               // 16
+        issue.stableId,                 // 17
+        `${ttlMs} milliseconds`,        // 18
       );
     }
 
     const result = await client.query(
       `INSERT INTO issue_rankings
         (title, summary, category_label, issue_score, news_score, community_score,
-         trend_signal_score, news_post_count, community_post_count,
-         representative_thumbnail, cluster_ids, standalone_post_ids, matched_trend_keywords)
+         trend_signal_score, video_score, news_post_count, community_post_count,
+         video_post_count, representative_thumbnail, cluster_ids, standalone_post_ids,
+         matched_trend_keywords, rank_change, stable_id, calculated_at, expires_at)
        VALUES ${values.join(',')}`,
       params,
     );
@@ -523,6 +623,28 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
   } finally {
     client.release();
   }
+}
+
+// ─── Hourly Snapshot ───
+
+export async function snapshotRankings(pool: Pool): Promise<void> {
+  const batchId = new Date().toISOString();
+
+  // Snapshot current rankings into history
+  const { rowCount } = await pool.query(
+    `INSERT INTO issue_rankings_history (batch_id, rank_position, title, issue_score, stable_id, cluster_ids, standalone_post_ids)
+     SELECT $1, ROW_NUMBER() OVER (ORDER BY issue_score DESC), title, issue_score, stable_id, cluster_ids, standalone_post_ids
+     FROM issue_rankings WHERE expires_at > NOW()`,
+    [batchId],
+  );
+  if (rowCount && rowCount > 0) {
+    console.log(`[issueAggregator] snapshot: ${rowCount} rankings saved (batch ${batchId})`);
+  }
+
+  // Cleanup: remove snapshots older than 7 days
+  await pool.query(
+    `DELETE FROM issue_rankings_history WHERE created_at < NOW() - INTERVAL '7 days'`,
+  );
 }
 
 // ─── Cleanup ───

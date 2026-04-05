@@ -4,8 +4,9 @@ import { runAllScrapers, runScrapersByPriority, runApifyScrapers } from '../scra
 import { cleanOldPosts, cleanOldScraperRuns, cleanOldEngagementSnapshots, cleanNumericTitlePosts } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
 import { extractTrendKeywords, cleanExpiredTrendKeywords } from '../services/trendSignals.js';
-import { aggregateIssues, cleanExpiredIssueRankings } from '../services/issueAggregator.js';
+import { aggregateIssues, snapshotRankings, cleanExpiredIssueRankings } from '../services/issueAggregator.js';
 import { summarizeAndUpdateIssues } from '../services/geminiSummarizer.js';
+import { crossValidateIssues } from '../services/crossValidator.js';
 import { checkDbSize } from '../services/dbMonitor.js';
 import { performDatabaseBackup } from '../services/backup.js';
 import { notifyBackupResult } from '../services/discord.js';
@@ -14,6 +15,12 @@ import { pool } from '../db/client.js';
 function captureError(err: unknown): void {
   console.error(err);
   Sentry.captureException(err);
+}
+
+/** KST 02:00-06:00 = UTC 17:00-21:00 */
+function isQuietHours(): boolean {
+  const kstHour = (new Date().getUTCHours() + 9) % 24;
+  return kstHour >= 2 && kstHour < 6;
 }
 
 const PRIORITY_INTERVALS = {
@@ -25,6 +32,7 @@ const PRIORITY_INTERVALS = {
 export function startScheduler(): void {
   console.log(`[scheduler] priority intervals: high=${PRIORITY_INTERVALS.high}min, medium=${PRIORITY_INTERVALS.medium}min, low=${PRIORITY_INTERVALS.low}min`);
   console.log(`[scheduler] cleanup: twice daily (00:00, 12:00 UTC)`);
+  console.log(`[scheduler] quiet hours: 02:00-06:00 KST (issue aggregation paused)`);
 
   // 최초 실행: 전체 스크래퍼 1회
   runAllScrapers().catch(captureError);
@@ -36,8 +44,12 @@ export function startScheduler(): void {
     });
   }
 
-  // 트렌드 스코어 갱신 + 이슈 집계: 5분 주기
+  // 트렌드 스코어 갱신 + 이슈 집계 + Gemini 요약: 5분 주기 (quiet hours 제외)
   cron.schedule('*/5 * * * *', async () => {
+    if (isQuietHours()) {
+      console.log('[scheduler] quiet hours (02-06 KST) — skipping issue pipeline');
+      return;
+    }
     await calculateScores(pool).catch(captureError);
     await aggregateIssues(pool).catch(captureError);
     await summarizeAndUpdateIssues(pool).catch(captureError);
@@ -47,6 +59,20 @@ export function startScheduler(): void {
   cron.schedule('*/15 * * * *', () => {
     extractTrendKeywords(pool).catch(captureError);
   });
+
+  // 교차검증: 15분 주기 (quiet hours 제외)
+  cron.schedule('3,18,33,48 * * * *', async () => {
+    if (isQuietHours()) return;
+    await crossValidateIssues(pool).catch(captureError);
+  });
+  console.log('[scheduler] cross-validation: every 15 min (offset +3)');
+
+  // 순위 스냅샷: 1시간 주기 (정시, quiet hours 제외)
+  cron.schedule('0 * * * *', async () => {
+    if (isQuietHours()) return;
+    await snapshotRankings(pool).catch(captureError);
+  });
+  console.log('[scheduler] rank snapshot: hourly');
 
   // Apify SNS 수집: 09:00, 18:00 KST (= 00:00, 09:00 UTC)
   cron.schedule('0 0,9 * * *', () => {
@@ -66,7 +92,6 @@ export function startScheduler(): void {
   console.log('[scheduler] backup: 17:00 UTC daily (02:00 KST)');
 
   // 자정 + 정오 2회 (Railway 서버 = UTC 기준) — DB 한도 대응
-  // 순차 실행: 동시 fire 시 pool 커넥션 고갈 위험 (max=10인데 7개 동시 소비)
   cron.schedule('0 0,12 * * *', async () => {
     try {
       await cleanOldPosts();

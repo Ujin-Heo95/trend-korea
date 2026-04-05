@@ -106,12 +106,18 @@ export interface IssueRankingRow {
   news_score: number;
   community_score: number;
   trend_signal_score: number;
+  video_score: number;
   news_post_count: number;
   community_post_count: number;
+  video_post_count: number;
   representative_thumbnail: string | null;
   cluster_ids: number[];
   standalone_post_ids: number[];
   matched_trend_keywords: string[];
+  cross_validation_score: number;
+  cross_validation_sources: string[];
+  rank_change: number | null;
+  stable_id: string | null;
   calculated_at: string;
   expires_at: string;
 }
