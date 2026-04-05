@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import type { Post } from '../types';
 import { getSourceColor } from '../constants/sourceColors';
 import { formatCount } from '../utils/formatCount';
@@ -16,9 +15,11 @@ export const CommunityRankingList: React.FC<Props> = ({ posts, isRead, onRead })
       const rank = i + 1;
       const read = isRead?.(post.url);
       return (
-        <Link
+        <a
           key={post.id}
-          to={`/issue/${post.id}`}
+          href={post.url}
+          target="_blank"
+          rel="noopener noreferrer"
           onClick={() => onRead?.(post.url)}
           className={`flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group ${
             read ? 'opacity-50' : ''
@@ -63,7 +64,7 @@ export const CommunityRankingList: React.FC<Props> = ({ posts, isRead, onRead })
               </span>
             )}
           </span>
-        </Link>
+        </a>
       );
     })}
   </div>
