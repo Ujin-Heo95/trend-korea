@@ -47,7 +47,13 @@ export class BugsChartScraper extends BaseScraper {
         thumbnail,
         author: artist,
         category: 'music',
-        metadata: { rank, songNo: trackId, title, artist, album },
+        metadata: {
+          rank, songNo: trackId, title, artist, album,
+          rankChange: $(el).find('.ranking .change .up').length ? `+${$(el).find('.ranking .change .up').text().trim()}`
+            : $(el).find('.ranking .change .down').length ? `-${$(el).find('.ranking .change .down').text().trim()}`
+            : $(el).find('.ranking .change .new').length ? 'NEW'
+            : '-',
+        },
       });
     });
 

@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
+import { parseKoreanDate } from './http-utils.js';
 
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' };
 
@@ -33,8 +34,10 @@ export class NatepannScraper extends BaseScraper {
       const commentMatch = subjectTd.find('.reple-num').text().match(/\((\d+)\)/);
       const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
 
+      const dateText = tds.eq(4).text().trim() || tds.eq(1).text().trim();
+      const publishedAt = parseKoreanDate(dateText);
       if (title && href) {
-        posts.push({ sourceKey: 'natepann', sourceName: '네이트판', title, url, viewCount, commentCount, likeCount });
+        posts.push({ sourceKey: 'natepann', sourceName: '네이트판', title, url, viewCount, commentCount, likeCount, publishedAt });
       }
     });
 

@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { fetchHtml } from './http-utils.js';
+import { fetchHtml, parseKoreanDate } from './http-utils.js';
 
 export class DogdripScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
@@ -40,6 +40,8 @@ export class DogdripScraper extends BaseScraper {
       const authorEl = $(el).find('a[class*="member_"]');
       const author = authorEl.text().replace(/^\[.*?\]\s*/, '').trim() || undefined;
 
+      const dateText = $(el).find('.date, time').text().trim();
+      const publishedAt = parseKoreanDate(dateText);
       posts.push({
         sourceKey: 'dogdrip',
         sourceName: '개드립',
@@ -49,6 +51,7 @@ export class DogdripScraper extends BaseScraper {
         author,
         commentCount,
         likeCount,
+        publishedAt,
       });
     });
 

@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { fetchHtml } from './http-utils.js';
+import { fetchHtml, parseKoreanDate } from './http-utils.js';
 
 export class RuliwebScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
@@ -30,7 +30,9 @@ export class RuliwebScraper extends BaseScraper {
       const commentCount = parseInt(replyText.replace(/[()]/g, ''), 10) || 0;
       const likeCount = parseInt($row.find('td.recomd').text().trim(), 10) || undefined;
 
-      posts.push({ sourceKey: 'ruliweb', sourceName: '루리웹', title, url, author, viewCount, commentCount, likeCount });
+      const dateText = $row.find('td.time').text().trim();
+      const publishedAt = parseKoreanDate(dateText);
+      posts.push({ sourceKey: 'ruliweb', sourceName: '루리웹', title, url, author, viewCount, commentCount, likeCount, publishedAt });
     });
 
     return posts.slice(0, 30);

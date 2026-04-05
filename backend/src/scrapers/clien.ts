@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { fetchHtml } from './http-utils.js';
+import { fetchHtml, parseKoreanDate } from './http-utils.js';
 
 export class ClienScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
@@ -25,8 +25,12 @@ export class ClienScraper extends BaseScraper {
       const likeCount = parseInt(listItem.find('.symph_count, .list_symph .num').text().trim()) || undefined;
       const thumbnail = listItem.find('.list_image img').attr('src') || undefined;
 
+      const replyText = listItem.find('.reply_symph .rSymph05, .list_reply .num').text().trim();
+      const commentCount = parseInt(replyText) || undefined;
+      const dateText = listItem.find('.timestamp').text().trim() || listItem.find('.time').text().trim();
+      const publishedAt = parseKoreanDate(dateText);
       if (title && url) {
-        posts.push({ sourceKey: 'clien', sourceName: '클리앙', title, url, thumbnail, viewCount, likeCount });
+        posts.push({ sourceKey: 'clien', sourceName: '클리앙', title, url, thumbnail, viewCount, commentCount, likeCount, publishedAt });
       }
     });
 

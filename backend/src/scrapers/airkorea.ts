@@ -12,6 +12,10 @@ interface AirQualityItem {
   readonly khaiValue: string;
   readonly khaiGrade: string;
   readonly dataTime: string;
+  readonly so2Value?: string;
+  readonly no2Value?: string;
+  readonly o3Value?: string;
+  readonly coValue?: string;
 }
 
 interface AirKoreaResponse {
@@ -81,6 +85,10 @@ export class AirKoreaScraper extends BaseScraper {
             khai: khai,
             grade,
             dataTime: item.dataTime,
+            so2: parseFloat(item.so2Value ?? '') || undefined,
+            no2: parseFloat(item.no2Value ?? '') || undefined,
+            o3: parseFloat(item.o3Value ?? '') || undefined,
+            co: parseFloat(item.coValue ?? '') || undefined,
           },
         });
       } catch {

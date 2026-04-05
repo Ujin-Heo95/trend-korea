@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
+import { parseKoreanDate } from './http-utils.js';
 
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' };
 
@@ -29,8 +30,10 @@ export class TodayhumorScraper extends BaseScraper {
       const commentCount = memoMatch ? parseInt(memoMatch[1]) || undefined : undefined;
       const likeCount = parseInt($(el).find('td.oknok .ok_ok').text().replace(/,/g, '')) || undefined;
 
+      const dateText = $(el).find('td.date').text().trim() || $(el).find('td.time').text().trim();
+      const publishedAt = parseKoreanDate(dateText);
       if (title && url) {
-        posts.push({ sourceKey: 'todayhumor', sourceName: '오늘의유머', title, url, viewCount, commentCount, likeCount });
+        posts.push({ sourceKey: 'todayhumor', sourceName: '오늘의유머', title, url, viewCount, commentCount, likeCount, publishedAt });
       }
     });
 

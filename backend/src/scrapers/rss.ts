@@ -173,6 +173,8 @@ export class RssScraper extends BaseScraper {
       ?? ext['media:thumbnail']?.['$']?.url
       ?? undefined;
 
+    const contentSnippet = item.contentSnippet?.slice(0, 200)?.trim() || undefined;
+
     return {
       sourceKey: this.cfg.sourceKey,
       sourceName: this.cfg.sourceName,
@@ -181,6 +183,7 @@ export class RssScraper extends BaseScraper {
       thumbnail,
       author: item.creator ?? ext['dc:creator'] ?? undefined,
       publishedAt: safeDate(item.pubDate),
+      ...(contentSnippet ? { metadata: { contentSnippet } } : {}),
     };
   }
 

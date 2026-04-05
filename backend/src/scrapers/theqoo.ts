@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
+import { parseKoreanDate } from './http-utils.js';
 
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' };
 
@@ -21,8 +22,10 @@ export class TheqooScraper extends BaseScraper {
       const commentText = $(el).find('.replyNum').text().trim();
       const commentCount = commentText ? parseInt(commentText.replace(/,/g, '')) || undefined : undefined;
       const likeCount = parseInt($(el).find('.m_no_voted').text().replace(/,/g, '')) || undefined;
+      const dateText = $(el).find('td.time').text().trim();
+      const publishedAt = parseKoreanDate(dateText);
       if (title && url && url !== 'https://theqoo.net') {
-        posts.push({ sourceKey: 'theqoo', sourceName: '더쿠', title, url, viewCount, commentCount, likeCount });
+        posts.push({ sourceKey: 'theqoo', sourceName: '더쿠', title, url, viewCount, commentCount, likeCount, publishedAt });
       }
     });
     return posts.slice(0, 30);

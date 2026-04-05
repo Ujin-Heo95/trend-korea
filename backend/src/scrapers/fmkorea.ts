@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { fetchHtml } from './http-utils.js';
+import { fetchHtml, parseKoreanDate } from './http-utils.js';
 
 export class FmkoreaScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
@@ -38,8 +38,12 @@ export class FmkoreaScraper extends BaseScraper {
       const likeCount = parseInt($el.find('.ed .vr').text().replace(/,/g, '')) || undefined;
       const thumbnail = $el.find('.thumbnail img').attr('src') || undefined;
 
+      const viewText = $el.find('.count').text().replace(/,/g, '').trim();
+      const viewCount = parseInt(viewText) || undefined;
+      const dateText = $el.find('.regdate, .date').text().trim();
+      const publishedAt = parseKoreanDate(dateText);
       if (title && url) {
-        posts.push({ sourceKey: 'fmkorea', sourceName: '에펨코리아', title, url, thumbnail, commentCount, likeCount });
+        posts.push({ sourceKey: 'fmkorea', sourceName: '에펨코리아', title, url, thumbnail, viewCount, commentCount, likeCount, publishedAt });
       }
     });
 

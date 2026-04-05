@@ -43,7 +43,13 @@ export class GenieChartScraper extends BaseScraper {
         thumbnail,
         author: artist,
         category: 'music',
-        metadata: { rank, songNo: songId, title, artist, album },
+        metadata: {
+          rank, songNo: songId, title, artist, album,
+          rankChange: $(el).find('.icon.new').length ? 'NEW'
+            : $(el).find('.icon.up').length ? `+${$(el).find('span.rank-change').text().trim() || '?'}`
+            : $(el).find('.icon.down').length ? `-${$(el).find('span.rank-change').text().trim() || '?'}`
+            : '-',
+        },
       });
     });
 

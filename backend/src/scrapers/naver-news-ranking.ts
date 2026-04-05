@@ -50,6 +50,7 @@ export class NaverNewsRankingScraper extends BaseScraper {
           thumbnail,
           author,
           category: 'news',
+          metadata: { rank: posts.length + 1 },
         });
       });
     });

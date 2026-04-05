@@ -42,7 +42,13 @@ export class MelonChartScraper extends BaseScraper {
         thumbnail,
         author: artist,
         category: 'music',
-        metadata: { rank: i + 1, songNo, title, artist, album },
+        metadata: {
+          rank: i + 1, songNo, title, artist, album,
+          rankChange: $(el).find('.rank_wrap .bullet_icons').hasClass('icon_new') ? 'NEW'
+            : $(el).find('.rank_wrap .bullet_icons').hasClass('icon_up') ? `+${$(el).find('.rank_wrap .rank_num').text().trim() || '?'}`
+            : $(el).find('.rank_wrap .bullet_icons').hasClass('icon_down') ? `-${$(el).find('.rank_wrap .rank_num').text().trim() || '?'}`
+            : '-',
+        },
       });
     });
 

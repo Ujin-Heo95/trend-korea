@@ -50,7 +50,11 @@ export class KworbSpotifyKrScraper extends BaseScraper {
         url,
         author: artist,
         category: 'music',
-        metadata: { rank, title, artist, songNo: trackId, streams },
+        metadata: {
+          rank, title, artist, songNo: trackId, streams,
+          peakPosition: parseInt(cells.eq(1).text().trim()) || undefined,
+          totalStreams: parseInt(cells.eq(7)?.text().trim().replace(/,/g, '')) || undefined,
+        },
       });
     });
 

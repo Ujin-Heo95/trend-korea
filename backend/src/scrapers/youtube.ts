@@ -15,7 +15,7 @@ export class YoutubeScraper extends BaseScraper {
     try {
       const { data } = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
         params: {
-          part: 'snippet,statistics',
+          part: 'snippet,statistics,contentDetails',
           chart: 'mostPopular',
           regionCode: 'KR',
           maxResults: 20,
@@ -35,6 +35,12 @@ export class YoutubeScraper extends BaseScraper {
         commentCount: parseInt(item.statistics?.commentCount ?? '0'),
         likeCount: parseInt(item.statistics?.likeCount ?? '0'),
         publishedAt: item.snippet.publishedAt ? new Date(item.snippet.publishedAt) : undefined,
+        metadata: {
+          duration: item.contentDetails?.duration,
+          definition: item.contentDetails?.definition,
+          categoryId: item.snippet.categoryId,
+          tags: item.snippet.tags?.slice(0, 10),
+        },
       }));
     } catch (error) {
       throw new Error(`[youtube] ${error instanceof Error ? error.message : String(error)}`, { cause: error });

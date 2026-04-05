@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { fetchHtml } from './http-utils.js';
+import { fetchHtml, parseKoreanDate } from './http-utils.js';
 
 export class GeeknewsScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
@@ -36,14 +36,19 @@ export class GeeknewsScraper extends BaseScraper {
       const authorEl = $(el).find('div.topicinfo a[href*="/user?id="]').first();
       const author = authorEl.text().trim() || undefined;
 
+      const viewCount = likeCount; // GeekNews에서 포인트 수 = 사실상 조회 관심도 지표
+      const timeText = infoText.match(/(\d+[smhd])\s|(\d+\s*(seconds?|minutes?|hours?|days?)\s*ago)/i);
+      const publishedAt = timeText ? parseKoreanDate(timeText[0].trim()) : undefined;
       posts.push({
         sourceKey: 'geeknews',
         sourceName: 'GeekNews',
         title,
         url,
         author,
+        viewCount,
         commentCount,
         likeCount,
+        publishedAt,
         category: 'tech',
       });
     });

@@ -6,9 +6,13 @@ import axios from 'axios';
 vi.mock('axios');
 
 // Mock fetchHtml for scrapers that use it (clien, cook82, etoland, fmkorea, humoruniv, inven, mlbpark, slrclub, ygosu)
-vi.mock('../../src/scrapers/http-utils.js', () => ({
-  fetchHtml: vi.fn(),
-}));
+vi.mock('../../src/scrapers/http-utils.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/scrapers/http-utils.js')>();
+  return {
+    fetchHtml: vi.fn(),
+    parseKoreanDate: actual.parseKoreanDate,
+  };
+});
 
 import { fetchHtml } from '../../src/scrapers/http-utils.js';
 

@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { fetchHtml } from './http-utils.js';
+import { fetchHtml, parseKoreanDate } from './http-utils.js';
 
 export class HumorunivScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
@@ -31,7 +31,11 @@ export class HumorunivScraper extends BaseScraper {
       const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
       const thumbnail = $(el).find('td.li_num img.thumb').attr('src') || undefined;
 
-      posts.push({ sourceKey: 'humoruniv', sourceName: '웃긴대학', title, url, thumbnail, commentCount });
+      const viewCount = parseInt($(el).find('td.li_cnt, td.views').text().replace(/,/g, '')) || undefined;
+      const likeCount = parseInt($(el).find('td.li_rcm, td.recommend').text().replace(/,/g, '')) || undefined;
+      const dateText = $(el).find('td.li_date').text().trim() || $(el).find('td.date').text().trim();
+      const publishedAt = parseKoreanDate(dateText);
+      posts.push({ sourceKey: 'humoruniv', sourceName: '웃긴대학', title, url, thumbnail, commentCount, viewCount, likeCount, publishedAt });
     });
 
     // Fallback: 행 구조가 다를 경우 기존 방식

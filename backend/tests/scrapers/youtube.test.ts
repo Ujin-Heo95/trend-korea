@@ -100,7 +100,7 @@ describe('YoutubeScraper', () => {
       'https://www.googleapis.com/youtube/v3/videos',
       expect.objectContaining({
         params: expect.objectContaining({
-          part: 'snippet,statistics',
+          part: 'snippet,statistics,contentDetails',
           chart: 'mostPopular',
           regionCode: 'KR',
           maxResults: 20,

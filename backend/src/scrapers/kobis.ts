@@ -28,6 +28,10 @@ interface KmdbEnrichment {
   posterUrl?: string;
   director?: string;
   plotSummary?: string;
+  actors?: string[];
+  genre?: string;
+  runtime?: string;
+  rating?: string;
 }
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -82,7 +86,18 @@ async function enrichWithKmdb(movieName: string, openYear?: string): Promise<Kmd
       ? extractFirstSentence(stripKmdbTags(koreanPlot.plotText))
       : undefined;
 
-    return { posterUrl, director, plotSummary };
+    // 출연진 (상위 5명)
+    const actorList: { actorNm?: string }[] = result.actors?.actor ?? [];
+    const actors = actorList
+      .map(a => a.actorNm ? stripKmdbTags(a.actorNm) : '')
+      .filter(Boolean)
+      .slice(0, 5);
+
+    const genre = result.genre ? stripKmdbTags(result.genre) : undefined;
+    const runtime = result.runtime?.trim() || undefined;
+    const rating = result.rating ? stripKmdbTags(result.rating) : undefined;
+
+    return { posterUrl, director, plotSummary, actors: actors.length ? actors : undefined, genre, runtime, rating };
   } catch {
     return {};
   }
@@ -158,6 +173,10 @@ export class KobisBoxofficeScraper extends BaseScraper {
           posterUrl: kmdb.posterUrl,
           director: kmdb.director,
           plotSummary: kmdb.plotSummary,
+          actors: kmdb.actors,
+          genre: kmdb.genre,
+          runtime: kmdb.runtime,
+          rating: kmdb.rating,
         },
       };
     });

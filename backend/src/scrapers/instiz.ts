@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
+import { parseKoreanDate } from './http-utils.js';
 
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' };
 
@@ -29,8 +30,10 @@ export class InstizScraper extends BaseScraper {
       const cmtMatch = cmtTitle.match(/([\d,]+)/);
       const commentCount = cmtMatch ? parseInt(cmtMatch[1].replace(/,/g, '')) || undefined : undefined;
 
+      const dateMatch = listnoText.match(/(\d{2}:\d{2}|\d{2}\.\d{2})/);
+      const publishedAt = dateMatch ? parseKoreanDate(dateMatch[1]) : undefined;
       if (title && url) {
-        posts.push({ sourceKey: 'instiz', sourceName: '인스티즈', title, url, viewCount, commentCount, likeCount });
+        posts.push({ sourceKey: 'instiz', sourceName: '인스티즈', title, url, viewCount, commentCount, likeCount, publishedAt });
       }
     });
 

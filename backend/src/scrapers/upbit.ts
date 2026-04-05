@@ -11,6 +11,9 @@ interface UpbitTicker {
   acc_trade_volume_24h: number;
   acc_trade_price_24h: number;
   timestamp: number;
+  high_price?: number;
+  low_price?: number;
+  prev_closing_price?: number;
 }
 
 const TOP_MARKETS = [
@@ -69,6 +72,9 @@ export class UpbitScraper extends BaseScraper {
         changePrice: t.signed_change_price,
         volume24h: t.acc_trade_volume_24h,
         tradeValue24h: t.acc_trade_price_24h,
+        highPrice: t.high_price,
+        lowPrice: t.low_price,
+        prevClose: t.prev_closing_price,
       },
     };
   }

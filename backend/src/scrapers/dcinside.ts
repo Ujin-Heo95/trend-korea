@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
+import { parseKoreanDate } from './http-utils.js';
 
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
@@ -35,6 +36,8 @@ export class DcinsideScraper extends BaseScraper {
       const commentMatch = $(el).find('.reply_num').text().match(/\[(\d+)\]/);
       const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
       const likeCount = parseInt($(el).find('td.gall_recommend').text().replace(/,/g, '')) || undefined;
+      const dateText = $(el).find('td.gall_date').attr('title') ?? $(el).find('td.gall_date').text().trim();
+      const publishedAt = parseKoreanDate(dateText);
 
       if (title) {
         posts.push({
@@ -46,6 +49,7 @@ export class DcinsideScraper extends BaseScraper {
           viewCount,
           commentCount,
           likeCount,
+          publishedAt,
         });
       }
     });

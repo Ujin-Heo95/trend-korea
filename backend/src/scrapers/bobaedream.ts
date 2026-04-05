@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
+import { parseKoreanDate } from './http-utils.js';
 
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' };
 
@@ -28,6 +29,8 @@ export class BobaedreamScraper extends BaseScraper {
 
       const viewCount = parseInt($(el).closest('tr').find('td.count').text().replace(/[^0-9]/g, '')) || undefined;
       const likeCount = parseInt($(el).closest('tr').find('td.recomm font').first().text().replace(/[^0-9]/g, '')) || undefined;
+      const dateText = $(el).closest('tr').find('td.date').text().trim();
+      const publishedAt = parseKoreanDate(dateText);
 
       if (title && url) {
         posts.push({
@@ -39,6 +42,7 @@ export class BobaedreamScraper extends BaseScraper {
           viewCount,
           commentCount,
           likeCount,
+          publishedAt,
         });
       }
     });

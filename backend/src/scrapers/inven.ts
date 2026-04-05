@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { fetchHtml } from './http-utils.js';
+import { fetchHtml, parseKoreanDate } from './http-utils.js';
 
 export class InvenScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
@@ -26,7 +26,9 @@ export class InvenScraper extends BaseScraper {
       const viewCount = parseInt($(el).find('td.view').text().replace(/,/g, '')) || undefined;
       const likeCount = parseInt($(el).find('td.reco').text().replace(/,/g, '')) || undefined;
 
-      posts.push({ sourceKey: 'inven', sourceName: '인벤', title, url, author, viewCount, commentCount, likeCount });
+      const dateText = $(el).find('td.date').text().trim();
+      const publishedAt = parseKoreanDate(dateText);
+      posts.push({ sourceKey: 'inven', sourceName: '인벤', title, url, author, viewCount, commentCount, likeCount, publishedAt });
     });
 
     return posts.slice(0, 30);

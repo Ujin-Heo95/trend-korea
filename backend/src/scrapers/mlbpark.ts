@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { fetchHtml } from './http-utils.js';
+import { fetchHtml, parseKoreanDate } from './http-utils.js';
 
 export class MlbparkScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
@@ -26,7 +26,9 @@ export class MlbparkScraper extends BaseScraper {
       const author = $(el).find('.nick').text().trim() || undefined;
       const likeCount = parseInt($(el).find('td.recomm, .recomm').text().replace(/[^0-9]/g, '')) || undefined;
 
-      posts.push({ sourceKey: 'mlbpark', sourceName: 'MLB파크', title, url: href, author, viewCount, commentCount, likeCount });
+      const dateText = $(el).find('.date').text().trim() || $(el).find('td').eq(4).text().trim();
+      const publishedAt = parseKoreanDate(dateText);
+      posts.push({ sourceKey: 'mlbpark', sourceName: 'MLB파크', title, url: href, author, viewCount, commentCount, likeCount, publishedAt });
     });
 
     return posts.slice(0, 30);

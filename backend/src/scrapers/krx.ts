@@ -11,6 +11,9 @@ interface KrxStock {
   FLUC_RT: string;
   ACC_TRDVOL: string;
   MKT_NM: string;
+  TDD_HGPRC?: string;
+  TDD_LWPRC?: string;
+  MKTCAP?: string;
 }
 
 export class KrxScraper extends BaseScraper {
@@ -80,6 +83,14 @@ export class KrxScraper extends BaseScraper {
       url: `http://data.krx.co.kr/contents/MDC/MDI/mdiLoader/index.cmd?boxid=finder_stkisu0101&input_stkisu=${s.ISU_SRT_CD}`,
       viewCount: parseInt(s.ACC_TRDVOL.replace(/,/g, '')) || 0,
       category: 'finance',
+      metadata: {
+        ticker: s.ISU_SRT_CD,
+        market: s.MKT_NM,
+        prevClose: parseInt(s.CMPPREVDD_PRC?.replace(/,/g, '') ?? '') || undefined,
+        highPrice: parseInt(s.TDD_HGPRC?.replace(/,/g, '') ?? '') || undefined,
+        lowPrice: parseInt(s.TDD_LWPRC?.replace(/,/g, '') ?? '') || undefined,
+        marketCap: parseInt(s.MKTCAP?.replace(/,/g, '') ?? '') || undefined,
+      },
     };
   }
 }

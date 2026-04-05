@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { fetchHtml } from './http-utils.js';
+import { fetchHtml, parseKoreanDate } from './http-utils.js';
 
 export class Cook82Scraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
@@ -38,7 +38,10 @@ export class Cook82Scraper extends BaseScraper {
       const cells = $(el).find('td.numbers:not(.regdate)');
       const viewCount = parseInt(cells.last().text().replace(/,/g, '')) || undefined;
 
-      posts.push({ sourceKey: 'cook82', sourceName: '82쿡', title, url, author, viewCount, commentCount });
+      const likeCount = parseInt($(el).find('td.recomm, td.recommend').text().replace(/,/g, '')) || undefined;
+      const dateText = $(el).find('td.regdate').text().trim();
+      const publishedAt = parseKoreanDate(dateText);
+      posts.push({ sourceKey: 'cook82', sourceName: '82쿡', title, url, author, viewCount, commentCount, likeCount, publishedAt });
     });
 
     return posts.slice(0, 30);

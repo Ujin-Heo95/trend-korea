@@ -59,11 +59,17 @@ export interface YouTubeVideoItem {
     thumbnails?: { medium?: { url?: string } };
     channelTitle: string;
     publishedAt?: string;
+    categoryId?: string;
+    tags?: string[];
   };
   statistics?: {
     viewCount?: string;
     commentCount?: string;
     likeCount?: string;
+  };
+  contentDetails?: {
+    duration?: string;
+    definition?: string;
   };
 }
 
