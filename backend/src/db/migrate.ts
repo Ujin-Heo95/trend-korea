@@ -41,6 +41,7 @@ const migrations = [
   '033_drop_gemini_tables.sql',
   '034_weekly_digests.sql',
   '035_additional_indexes.sql',
+  '035_trend_keywords.sql',
   '036_score_breakdown.sql',
   '037_issue_rankings.sql',
   '038_first_scraped_at.sql',
