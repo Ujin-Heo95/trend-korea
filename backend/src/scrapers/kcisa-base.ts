@@ -92,12 +92,44 @@ export function stripHtml(html: string): string {
     .trim();
 }
 
+function parseKcisaJson(data: unknown): readonly KcisaItem[] {
+  const body = (data as Record<string, unknown>)?.response as Record<string, unknown> | undefined;
+  const bodyInner = (body?.body ?? (data as Record<string, unknown>)?.body) as Record<string, unknown> | undefined;
+  if (!bodyInner?.items) return [];
+
+  const itemsWrapper = bodyInner.items as Record<string, unknown>;
+  const rawItems = (itemsWrapper?.item ?? itemsWrapper) as unknown;
+  if (!rawItems) return [];
+
+  const items = Array.isArray(rawItems) ? rawItems : [rawItems];
+  return items.map((item: Record<string, unknown>): KcisaItem => {
+    const mapped: Record<string, string> = {};
+    for (const [k, v] of Object.entries(item)) {
+      mapped[k] = typeof v === 'string' ? v.trim() : String(v ?? '');
+    }
+    return mapped as unknown as KcisaItem;
+  });
+}
+
 export abstract class KcisaBaseScraper extends BaseScraper {
   protected readonly kcisaConfig: KcisaConfig;
 
   constructor(pool: Pool, kcisaConfig: KcisaConfig) {
     super(pool);
     this.kcisaConfig = kcisaConfig;
+  }
+
+  /** XML/JSON 응답 자동 감지 파싱 */
+  private async parseResponse(data: string): Promise<readonly KcisaItem[]> {
+    const trimmed = data.trimStart();
+    if (trimmed.startsWith('<')) {
+      return parseKcisaXml(data);
+    }
+    try {
+      return parseKcisaJson(JSON.parse(data));
+    } catch {
+      return parseKcisaXml(data);
+    }
   }
 
   async fetch(): Promise<ScrapedPost[]> {
@@ -114,7 +146,7 @@ export abstract class KcisaBaseScraper extends BaseScraper {
       httpsAgent: koreanDnsHttpsAgent,
     });
 
-    const items = await parseKcisaXml(data);
+    const items = await this.parseResponse(data);
     if (items.length === 0) return [];
 
     return this.mapItems(items).slice(0, 30);

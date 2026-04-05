@@ -6,7 +6,6 @@ import type { YouTubeSearchItem } from '../db/types.js';
 import { logger } from '../utils/logger.js';
 
 const COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2시간
-const MIN_MENTION_COUNT = 3;
 const MAX_KEYWORDS = 10;
 const KEYWORDS_PER_QUERY = 3;
 const MAX_QUERIES = 3;
@@ -59,10 +58,10 @@ export class YoutubeSearchScraper extends BaseScraper {
 
   private async getTopKeywords(): Promise<string[]> {
     const { rows } = await this.pool.query<{ keyword: string }>(
-      `SELECT keyword FROM keyword_stats
-       WHERE window_hours = 3 AND mention_count >= $1
-       ORDER BY mention_count DESC LIMIT $2`,
-      [MIN_MENTION_COUNT, MAX_KEYWORDS]
+      `SELECT keyword FROM trend_keywords
+       WHERE expires_at > NOW()
+       ORDER BY signal_strength DESC LIMIT $1`,
+      [MAX_KEYWORDS]
     );
     return rows.map(r => r.keyword);
   }
