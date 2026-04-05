@@ -95,9 +95,6 @@ async function _calculateScores(pool: Pool): Promise<number> {
 
   const now = Date.now();
   const globalBaseline = 2.0;
-  const values: string[] = [];
-  const params: unknown[] = [];
-
   const rawScoreEntries: {
     postId: number; score: number; srcW: number; catW: number; sourceKey: string;
     velBonus: number; clusterBonus: number; trendBonus: number;
@@ -177,23 +174,23 @@ async function _calculateScores(pool: Pool): Promise<number> {
     entry.score *= volumeDampeningFactor(srcCount, medianCount);
   }
 
-  // Step 3: UPSERT 준비 (raw score 직접 사용)
+  // Step 3: Batch UPSERT in chunks of 500 (raw score 직접 사용)
   const COLS_PER_ROW = 7;
-  for (const entry of rawScoreEntries) {
-    const i = params.length;
-    params.push(entry.postId, entry.score, entry.srcW, entry.catW, entry.velBonus, entry.clusterBonus, entry.trendBonus);
-    values.push(`($${i+1},$${i+2},$${i+3},$${i+4},NOW(),$${i+5},$${i+6},$${i+7})`);
-  }
-
-  // Batch UPSERT in chunks of 500
   const CHUNK = 500;
   let updated = 0;
-  for (let start = 0; start < values.length; start += CHUNK) {
-    const chunk = values.slice(start, start + CHUNK);
-    const chunkParams = params.slice(start * COLS_PER_ROW, (start + CHUNK) * COLS_PER_ROW);
+  for (let start = 0; start < rawScoreEntries.length; start += CHUNK) {
+    const end = Math.min(start + CHUNK, rawScoreEntries.length);
+    const chunkParams: unknown[] = [];
+    const chunkValues: string[] = [];
+    for (let j = start; j < end; j++) {
+      const entry = rawScoreEntries[j];
+      const i = chunkParams.length;
+      chunkParams.push(entry.postId, entry.score, entry.srcW, entry.catW, entry.velBonus, entry.clusterBonus, entry.trendBonus);
+      chunkValues.push(`($${i+1},$${i+2},$${i+3},$${i+4},NOW(),$${i+5},$${i+6},$${i+7})`);
+    }
     const result = await pool.query(
       `INSERT INTO post_scores (post_id, trend_score, source_weight, category_weight, calculated_at, velocity_bonus, cluster_bonus, trend_signal_bonus)
-       VALUES ${chunk.join(',')}
+       VALUES ${chunkValues.join(',')}
        ON CONFLICT (post_id) DO UPDATE SET
          trend_score = EXCLUDED.trend_score,
          source_weight = EXCLUDED.source_weight,
