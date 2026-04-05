@@ -183,7 +183,7 @@ function SourceTable({ sources }: { sources: MergedSource[] }) {
 // ─── Admin Page ───────────────────────────────────────────────
 export function AdminPage() {
   const { token, setToken, clearToken } = useAdminToken();
-  const { data, isLoading, isAuthed } = useAdminHealth(token);
+  const { data, isLoading, isError, error, isAuthed, refetch } = useAdminHealth(token);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
 
   // 데이터 갱신 시 타임스탬프 업데이트
@@ -196,10 +196,36 @@ export function AdminPage() {
     return <TokenGate onSubmit={setToken} error={isAuthed === false} />;
   }
 
-  if (isLoading || !data) {
+  if (isLoading && !data) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <p className="text-slate-400 animate-pulse text-lg">데이터 로딩 중...</p>
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    const msg = error instanceof Error ? error.message : '서버 연결 실패';
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 w-full max-w-sm space-y-4 text-center">
+          <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">WeekLit Admin</h1>
+          <p className="text-sm text-red-500">{msg}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => refetch()}
+              className="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+            >
+              재시도
+            </button>
+            <button
+              onClick={clearToken}
+              className="px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              로그아웃
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

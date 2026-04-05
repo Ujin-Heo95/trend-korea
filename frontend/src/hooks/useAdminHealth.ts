@@ -53,7 +53,8 @@ export function useAdminHealth(token: string | null) {
     queryFn: () => fetchHealthAdmin(token!),
     enabled: !!token,
     refetchInterval: 30_000,
-    retry: false,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
   });
 
   const sourcesQuery = useQuery({
@@ -61,6 +62,8 @@ export function useAdminHealth(token: string | null) {
     queryFn: fetchAdminSources,
     enabled: !!token,
     refetchInterval: 30_000,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
   });
 
   const isAuthed = healthQuery.data ? isAuthedHealth(healthQuery.data) : null;
@@ -105,8 +108,9 @@ export function useAdminHealth(token: string | null) {
   return {
     data,
     isLoading: healthQuery.isLoading || sourcesQuery.isLoading,
-    isError: healthQuery.isError,
+    isError: healthQuery.isError || sourcesQuery.isError,
+    error: healthQuery.error ?? sourcesQuery.error,
     isAuthed,
-    refetch: healthQuery.refetch,
+    refetch: () => Promise.all([healthQuery.refetch(), sourcesQuery.refetch()]),
   } as const;
 }
