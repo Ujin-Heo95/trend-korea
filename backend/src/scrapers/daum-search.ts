@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
 import type { DaumSearchDoc } from '../db/types.js';
+import { logger } from '../utils/logger.js';
 
 const COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2시간
 const MIN_MENTION_COUNT = 3;
@@ -90,9 +91,7 @@ abstract class DaumSearchBase extends BaseScraper {
         metadata: { searchKeywords: [keyword] },
       }));
     } catch (error) {
-      console.warn(
-        `[${this.sourceKey}] search failed for "${keyword}": ${error instanceof Error ? error.message : String(error)}`
-      );
+      logger.warn({ err: error, keyword }, `[${this.sourceKey}] search failed`);
       return [];
     }
   }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeScore, computeScoreLegacy, getSourceWeight, getCategoryWeight,
+  getCommunitySourceWeight, getCommunityHalfLife,
   getHalfLife, volumeDampeningFactor, type ScoreFactors,
 } from '../../src/services/scoring.js';
 
@@ -130,6 +131,9 @@ function makeFactors(overrides: Partial<ScoreFactors> = {}): ScoreFactors {
     categoryWeight: 1.0,
     velocityBonus: 1.0,
     clusterBonus: 1.0,
+    trendSignalBonus: 1.0,
+    subcategoryNorm: 1.0,
+    breakingBoost: 1.0,
     ...overrides,
   };
 }
@@ -228,66 +232,127 @@ describe('computeScoreLegacy (backward compat)', () => {
 
 describe('cross-channel differentiation (raw score)', () => {
   it('T1 news outscores community at same engagement and age', () => {
-    const newsFactors: ScoreFactors = {
+    const newsFactors = makeFactors({
       normalizedEngagement: 3.0,
-      decay: 0.75,           // ~1h old, news half-life 240min
-      sourceWeight: 2.5,     // T1
-      categoryWeight: 1.20,  // news
-      velocityBonus: 1.0,
-      clusterBonus: 1.0,
-    };
-    const communityFactors: ScoreFactors = {
+      decay: 0.75,
+      sourceWeight: 2.5,
+      categoryWeight: 1.20,
+    });
+    const communityFactors = makeFactors({
       normalizedEngagement: 3.0,
-      decay: 0.75,           // same age, community half-life 150min → faster decay
-      sourceWeight: 1.0,     // community
-      categoryWeight: 1.08,  // community
-      velocityBonus: 1.0,
-      clusterBonus: 1.0,
-    };
+      decay: 0.75,
+      sourceWeight: 1.0,
+      categoryWeight: 1.08,
+    });
     const newsScore = computeScore(newsFactors);
     const communityScore = computeScore(communityFactors);
     expect(newsScore).toBeGreaterThan(communityScore);
-    // T1 news should be ~2.78x community (2.5*1.2 / 1.0*1.08)
     expect(newsScore / communityScore).toBeCloseTo(2.5 * 1.2 / (1.0 * 1.08), 1);
   });
 
   it('decay reduces raw score absolutely over time', () => {
-    const fresh: ScoreFactors = {
+    const fresh = makeFactors({
       normalizedEngagement: 4.0,
-      decay: 1.0,            // just scraped
       sourceWeight: 2.0,
-      categoryWeight: 1.0,
-      velocityBonus: 1.0,
-      clusterBonus: 1.0,
-    };
-    const aged: ScoreFactors = {
-      ...fresh,
-      decay: Math.exp(-LN2 * 240 / 240), // 4h old news → 50% decay
-    };
-    expect(computeScore(fresh)).toBe(8.0);  // 4.0 * 1.0 * 2.0 * 1.0
-    expect(computeScore(aged)).toBeCloseTo(4.0, 1);  // 50% of fresh
+    });
+    const aged = makeFactors({
+      normalizedEngagement: 4.0,
+      sourceWeight: 2.0,
+      decay: Math.exp(-LN2 * 240 / 240),
+    });
+    expect(computeScore(fresh)).toBe(8.0);
+    expect(computeScore(aged)).toBeCloseTo(4.0, 1);
   });
 
   it('high-engagement community cannot beat T1 news by engagement alone', () => {
-    const newsNormal: ScoreFactors = {
+    const newsNormal = makeFactors({
       normalizedEngagement: 3.0,
       decay: 0.9,
       sourceWeight: 2.5,
       categoryWeight: 1.20,
-      velocityBonus: 1.0,
-      clusterBonus: 1.0,
-    };
-    const communityHigh: ScoreFactors = {
-      normalizedEngagement: 5.0,  // much higher engagement
+    });
+    const communityHigh = makeFactors({
+      normalizedEngagement: 5.0,
       decay: 0.9,
       sourceWeight: 1.0,
       categoryWeight: 1.08,
-      velocityBonus: 1.0,
-      clusterBonus: 1.0,
-    };
-    // news: 3.0 * 0.9 * 2.5 * 1.2 = 8.1
-    // community: 5.0 * 0.9 * 1.0 * 1.08 = 4.86
+    });
     expect(computeScore(newsNormal)).toBeGreaterThan(computeScore(communityHigh));
+  });
+});
+
+describe('community source weights', () => {
+  it('theqoo has highest community weight (1.4)', () => {
+    expect(getCommunitySourceWeight('theqoo')).toBe(1.4);
+  });
+
+  it('instiz is Tier A (1.35)', () => {
+    expect(getCommunitySourceWeight('instiz')).toBe(1.35);
+  });
+
+  it('dcinside is Tier B (1.15)', () => {
+    expect(getCommunitySourceWeight('dcinside')).toBe(1.15);
+  });
+
+  it('clien has higher weight than default communities (1.2)', () => {
+    expect(getCommunitySourceWeight('clien')).toBe(1.2);
+  });
+
+  it('etoland has lowest community weight (0.8)', () => {
+    expect(getCommunitySourceWeight('etoland')).toBe(0.8);
+  });
+
+  it('unknown community source gets default 1.0', () => {
+    expect(getCommunitySourceWeight('unknown_community')).toBe(1.0);
+  });
+});
+
+describe('community decay half-life', () => {
+  it('dcinside decays fast (120min)', () => {
+    expect(getCommunityHalfLife('dcinside')).toBe(120);
+  });
+
+  it('clien decays slow (200min)', () => {
+    expect(getCommunityHalfLife('clien')).toBe(200);
+  });
+
+  it('theqoo uses standard (150min)', () => {
+    expect(getCommunityHalfLife('theqoo')).toBe(150);
+  });
+
+  it('unknown source gets default 150min', () => {
+    expect(getCommunityHalfLife('unknown_source')).toBe(150);
+  });
+});
+
+describe('new scoring factors', () => {
+  it('trendSignalBonus multiplies into final score', () => {
+    const base = computeScore(makeFactors());
+    const boosted = computeScore(makeFactors({ trendSignalBonus: 1.5 }));
+    expect(boosted).toBeCloseTo(base * 1.5, 5);
+  });
+
+  it('breakingBoost multiplies into final score', () => {
+    const base = computeScore(makeFactors());
+    const breaking = computeScore(makeFactors({ breakingBoost: 2.5 }));
+    expect(breaking).toBeCloseTo(base * 2.5, 5);
+  });
+
+  it('subcategoryNorm multiplies into final score', () => {
+    const base = computeScore(makeFactors());
+    const normed = computeScore(makeFactors({ subcategoryNorm: 1.3 }));
+    expect(normed).toBeCloseTo(base * 1.3, 5);
+  });
+
+  it('all new factors compound with existing factors', () => {
+    const factors = makeFactors({
+      normalizedEngagement: 2.0,
+      sourceWeight: 2.5,
+      trendSignalBonus: 1.4,
+      breakingBoost: 2.0,
+    });
+    const expected = 2.0 * 1.0 * 2.5 * 1.0 * 1.0 * 1.0 * 1.4 * 1.0 * 2.0;
+    expect(computeScore(factors)).toBeCloseTo(expected, 3);
   });
 });
 

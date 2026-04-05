@@ -37,7 +37,10 @@ const migrations = [
   '029_backfill_news_subcategory.sql',
   '030_keyword_tone.sql',
   '031_index_optimization.sql',
-  '031_weekly_digests.sql',
+  '032_burst_signal_index.sql',
+  '033_drop_gemini_tables.sql',
+  '034_weekly_digests.sql',
+  '035_additional_indexes.sql',
 ];
 
 try {

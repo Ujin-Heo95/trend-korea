@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 import { config } from '../config/index.js';
+import { logger } from '../utils/logger.js';
 
 const DB_WARN_BYTES = 400 * 1024 * 1024;  // 400MB
 const DB_CRIT_BYTES = 475 * 1024 * 1024;  // 475MB
@@ -56,16 +57,16 @@ async function sendDiscordAlert(level: 'warn' | 'critical', info: DbSizeInfo): P
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!res.ok) console.error(`[db-monitor] discord webhook failed: ${res.status}`);
+    if (!res.ok) logger.error(`[db-monitor] discord webhook failed: ${res.status}`);
   } catch (err) {
-    console.error('[db-monitor] discord alert error:', err);
+    logger.error({ err }, '[db-monitor] discord alert error');
   }
 }
 
 export async function checkDbSize(pool: Pool): Promise<void> {
   try {
     const info = await getDbSize(pool);
-    console.log(`[db-monitor] size: ${info.sizeMB}MB`);
+    logger.info(`[db-monitor] size: ${info.sizeMB}MB`);
 
     if (info.sizeBytes >= DB_CRIT_BYTES) {
       await sendDiscordAlert('critical', info);
@@ -73,6 +74,6 @@ export async function checkDbSize(pool: Pool): Promise<void> {
       await sendDiscordAlert('warn', info);
     }
   } catch (err) {
-    console.error('[db-monitor] check failed:', err);
+    logger.error({ err }, '[db-monitor] check failed');
   }
 }

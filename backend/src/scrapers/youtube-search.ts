@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
 import type { YouTubeSearchItem } from '../db/types.js';
+import { logger } from '../utils/logger.js';
 
 const COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2시간
 const MIN_MENTION_COUNT = 3;
@@ -96,7 +97,7 @@ export class YoutubeSearchScraper extends BaseScraper {
         metadata: { searchKeywords: keywords },
       }));
     } catch (error) {
-      console.warn(`[youtube-search] search failed for "${query}": ${error instanceof Error ? error.message : String(error)}`);
+      logger.warn({ err: error, query }, '[youtube-search] search failed');
       return [];
     }
   }

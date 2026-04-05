@@ -3,6 +3,7 @@ import axios from 'axios';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
+import { logger } from '../utils/logger.js';
 import { classifyNewsSubcategory } from './news-classifier.js';
 
 interface RssScraperConfig {
@@ -122,7 +123,7 @@ export class RssScraper extends BaseScraper {
             return post;
           });
         } catch (err) {
-          console.warn(`[rss] ${this.cfg.sourceKey} section ${subcategory} failed: ${String(err)}`);
+          logger.warn({ err, subcategory }, `[rss] ${this.cfg.sourceKey} section failed`);
           return [];
         }
       }),

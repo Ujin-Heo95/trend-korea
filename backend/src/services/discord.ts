@@ -1,4 +1,5 @@
 import { config } from '../config/index.js';
+import { logger } from '../utils/logger.js';
 
 export interface ScraperError {
   sourceKey: string;
@@ -36,7 +37,7 @@ export async function notifyScraperErrors(
       console.error(`[discord] webhook failed: ${res.status}`);
     }
   } catch (err) {
-    console.error('[discord] webhook error:', err);
+    logger.error('[discord] webhook error:', err);
   }
 }
 
@@ -75,7 +76,7 @@ export async function notifyApiKeyFailure(
       console.error(`[discord] api key alert webhook failed: ${res.status}`);
     }
   } catch (err) {
-    console.error('[discord] api key alert webhook error:', err);
+    logger.error('[discord] api key alert webhook error:', err);
   }
 }
 
@@ -109,6 +110,6 @@ export async function notifyBudgetAlert(
       console.error(`[discord] budget alert webhook failed: ${res.status}`);
     }
   } catch (err) {
-    console.error('[discord] budget alert webhook error:', err);
+    logger.error('[discord] budget alert webhook error:', err);
   }
 }

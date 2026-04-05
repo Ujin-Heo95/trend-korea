@@ -32,10 +32,10 @@ export async function cleanExpiredTrendSignals(): Promise<CleanupResult> {
 
 export async function cleanOldEngagementSnapshots(): Promise<CleanupResult> {
   const result = await pool.query<never>(
-    `DELETE FROM engagement_snapshots WHERE captured_at < NOW() - INTERVAL '6 hours'`,
+    `DELETE FROM engagement_snapshots WHERE captured_at < NOW() - INTERVAL '30 hours'`,
   );
   const deleted = result.rowCount ?? 0;
-  if (deleted > 0) console.log(`[cleanup] deleted ${deleted} engagement_snapshots older than 6h`);
+  if (deleted > 0) console.log(`[cleanup] deleted ${deleted} engagement_snapshots older than 30h`);
   return { deleted };
 }
 

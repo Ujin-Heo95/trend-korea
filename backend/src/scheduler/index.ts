@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/node';
 import { runAllScrapers, runScrapersByPriority, runApifyScrapers } from '../scrapers/index.js';
 import { cleanOldPosts, cleanOldScraperRuns, cleanOldEngagementSnapshots, cleanNumericTitlePosts } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
+import { extractTrendKeywords, cleanExpiredTrendKeywords } from '../services/trendSignals.js';
 import { checkDbSize } from '../services/dbMonitor.js';
 import { pool } from '../db/client.js';
 
@@ -36,6 +37,11 @@ export function startScheduler(): void {
     calculateScores(pool).catch(err => captureError(err));
   });
 
+  // 트렌드 키워드 추출: 15분 주기 (외부 소스 → trend_keywords 테이블)
+  cron.schedule('*/15 * * * *', () => {
+    extractTrendKeywords(pool).catch(captureError);
+  });
+
   // Apify SNS 수집: 09:00, 18:00 KST (= 00:00, 09:00 UTC)
   cron.schedule('0 0,9 * * *', () => {
     runApifyScrapers().catch(captureError);
@@ -48,6 +54,7 @@ export function startScheduler(): void {
     cleanNumericTitlePosts().catch(captureError);
     cleanOldScraperRuns().catch(captureError);
     cleanOldEngagementSnapshots().catch(captureError);
+    cleanExpiredTrendKeywords(pool).catch(captureError);
     checkDbSize(pool).catch(captureError);
   });
 }

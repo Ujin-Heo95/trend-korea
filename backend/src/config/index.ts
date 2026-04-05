@@ -25,6 +25,12 @@ interface Config {
   dataGoKrApiKey: string;
   adminToken: string;
   corsOrigin: string[];
+  nodeEnv: string;
+  baseUrl: string;
+  siteName: string;
+  siteDescription: string;
+  googleSiteVerification: string;
+  naverSiteVerification: string;
 }
 
 const dbUrl = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/trend_korea';
@@ -98,4 +104,10 @@ export const config: Config = {
   })(),
   corsOrigin: (process.env.CORS_ORIGIN ?? 'https://weeklit.net,https://www.weeklit.net')
     .split(',').map(s => s.trim()),
+  nodeEnv: process.env.NODE_ENV ?? 'development',
+  baseUrl: process.env.BASE_URL ?? 'https://weeklit.net',
+  siteName: process.env.SITE_NAME ?? '위클릿 — 실시간 트렌드 모아보기',
+  siteDescription: process.env.SITE_DESCRIPTION ?? '위클릿은 한국 주요 커뮤니티, 뉴스, YouTube에서 실시간 이슈를 모아보는 트렌드 어그리게이터입니다',
+  googleSiteVerification: process.env.GOOGLE_SITE_VERIFICATION ?? '',
+  naverSiteVerification: process.env.NAVER_SITE_VERIFICATION ?? '',
 };

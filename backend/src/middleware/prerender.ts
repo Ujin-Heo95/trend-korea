@@ -1,15 +1,16 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { Pool } from 'pg';
+import { logger } from '../utils/logger.js';
+import { config } from '../config/index.js';
 
-const BASE_URL = 'https://weeklit.net';
-const SITE_NAME = '위클릿 — 실시간 트렌드 모아보기';
-const DEFAULT_DESC = '위클릿은 한국 주요 커뮤니티, 뉴스, YouTube에서 실시간 이슈를 모아보는 트렌드 어그리게이터입니다';
+const BASE_URL = config.baseUrl;
+const SITE_NAME = config.siteName;
+const DEFAULT_DESC = config.siteDescription;
 
 const BOT_UA_PATTERN = /googlebot|yeti|bingbot|duckduckbot|kakaotalk-scrap|facebookexternalhit|twitterbot|slackbot|linkedinbot|telegrambot|whatsapp|line-poker|pinterestbot/i;
 
-// 환경변수 기반 site verification (GSC / 네이버 서치어드바이저 등록 시 설정)
-const GOOGLE_VERIFICATION = process.env.GOOGLE_SITE_VERIFICATION ?? '';
-const NAVER_VERIFICATION = process.env.NAVER_SITE_VERIFICATION ?? '';
+const GOOGLE_VERIFICATION = config.googleSiteVerification;
+const NAVER_VERIFICATION = config.naverSiteVerification;
 
 function isBot(ua: string | undefined): boolean {
   return ua ? BOT_UA_PATTERN.test(ua) : false;
@@ -321,7 +322,7 @@ export function registerPrerender(app: FastifyInstance, pool: Pool): void {
       return reply.type('text/html; charset=utf-8').send(renderHtml(meta));
     } catch (err) {
       // 프리렌더 실패 시 SPA로 폴백
-      console.warn(`[prerender] error for ${req.url}: ${String(err)}`);
+      logger.warn({ err, url: req.url }, '[prerender] render error');
     }
   });
 }

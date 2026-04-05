@@ -24,7 +24,7 @@ interface PostCardProps {
   style?: React.CSSProperties;
 }
 
-export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, hasVoted, onVote, style }) => {
+export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRead, onRead, hasVoted, onVote, style }) => {
   const [expanded, setExpanded] = useState(false);
   const clusterSize = post.cluster_size ?? 1;
   const hasClusters = clusterSize > 1;
@@ -117,4 +117,4 @@ export const PostCard: React.FC<PostCardProps> = ({ post, rank, isRead, onRead, 
       )}
     </div>
   );
-};
+});

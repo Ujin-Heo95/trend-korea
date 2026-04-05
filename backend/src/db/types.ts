@@ -85,3 +85,14 @@ export interface DaumSearchDoc {
   blogname?: string;
   datetime?: string;
 }
+
+export interface TrendKeywordRow {
+  id: number;
+  keyword: string;
+  keyword_normalized: string;
+  source_key: string;
+  signal_strength: number;
+  metadata: Record<string, unknown> | null;
+  scraped_at: Date;
+  expires_at: Date;
+}

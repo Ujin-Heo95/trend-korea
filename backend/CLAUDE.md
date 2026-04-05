@@ -19,7 +19,8 @@
 - 배치 INSERT (12컬럼) + `ON CONFLICT (url) DO UPDATE` engagement UPSERT (view/comment/like GREATEST), 전체 UPSERT (영화/공연)
 - `title_hash` GENERATED 컬럼: 정규화 후 MD5 (괄호/특수문자 제거)
 - `post_clusters` + `post_cluster_members`: 중복 게시글 그룹핑
-- `post_scores`: 다중 팩터 트렌드 스코어 (5분 주기 배치 갱신)
+- `post_scores`: 채널별 분기 스코어 (5분 주기, 뉴스+커뮤니티만 대상, velocity/cluster/trend_signal 분해 컬럼)
+- `trend_keywords`: 외부 트렌드 신호 키워드 (Google Trends/Naver DataLab/BigKinds, 12h TTL)
 - posts TTL: 3일 (기본값), 공연 7일, scraper_runs TTL: 30일
 - 환경변수는 `config/index.ts`에서 중앙 파싱 + 검증
 - DB 풀: `DB_POOL_MAX=10`, `DB_IDLE_TIMEOUT_MS=30000`, `DB_CONNECTION_TIMEOUT_MS=5000`
@@ -43,7 +44,10 @@
 | Posts API | `src/routes/posts.ts` |
 | Sources API | `src/routes/sources.ts` |
 | 중복제거 서비스 | `src/services/dedup.ts` |
-| 트렌드 스코어링 | `src/services/scoring.ts` |
+| 스코어링 배치 | `src/services/scoring.ts` |
+| 스코어링 가중치 | `src/services/scoring-weights.ts` |
+| 스코어링 헬퍼 | `src/services/scoring-helpers.ts` |
+| 트렌드 신호 | `src/services/trendSignals.ts` |
 | Discord 알림 | `src/services/discord.ts` |
 | DB 용량 모니터링 | `src/services/dbMonitor.ts` |
 | 이슈 상세 API | `src/routes/issueDetail.ts` |

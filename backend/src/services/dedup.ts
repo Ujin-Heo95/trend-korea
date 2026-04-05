@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import type { Pool } from 'pg';
 import type { ScrapedPost } from '../scrapers/types.js';
+import { logger } from '../utils/logger.js';
 
 const JACCARD_THRESHOLD = 0.8;
 const MIN_TITLE_LENGTH_FOR_L2 = 8;
@@ -88,7 +89,7 @@ export async function clusterPosts(pool: Pool, posts: readonly ScrapedPost[]): P
     try {
       await clusterOnePostBatch(pool, post, ctx);
     } catch (err) {
-      console.warn(`[dedup] cluster error for ${post.url}: ${String(err)}`);
+      logger.warn({ err, url: post.url }, '[dedup] cluster error');
     }
   }
 }

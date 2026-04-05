@@ -1,22 +1,35 @@
-# 콘텐츠 랭킹 & 인텔리전스 시스템 설계
+# 콘텐츠 랭킹 시스템 설계
 
-> 2026-03-29 콘텐츠 랭킹 에이전트 분석 결과.
+> 2026-04-05 v2 — 커뮤니티·뉴스 채널별 분기 스코어링 + 외부 트렌드 신호 통합
 
 ---
+
+## 0. 적용 범위
+
+스코어링은 **뉴스(news/press)와 커뮤니티(community) 소스만** 대상.
+나머지 탭(영상, 핫딜, 엔터테인먼트, 여행, SNS)은 최신순(scraped_at DESC)만 표시.
 
 ## 1. 트렌드 스코어링
 
 ### 1.1 공식
 
+**커뮤니티 탭:**
 ```
-score = normalizedEngagement × decay × sourceWeight × categoryWeight
-      × velocityBonus × clusterBonus × keywordMomentumBonus
-      × trendConfirmationBonus × burstBonus
+score = normalizedEngagement × adaptiveDecay × communitySourceWeight
+      × communityVelocityBonus × clusterBonus × trendSignalBonus
+      × volumeDampening
 ```
 
-- **decay**: 채널별 차등 반감기 (커뮤니티 2.5h, SNS 2h, 뉴스 4h, 전문 5h, 영상 6h)
-- 최종 점수는 채널 내 백분위 정규화 (0-10 스케일) 적용
-- 소스 볼륨 감쇄: 게시물 과다 소스는 중앙값 대비 로그 감쇄 (하한 0.7)
+**뉴스 탭:**
+```
+score = normalizedEngagement × decay × sourceWeight × subcategoryNorm
+      × velocityBonus × clusterBonus × trendSignalBonus × breakingBoost
+      × volumeDampening
+```
+
+- **커뮤니티**: 소스별 차등 가중치(0.8~1.4) + 소스별 적응적 감쇠(120~200분) + 댓글/좋아요 3.0× velocity
+- **뉴스**: 서브카테고리 백분위 정규화(0.8~1.4) + 속보 감지(최대 3.0×) + T1~T4 소스 가중치
+- **공통**: 외부 트렌드 신호 보너스(1.0~1.8) + 소스 볼륨 감쇄(하한 0.7)
 
 ### 1.2 가중치 설정
 
@@ -28,50 +41,59 @@ score = normalizedEngagement × decay × sourceWeight × categoryWeight
 | T3 주요 언론 | khan, mk, hani, donga, hankyung, ytn | 2.0 |
 | T4 포털·통합 | daum_news, newsis, google_news_kr | 1.6~1.8 |
 | 테크 | geeknews, yozm, etnews | 1.3~1.5 |
-| 커뮤니티 | dcinside, theqoo, natepann 등 | 1.0 |
+| 커뮤니티 (기본) | dcinside, bobaedream 등 | 1.0 |
 | 핫딜 | ppomppu_hot, clien_jirum 등 | 0.9 |
 | 기본 | 기타 (미등록) | 0.8 |
+
+**커뮤니티 소스별 차등 가중치** (community_source_weight):
+| 티어 | 소스 | 가중치 | 사유 |
+|------|------|--------|------|
+| A 바이럴 허브 | theqoo, instiz, natepann | 1.3~1.4 | 자체 필터링된 인기글, 바이럴 확산 기점 |
+| B 고볼륨·고참여 | clien, dcinside, fmkorea, todayhumor | 1.1~1.2 | 베스트 게시판 필터 적용 |
+| C 니치 | ppomppu, bobaedream, mlbpark, cook82, dogdrip | 1.0 | 표준 |
+| D 소규모/하락세 | inven, ddanzi, humoruniv, ygosu, slrclub, etoland | 0.8~0.9 | 트래픽 감소세 |
 
 **채널별 Decay 반감기**:
 | 채널 | 반감기 | 24h후 잔여 | 사유 |
 |------|--------|-----------|------|
-| SNS | 2h | 0.002% | 최고 실시간성 |
-| 커뮤니티 | 2.5h | 0.13% | 실시간 이슈 중심 |
 | 뉴스 | 4h | 1.56% | 시의성 중요 |
-| 전문 | 5h | 0.46% | 중간 수명 |
-| 영상 | 6h | 6.25% | 영상 수명 김 |
+| 커뮤니티 (기본) | 2.5h | 0.13% | 실시간 이슈 중심 |
 
-**카테고리 가중치** (category_weight):
-| 카테고리 | 가중치 | 사유 |
-|----------|--------|------|
-| alert | 1.25 | 기상/재난 즉시성 |
-| news | 1.20 | 뉴스 시의성 |
-| trend | 1.15 | 트렌드 탐색 목적 |
-| tech | 1.15 | 성장 중인 관심 |
-| finance | 1.10 | 시장 정보 |
-| community | 1.08 | 커뮤니티 기준선 |
-| movie, performance, travel | 1.05 | 문화·여행 |
-| deals | 1.00 | 거래 정보 |
-| video | 0.95 | 느린 감쇠 |
-| government | 0.85 | 느린 사이클 |
-| newsletter | 0.80 | 일일 단위 |
+**커뮤니티 소스별 적응적 감쇠**:
+| 소스 그룹 | 반감기 | 사유 |
+|-----------|--------|------|
+| dcinside, fmkorea, dogdrip | 120분 | 빠른 순환 |
+| theqoo, instiz, natepann, todayhumor, cook82 | 150분 | 표준 |
+| ppomppu, mlbpark, inven | 180분 | 토론형 |
+| clien, bobaedream | 200분 | 느린 토론형 |
 
-### 1.3 구현 계획
+**뉴스 서브카테고리 정규화** (subcategoryNorm):
+- 기존 고정 categoryWeight(1.20) 대신 서브카테고리 내 백분위 랭크 [0.8, 1.4]
+- 정치 1위 기사와 연예 1위 기사가 동등하게 경쟁
 
-**DB 스키마 (migration 005)**:
-```sql
-CREATE TABLE post_scores (
-  id BIGSERIAL PRIMARY KEY,
-  post_id BIGINT NOT NULL UNIQUE REFERENCES posts(id) ON DELETE CASCADE,
-  trend_score FLOAT DEFAULT 0,
-  calculated_at TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX idx_post_scores_score ON post_scores(trend_score DESC);
-```
+### 1.3 외부 트렌드 신호 통합
 
-**갱신**: 스크래퍼 실행 완료 후 배치 계산 (5분 단위)
-**API**: `GET /api/posts?sort=trending` 엔드포인트 추가
-**파일**: `backend/src/services/scoring.ts` (신규)
+**트렌드 키워드 테이블** (migration 035):
+- `trend_keywords`: Google Trends/Naver DataLab/BigKinds에서 추출한 키워드 (12h TTL, ~50행)
+- 15분 주기로 기존 스크래퍼 데이터를 재가공 (추가 API 호출 없음)
+- 포스트 타이틀과 부분문자열+바이그램 매칭 → `trendSignalBonus` [1.0, 1.8]
+
+**속보 감지** (breakingBoost):
+- 기존 `post_clusters` 활용, 30분 내 3+ 뉴스 소스 합류 시 활성화
+- 30분 반감기로 감쇠: 감지 시 3.0× → 30분 후 2.0× → 120분 ~1.0×
+
+**스코어 분해** (migration 036):
+- `post_scores`에 `velocity_bonus`, `cluster_bonus`, `trend_signal_bonus` 컬럼 추가
+- 디버깅·튜닝용 개별 팩터 기록
+
+### 1.4 파일 구조
+
+| 파일 | 역할 |
+|------|------|
+| `scoring.ts` | 배치 계산 오케스트레이션 |
+| `scoring-weights.ts` | 소스/카테고리/커뮤니티 가중치 + 감쇠 상수 |
+| `scoring-helpers.ts` | computeScore, normalizeEngagement, velocity, cluster, breaking 등 |
+| `trendSignals.ts` | 외부 키워드 추출·매칭·보너스 계산 |
 
 ---
 

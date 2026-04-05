@@ -143,6 +143,12 @@ export class NaverDatalabScraper extends BaseScraper {
         commentCount: recent,
         publishedAt: new Date(),
         category: 'trend',
+        metadata: {
+          groupName: result.title,
+          keywords: [...result.keywords],
+          changePct: changePercent,
+          recentRatio: recent,
+        },
       };
     });
   }

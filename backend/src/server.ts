@@ -24,7 +24,7 @@ if (config.sentryDsn) {
   Sentry.init({
     dsn: config.sentryDsn,
     tracesSampleRate: 0.1,
-    environment: process.env.NODE_ENV ?? 'development',
+    environment: config.nodeEnv,
   });
   console.log('[sentry] initialized');
 }
@@ -38,7 +38,7 @@ export async function buildApp() {
   // ── Central Error Handler ────────────────────────────
   app.setErrorHandler((error: Error & { statusCode?: number; validation?: unknown }, request, reply) => {
     const statusCode = error.statusCode ?? 500;
-    const isProduction = process.env.NODE_ENV === 'production';
+    const isProduction = config.nodeEnv === 'production';
 
     // Log with Sentry if configured
     if (config.sentryDsn && statusCode >= 500) {
@@ -98,7 +98,7 @@ export async function buildApp() {
 
   // SPA 정적 파일 서빙 (프론트엔드 빌드 결과물이 존재할 때 + 테스트 환경 제외)
   const frontendDist = resolve(import.meta.dirname, '../../frontend/dist');
-  const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+  const isTest = config.nodeEnv === 'test' || process.env.VITEST === 'true';
   if (!isTest && existsSync(frontendDist)) {
     await app.register(fastifyStatic, {
       root: frontendDist,
