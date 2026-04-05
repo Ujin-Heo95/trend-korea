@@ -3,7 +3,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "echo '[deploy] starting migration...' && node backend/dist/db/migrate.js && echo '[deploy] starting server...' && node backend/dist/server.js"
+startCommand = "echo '[deploy] pwd:' $(pwd) && ls -la backend/dist/db/migrate.js 2>&1 && node -e \"console.log('node ok', process.version)\" && node backend/dist/db/migrate.js 2>&1 && echo '[deploy] server starting...' && node backend/dist/server.js 2>&1"
 healthcheckPath = "/health"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
