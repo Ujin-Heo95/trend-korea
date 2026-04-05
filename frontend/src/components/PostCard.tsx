@@ -76,7 +76,7 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
           <p className={`text-sm font-medium line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 ${isRead ? 'text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
             {post.title}
           </p>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{timeAgo(post.published_at ?? post.scraped_at)}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{timeAgo(post.published_at ?? post.first_scraped_at)}</p>
         </div>
       </Link>
 

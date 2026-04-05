@@ -18,6 +18,7 @@ export interface Post {
   like_count: number;
   vote_count: number;
   published_at?: string;
+  first_scraped_at: string;
   scraped_at: string;
   category: Category | null;
   cluster_size?: number;
@@ -39,6 +40,40 @@ export interface PostsResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+// ── 이슈 순위 ───────────────────────────────────────────
+
+export interface IssueRelatedPost {
+  id: number;
+  source_name: string;
+  source_key: string;
+  title: string;
+  url: string;
+  thumbnail: string | null;
+  view_count: number;
+  comment_count: number;
+}
+
+export interface IssueRanking {
+  id: number;
+  rank: number;
+  title: string;
+  summary: string | null;
+  category_label: string | null;
+  issue_score: number;
+  thumbnail: string | null;
+  news_posts: IssueRelatedPost[];
+  community_posts: IssueRelatedPost[];
+  matched_keywords: string[];
+  news_post_count: number;
+  community_post_count: number;
+}
+
+export interface IssueRankingResponse {
+  issues: IssueRanking[];
+  total: number;
+  calculated_at: string | null;
 }
 
 // ── 이슈 상세 ───────────────────────────────────────────

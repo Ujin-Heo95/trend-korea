@@ -13,6 +13,7 @@ export interface PostRow {
   like_count: number;
   vote_count: number;
   published_at: string | null;
+  first_scraped_at: string;
   scraped_at: string;
   category: string | null;
   subcategory: string | null;
@@ -84,6 +85,25 @@ export interface DaumSearchDoc {
   cafename?: string;
   blogname?: string;
   datetime?: string;
+}
+
+export interface IssueRankingRow {
+  id: number;
+  title: string;
+  summary: string | null;
+  category_label: string | null;
+  issue_score: number;
+  news_score: number;
+  community_score: number;
+  trend_signal_score: number;
+  news_post_count: number;
+  community_post_count: number;
+  representative_thumbnail: string | null;
+  cluster_ids: number[];
+  standalone_post_ids: number[];
+  matched_trend_keywords: string[];
+  calculated_at: string;
+  expires_at: string;
 }
 
 export interface TrendKeywordRow {

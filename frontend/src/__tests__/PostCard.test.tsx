@@ -31,6 +31,7 @@ const makePost = (overrides: Partial<Post> = {}): Post => ({
   comment_count: 42,
   like_count: 100,
   vote_count: 5,
+  first_scraped_at: new Date().toISOString(),
   scraped_at: new Date().toISOString(),
   category: 'community',
   ...overrides,

@@ -13,6 +13,8 @@ describe('GET /api/posts', () => {
     await app.pg.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS ai_summary TEXT DEFAULT NULL`);
     await app.pg.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS like_count INTEGER NOT NULL DEFAULT 0`);
     await app.pg.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS subcategory VARCHAR(32)`);
+    await app.pg.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS first_scraped_at TIMESTAMPTZ DEFAULT NOW()`);
+    await app.pg.query(`UPDATE posts SET first_scraped_at = COALESCE(published_at, scraped_at) WHERE first_scraped_at IS NULL`);
     await app.pg.query(
       `INSERT INTO posts (source_key,source_name,title,url)
        VALUES ('test','테스트','테스트글','https://test.example.com/1')

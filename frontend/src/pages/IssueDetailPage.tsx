@@ -80,7 +80,7 @@ export const IssueDetailPage: React.FC = () => {
             </span>
           )}
           <span className="text-xs text-slate-400 dark:text-slate-500">
-            {timeAgo(post.published_at ?? post.scraped_at)}
+            {timeAgo(post.published_at ?? post.first_scraped_at)}
           </span>
         </div>
 

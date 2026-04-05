@@ -27,6 +27,7 @@ const makePost = (id: number, title: string): Post => ({
   comment_count: 10,
   like_count: 5,
   vote_count: 0,
+  first_scraped_at: new Date().toISOString(),
   scraped_at: new Date().toISOString(),
   category: 'community',
 });

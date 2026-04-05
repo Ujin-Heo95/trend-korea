@@ -68,12 +68,12 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
 
       const orderBy = isTrending
         ? 'COALESCE(ps.trend_score, 0) DESC, p.id DESC'
-        : 'p.scraped_at DESC, p.id DESC';
+        : 'COALESCE(p.published_at, p.first_scraped_at) DESC, p.id DESC';
 
       const [rows, count] = await Promise.all([
         app.pg.query(
           `SELECT p.id, p.source_key, p.source_name, p.title, p.url, p.thumbnail,
-                  p.author, p.view_count, p.comment_count, p.like_count, p.vote_count, p.published_at, p.scraped_at, p.category, p.subcategory, p.metadata
+                  p.author, p.view_count, p.comment_count, p.like_count, p.vote_count, p.published_at, p.first_scraped_at, p.scraped_at, p.category, p.subcategory, p.metadata
            FROM posts p
            LEFT JOIN post_scores ps ON ps.post_id = p.id
            ${where}
@@ -186,7 +186,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
     const r = await app.pg.query(
       `SELECT p.id, p.source_key, p.source_name, p.title, p.url, p.thumbnail,
               p.author, p.view_count, p.comment_count, p.like_count, p.vote_count, p.published_at,
-              p.scraped_at, p.category, p.metadata, COALESCE(ps.trend_score, 0) AS trend_score
+              p.first_scraped_at, p.scraped_at, p.category, p.metadata, COALESCE(ps.trend_score, 0) AS trend_score
        FROM posts p
        LEFT JOIN post_scores ps ON ps.post_id = p.id
        WHERE p.scraped_at > NOW() - INTERVAL '6 hours'
