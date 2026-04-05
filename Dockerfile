@@ -1,5 +1,5 @@
 # ── Stage 1: Build ──────────────────────────────────────
-FROM node:22-slim AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ RUN npm run build --workspace=backend
 RUN ls -la backend/dist/server.js frontend/dist/index.html
 
 # ── Stage 2: Production ────────────────────────────────
-FROM node:22-slim
+FROM node:20-slim
 
 WORKDIR /app
 
