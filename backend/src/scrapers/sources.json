@@ -85,7 +85,7 @@
       "name": "SBS 뉴스 YouTube",
       "category": "video",
       "type": "rss",
-      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCkinYTS9IHqOEwR1Azi2Dpg",
+      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCuuTCooIMbBFHNbPcSS70uw",
       "priority": "medium",
       "enabled": true
     },
@@ -94,7 +94,7 @@
       "name": "YTN YouTube",
       "category": "video",
       "type": "rss",
-      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UChlgI3UHCOnwUGzWzbJ3H5A",
+      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UChlgI3UHCOnwUGzWzbJ3H5w",
       "priority": "medium",
       "enabled": true
     },
@@ -121,7 +121,7 @@
       "name": "JTBC 뉴스 YouTube",
       "category": "video",
       "type": "rss",
-      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCsU-I-vHLiaMfQ_5gJnwVMw",
+      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCsU-I-vHLiaMfV_ceaYz5rQ",
       "priority": "medium",
       "enabled": true
     },
@@ -353,7 +353,7 @@
       "module": "./dcinside-hotdeal.js",
       "className": "DcinsideHotdealScraper",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "krx",
@@ -795,7 +795,7 @@
       "module": "./tour-festival.js",
       "className": "TourFestivalScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "tour_visitor",
@@ -815,7 +815,7 @@
       "module": "./kcisa-performance.js",
       "className": "KcisaPerformanceScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "ohmynews",
@@ -908,7 +908,7 @@
       "module": "./upbit.js",
       "className": "UpbitScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "melon_chart",
