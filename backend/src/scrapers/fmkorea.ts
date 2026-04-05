@@ -8,7 +8,18 @@ export class FmkoreaScraper extends BaseScraper {
 
   async fetch(): Promise<ScrapedPost[]> {
     const $ = await fetchHtml('https://www.fmkorea.com/index.php?mid=best', {
-      headers: { Referer: 'https://www.fmkorea.com/' },
+      headers: {
+        Referer: 'https://www.fmkorea.com/',
+        'Accept-Encoding': 'gzip, deflate, br',
+        Connection: 'keep-alive',
+        'Cache-Control': 'max-age=0',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
+      },
+      delay: [1500, 3500],
     });
 
     const posts: ScrapedPost[] = [];
