@@ -37,7 +37,7 @@ export async function notifyScraperErrors(
       console.error(`[discord] webhook failed: ${res.status}`);
     }
   } catch (err) {
-    logger.error('[discord] webhook error:', err);
+    logger.error({ err }, '[discord] webhook error');
   }
 }
 
@@ -76,7 +76,7 @@ export async function notifyApiKeyFailure(
       console.error(`[discord] api key alert webhook failed: ${res.status}`);
     }
   } catch (err) {
-    logger.error('[discord] api key alert webhook error:', err);
+    logger.error({ err }, '[discord] api key alert webhook error');
   }
 }
 
@@ -110,6 +110,6 @@ export async function notifyBudgetAlert(
       console.error(`[discord] budget alert webhook failed: ${res.status}`);
     }
   } catch (err) {
-    logger.error('[discord] budget alert webhook error:', err);
+    logger.error({ err }, '[discord] budget alert webhook error');
   }
 }
