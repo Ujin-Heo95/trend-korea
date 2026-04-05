@@ -1,6 +1,11 @@
 import { config } from '../config/index.js';
 import { notifyApiKeyFailure } from './discord.js';
 
+/** URL 내 API 키 파라미터 마스킹 — 로그/Discord에 키 노출 방지 */
+function maskApiKeyInMessage(msg: string): string {
+  return msg.replace(/([?&](?:key|serviceKey|service|ServiceKey)=)[^&\s]+/gi, '$1***');
+}
+
 export interface ApiKeyStatus {
   key: string;
   configured: boolean;
@@ -187,7 +192,8 @@ export async function checkApiKeys(forceRefresh = false): Promise<ApiKeyStatus[]
           lastChecked: new Date().toISOString(),
         };
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
+        const rawMsg = err instanceof Error ? err.message : String(err);
+        const errorMsg = maskApiKeyInMessage(rawMsg);
         // 실패 시 Discord 알림 (1시간 쿨다운 내장)
         notifyApiKeyFailure(def.key, errorMsg).catch(() => {});
         return {

@@ -1,8 +1,10 @@
-import { gzipSync } from 'node:zlib';
+import { gzip } from 'node:zlib';
+import { promisify } from 'node:util';
 import { pool } from '../db/client.js';
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 
+const gzipAsync = promisify(gzip);
 const BUCKET = 'db-backups';
 
 // 복구 시 중요한 테이블만 백업 (scraper_runs, engagement_snapshots 등 재생성 가능 데이터 제외)
@@ -17,6 +19,8 @@ const BACKUP_TABLES = [
   'schema_migrations',
 ] as const;
 
+const ALLOWED_TABLES = new Set<string>(BACKUP_TABLES);
+
 interface BackupResult {
   success: boolean;
   fileName?: string;
@@ -25,8 +29,13 @@ interface BackupResult {
   error?: string;
 }
 
-/** 테이블 데이터를 CSV 형식으로 추출 */
+/** 테이블 데이터를 JSONL 형식으로 추출 */
 async function dumpTable(tableName: string): Promise<string> {
+  // SQL injection 방어: 허용된 테이블만 처리
+  if (!ALLOWED_TABLES.has(tableName)) {
+    throw new Error(`dumpTable: disallowed table "${tableName}"`);
+  }
+
   const { rows } = await pool.query(
     `SELECT column_name FROM information_schema.columns
      WHERE table_name = $1 AND table_schema = 'public'
@@ -47,8 +56,10 @@ async function dumpTable(tableName: string): Promise<string> {
   const generatedSet = new Set(genCols.map((r: { column_name: string }) => r.column_name));
   const insertCols = columns.filter((c: string) => !generatedSet.has(c));
 
-  const colList = insertCols.join(',');
-  const dataRows = await pool.query(`SELECT row_to_json(t) FROM (SELECT ${colList} FROM ${tableName}) t`);
+  // 식별자 인용: SQL injection 방지
+  const safeTable = `"${tableName}"`;
+  const safeCols = insertCols.map((c: string) => `"${c}"`).join(', ');
+  const dataRows = await pool.query(`SELECT row_to_json(t) FROM (SELECT ${safeCols} FROM ${safeTable}) t`);
   const header = `-- TABLE: ${tableName} (${dataRows.rowCount} rows)\n`;
   const jsonLines = dataRows.rows.map((r: { row_to_json: unknown }) => JSON.stringify(r.row_to_json));
   return header + jsonLines.join('\n') + '\n';
@@ -91,7 +102,8 @@ async function cleanOldBackups(): Promise<number> {
 
   if (!res.ok) return 0;
 
-  const files: { name: string; created_at: string }[] = await res.json();
+  const raw = await res.json();
+  const files: { name: string; created_at: string }[] = Array.isArray(raw) ? raw : [];
   const cutoff = Date.now() - config.backupRetentionDays * 24 * 60 * 60 * 1000;
   const toDelete = files.filter(f => new Date(f.created_at).getTime() < cutoff);
 
@@ -140,7 +152,7 @@ export async function performDatabaseBackup(): Promise<BackupResult> {
     }
 
     const raw = parts.join('\n');
-    const compressed = gzipSync(Buffer.from(raw, 'utf-8'), { level: 9 });
+    const compressed = await gzipAsync(Buffer.from(raw, 'utf-8'), { level: 9 });
 
     // 2. 업로드
     await uploadToStorage(fileName, compressed);

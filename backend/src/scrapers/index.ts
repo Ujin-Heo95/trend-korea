@@ -7,18 +7,11 @@ import { notifyScraperErrors, type ScraperError } from '../services/discord.js';
 const SCRAPER_TIMEOUT_MS = 30_000;
 const runningLocks = new Map<string, boolean>();
 
-function withTimeout<T>(
-  promiseFn: (signal: AbortSignal) => Promise<T>,
-  ms: number,
-  label: string,
-): Promise<T> {
-  const controller = new AbortController();
+/** 타임아웃 래퍼: 지정 시간 초과 시 reject. 내부 HTTP 요청은 자체 timeout으로 정리됨 */
+function withTimeout<T>(promiseFn: () => Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      controller.abort();
-      reject(new Error(`[${label}] timed out after ${ms}ms`));
-    }, ms);
-    promiseFn(controller.signal).then(resolve, reject).finally(() => clearTimeout(timer));
+    const timer = setTimeout(() => reject(new Error(`[${label}] timed out after ${ms}ms`)), ms);
+    promiseFn().then(resolve, reject).finally(() => clearTimeout(timer));
   });
 }
 

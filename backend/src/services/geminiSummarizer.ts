@@ -63,6 +63,7 @@ export async function summarizeIssue(
 
   // 일일 쿼터 가드: Gemini API 과도 호출 방지
   if (!checkQuota('gemini', 500)) return null;
+  incrementQuota('gemini'); // 즉시 예약 (비동기 호출 전 race condition 방지)
 
   try {
     const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
@@ -88,7 +89,6 @@ export async function summarizeIssue(
       summary: parsed.summary,
     };
 
-    incrementQuota('gemini');
     summaryCache.set(cacheKey, { summary, cachedAt: Date.now() });
     return summary;
   } catch (err) {
