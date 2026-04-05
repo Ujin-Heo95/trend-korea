@@ -12,7 +12,6 @@ import { SourceFilterChips } from '../components/SourceFilterChips';
 import { MovieRankingTable } from '../components/MovieRankingTable';
 import { MusicRankingTable } from '../components/MusicRankingTable';
 import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
-import { SnsRankingTable } from '../components/SnsRankingTable';
 import { BookRankingTable } from '../components/BookRankingTable';
 import { OttRankingTable } from '../components/OttRankingTable';
 import { EntertainmentSubTabs, type EntertainmentSub } from '../components/EntertainmentSubTabs';
@@ -25,12 +24,11 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh';
 
 const CATEGORY_TITLES: Record<string, string> = {
   community: '커뮤니티',
-  'news,press,newsletter,tech': '뉴스',
+  'news,press,newsletter,tech,finance': '뉴스',
   video: 'YouTube',
   deals: '핫딜',
   entertainment: '엔터테인먼트',
   travel: '여행',
-  sns: 'SNS',
 };
 
 const ENTERTAINMENT_CATEGORY_MAP: Record<EntertainmentSub, string> = {
@@ -59,7 +57,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const [newsSubcategory, setNewsSubcategory] = useState<string | undefined>(undefined);
   const [entertainmentSub, setEntertainmentSub] = useState<EntertainmentSub>('all');
   const [, startTransition] = useTransition();
-  const isNewsTab = category === 'news,press,newsletter,tech';
+  const isNewsTab = category === 'news,press,newsletter,tech,finance';
   const isEntertainmentTab = category === 'entertainment';
   const isAllTab = !category && !searchQuery;
 
@@ -218,8 +216,6 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           <OttRankingTable posts={allPosts} />
         ) : isEntertainmentTab && entertainmentSub === 'all' ? (
           <EntertainmentAllView posts={allPosts} />
-        ) : category === 'sns' ? (
-          <SnsRankingTable posts={allPosts} />
         ) : category === 'community' && selectedSources.length === 0 && sortMode === 'trending' ? (
           <CommunityRankingList posts={allPosts} isRead={isRead} onRead={markAsRead} />
         ) : (

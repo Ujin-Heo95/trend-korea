@@ -4,12 +4,11 @@ import { HorizontalScrollRow } from './shared/HorizontalScrollRow';
 const CATEGORIES: { key: string | undefined; label: string; icon: string }[] = [
   { key: undefined,                                                label: '전체',        icon: '📋' },
   { key: 'community',                                             label: '커뮤니티',    icon: '💬' },
-  { key: 'news,press,newsletter,tech',                            label: '뉴스',        icon: '📰' },
+  { key: 'news,press,newsletter,tech,finance',                     label: '뉴스',        icon: '📰' },
   { key: 'video',                                                 label: '영상',        icon: '🎬' },
   { key: 'deals',                                                 label: '핫딜',        icon: '🔥' },
   { key: 'entertainment',                                         label: '엔터테인먼트', icon: '🎭' },
   { key: 'travel',                                                label: '여행',        icon: '✈️' },
-  { key: 'sns',                                                  label: 'SNS',        icon: '📱' },
 ];
 
 interface Props {

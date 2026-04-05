@@ -79,7 +79,7 @@ async function _calculateScores(pool: Pool): Promise<number> {
              p.published_at, p.first_scraped_at, p.scraped_at
       FROM posts p
       WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
-        AND COALESCE(p.category, '') IN ('news', 'press', 'community')
+        AND COALESCE(p.category, '') IN ('news', 'press', 'community', 'finance')
     `),
   ]);
 
