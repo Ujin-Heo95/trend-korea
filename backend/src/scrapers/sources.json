@@ -499,7 +499,7 @@
       "module": "./fmkorea.js",
       "className": "FmkoreaScraper",
       "priority": "medium",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "mlbpark",
@@ -795,7 +795,7 @@
       "module": "./tour-festival.js",
       "className": "TourFestivalScraper",
       "priority": "low",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "tour_visitor",
@@ -815,7 +815,7 @@
       "module": "./kcisa-performance.js",
       "className": "KcisaPerformanceScraper",
       "priority": "low",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "ohmynews",
@@ -1087,6 +1087,46 @@
       "module": "./flixpatrol.js",
       "className": "FlixPatrolScraper",
       "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "nate_realtime",
+      "name": "네이트 실시간 검색어",
+      "category": "trend",
+      "type": "html",
+      "module": "./nate-realtime.js",
+      "className": "NateRealtimeScraper",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "zum_realtime",
+      "name": "ZUM 실시간 검색어",
+      "category": "trend",
+      "type": "html",
+      "module": "./zum-realtime.js",
+      "className": "ZumRealtimeScraper",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "wikipedia_ko",
+      "name": "위키백과 인기 문서",
+      "category": "trend",
+      "type": "api",
+      "module": "./wikipedia-ko.js",
+      "className": "WikipediaKoScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "natepann_ranking",
+      "name": "네이트판 명예의 전당",
+      "category": "community",
+      "type": "html",
+      "module": "./natepann-ranking.js",
+      "className": "NatepannRankingScraper",
+      "priority": "medium",
       "enabled": true
     }
   ]

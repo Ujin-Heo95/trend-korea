@@ -113,6 +113,81 @@ export async function extractTrendKeywords(pool: Pool): Promise<number> {
     }
   }
 
+  // Nate 실시간 검색어: metadata->>'keyword'
+  const nateRows = await pool.query<{
+    keyword: string; rank: number; scraped_at: Date;
+  }>(`
+    SELECT metadata->>'keyword' AS keyword,
+           COALESCE((metadata->>'rank')::int, 10) AS rank,
+           scraped_at
+    FROM posts
+    WHERE source_key = 'nate_realtime'
+      AND scraped_at > NOW() - INTERVAL '12 hours'
+      AND metadata->>'keyword' IS NOT NULL
+  `);
+
+  for (const r of nateRows.rows) {
+    if (!r.keyword || r.keyword.length < 2) continue;
+    entries.push({
+      keyword: r.keyword,
+      normalized: normalizeTitle(r.keyword),
+      sourceKey: 'nate_realtime',
+      strength: Math.max(0.1, 1.0 - (r.rank - 1) * 0.09),
+      metadata: JSON.stringify({ rank: r.rank }),
+      scrapedAt: r.scraped_at,
+    });
+  }
+
+  // ZUM 실시간 검색어: metadata->>'keyword'
+  const zumRows = await pool.query<{
+    keyword: string; rank: number; scraped_at: Date;
+  }>(`
+    SELECT metadata->>'keyword' AS keyword,
+           COALESCE((metadata->>'rank')::int, 10) AS rank,
+           scraped_at
+    FROM posts
+    WHERE source_key = 'zum_realtime'
+      AND scraped_at > NOW() - INTERVAL '12 hours'
+      AND metadata->>'keyword' IS NOT NULL
+  `);
+
+  for (const r of zumRows.rows) {
+    if (!r.keyword || r.keyword.length < 2) continue;
+    entries.push({
+      keyword: r.keyword,
+      normalized: normalizeTitle(r.keyword),
+      sourceKey: 'zum_realtime',
+      strength: Math.max(0.1, 1.0 - (r.rank - 1) * 0.09),
+      metadata: JSON.stringify({ rank: r.rank }),
+      scrapedAt: r.scraped_at,
+    });
+  }
+
+  // Wikipedia 한국어 인기 문서: metadata->>'keyword'
+  const wikiRows = await pool.query<{
+    keyword: string; views: number; scraped_at: Date;
+  }>(`
+    SELECT metadata->>'keyword' AS keyword,
+           COALESCE((metadata->>'views')::int, 0) AS views,
+           scraped_at
+    FROM posts
+    WHERE source_key = 'wikipedia_ko'
+      AND scraped_at > NOW() - INTERVAL '36 hours'
+      AND metadata->>'keyword' IS NOT NULL
+  `);
+
+  for (const r of wikiRows.rows) {
+    if (!r.keyword || r.keyword.length < 2) continue;
+    entries.push({
+      keyword: r.keyword,
+      normalized: normalizeTitle(r.keyword),
+      sourceKey: 'wikipedia_ko',
+      strength: Math.min(r.views / 50_000, 1.0),
+      metadata: JSON.stringify({ views: r.views }),
+      scrapedAt: r.scraped_at,
+    });
+  }
+
   if (entries.length === 0) return 0;
 
   // Batch UPSERT

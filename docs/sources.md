@@ -58,16 +58,16 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ---
 
-## 2. 현재 소스 현황 (109개 등록, 83개 활성)
+## 2. 현재 소스 현황 (113개 등록, 90개 활성)
 
 | 카테고리 | 소스 | 수집방식 | 우선순위 | 상태 |
 |----------|------|----------|----------|------|
 | community | dcinside, bobaedream, theqoo, instiz, natepann, todayhumor | HTML | high | 안정 |
 | community | ppomppu, ddanzi | RSS | high | 안정 |
 | community | clien | HTML | medium | 안정 |
-| community | fmkorea | HTML | medium | **disabled** (봇 차단 430, 2026-04-05) |
+| community | fmkorea | HTML | medium | 복구 (헤더 강화, 2026-04-05) |
 | community | mlbpark, cook82, inven, humoruniv, ygosu, slrclub, etoland, dogdrip | HTML | high/medium | 안정 (dogdrip/slrclub 간헐적 차단) |
-| community | ruliweb | HTML | high | **disabled** (timeout) |
+| community | ruliweb | HTML | high | 안정 (fetchHtml 전환 완료) |
 | community | reddit_korea, reddit_hanguk | RSS (Atom) | low | **disabled** (비활성화 2026-04-04) |
 | news | yna, hani, sbs, donga, khan, hankyung, mk, kmib | RSS | medium | 안정 |
 | news | chosun, jtbc | RSS | high | 안정 |
@@ -98,12 +98,16 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | ott | flixpatrol | HTML | low | 안정 |
 | trend | google_trends | RSS | medium | 안정 |
 | trend | naver_datalab | API | medium | 안정 |
+| trend | nate_realtime | JSON (EUC-KR) | medium | 신규 (2026-04-05) — 네이트 실시간 검색어, trend_keywords 연동 |
+| trend | zum_realtime | HTML | medium | 신규 (2026-04-05) — ZUM 실시간 검색어, trend_keywords 연동 |
+| trend | wikipedia_ko | API | low | 신규 (2026-04-05) — 한국어 위키백과 일간 인기 문서 Top50 |
+| community | natepann_ranking | HTML | medium | 신규 (2026-04-05) — 네이트판 명예의 전당 일간 랭킹 |
 | government | korea_press, korea_policy, korea_briefing | RSS | low | 안정 |
 | performance | kopis_boxoffice | API | low | 안정 |
-| performance | kcisa_performance | API | low | **disabled** (API 에러, 2026-04-05) |
+| performance | kcisa_performance | API | low | 복구 (re-enabled, 2026-04-05) |
 | movie | kobis_boxoffice | API | low | 안정 |
 | travel | tour_visitor | API | low | 안정 |
-| travel | tour_festival | API | low | **disabled** (API 에러, 2026-04-05) |
+| travel | tour_festival | API | low | 복구 (re-enabled, 2026-04-05) |
 | sports | sports_donga | RSS | medium | **disabled** (빈 응답) |
 | press | newswire | RSS | medium | 안정 |
 | newsletter | uppity | RSS | low | 안정 |
