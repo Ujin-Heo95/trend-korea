@@ -1,73 +1,79 @@
-import { Resolver } from 'node:dns/promises';
 import https from 'node:https';
+import { logger } from '../utils/logger.js';
 
 /**
- * api.kcisa.kr 등 한국 정부 API 도메인은 해외 DNS에서 해석 불가.
- * KT 공용 DNS(168.126.63.1)로 직접 해석 후 IP 반환.
- *
- * 사용법: URL의 호스트를 IP로 치환 + Host 헤더 추가
+ * api.kcisa.kr: 해외 DNS에서 해석 불가 → IP 직접 매핑.
+ * DNS 동적 해석 시도 후, 실패 시 하드코딩 IP 사용.
  */
 
-const KOREAN_DNS_SERVERS = ['168.126.63.1', '168.126.63.2'];
-const FALLBACK_IPS: Record<string, string> = {
+const KNOWN_IPS: Record<string, string> = {
   'api.kcisa.kr': '175.125.91.8',
 };
 
-const dnsCache = new Map<string, { ip: string; expiry: number }>();
-const CACHE_TTL_MS = 10 * 60 * 1000;
+let koreanDnsAvailable: boolean | null = null;
 
-const resolver = new Resolver();
-resolver.setServers(KOREAN_DNS_SERVERS);
-
-export async function resolveKoreanHost(hostname: string): Promise<string> {
-  const cached = dnsCache.get(hostname);
-  if (cached && cached.expiry > Date.now()) return cached.ip;
+async function tryKoreanDns(hostname: string): Promise<string | null> {
+  // 이미 실패 확인됐으면 스킵
+  if (koreanDnsAvailable === false) return null;
 
   try {
-    const addresses = await resolver.resolve4(hostname);
+    const { Resolver } = await import('node:dns/promises');
+    const resolver = new Resolver();
+    resolver.setServers(['168.126.63.1', '168.126.63.2']);
+
+    const addresses = await Promise.race([
+      resolver.resolve4(hostname),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+    ]);
+
     if (addresses.length > 0) {
-      dnsCache.set(hostname, { ip: addresses[0], expiry: Date.now() + CACHE_TTL_MS });
+      koreanDnsAvailable = true;
+      logger.info({ hostname, ip: addresses[0] }, '[korean-dns] resolved via KT DNS');
       return addresses[0];
     }
   } catch {
-    // Korean DNS도 실패 → 폴백
+    koreanDnsAvailable = false;
+    logger.warn({ hostname }, '[korean-dns] KT DNS unreachable, using hardcoded IP');
   }
 
-  const fallback = FALLBACK_IPS[hostname];
-  if (fallback) {
-    dnsCache.set(hostname, { ip: fallback, expiry: Date.now() + CACHE_TTL_MS });
-    return fallback;
-  }
-
-  throw new Error(`[korean-dns] cannot resolve ${hostname}`);
+  return null;
 }
 
 /**
- * KCISA URL을 IP 기반으로 변환 + Host 헤더/TLS SNI 설정 반환.
+ * KCISA URL을 IP 기반으로 변환.
  * api.kcisa.kr → https://175.125.91.8/... + Host: api.kcisa.kr
  */
-export async function resolveKcisaRequest(url: string): Promise<{
+export async function resolveKcisaRequest(originalUrl: string): Promise<{
   url: string;
   headers: Record<string, string>;
   httpsAgent: https.Agent;
 }> {
-  const parsed = new URL(url);
+  const parsed = new URL(originalUrl);
   const hostname = parsed.hostname;
-  const ip = await resolveKoreanHost(hostname);
 
-  // IP로 URL 치환
+  // 1차: 동적 DNS 시도
+  const dynamicIp = await tryKoreanDns(hostname);
+
+  // 2차: 하드코딩 IP 폴백
+  const ip = dynamicIp ?? KNOWN_IPS[hostname];
+
+  if (!ip) {
+    // 매핑 없는 도메인 → 원래 URL 그대로 반환
+    return {
+      url: originalUrl,
+      headers: {},
+      httpsAgent: new https.Agent({ rejectUnauthorized: true }),
+    };
+  }
+
   parsed.hostname = ip;
-  const resolvedUrl = parsed.toString();
-
-  // TLS SNI를 원래 호스트네임으로 설정 (인증서 검증용)
-  const agent = new https.Agent({
-    servername: hostname,
-    rejectUnauthorized: true,
-  });
 
   return {
-    url: resolvedUrl,
+    url: parsed.toString(),
     headers: { Host: hostname },
-    httpsAgent: agent,
+    httpsAgent: new https.Agent({
+      servername: hostname,
+      rejectUnauthorized: true,
+    }),
   };
 }
