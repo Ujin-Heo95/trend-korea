@@ -105,9 +105,11 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | government | korea_press, korea_policy, korea_briefing | RSS | low | 안정 |
 | performance | kopis_boxoffice | API | low | 안정 |
 | performance | kcisa_performance | API | low | 복구 (re-enabled, 2026-04-05) |
+| performance | seoul_cultural_event | API | low | 신규 (2026-04-05) — 서울문화포털, 오늘 진행 행사 |
 | movie | kobis_boxoffice | API | low | 안정 |
 | travel | tour_visitor | API | low | 안정 |
 | travel | tour_festival | API | low | 복구 (re-enabled, 2026-04-05) |
+| travel | seoul_citydata | API | medium | 신규 (2026-04-05) — 서울 실시간 혼잡도/인구 10개 지역 |
 | sports | sports_donga | RSS | medium | **disabled** (빈 응답) |
 | press | newswire | RSS | medium | 안정 |
 | newsletter | uppity | RSS | low | 안정 |
@@ -230,6 +232,9 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | 바이라인네트워크 RSS | 403 (2026-04) | -- |
 | 우아한형제들 기술블로그 | 403 (2026-04) | 당근 기술블로그 |
 | 쿨엔조이 RSS | RSS 404 (http/https 모두, 2026-04) | 퀘사이사존 핫딜 HTML |
+| KCISA 문화예술행사 (kcisa_event) | API 업데이트 중단 — 2016~2017년 데이터만 반환 (2026-04) | 서울문화행사 |
+| KCISA 지역축제정보 (kcisa_festival) | API 업데이트 중단 — 2016년 축제만 반환 (2026-04) | 서울문화행사 |
+| KCISA 추천여행지 (kcisa_travel) | 시의성 없는 정적 카탈로그, 업데이트 없음 (2026-04) | -- |
 
 ---
 
@@ -242,7 +247,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ### Tier 2 — API (대부분 연동 완료)
 
-**연동 완료**: KOBIS, 업비트, 네이버 Datalab, 카카오(다음) 검색, BIG KINDS, KOPIS, 관광공사
+**연동 완료**: KOBIS, 업비트, 네이버 Datalab, 카카오(다음) 검색, BIG KINDS, KOPIS, 관광공사, 서울열린데이터(도시데이터+문화행사)
 **미연동 (API 키 필요)**: 빗썸, 한국은행 ECOS, DART, 에어코리아
 
 ### Tier 3 — HTML (일부 연동 완료)

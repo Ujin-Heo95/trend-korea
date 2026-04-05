@@ -30,6 +30,7 @@ interface Config {
   kcisaPerformanceApiKey: string;
   kcisaExhibitionApiKey: string;
   culturePerformanceApiKey: string;
+  seoulOpenApiKey: string;
   adminToken: string;
   corsOrigin: string[];
   nodeEnv: string;
@@ -114,6 +115,7 @@ export const config: Config = {
   kcisaPerformanceApiKey: process.env.KCISA_PERFORMANCE_API_KEY ?? '',
   kcisaExhibitionApiKey: process.env.KCISA_EXHIBITION_API_KEY ?? '',
   culturePerformanceApiKey: process.env.CULTURE_PERFORMANCE_API_KEY ?? '',
+  seoulOpenApiKey: process.env.SEOUL_OPEN_API_KEY ?? '',
   adminToken: process.env.ADMIN_TOKEN ?? (() => {
     if (process.env.NODE_ENV === 'production') {
       console.warn('[config] WARNING: ADMIN_TOKEN is not set — admin endpoints are disabled in production');

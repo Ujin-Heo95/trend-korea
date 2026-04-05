@@ -846,7 +846,7 @@
       "module": "./kcisa-travel.js",
       "className": "KcisaTravelScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kcisa_festival",
@@ -856,7 +856,7 @@
       "module": "./kcisa-festival.js",
       "className": "KcisaFestivalScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kcisa_event",
@@ -866,7 +866,7 @@
       "module": "./kcisa-event.js",
       "className": "KcisaEventScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kcisa_cca_performance",
@@ -1201,6 +1201,26 @@
       "module": "./natepann-ranking.js",
       "className": "NatepannRankingScraper",
       "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "seoul_citydata",
+      "name": "서울 실시간 도시데이터",
+      "category": "travel",
+      "type": "api",
+      "module": "./seoul-citydata.js",
+      "className": "SeoulCitydataScraper",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
+      "key": "seoul_cultural_event",
+      "name": "서울문화행사",
+      "category": "performance",
+      "type": "api",
+      "module": "./seoul-cultural-event.js",
+      "className": "SeoulCulturalEventScraper",
+      "priority": "low",
       "enabled": true
     }
   ]
