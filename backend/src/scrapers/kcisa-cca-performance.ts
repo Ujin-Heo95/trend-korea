@@ -21,8 +21,15 @@ export class KcisaCcaPerformanceScraper extends KcisaBaseScraper {
   }
 
   protected mapItems(items: readonly KcisaItem[]): ScrapedPost[] {
+    const seen = new Set<string>();
     return items
-      .filter(item => (item.TITLE || item.title) && (item.URL || item.url))
+      .filter(item => {
+        const url = item.URL || item.url || '';
+        if (!url || !(item.TITLE || item.title)) return false;
+        if (seen.has(url)) return false;
+        seen.add(url);
+        return true;
+      })
       .map((item): ScrapedPost => {
         const title = item.TITLE || item.title || '';
         const url = item.URL || item.url || '';
