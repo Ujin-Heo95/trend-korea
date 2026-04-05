@@ -38,6 +38,9 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/backend/dist backend/dist
 COPY --from=builder /app/frontend/dist frontend/dist
 
+COPY start.sh .
+RUN chmod +x start.sh
+
 ENV NODE_ENV=production
 
-CMD ["sh", "-c", "echo '[docker] starting server...' && node backend/dist/db/migrate.js && echo '[docker] migration done, launching server' && node backend/dist/server.js 2>&1"]
+CMD ["./start.sh"]
