@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useIssueRankings } from '../hooks/useIssueRankings';
 import { getSourceColor } from '../constants/sourceColors';
+import { optimizedImage } from '../utils/imageProxy';
 import type { IssueRanking, IssueRelatedPost, ChannelTag } from '../types';
 
 // ─── Category Badge Colors ───
@@ -72,11 +73,13 @@ export const IssueRankingList: React.FC = () => {
   }
 
   return (
-    <div className="space-y-3">
+    <div>
       <AggregationTimestamp calculatedAt={data.calculated_at} />
-      {data.issues.map((issue) => (
-        <IssueCard key={issue.id} issue={issue} />
-      ))}
+      <div className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+        {data.issues.map((issue) => (
+          <IssueCard key={issue.id} issue={issue} />
+        ))}
+      </div>
     </div>
   );
 };
@@ -128,22 +131,17 @@ const RankChangeIndicator: React.FC<{ change: number | null }> = ({ change }) =>
 // ─── Issue Card ───
 
 const IssueCard: React.FC<{ issue: IssueRanking }> = ({ issue }) => {
-  const [activeChannels, setActiveChannels] = useState<Set<ChannelTag>>(new Set());
+  const [activeChannel, setActiveChannel] = useState<ChannelTag | null>(null);
 
   const toggleChannel = (tag: ChannelTag) => {
-    setActiveChannels(prev => {
-      const next = new Set(prev);
-      if (next.has(tag)) next.delete(tag);
-      else next.add(tag);
-      return next;
-    });
+    setActiveChannel(prev => prev === tag ? null : tag);
   };
 
   const categoryColor = CATEGORY_BADGE[issue.category_label ?? ''] ?? 'text-slate-600 dark:text-slate-400';
   const fallbackIcon = CATEGORY_ICONS[issue.category_label ?? ''] ?? '📰';
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div className="overflow-hidden">
       <div className="px-4 py-3">
         {/* Line 1: Rank (small) + Category */}
         <div className="flex items-center gap-1.5 mb-1">
@@ -173,7 +171,7 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = ({ issue }) => {
             {issue.thumbnail ? (
               <div className="flex-shrink-0 w-24 h-16 sm:w-28 sm:h-20 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
                 <img
-                  src={issue.thumbnail}
+                  src={optimizedImage(issue.thumbnail, 400)}
                   alt=""
                   className="w-full h-full object-cover"
                   loading="lazy"
@@ -185,41 +183,39 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = ({ issue }) => {
               </div>
             )}
             {issue.summary && (
-              <p className="flex-1 min-w-0 text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-3">
+              <p className="flex-1 min-w-0 text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-4">
                 {issue.summary}
               </p>
             )}
           </div>
         )}
 
-        {/* Channel Tags + Detail Link */}
-        <div className="flex items-center justify-between gap-2 mt-1">
-          <div className="flex flex-wrap gap-1.5">
-            {issue.channel_tags.map(tag => {
-              const style = CHANNEL_TAG_STYLES[tag];
-              const isActive = activeChannels.has(tag);
-              const count = tag === 'news'
-                ? issue.news_post_count + issue.video_post_count
-                : tag === 'community'
-                  ? issue.community_post_count
-                  : 0;
+        {/* Channel Tags — prominent row */}
+        <div className="flex items-center gap-2 mt-2 overflow-x-auto scrollbar-hide">
+          {issue.channel_tags.map(tag => {
+            const style = CHANNEL_TAG_STYLES[tag];
+            const isActive = activeChannel === tag;
+            const count = tag === 'news'
+              ? issue.news_post_count + issue.video_post_count
+              : tag === 'community'
+                ? issue.community_post_count
+                : 0;
 
-              return (
-                <button
-                  key={tag}
-                  onClick={() => toggleChannel(tag)}
-                  className={`px-2 py-0.5 rounded-full border text-[11px] font-medium transition-colors ${
-                    isActive ? style.active : style.default
-                  }`}
-                >
-                  {style.label}{count > 0 ? ` ${count}` : ''}
-                </button>
-              );
-            })}
-          </div>
+            return (
+              <button
+                key={tag}
+                onClick={() => toggleChannel(tag)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+                  isActive ? style.active : style.default
+                }`}
+              >
+                {style.label}{count > 0 ? ` ${count}` : ''}
+              </button>
+            );
+          })}
           <Link
             to={`/issue/${issue.id}`}
-            className="flex-shrink-0 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+            className="flex-shrink-0 ml-auto text-xs text-blue-600 dark:text-blue-400 hover:underline"
           >
             자세히 보기 →
           </Link>
@@ -227,18 +223,18 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = ({ issue }) => {
       </div>
 
       {/* Expanded Channel Content */}
-      {activeChannels.size > 0 && (
+      {activeChannel !== null && (
         <div className="border-t border-slate-100 dark:border-slate-700/50 px-4 py-2 space-y-1">
-          {activeChannels.has('news') && (
+          {activeChannel === 'news' && (
             <>
               {issue.news_posts.length > 0 && <PostGroup label="뉴스" posts={issue.news_posts} />}
               {issue.video_posts.length > 0 && <PostGroup label="영상" posts={issue.video_posts} />}
             </>
           )}
-          {activeChannels.has('community') && issue.community_posts.length > 0 && (
+          {activeChannel === 'community' && issue.community_posts.length > 0 && (
             <PostGroup label="커뮤니티" posts={issue.community_posts} />
           )}
-          {activeChannels.has('portal') && issue.matched_keywords.length > 0 && (
+          {activeChannel === 'portal' && issue.matched_keywords.length > 0 && (
             <div>
               <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1 mt-1">포털 트렌드</p>
               <div className="flex flex-wrap gap-1">
@@ -250,7 +246,7 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = ({ issue }) => {
               </div>
             </div>
           )}
-          {activeChannels.has('sns') && issue.sns_keywords.length > 0 && (
+          {activeChannel === 'sns' && issue.sns_keywords.length > 0 && (
             <div>
               <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1 mt-1">SNS 트렌드</p>
               <div className="flex flex-wrap gap-1">
@@ -301,9 +297,9 @@ const PostGroup: React.FC<{ label: string; posts: IssueRelatedPost[] }> = ({ lab
 
 function IssueRankingSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
       {Array.from({ length: 8 }, (_, i) => (
-        <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 animate-pulse">
+        <div key={i} className="px-4 py-3 animate-pulse">
           <div className="flex items-center gap-1.5 mb-1">
             <div className="w-4 h-4 rounded bg-slate-200 dark:bg-slate-700" />
             <div className="w-10 h-3 rounded bg-slate-200 dark:bg-slate-700" />
@@ -316,9 +312,9 @@ function IssueRankingSkeleton() {
               <div className="h-4 bg-slate-100 dark:bg-slate-700/50 rounded w-2/3" />
             </div>
           </div>
-          <div className="flex gap-1.5">
-            <div className="w-14 h-5 rounded-full bg-slate-200 dark:bg-slate-700" />
-            <div className="w-16 h-5 rounded-full bg-slate-200 dark:bg-slate-700" />
+          <div className="flex gap-2">
+            <div className="w-16 h-7 rounded-lg bg-slate-200 dark:bg-slate-700" />
+            <div className="w-20 h-7 rounded-lg bg-slate-200 dark:bg-slate-700" />
           </div>
         </div>
       ))}

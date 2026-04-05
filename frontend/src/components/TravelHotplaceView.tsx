@@ -127,7 +127,7 @@ function VisitorTable({ visitors }: { visitors: { post: Post; meta: VisitorMeta 
   const dataDate = visitors[0]?.meta.dataDate;
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
         <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
           지역별 방문객 트렌드
@@ -206,7 +206,7 @@ function DestinationList({ destinations }: { destinations: { post: Post; meta: D
           href={post.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="block bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors"
+          className="block bg-white dark:bg-slate-800 px-4 py-3 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10 transition-colors"
         >
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">

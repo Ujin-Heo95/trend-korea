@@ -429,6 +429,32 @@ function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): IssueG
   return scored.map(s => s.group);
 }
 
+// ─── Thumbnail Selection ───
+
+const LOW_QUALITY_PATTERNS = /no_image|noimage|placeholder|favicon|logo|icon_default|thumb_default/i;
+
+function isValidThumbnail(url: string): boolean {
+  return !LOW_QUALITY_PATTERNS.test(url);
+}
+
+function pickBestThumbnail(posts: readonly ScoredPost[]): string | null {
+  const candidates = posts.filter(p => p.thumbnail && isValidThumbnail(p.thumbnail));
+  if (candidates.length === 0) return null;
+
+  const scored = candidates.map(p => {
+    let score = 0;
+    const ch = getChannel(p.category);
+    if (ch === 'news') score += 3;
+    else if (ch === 'video') score += 2;
+    else score += 1;
+    score += Math.min(p.trendScore, 5);
+    return { thumbnail: p.thumbnail!, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0].thumbnail;
+}
+
 // ─── Step 5: Build Issue Row ───
 
 function buildIssueRow(group: IssueGroup, cfg: IssueConfig): IssueRow {
@@ -450,12 +476,8 @@ function buildIssueRow(group: IssueGroup, cfg: IssueConfig): IssueRow {
 
   const categoryLabel = deriveCategoryLabel(canonicalPost?.title ?? '');
 
-  // Find best thumbnail — check news, then video, then community
-  const thumbnail = canonicalPost?.thumbnail
-    ?? group.newsPosts.find(p => p.thumbnail)?.thumbnail
-    ?? group.videoPosts.find(p => p.thumbnail)?.thumbnail
-    ?? group.communityPosts.find(p => p.thumbnail)?.thumbnail
-    ?? null;
+  // Find best thumbnail — score all posts, prefer news sources (higher resolution)
+  const thumbnail = pickBestThumbnail([...group.newsPosts, ...group.videoPosts, ...group.communityPosts]);
 
   const clusterIds = [...group.clusterIds];
   const standalonePostIds = [...group.standalonePostIds];

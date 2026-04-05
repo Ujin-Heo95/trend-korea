@@ -204,7 +204,7 @@ export const CONFIG_GROUPS: readonly ConfigGroup[] = [
       { key: 'BASE_BONUS_BY_COUNT', defaultValue: [1.0, 1.15, 1.35, 1.6], min: 1.0, max: 3.0, step: 0.05, label: '매칭 소스 수별 기본 보너스', description: '[0소스, 1소스, 2소스, 3+소스]', type: 'array' },
       {
         key: 'temporal_decay',
-        defaultValue: { '0_1h': 1.0, '1_3h': 0.85, '3_6h': 0.6, '6_12h': 0.3 },
+        defaultValue: { '0_1h': 1.0, '1_3h': 0.95, '3_6h': 0.8, '6_12h': 0.3 },
         min: 0.0, max: 1.0, step: 0.05,
         label: '시간대별 감쇠율',
         description: '키워드 감지 시간 경과에 따른 감쇠',

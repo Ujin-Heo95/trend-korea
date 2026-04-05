@@ -1154,6 +1154,16 @@
       "enabled": true
     },
     {
+      "key": "kworb_youtube_kr",
+      "name": "YouTube 한국",
+      "category": "music",
+      "type": "html",
+      "module": "./kworb-youtube.js",
+      "className": "KworbYoutubeKrScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
       "key": "flixpatrol",
       "name": "FlixPatrol OTT 순위",
       "category": "ott",

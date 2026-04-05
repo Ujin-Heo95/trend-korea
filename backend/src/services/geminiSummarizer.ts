@@ -46,10 +46,10 @@ const SYSTEM_PROMPT = `당신은 한국 뉴스/커뮤니티/영상 트렌드를 
 제목을 우선적으로 참고하고, 본문 요약은 맥락 보충에 활용하세요.
 
 규칙:
-1. title: 이슈 핵심을 담은 구어체 제목 (30자 이내). 관심을 끄는 질문형이나 감탄형 권장. 이모지 1-2개 포함.
-   예시: "인스타그램, 돈 내면 스토리 몰래 볼 수 있다고? 🤳💸"
+1. title: 여러 게시글 제목의 공통 핵심을 추출·압축한 구어체 제목 (25자 이내). 제목들의 핵심 키워드·인물·사건을 하나의 짧은 문구로 합침. 이모지 1-2개 포함.
+   예시: "메타, 인스타 유료 구독 시범 운영 🤳💸"
 2. category: 사회/경제/정치/IT과학/연예/스포츠/생활/세계 중 1개
-3. summary: 핵심만 간결하게 2-3문장.
+3. summary: 3-4문장으로 육하원칙(누가/언제/어디서/무엇을/어떻게/왜) 요소를 빠짐없이 포함.
    - 엄격히 ~요체 구어체 존댓말만 사용 (~요, ~인데요, ~라고, ~거래요, ~이에요)
    - ~다 체 절대 금지 (~합니다, ~했다, ~이다 등 모두 금지)
    - 구체적 수치/인명/기관명 포함
@@ -107,7 +107,7 @@ export async function summarizeIssue(
       contents: [{ role: 'user', parts: [{ text: `${SYSTEM_PROMPT}\n\n게시글:\n${postsText}` }] }],
       generationConfig: {
         temperature: 0.3,
-        maxOutputTokens: 300,
+        maxOutputTokens: 500,
         responseMimeType: 'application/json',
       },
     });

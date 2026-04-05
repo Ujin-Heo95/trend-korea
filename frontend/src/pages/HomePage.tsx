@@ -15,6 +15,7 @@ import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
 import { BookRankingTable } from '../components/BookRankingTable';
 import { OttRankingTable } from '../components/OttRankingTable';
 import { EntertainmentSubTabs, type EntertainmentSub } from '../components/EntertainmentSubTabs';
+import { EntertainmentCompactSection } from '../components/EntertainmentCompactSection';
 import { TravelSubTabs, type TravelSub } from '../components/TravelSubTabs';
 import { TravelHotplaceView } from '../components/TravelHotplaceView';
 import { TravelFestivalCard } from '../components/TravelFestivalCard';
@@ -214,7 +215,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       {isAllTab ? (
         <IssueRankingList />
       ) : isLoading ? (
-        <div className="grid gap-3">
+        <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
           {Array.from({ length: 8 }, (_, i) => (
             <PostCardSkeleton key={i} />
           ))}
@@ -236,7 +237,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         ) : isEntertainmentTab && entertainmentSub === 'ott' ? (
           <OttRankingTable posts={allPosts} />
         ) : isEntertainmentTab && entertainmentSub === 'all' ? (
-          <EntertainmentAllView posts={allPosts} />
+          <EntertainmentAllView posts={allPosts} onSubTabChange={setEntertainmentSub} />
         ) : isTravelTab && travelSub === 'hotplace' ? (
           <TravelHotplaceView posts={allPosts} />
         ) : isTravelTab && travelSub === 'festival' ? (
@@ -248,7 +249,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         ) : category === 'community' && selectedSources.length === 0 && sortMode === 'trending' ? (
           <CommunityRankingList posts={allPosts} isRead={isRead} onRead={markAsRead} />
         ) : (
-          <div className="grid gap-3">
+          <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
             {allPosts.map((post, i) => (
               <React.Fragment key={post.id}>
                 <PostCard
@@ -274,7 +275,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           <h3 className="text-base font-bold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
             <span>🔥</span> 인기 급상승 영상
           </h3>
-          <div className="grid gap-3">
+          <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
             {popularVideos.posts.map((post, i) => (
               <PostCard key={post.id} post={post} rank={i + 1} isRead={isRead(post.url)} onRead={markAsRead} />
             ))}
@@ -297,7 +298,9 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
 
 // ── 엔터테인먼트 전체 뷰 ──
 
-function EntertainmentAllView({ posts }: { posts: Post[] }) {
+const ENTERTAINMENT_SECTION_ORDER = ['movie', 'music', 'performance', 'books', 'ott'];
+
+function EntertainmentAllView({ posts, onSubTabChange }: { posts: Post[]; onSubTabChange: (sub: EntertainmentSub) => void }) {
   const grouped = useMemo(() => {
     const map: Record<string, Post[]> = {};
     for (const p of posts) {
@@ -307,15 +310,9 @@ function EntertainmentAllView({ posts }: { posts: Post[] }) {
     return map;
   }, [posts]);
 
-  const sections: { key: string; label: string; component: React.ReactNode }[] = [
-    grouped['movie']?.length ? { key: 'movie', label: '영화', component: <MovieRankingTable posts={grouped['movie']} /> } : null,
-    grouped['music']?.length ? { key: 'music', label: '음악', component: <MusicRankingTable posts={grouped['music']} /> } : null,
-    grouped['performance']?.length ? { key: 'perf', label: '공연', component: <PerformanceRankingTable posts={grouped['performance']} /> } : null,
-    grouped['books']?.length ? { key: 'books', label: '도서', component: <BookRankingTable posts={grouped['books']} /> } : null,
-    grouped['ott']?.length ? { key: 'ott', label: 'OTT', component: <OttRankingTable posts={grouped['ott']} /> } : null,
-  ].filter((s): s is NonNullable<typeof s> => s !== null);
+  const categories = ENTERTAINMENT_SECTION_ORDER.filter(cat => grouped[cat]?.length);
 
-  if (sections.length === 0) {
+  if (categories.length === 0) {
     return (
       <div className="text-center py-16 text-slate-400 dark:text-slate-500">
         <p className="text-lg mb-1">엔터테인먼트 데이터가 없습니다</p>
@@ -324,7 +321,18 @@ function EntertainmentAllView({ posts }: { posts: Post[] }) {
     );
   }
 
-  return <div className="space-y-6">{sections.map(s => <div key={s.key}>{s.component}</div>)}</div>;
+  return (
+    <div className="space-y-4">
+      {categories.map(cat => (
+        <EntertainmentCompactSection
+          key={cat}
+          category={cat}
+          posts={grouped[cat]}
+          onSubTabChange={onSubTabChange}
+        />
+      ))}
+    </div>
+  );
 }
 
 // ── 여행 전체 뷰 ──
@@ -358,7 +366,7 @@ function TravelAllView({ posts }: { posts: Post[] }) {
           key: 'news',
           label: '여행뉴스',
           component: (
-            <div className="grid gap-3">
+            <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
               {newsPosts.slice(0, 5).map(post => (
                 <PostCard key={post.id} post={post} />
               ))}

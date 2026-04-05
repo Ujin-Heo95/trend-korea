@@ -1,5 +1,5 @@
 /** Proxy thumbnails through weserv.nl for resizing + WebP conversion */
-export function optimizedImage(url: string | undefined | null, width = 200): string | undefined {
+export function optimizedImage(url: string | undefined | null, width = 400): string | undefined {
   if (!url) return undefined;
   // Skip data: URLs and already-proxied URLs
   if (url.startsWith('data:') || url.includes('wsrv.nl')) return url;

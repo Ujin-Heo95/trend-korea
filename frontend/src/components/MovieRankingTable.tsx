@@ -102,7 +102,7 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
   const dataDateStr = formatDataDate(movies[0].meta.dataDate, movies[0].post.published_at);
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 overflow-hidden">
       {/* 헤더 */}
       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
         <div className="flex items-center justify-between flex-wrap gap-2">
@@ -153,10 +153,12 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
           </tr>
         </thead>
         <tbody>
-          {movies.map(({ post, meta }) => (
+          {movies.map(({ post, meta }, idx) => {
+            const displayRank = sortMode === 'accumulated' ? idx + 1 : meta.rank;
+            return (
             <tr key={post.id} className="border-b border-slate-50 dark:border-slate-700 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors">
               <td className="py-3 px-3 text-center">
-                <RankBadge rank={meta.rank} />
+                <RankBadge rank={displayRank} />
               </td>
               <td className="py-3 px-2">
                 <PosterImage
@@ -215,15 +217,18 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
                 </div>
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
 
       {/* Mobile list */}
       <div className="sm:hidden divide-y divide-slate-50 dark:divide-slate-700">
-        {movies.map(({ post, meta }) => (
+        {movies.map(({ post, meta }, idx) => {
+          const displayRank = sortMode === 'accumulated' ? idx + 1 : meta.rank;
+          return (
           <div key={post.id} className="flex items-start gap-3 px-4 py-3">
-            <RankBadge rank={meta.rank} />
+            <RankBadge rank={displayRank} />
             <PosterImage
               src={meta.posterUrl || post.thumbnail}
               alt={meta.movieName}
@@ -267,7 +272,8 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

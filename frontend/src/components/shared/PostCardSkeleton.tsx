@@ -1,7 +1,7 @@
 import React from 'react';
 
 export const PostCardSkeleton: React.FC = () => (
-  <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+  <div className="border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
     <div className="flex items-start gap-3">
       {/* rank badge */}
       <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 animate-shimmer flex-shrink-0" />

@@ -53,7 +53,7 @@ export const OttRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
   }
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
         <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">OTT TOP 10</h2>
         <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Netflix + Disney+ (FlixPatrol)</p>

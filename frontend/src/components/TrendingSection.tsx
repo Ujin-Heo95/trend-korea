@@ -12,7 +12,7 @@ export const TrendingSection: React.FC = () => {
         <h2 className="text-base font-bold text-slate-500 dark:text-slate-400 mb-3">🔥 지금 뜨는 글</h2>
         <div className="flex gap-3 overflow-x-auto pb-2">
           {Array.from({ length: 5 }, (_, i) => (
-            <div key={i} className="flex-shrink-0 w-64 h-24 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 animate-pulse" />
+            <div key={i} className="flex-shrink-0 w-64 h-24 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 animate-pulse" />
           ))}
         </div>
       </div>
@@ -30,7 +30,7 @@ export const TrendingSection: React.FC = () => {
           <Link
             key={post.id}
             to={`/issue/${post.id}`}
-            className="flex-shrink-0 w-64 p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-sm transition-all group"
+            className="flex-shrink-0 w-64 px-4 py-3 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 hover:bg-orange-50/50 dark:hover:bg-orange-900/10 transition-colors group"
           >
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-xs font-bold text-orange-500">#{i + 1}</span>

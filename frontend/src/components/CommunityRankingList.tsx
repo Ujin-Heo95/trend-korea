@@ -11,7 +11,7 @@ interface Props {
 }
 
 export const CommunityRankingList: React.FC<Props> = ({ posts, isRead, onRead }) => (
-  <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm divide-y divide-slate-100 dark:divide-slate-700/50">
+  <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700/50">
     {posts.map((post, i) => {
       const rank = i + 1;
       const read = isRead?.(post.url);

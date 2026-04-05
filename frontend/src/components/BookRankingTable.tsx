@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { Post } from '../types';
 import { RankBadge } from './shared/RankBadge';
 import { PosterImage } from './shared/PosterImage';
@@ -13,6 +13,12 @@ interface BookMeta {
   imageUrl?: string;
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  yes24_bestseller: 'YES24',
+  aladin_bestseller: '알라딘',
+  kyobo_bestseller: '교보문고',
+};
+
 function parseBookMeta(post: Post): BookMeta | null {
   const m = post.metadata as BookMeta | undefined;
   if (m?.title && m?.rank) return m;
@@ -24,12 +30,23 @@ function parseBookMeta(post: Post): BookMeta | null {
 }
 
 export const BookRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
+  const availableSources = useMemo(() => {
+    const keys = new Set(posts.map(p => p.source_key));
+    return Object.entries(SOURCE_LABELS).filter(([k]) => keys.has(k));
+  }, [posts]);
+
+  const defaultSource = availableSources.find(([k]) => k === 'yes24_bestseller')?.[0]
+    ?? availableSources[0]?.[0];
+
+  const [sourceFilter, setSourceFilter] = useState<string | undefined>(defaultSource);
+
   const books = useMemo(() =>
     posts
+      .filter(p => !sourceFilter || p.source_key === sourceFilter)
       .map(p => ({ post: p, meta: parseBookMeta(p) }))
       .filter((b): b is { post: Post; meta: BookMeta } => b.meta !== null)
       .sort((a, b) => a.meta.rank - b.meta.rank),
-    [posts],
+    [posts, sourceFilter],
   );
 
   if (books.length === 0) {
@@ -41,13 +58,30 @@ export const BookRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
     );
   }
 
-  const sourceLabel = books[0].post.source_key === 'yes24_bestseller' ? 'YES24' : '알라딘';
+  const activeSourceLabel = sourceFilter ? (SOURCE_LABELS[sourceFilter] ?? sourceFilter) : '전체';
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-        <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">베스트셀러</h2>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{sourceLabel} TOP 30</p>
+        <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{activeSourceLabel} 베스트셀러</h2>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{activeSourceLabel} TOP 30</p>
+        {availableSources.length > 1 && (
+          <div className="flex gap-1.5 mt-2">
+            {availableSources.map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setSourceFilter(key)}
+                className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                  sourceFilter === key
+                    ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <table className="w-full hidden sm:table">
@@ -77,7 +111,7 @@ export const BookRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
               <td className="py-3 px-3 text-sm text-slate-500 dark:text-slate-400 line-clamp-1">{meta.author ?? ''}</td>
               <td className="py-3 px-3 text-sm text-slate-400 dark:text-slate-500 line-clamp-1">{meta.publisher ?? ''}</td>
               <td className="py-3 px-3 text-center">
-                <ExternalLinkButton href={post.url} label={post.source_key === 'yes24_bestseller' ? 'YES24' : '알라딘'} />
+                <ExternalLinkButton href={post.url} label={SOURCE_LABELS[post.source_key] ?? '바로가기'} />
               </td>
             </tr>
           ))}

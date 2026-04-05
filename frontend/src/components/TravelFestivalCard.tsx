@@ -138,7 +138,7 @@ export const TravelFestivalCard: React.FC<{ posts: Post[] }> = ({ posts }) => {
               href={post.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex gap-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3 hover:border-orange-300 dark:hover:border-orange-600 transition-colors"
+              className="flex gap-3 bg-white dark:bg-slate-800 px-4 py-3 hover:bg-orange-50/50 dark:hover:bg-orange-900/10 transition-colors"
             >
               <PosterImage
                 src={post.thumbnail}

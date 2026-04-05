@@ -28,7 +28,7 @@ export const SnsRankingTable: React.FC<Props> = ({ posts }) => {
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
       {posts.map((post) => {
         const platform = String(post.metadata?.platform ?? '');
         const badge = PLATFORM_BADGES[platform];
@@ -39,7 +39,7 @@ export const SnsRankingTable: React.FC<Props> = ({ posts }) => {
             href={post.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex gap-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-sm transition-all"
+            className="flex gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
           >
             {post.thumbnail && (
               <img

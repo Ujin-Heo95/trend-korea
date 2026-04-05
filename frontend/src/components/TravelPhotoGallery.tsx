@@ -41,7 +41,7 @@ export const TravelPhotoGallery: React.FC<{ posts: Post[] }> = ({ posts }) => {
           href={post.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="group relative block rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-sky-300 dark:hover:border-sky-600 transition-colors aspect-[4/3]"
+          className="group relative block rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 hover:ring-2 hover:ring-sky-300 dark:hover:ring-sky-600 transition-all aspect-[4/3]"
         >
           {post.thumbnail ? (
             <img
