@@ -11,6 +11,7 @@ const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(m => ({ defaul
 const IssueDetailPage = lazy(() => import('./pages/IssueDetailPage').then(m => ({ default: m.IssueDetailPage })));
 const BookmarksPage = lazy(() => import('./pages/BookmarksPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
+const FortunePage = lazy(() => import('./pages/FortunePage').then(m => ({ default: m.FortunePage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +70,7 @@ function AppRoutes() {
           <Route path="/weather" element={<WeatherPage />} />
           <Route path="/issue/:postId" element={<IssueDetailPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
+          <Route path="/fortune" element={<FortunePage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
         </Routes>
