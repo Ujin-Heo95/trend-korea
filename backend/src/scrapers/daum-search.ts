@@ -86,6 +86,7 @@ abstract class DaumSearchBase extends BaseScraper {
         url: doc.url,
         thumbnail: doc.thumbnail || undefined,
         author: doc.cafename || doc.blogname || undefined,
+        contentSnippet: doc.contents ? stripHtml(doc.contents).slice(0, 500).trim() || undefined : undefined,
         publishedAt: doc.datetime ? new Date(doc.datetime) : undefined,
         metadata: { searchKeywords: [keyword] },
       }));

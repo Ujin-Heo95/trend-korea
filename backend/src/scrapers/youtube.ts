@@ -31,6 +31,7 @@ export class YoutubeScraper extends BaseScraper {
         url: `https://www.youtube.com/watch?v=${item.id}`,
         thumbnail: item.snippet.thumbnails?.medium?.url,
         author: item.snippet.channelTitle,
+        contentSnippet: item.snippet.description?.slice(0, 500)?.trim() || undefined,
         viewCount: parseInt(item.statistics?.viewCount ?? '0'),
         commentCount: parseInt(item.statistics?.commentCount ?? '0'),
         likeCount: parseInt(item.statistics?.likeCount ?? '0'),

@@ -6,6 +6,7 @@ import { logger } from '../utils/logger.js';
 const MAX_TITLE_LEN = 300;
 const MAX_AUTHOR_LEN = 100;
 const MAX_URL_LEN = 2048;
+const MAX_SNIPPET_LEN = 500;
 const MAX_METADATA_BYTES = 8192;
 
 // ── Circuit Breaker ────────────────────────────────────
@@ -51,7 +52,7 @@ export abstract class BaseScraper {
   async saveToDb(posts: ScrapedPost[]): Promise<number> {
     if (!posts.length) return 0;
 
-    const COLS = 13;
+    const COLS = 14;
     const values: unknown[] = [];
     const placeholders = posts.map((p, i) => {
       const b = i * COLS;
@@ -67,9 +68,10 @@ export abstract class BaseScraper {
         p.publishedAt ?? null,
         p.category ?? this.category ?? null,
         p.subcategory ?? this.subcategory ?? null,
+        p.contentSnippet ? truncate(stripHtml(p.contentSnippet), MAX_SNIPPET_LEN) : null,
         metaJson && metaJson.length <= MAX_METADATA_BYTES ? metaJson : null,
       );
-      return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11},$${b+12},$${b+13})`;
+      return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11},$${b+12},$${b+13},$${b+14})`;
     });
 
     const category = posts[0].category ?? this.category ?? null;
@@ -84,6 +86,7 @@ export abstract class BaseScraper {
            view_count = EXCLUDED.view_count,
            comment_count = EXCLUDED.comment_count,
            like_count = EXCLUDED.like_count,
+           content_snippet = EXCLUDED.content_snippet,
            metadata = EXCLUDED.metadata,
            thumbnail = EXCLUDED.thumbnail,
            scraped_at = NOW()`
@@ -91,10 +94,11 @@ export abstract class BaseScraper {
            view_count = GREATEST(posts.view_count, EXCLUDED.view_count),
            comment_count = GREATEST(posts.comment_count, EXCLUDED.comment_count),
            like_count = GREATEST(posts.like_count, EXCLUDED.like_count),
+           content_snippet = COALESCE(posts.content_snippet, EXCLUDED.content_snippet),
            scraped_at = NOW()`;
 
     const result = await this.pool.query(
-      `INSERT INTO posts (source_key,source_name,title,url,thumbnail,author,view_count,comment_count,like_count,published_at,category,subcategory,metadata)
+      `INSERT INTO posts (source_key,source_name,title,url,thumbnail,author,view_count,comment_count,like_count,published_at,category,subcategory,content_snippet,metadata)
        VALUES ${placeholders.join(',')} ${conflictClause}`,
       values
     );

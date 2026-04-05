@@ -92,6 +92,7 @@ export class YoutubeSearchScraper extends BaseScraper {
         url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
         thumbnail: item.snippet.thumbnails?.medium?.url,
         author: item.snippet.channelTitle,
+        contentSnippet: item.snippet.description?.slice(0, 500)?.trim() || undefined,
         publishedAt: item.snippet.publishedAt ? new Date(item.snippet.publishedAt) : undefined,
         metadata: { searchKeywords: keywords },
       }));

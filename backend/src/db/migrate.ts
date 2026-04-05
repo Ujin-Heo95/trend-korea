@@ -46,6 +46,7 @@ const migrations = [
   '037_issue_rankings.sql',
   '038_first_scraped_at.sql',
   '039_finance_subcategory.sql',
+  '040_content_snippet.sql',
 ];
 
 try {

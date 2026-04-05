@@ -11,5 +11,6 @@ export interface ScrapedPost {
   publishedAt?: Date;
   category?: string;
   subcategory?: string;
+  contentSnippet?: string;
   metadata?: Record<string, unknown>;
 }

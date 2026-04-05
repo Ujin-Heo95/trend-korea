@@ -17,6 +17,7 @@ export interface PostRow {
   scraped_at: string;
   category: string | null;
   subcategory: string | null;
+  content_snippet: string | null;
   metadata: Record<string, unknown> | null;
 }
 
@@ -61,6 +62,7 @@ export interface YouTubeVideoItem {
     publishedAt?: string;
     categoryId?: string;
     tags?: string[];
+    description?: string;
   };
   statistics?: {
     viewCount?: string;
@@ -80,6 +82,7 @@ export interface YouTubeSearchItem {
     thumbnails?: { medium?: { url?: string } };
     channelTitle: string;
     publishedAt?: string;
+    description?: string;
   };
 }
 
@@ -91,6 +94,7 @@ export interface DaumSearchDoc {
   cafename?: string;
   blogname?: string;
   datetime?: string;
+  contents?: string;
 }
 
 export interface IssueRankingRow {

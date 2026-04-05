@@ -23,7 +23,7 @@ export async function issueDetailRoutes(app: FastifyInstance): Promise<void> {
       }>(
         `SELECT p.id, p.source_key, p.source_name, p.title, p.url, p.thumbnail,
                 p.author, p.view_count, p.comment_count, p.vote_count, p.published_at, p.first_scraped_at, p.scraped_at,
-                p.category, p.metadata, ps.trend_score
+                p.category, p.content_snippet, p.metadata, ps.trend_score
          FROM posts p
          LEFT JOIN post_scores ps ON ps.post_id = p.id
          WHERE p.id = $1`,

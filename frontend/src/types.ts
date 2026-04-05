@@ -24,6 +24,7 @@ export interface Post {
   cluster_size?: number;
   cluster_id?: number | null;
   related_sources?: { id: number; source_name: string; source_key: string; url: string }[];
+  content_snippet?: string;
   metadata?: Record<string, unknown>;
 }
 
