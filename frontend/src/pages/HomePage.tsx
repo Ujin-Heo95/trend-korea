@@ -132,33 +132,8 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   })();
   const total = data?.pages[0]?.total ?? 0;
 
-  // New posts detection
-  const prevPostIdsRef = useRef<Set<number>>(new Set());
-  const [newPostCount, setNewPostCount] = useState(0);
-
-  useEffect(() => {
-    if (allPosts.length === 0) return;
-    const currentIds = new Set(allPosts.map(p => p.id));
-    if (prevPostIdsRef.current.size > 0) {
-      const newCount = [...currentIds].filter(id => !prevPostIdsRef.current.has(id)).length;
-      if (newCount > 0) setNewPostCount(newCount);
-    }
-    prevPostIdsRef.current = currentIds;
-  }, [allPosts]);
-
   return (
     <div ref={mainRef} style={{ overscrollBehaviorY: 'contain' }}>
-      {/* New posts banner */}
-      {newPostCount > 0 && (
-        <button
-          type="button"
-          onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setNewPostCount(0); }}
-          className="w-full mb-3 py-2 px-4 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors animate-scale-in"
-        >
-          {newPostCount}개 새 글이 있습니다
-        </button>
-      )}
-
       <div className="flex items-center justify-between mb-3">
         <CategoryTabs selected={category} onChange={handleCategoryChange} />
       </div>
