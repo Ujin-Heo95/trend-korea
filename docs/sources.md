@@ -58,54 +58,58 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ---
 
-## 2. 현재 소스 현황 (109개 등록, 88개 활성)
+## 2. 현재 소스 현황 (109개 등록, 83개 활성)
 
 | 카테고리 | 소스 | 수집방식 | 우선순위 | 상태 |
 |----------|------|----------|----------|------|
 | community | dcinside, bobaedream, theqoo, instiz, natepann, todayhumor | HTML | high | 안정 |
 | community | ppomppu, ddanzi | RSS | high | 안정 |
-| community | clien, fmkorea | HTML | medium | fmkorea 봇 차단 (430) |
-| community | mlbpark, cook82, inven, humoruniv, ygosu, slrclub, etoland, dogdrip | HTML | high/medium | 안정 |
+| community | clien | HTML | medium | 안정 |
+| community | fmkorea | HTML | medium | **disabled** (봇 차단 430, 2026-04-05) |
+| community | mlbpark, cook82, inven, humoruniv, ygosu, slrclub, etoland, dogdrip | HTML | high/medium | 안정 (dogdrip/slrclub 간헐적 차단) |
 | community | ruliweb | HTML | high | **disabled** (timeout) |
 | community | reddit_korea, reddit_hanguk | RSS (Atom) | low | **disabled** (비활성화 2026-04-04) |
 | news | yna, hani, sbs, donga, khan, hankyung, mk, kmib | RSS | medium | 안정 |
 | news | chosun, jtbc | RSS | high | 안정 |
-| news | ohmynews, nocutnews, asiae, segye, bbc_korean, mbn | RSS | medium | nocutnews+ 신규 (2026-04-04) |
-| news | cnn | RSS | low | 신규 (2026-04-04) |
-| news | naver_news_ranking | HTML (euc-kr) | medium | 신규 (2026-04-04) |
+| news | ohmynews, nocutnews, asiae, segye, bbc_korean, mbn | RSS | medium | 안정 |
+| news | cnn | RSS | low | 안정 |
+| news | naver_news_ranking | HTML (euc-kr) | medium | 안정 |
 | news | google_news_kr, koreaherald, koreatimes, newsis | RSS | medium | 안정 |
 | news | joins, kbs, mbc, ytn, daum_news, seoul | RSS | high | **disabled** (RSS 서비스 종료/404) |
 | tech | yozm, etnews | RSS | medium | 안정 |
-| tech | boannews | RSS (euc-kr) | medium | 신규 (2026-04-04) |
-| tech | zdnet_kr, itworld_kr | RSS | medium | 신규 (2026-04-04) |
-| tech | nature | RSS | low | 신규 (2026-04-04) |
-| tech | geeknews | HTML | medium | 안정 (RSS→HTML 전환, 2026-04-04) |
+| tech | boannews | RSS (euc-kr) | medium | 안정 |
+| tech | zdnet_kr, itworld_kr | RSS | medium | 안정 |
+| tech | nature | RSS | low | 안정 |
+| tech | geeknews | HTML | medium | 안정 |
 | techblog | naver_d2, kakao_tech, toss_tech | RSS | low | **disabled** (비활성화 2026-04-04) |
 | techblog | daangn_tech, line_tech, banksalad_tech | RSS | low | **disabled** (비활성화 2026-04-04) |
 | video | youtube | API | low | 쿼터 주의 (10K/일) |
-| video | youtube_sbs_news, youtube_ytn, youtube_mbc_news, youtube_kbs_news, youtube_jtbc_news | RSS | medium | 안정 |
-| finance | investing_kr, sedaily, moneytoday | RSS | medium | moneytoday 신규 (2026-04-04) |
-| finance | edaily, bizwatch | RSS | medium | 신규 (2026-04-04) |
-| finance | upbit | API | low | 신규 (2026-04-04), 키 불필요 |
+| video | youtube_sbs_news, youtube_ytn, youtube_mbc_news, youtube_kbs_news, youtube_jtbc_news | RSS | medium | 채널 ID 수정 (2026-04-05) |
+| finance | investing_kr, sedaily, moneytoday | RSS | medium | 안정 |
+| finance | edaily, bizwatch | RSS | medium | 안정 |
+| finance | upbit | API | low | **disabled** (API 에러, 2026-04-05) |
 | finance | krx | API | low | **disabled** (세션 인증 필요) |
-| music | melon_chart | HTML | low | 신규 (2026-04-04) |
-| music | bugs_chart | HTML | low | 신규 (2026-04-04) |
-| music | genie_chart | HTML | low | 신규 (2026-04-04) |
-| music | kworb_spotify_kr | HTML | low | 신규 (2026-04-04) |
-| books | yes24_bestseller | HTML | low | 신규 (2026-04-04) |
-| books | aladin_bestseller | HTML | low | 신규 (2026-04-04) |
-| ott | flixpatrol | HTML | low | 신규 (2026-04-04) |
+| music | melon_chart | HTML | low | 안정 |
+| music | bugs_chart | HTML | low | 안정 |
+| music | genie_chart | HTML | low | 안정 |
+| music | kworb_spotify_kr | HTML | low | 안정 |
+| books | yes24_bestseller | HTML | low | 셀렉터 수정 (2026-04-05) |
+| books | aladin_bestseller | HTML | low | 안정 |
+| ott | flixpatrol | HTML | low | 안정 |
 | trend | google_trends | RSS | medium | 안정 |
 | trend | naver_datalab | API | medium | 안정 |
 | government | korea_press, korea_policy, korea_briefing | RSS | low | 안정 |
-| performance | kopis_boxoffice, kcisa_performance | API | low | 안정 |
+| performance | kopis_boxoffice | API | low | 안정 |
+| performance | kcisa_performance | API | low | **disabled** (API 에러, 2026-04-05) |
 | movie | kobis_boxoffice | API | low | 안정 |
-| travel | tour_festival, tour_visitor | API | low | 안정 |
+| travel | tour_visitor | API | low | 안정 |
+| travel | tour_festival | API | low | **disabled** (API 에러, 2026-04-05) |
 | sports | sports_donga | RSS | medium | **disabled** (빈 응답) |
 | press | newswire | RSS | medium | 안정 |
 | newsletter | uppity | RSS | low | 안정 |
 | deals | ppomppu_hot, ruliweb_hot | RSS | medium | 안정 |
-| deals | clien_jirum, quasarzone_deal, dcinside_hotdeal | HTML | medium | 신규 (2026-04-04) |
+| deals | clien_jirum, quasarzone_deal | HTML | medium | 안정 |
+| deals | dcinside_hotdeal | HTML | medium | **disabled** (갤러리 폐쇄, 2026-04-05) |
 | blog | daum_blog | API | low | **disabled** (비활성화 2026-04-04) |
 | sns | apify_instagram, apify_x, apify_tiktok | Apify | medium | **disabled** (토큰 미설정) |
 | alert | kma | RSS | low | **disabled** |

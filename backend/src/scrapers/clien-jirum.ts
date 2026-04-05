@@ -17,7 +17,7 @@ export class ClienJirumScraper extends BaseScraper {
       const href = $(el).attr('href') ?? '';
       if (!href || href.includes('/rule/') || href.includes('/annonce/')) return;
 
-      const title = $(el).find('.subject_fixed').text().trim() || $(el).text().trim();
+      const title = $(el).text().trim();
       const url = href.startsWith('http') ? href : `https://www.clien.net${href.split('?')[0]}`;
       const listItem = $(el).closest('.list_item');
       const hit = listItem.find('.hit').text().trim();

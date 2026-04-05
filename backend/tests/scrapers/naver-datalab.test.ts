@@ -80,14 +80,12 @@ describe('NaverDatalabScraper', () => {
     expect(posts[0].url).toContain('datalab.naver.com');
   });
 
-  it('should return empty array when credentials are missing', async () => {
+  it('should throw when credentials are missing', async () => {
     const configMock = await import('../../src/config/index.js');
     (configMock.config as any).naverClientId = '';
 
     const scraper = new NaverDatalabScraper(mockPool);
-    const posts = await scraper.fetch();
-
-    expect(posts).toEqual([]);
+    await expect(scraper.fetch()).rejects.toThrow('NAVER_CLIENT_ID or NAVER_CLIENT_SECRET not configured');
     expect(axios.post).not.toHaveBeenCalled();
 
     // restore
@@ -95,6 +93,9 @@ describe('NaverDatalabScraper', () => {
   });
 
   it('should call Naver API with correct headers', async () => {
+    const configMock = await import('../../src/config/index.js');
+    (configMock.config as any).naverClientId = 'test-id';
+    (configMock.config as any).naverClientSecret = 'test-secret';
     vi.mocked(axios.post).mockResolvedValue({ data: datalabFixture });
 
     const scraper = new NaverDatalabScraper(mockPool);
@@ -107,6 +108,9 @@ describe('NaverDatalabScraper', () => {
   });
 
   it('should propagate API errors', async () => {
+    const configMock = await import('../../src/config/index.js');
+    (configMock.config as any).naverClientId = 'test-id';
+    (configMock.config as any).naverClientSecret = 'test-secret';
     vi.mocked(axios.post).mockRejectedValueOnce(new Error('auth failed'));
 
     const scraper = new NaverDatalabScraper(mockPool);
@@ -114,6 +118,9 @@ describe('NaverDatalabScraper', () => {
   });
 
   it('should return empty array when response has no results', async () => {
+    const configMock = await import('../../src/config/index.js');
+    (configMock.config as any).naverClientId = 'test-id';
+    (configMock.config as any).naverClientSecret = 'test-secret';
     vi.mocked(axios.post).mockResolvedValue({
       data: { startDate: '2026-03-22', endDate: '2026-03-29', timeUnit: 'date', results: [] },
     });

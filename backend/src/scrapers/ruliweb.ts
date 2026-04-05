@@ -1,19 +1,15 @@
-import axios from 'axios';
-import * as cheerio from 'cheerio';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-
-const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' };
+import { fetchHtml } from './http-utils.js';
 
 export class RuliwebScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
   async fetch(): Promise<ScrapedPost[]> {
-    const { data } = await axios.get('https://bbs.ruliweb.com/best/now', {
-      headers: UA,
+    const $ = await fetchHtml('https://bbs.ruliweb.com/best/now', {
+      headers: { Referer: 'https://bbs.ruliweb.com/' },
       timeout: 20000,
     });
-    const $ = cheerio.load(data);
     const posts: ScrapedPost[] = [];
 
     $('tr.table_body').each((_, row) => {

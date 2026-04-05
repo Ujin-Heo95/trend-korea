@@ -22,32 +22,31 @@ export class Yes24BestsellerScraper extends BaseScraper {
     const $ = cheerio.load(data);
     const posts: ScrapedPost[] = [];
 
-    $('#yesBestList li, .goods_list li, .bestList li').each((i, el) => {
+    $('.itemUnit').each((i, el) => {
       if (i >= 30) return;
 
       const rank = i + 1;
-      const linkEl = $(el).find('a[href*="/Product/Goods/"]').first();
+      const linkEl = $(el).find('a.gd_name[href*="/product/goods/"], a.lnk_img[href*="/product/goods/"]').first();
       const href = linkEl.attr('href') ?? '';
-      const goodsNo = href.match(/Goods\/(\d+)/)?.[1] ?? '';
+      const goodsNo = href.match(/goods\/(\d+)/i)?.[1] ?? '';
       if (!goodsNo) return;
 
-      const title = $(el).find('.gd_name, .info_name, .info_row.info_tit a').first().text().trim()
-        || linkEl.attr('title')?.trim()
-        || linkEl.text().trim();
+      const title = $(el).find('a.gd_name').first().text().trim();
       if (!title) return;
 
-      const author = $(el).find('.info_auth a, .gd_auth a, a[href*="AuthorNo="]').first().text().trim();
-      const publisher = $(el).find('.info_pub a, .gd_pub a, a[href*="company="]').first().text().trim();
-      const priceText = $(el).find('.info_price .yes_b, .gd_price strong, .price em').first().text().trim();
+      const author = $(el).find('.info_auth a').first().text().trim();
+      const publisher = $(el).find('.info_pub a').first().text().trim();
+      const priceText = $(el).find('.info_price .yes_b').first().text().trim();
       const price = priceText.replace(/[^0-9]/g, '') || undefined;
-      const imageUrl = $(el).find('img[src*="image.yes24.com"]').attr('src')
-        || `https://image.yes24.com/goods/${goodsNo}/XL`;
+      const imageUrl = $(el).find('img[data-original*="image.yes24.com"]').attr('data-original')
+        || $(el).find('img[src*="image.yes24.com"]').attr('src')
+        || `https://image.yes24.com/goods/${goodsNo}/L`;
       const url = `https://www.yes24.com/Product/Goods/${goodsNo}`;
 
       posts.push({
         sourceKey: 'yes24_bestseller',
         sourceName: 'YES24 베스트셀러',
-        title: `${rank}위 ${title} — ${author}`,
+        title: `${rank}위 ${title}${author ? ` — ${author}` : ''}`,
         url,
         thumbnail: imageUrl,
         author,

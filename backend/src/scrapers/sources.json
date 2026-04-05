@@ -499,7 +499,7 @@
       "module": "./fmkorea.js",
       "className": "FmkoreaScraper",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "mlbpark",

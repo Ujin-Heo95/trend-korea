@@ -26,7 +26,9 @@ export class BigKindsScraper extends BaseScraper {
   }
 
   async fetch(): Promise<ScrapedPost[]> {
-    if (!config.bigkindsApiKey) return [];
+    if (!config.bigkindsApiKey) {
+      throw new Error('BIGKINDS_API_KEY not configured');
+    }
 
     // 1. totalCount 조회 → 마지막 페이지 계산 (API는 날짜 오름차순)
     const { data: first } = await axios.get<BigKindsResponse>(API_URL, {

@@ -471,7 +471,7 @@ describe('RuliwebScraper', () => {
   </table></body></html>`;
 
   beforeEach(() => {
-    vi.mocked(axios.get).mockResolvedValue({ data: html });
+    vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(html));
   });
 
   it('parses posts and filters market links', async () => {
@@ -677,6 +677,7 @@ describe('Empty HTML handling', () => {
       new HumorunivScraper(pool),
       new InvenScraper(pool),
       new MlbparkScraper(pool),
+      new RuliwebScraper(pool),
       new SlrclubScraper(pool),
       new YgosuScraper(pool),
     ];
@@ -694,7 +695,6 @@ describe('Empty HTML handling', () => {
       new BobaedreamScraper(pool),
       new InstizScraper(pool),
       new NatepannScraper(pool),
-      new RuliwebScraper(pool),
       new TheqooScraper(pool),
       new TodayhumorScraper(pool),
     ];

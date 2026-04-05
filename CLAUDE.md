@@ -50,7 +50,7 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포 + Supabas
 ## Current Phase
 
 v0.12.0 — 신규 로드맵 P0 진행중.
-소스 109개 등록 (88개 활성) + 314 tests (백엔드 274 + 프론트 40) + Supabase 500MB 서울.
+소스 109개 등록 (83개 활성) + 314 tests (백엔드 274 + 프론트 40) + Supabase 500MB 서울.
 Gemini API 제거 완료 — 스코어링 6팩터 (참여도, 시간감쇠, 소스, 카테고리, 속도, 클러스터).
 
 **완료**: P0 도메인+Umami+URL (2026-04-03) + P1 SEO파이프라인+Security Headers (2026-04-04) + P2 보안·품질·기술부채 전면 해소 (2026-04-04)

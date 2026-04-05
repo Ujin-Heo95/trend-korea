@@ -76,7 +76,8 @@ export abstract class BaseScraper {
     const isRankedCategory = ['movie', 'performance', 'music', 'books', 'ott'].includes(category ?? '');
 
     // 랭킹 데이터는 UPSERT로 관객수/메타데이터 갱신
-    // 일반 데이터는 engagement 증가 시에만 업데이트 (velocity 계산 활성화)
+    // 일반 데이터는 engagement GREATEST + scraped_at 갱신
+    // scraped_at 갱신 필수: TTL cleanup이 scraped_at 기준이므로 갱신 안 하면 활발히 수집되는 포스트도 삭제됨
     const conflictClause = isRankedCategory
       ? `ON CONFLICT (url) DO UPDATE SET
            title = EXCLUDED.title,
@@ -89,10 +90,8 @@ export abstract class BaseScraper {
       : `ON CONFLICT (url) DO UPDATE SET
            view_count = GREATEST(posts.view_count, EXCLUDED.view_count),
            comment_count = GREATEST(posts.comment_count, EXCLUDED.comment_count),
-           like_count = GREATEST(posts.like_count, EXCLUDED.like_count)
-         WHERE EXCLUDED.view_count > posts.view_count
-            OR EXCLUDED.comment_count > posts.comment_count
-            OR EXCLUDED.like_count > posts.like_count`;
+           like_count = GREATEST(posts.like_count, EXCLUDED.like_count),
+           scraped_at = NOW()`;
 
     const result = await this.pool.query(
       `INSERT INTO posts (source_key,source_name,title,url,thumbnail,author,view_count,comment_count,like_count,published_at,category,subcategory,metadata)
@@ -168,6 +167,9 @@ export abstract class BaseScraper {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         const posts = await this.fetch();
+        if (posts.length === 0) {
+          logger.warn({ sourceKey: this.getSourceKey() }, '[scraper] 0 posts returned — possible selector/feed issue');
+        }
         const count = await this.saveToDb(posts);
         // 랭킹 데이터(영화/공연)는 단일 소스이므로 클러스터 중복제거 불필요
         const skipDedup = ['movie', 'performance', 'music', 'books', 'ott'].includes(this.category ?? '');

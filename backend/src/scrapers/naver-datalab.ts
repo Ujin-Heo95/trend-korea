@@ -72,7 +72,9 @@ export class NaverDatalabScraper extends BaseScraper {
   }
 
   async fetch(): Promise<ScrapedPost[]> {
-    if (!config.naverClientId || !config.naverClientSecret) return [];
+    if (!config.naverClientId || !config.naverClientSecret) {
+      throw new Error('NAVER_CLIENT_ID or NAVER_CLIENT_SECRET not configured');
+    }
 
     const endDate = new Date();
     const startDate = new Date();
