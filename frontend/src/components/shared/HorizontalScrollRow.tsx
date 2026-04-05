@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 interface Props {
   children: React.ReactNode;
@@ -7,12 +7,44 @@ interface Props {
   className?: string;
 }
 
-export const HorizontalScrollRow: React.FC<Props> = ({ children, role, ariaLabel, className = '' }) => (
-  <div
-    role={role}
-    aria-label={ariaLabel}
-    className={`flex overflow-x-auto scrollbar-hide scroll-fade ${className}`}
-  >
-    {children}
-  </div>
-);
+type FadeDir = '' | 'scroll-fade-right' | 'scroll-fade-left' | 'scroll-fade-both';
+
+export const HorizontalScrollRow: React.FC<Props> = ({ children, role, ariaLabel, className = '' }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fade, setFade] = useState<FadeDir>('');
+
+  const updateFade = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const hasOverflow = scrollWidth > clientWidth + 1;
+    if (!hasOverflow) { setFade(''); return; }
+
+    const atStart = scrollLeft <= 1;
+    const atEnd = scrollLeft + clientWidth >= scrollWidth - 1;
+
+    if (atStart && !atEnd) setFade('scroll-fade-right');
+    else if (!atStart && atEnd) setFade('scroll-fade-left');
+    else if (!atStart && !atEnd) setFade('scroll-fade-both');
+    else setFade('');
+  }, []);
+
+  useEffect(() => {
+    updateFade();
+    window.addEventListener('resize', updateFade);
+    return () => window.removeEventListener('resize', updateFade);
+  }, [updateFade]);
+
+  return (
+    <div
+      ref={ref}
+      role={role}
+      aria-label={ariaLabel}
+      onScroll={updateFade}
+      className={`flex overflow-x-auto scrollbar-hide ${fade} ${className}`}
+    >
+      {children}
+    </div>
+  );
+};

@@ -68,21 +68,17 @@ body {
 }
 
 /* --- Scroll fade: indicates overflow on horizontal scroll rows --- */
-.scroll-fade {
-  mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    black 20px,
-    black calc(100% - 20px),
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    black 20px,
-    black calc(100% - 20px),
-    transparent 100%
-  );
+.scroll-fade-right {
+  mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+}
+.scroll-fade-left {
+  mask-image: linear-gradient(to right, transparent 0, black 24px);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 24px);
+}
+.scroll-fade-both {
+  mask-image: linear-gradient(to right, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
 }
 
 /* --- Accessibility: respect reduced motion --- */
