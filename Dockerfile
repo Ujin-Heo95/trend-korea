@@ -35,8 +35,6 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/backend/dist backend/dist
 COPY --from=builder /app/frontend/dist frontend/dist
 
-EXPOSE 8080
-
 ENV NODE_ENV=production
 
 CMD ["sh", "-c", "node backend/dist/db/migrate.js && node backend/dist/server.js"]
