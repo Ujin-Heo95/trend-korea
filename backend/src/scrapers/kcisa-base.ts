@@ -3,7 +3,7 @@ import { parseStringPromise } from 'xml2js';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { koreanDnsHttpsAgent } from './korean-dns.js';
+import { resolveKcisaRequest } from './korean-dns.js';
 
 /**
  * KCISA (한국문화정보원) API 공통 베이스.
@@ -135,15 +135,17 @@ export abstract class KcisaBaseScraper extends BaseScraper {
   async fetch(): Promise<ScrapedPost[]> {
     if (!this.kcisaConfig.apiKey) return [];
 
-    const { data } = await axios.get(this.kcisaConfig.apiUrl, {
+    const resolved = await resolveKcisaRequest(this.kcisaConfig.apiUrl);
+    const { data } = await axios.get(resolved.url, {
       params: {
         serviceKey: this.kcisaConfig.apiKey,
         numOfRows: this.kcisaConfig.numOfRows ?? 30,
         pageNo: 1,
       },
+      headers: resolved.headers,
       timeout: 15000,
       responseType: 'text',
-      httpsAgent: koreanDnsHttpsAgent,
+      httpsAgent: resolved.httpsAgent,
     });
 
     const items = await this.parseResponse(data);

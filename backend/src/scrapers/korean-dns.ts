@@ -1,26 +1,25 @@
 import { Resolver } from 'node:dns/promises';
-import dns from 'node:dns';
-import { Agent as HttpsAgent } from 'node:https';
+import https from 'node:https';
 
 /**
  * api.kcisa.kr 등 한국 정부 API 도메인은 해외 DNS에서 해석 불가.
- * KT 공용 DNS(168.126.63.1)를 사용하여 직접 해석.
+ * KT 공용 DNS(168.126.63.1)로 직접 해석 후 IP 반환.
+ *
+ * 사용법: URL의 호스트를 IP로 치환 + Host 헤더 추가
  */
 
 const KOREAN_DNS_SERVERS = ['168.126.63.1', '168.126.63.2'];
-const KOREAN_DOMAINS = new Set(['api.kcisa.kr']);
 const FALLBACK_IPS: Record<string, string> = {
   'api.kcisa.kr': '175.125.91.8',
 };
 
-// DNS 캐시 (10분 TTL)
 const dnsCache = new Map<string, { ip: string; expiry: number }>();
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
 const resolver = new Resolver();
 resolver.setServers(KOREAN_DNS_SERVERS);
 
-async function resolveKoreanDomain(hostname: string): Promise<string> {
+export async function resolveKoreanHost(hostname: string): Promise<string> {
   const cached = dnsCache.get(hostname);
   if (cached && cached.expiry > Date.now()) return cached.ip;
 
@@ -31,7 +30,7 @@ async function resolveKoreanDomain(hostname: string): Promise<string> {
       return addresses[0];
     }
   } catch {
-    // Korean DNS 실패 → IP 폴백
+    // Korean DNS도 실패 → 폴백
   }
 
   const fallback = FALLBACK_IPS[hostname];
@@ -44,31 +43,31 @@ async function resolveKoreanDomain(hostname: string): Promise<string> {
 }
 
 /**
- * Node.js http.Agent lookup 호환 함수.
- * hostname, options, callback 형태 + hostname, callback 형태 모두 처리.
+ * KCISA URL을 IP 기반으로 변환 + Host 헤더/TLS SNI 설정 반환.
+ * api.kcisa.kr → https://175.125.91.8/... + Host: api.kcisa.kr
  */
-function koreanLookup(
-  hostname: string,
-  optionsOrCallback: unknown,
-  maybeCallback?: unknown,
-): void {
-  // 오버로드 해석: (hostname, callback) 또는 (hostname, options, callback)
-  const cb = (typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback) as
-    (err: NodeJS.ErrnoException | null, address: string, family: number) => void;
+export async function resolveKcisaRequest(url: string): Promise<{
+  url: string;
+  headers: Record<string, string>;
+  httpsAgent: https.Agent;
+}> {
+  const parsed = new URL(url);
+  const hostname = parsed.hostname;
+  const ip = await resolveKoreanHost(hostname);
 
-  if (!KOREAN_DOMAINS.has(hostname)) {
-    // 한국 도메인이 아니면 시스템 기본 DNS
-    const opts = typeof optionsOrCallback === 'function' ? { family: 4 } : (optionsOrCallback as dns.LookupOptions);
-    dns.lookup(hostname, { ...opts, all: false }, cb as (err: NodeJS.ErrnoException | null, address: string, family: number) => void);
-    return;
-  }
+  // IP로 URL 치환
+  parsed.hostname = ip;
+  const resolvedUrl = parsed.toString();
 
-  resolveKoreanDomain(hostname)
-    .then(ip => cb(null, ip, 4))
-    .catch(err => cb(err as NodeJS.ErrnoException, '', 4));
+  // TLS SNI를 원래 호스트네임으로 설정 (인증서 검증용)
+  const agent = new https.Agent({
+    servername: hostname,
+    rejectUnauthorized: true,
+  });
+
+  return {
+    url: resolvedUrl,
+    headers: { Host: hostname },
+    httpsAgent: agent,
+  };
 }
-
-export const koreanDnsHttpsAgent = new HttpsAgent({
-  lookup: koreanLookup as unknown as HttpsAgent['options']['lookup'],
-  keepAlive: true,
-});
