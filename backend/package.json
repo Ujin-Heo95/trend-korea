@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "cd ../frontend && npm run build && cd ../backend && tsc && cp -r src/db/migrations dist/db/migrations",
+    "build": "tsc && cp -r src/db/migrations dist/db/migrations",
     "start": "node dist/db/migrate.js && node dist/server.js",
     "test": "vitest run",
     "migrate": "tsx src/db/migrate.ts"
