@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -10,6 +10,7 @@ const AboutPage = lazy(() => import('./pages/AboutPage').then(m => ({ default: m
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 const IssueDetailPage = lazy(() => import('./pages/IssueDetailPage').then(m => ({ default: m.IssueDetailPage })));
 const BookmarksPage = lazy(() => import('./pages/BookmarksPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,6 +26,11 @@ function PageLoader() {
 }
 
 function AppRoutes() {
+  const location = useLocation();
+  if (location.pathname === '/admin') {
+    return <Suspense fallback={<PageLoader />}><AdminPage /></Suspense>;
+  }
+
   const [params, setParams] = useSearchParams();
   const category = params.get('category') || undefined;
   const searchQuery = params.get('q') ?? '';
