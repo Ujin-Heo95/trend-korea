@@ -4,7 +4,7 @@ FROM node:20-slim AS builder
 WORKDIR /app
 
 # Copy workspace root + both workspace package.jsons for dependency caching
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/
 
@@ -25,7 +25,7 @@ FROM node:20-slim
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/
 
