@@ -1,34 +1,22 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useIssueDetail } from '../hooks/usePosts';
-import { useReadPosts } from '../hooks/useReadPosts';
-import { useVotes } from '../hooks/useVotes';
+import { useIssueRankingDetail } from '../hooks/usePosts';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { getSourceColor } from '../constants/sourceColors';
 import { ShareButton } from '../components/shared/ShareButton';
-import { VoteButton } from '../components/shared/VoteButton';
 import { ErrorRetry } from '../components/shared/ErrorRetry';
-import { EngagementChart } from '../components/shared/EngagementChart';
 import { AdSlot } from '../components/shared/AdSlot';
 import { IssueDetailSkeleton } from '../components/shared/IssueDetailSkeleton';
 import { optimizedImage } from '../utils/imageProxy';
-import { timeAgo } from '../utils/timeAgo';
-import { formatCount } from '../utils/formatCount';
+import type { IssueRelatedPost } from '../types';
 
 export const IssueDetailPage: React.FC = () => {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
-  const id = parseInt(postId ?? '0');
-  const { data, isLoading, isError, refetch } = useIssueDetail(id);
-  const { markAsRead } = useReadPosts();
-  const { hasVoted, vote } = useVotes();
+  const issueId = parseInt(postId ?? '0');
+  const { data, isLoading, isError, refetch } = useIssueRankingDetail(issueId);
 
-  useDocumentTitle(data?.post.title ?? '이슈 상세');
-
-  // Mark as read on mount
-  useEffect(() => {
-    if (data?.post.url) markAsRead(data.post.url);
-  }, [data?.post.url, markAsRead]);
+  useDocumentTitle(data?.issue.title ?? '이슈 상세');
 
   const handleBack = () => {
     if (window.history.length > 2) {
@@ -38,14 +26,12 @@ export const IssueDetailPage: React.FC = () => {
     }
   };
 
-  if (isLoading) {
-    return <IssueDetailSkeleton />;
-  }
+  if (isLoading) return <IssueDetailSkeleton />;
 
   if (isError || !data) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <ErrorRetry message="게시글을 찾을 수 없습니다" onRetry={refetch} />
+        <ErrorRetry message="이슈를 찾을 수 없습니다" onRetry={refetch} />
         <div className="text-center mt-4">
           <Link to="/" className="text-blue-500 hover:underline text-sm">홈으로 돌아가기</Link>
         </div>
@@ -53,7 +39,7 @@ export const IssueDetailPage: React.FC = () => {
     );
   }
 
-  const { post, trend_score, cluster_members, engagement_history, category_popular } = data;
+  const { issue, news_posts, community_posts, video_posts, matched_keywords, sns_keywords } = data;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 pb-20 sm:pb-6">
@@ -68,105 +54,75 @@ export const IssueDetailPage: React.FC = () => {
         목록으로
       </button>
 
-      {/* Post header */}
+      {/* Issue header */}
       <article>
         <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getSourceColor(post.source_key, post.category)}`}>
-            {post.source_name}
-          </span>
-          {trend_score != null && trend_score > 0 && (
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400">
-              {trend_score >= 15 ? 'HOT' : trend_score >= 8 ? '인기' : '트렌드'}
+          {issue.category_label && (
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+              {issue.category_label}
             </span>
           )}
-          <span className="text-xs text-slate-400 dark:text-slate-500">
-            {timeAgo(post.published_at ?? post.first_scraped_at)}
-          </span>
         </div>
 
-        <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-snug mb-1">
-          {post.title}
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-snug mb-3">
+          {issue.title}
         </h1>
-        <div className="mb-3" />
 
-        {post.thumbnail && (
+        {issue.thumbnail && (
           <img
-            src={optimizedImage(post.thumbnail, 640)}
-            alt={post.title}
+            src={optimizedImage(issue.thumbnail, 640)}
+            alt={issue.title}
             className="w-full max-h-48 sm:max-h-64 object-cover rounded-xl mb-4"
             loading="lazy"
             decoding="async"
           />
         )}
 
-        <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400 mb-6">
-          {post.author && <span>{post.author}</span>}
-          {post.view_count > 0 && <span>조회 {formatCount(post.view_count)}</span>}
-          {post.comment_count > 0 && <span>댓글 {formatCount(post.comment_count)}</span>}
-          <VoteButton postId={post.id} voteCount={post.vote_count} hasVoted={hasVoted(post.id)} onVote={vote} size="md" />
-        </div>
+        {issue.summary && (
+          <p className="text-base text-slate-700 dark:text-slate-200 leading-relaxed mb-6">
+            {issue.summary}
+          </p>
+        )}
       </article>
 
-      {/* Cluster section */}
-      {cluster_members.length > 0 && (
+      {/* Related news posts */}
+      {news_posts.length > 0 && (
+        <PostSection label="뉴스" posts={news_posts} />
+      )}
+
+      {/* Related video posts */}
+      {video_posts.length > 0 && (
+        <PostSection label="영상" posts={video_posts} />
+      )}
+
+      {/* Related community posts */}
+      {community_posts.length > 0 && (
+        <PostSection label="커뮤니티" posts={community_posts} />
+      )}
+
+      {/* Portal trend keywords */}
+      {matched_keywords.length > 0 && (
         <section className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-            이 이슈를 다루는 {cluster_members.length + 1}개 소스
-          </h2>
-          <div className="space-y-2">
-            {cluster_members.map(m => (
-              <Link
-                key={m.id}
-                to={`/issue/${m.id}`}
-                className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 transition-colors"
-              >
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${getSourceColor(m.source_key)}`}>
-                  {m.source_name}
-                </span>
-                <span className="text-sm text-slate-700 dark:text-slate-300 line-clamp-1 flex-1">{m.title}</span>
-                {m.view_count > 0 && (
-                  <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">조회 {formatCount(m.view_count)}</span>
-                )}
-              </Link>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">포털 트렌드</h2>
+          <div className="flex flex-wrap gap-1.5">
+            {matched_keywords.map(kw => (
+              <span key={kw} className="text-xs px-2.5 py-1 rounded-full bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                {kw}
+              </span>
             ))}
           </div>
         </section>
       )}
 
-      {/* Engagement chart */}
-      {engagement_history.length >= 2 && (
+      {/* SNS trend keywords */}
+      {sns_keywords.length > 0 && (
         <section className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">조회수 추이</h2>
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
-            <EngagementChart data={engagement_history} />
-          </div>
-        </section>
-      )}
-
-      {/* Category popular */}
-      {category_popular && category_popular.length > 0 && (
-        <section className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">이 카테고리의 인기글</h2>
-          <div className="space-y-2">
-            {category_popular.map((p: { id: number; title: string; source_name: string; source_key: string; thumbnail: string | null; view_count: number }) => (
-              <Link
-                key={p.id}
-                to={`/issue/${p.id}`}
-                className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-              >
-                {p.thumbnail && (
-                  <img src={optimizedImage(p.thumbnail, 96)} alt={p.title} className="w-12 h-9 object-cover rounded flex-shrink-0" loading="lazy" decoding="async" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getSourceColor(p.source_key)}`}>
-                    {p.source_name}
-                  </span>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-1 mt-0.5">{p.title}</p>
-                </div>
-                {p.view_count > 0 && (
-                  <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">{formatCount(p.view_count)}</span>
-                )}
-              </Link>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">SNS 트렌드</h2>
+          <div className="flex flex-wrap gap-1.5">
+            {sns_keywords.map(kw => (
+              <span key={kw} className="text-xs px-2.5 py-1 rounded-full bg-pink-50 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300">
+                {kw}
+              </span>
             ))}
           </div>
         </section>
@@ -175,28 +131,48 @@ export const IssueDetailPage: React.FC = () => {
       {/* Ad slot */}
       <AdSlot slotId="issue-detail" format="rectangle" className="my-6" />
 
-      {/* Action buttons */}
+      {/* Share button */}
       <div className="flex items-center gap-3 mt-6">
-        <a
-          href={post.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors text-sm"
-        >
-          원문 보기
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
-        </a>
         <ShareButton
-          url={`${window.location.origin}/issue/${post.id}`}
-          title={post.title}
-          description={`${post.source_name} — ${post.title}`}
-          thumbnail={post.thumbnail ?? undefined}
+          url={`${window.location.origin}/issue/${issue.id}`}
+          title={issue.title}
+          description={issue.summary ?? issue.title}
+          thumbnail={issue.thumbnail ?? undefined}
         />
       </div>
     </div>
   );
 };
+
+// ─── Post Section ───
+
+const PostSection: React.FC<{ label: string; posts: IssueRelatedPost[] }> = ({ label, posts }) => (
+  <section className="mb-6">
+    <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+      {label} ({posts.length})
+    </h2>
+    <div className="space-y-2">
+      {posts.map(post => (
+        <a
+          key={post.id}
+          href={post.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 transition-colors"
+        >
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${getSourceColor(post.source_key, null)}`}>
+            {post.source_name}
+          </span>
+          <span className="text-sm text-slate-700 dark:text-slate-300 line-clamp-1 flex-1">{post.title}</span>
+          {post.view_count > 0 && (
+            <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0 tabular-nums">
+              {post.view_count.toLocaleString()}
+            </span>
+          )}
+        </a>
+      ))}
+    </div>
+  </section>
+);
 
 export default IssueDetailPage;

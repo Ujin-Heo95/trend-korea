@@ -90,7 +90,7 @@ export interface IssueRankingResponse {
   calculated_at: string | null;
 }
 
-// ── 이슈 상세 ───────────────────────────────────────────
+// ── 이슈 상세 (posts 기반 — 다른 탭에서 사용) ─────────────
 export interface IssueDetailResponse {
   post: Omit<Post, 'cluster_size' | 'cluster_id' | 'related_sources'>;
   trend_score: number | null;
@@ -100,6 +100,30 @@ export interface IssueDetailResponse {
   }[];
   engagement_history: { view_count: number; comment_count: number; like_count: number; captured_at: string }[];
   category_popular?: { id: number; title: string; source_name: string; source_key: string; thumbnail: string | null; view_count: number }[];
+}
+
+// ── 이슈 랭킹 상세 (전체 탭 → 자세히 보기) ─────────────
+export interface IssueRankingDetailResponse {
+  issue: {
+    id: number;
+    title: string;
+    summary: string | null;
+    category_label: string | null;
+    issue_score: number;
+    thumbnail: string | null;
+    rank_change: number | null;
+    calculated_at: string;
+  };
+  news_posts: IssueRelatedPost[];
+  community_posts: IssueRelatedPost[];
+  video_posts: IssueRelatedPost[];
+  matched_keywords: string[];
+  portal_keywords: string[];
+  sns_keywords: string[];
+  channel_tags: ChannelTag[];
+  news_post_count: number;
+  community_post_count: number;
+  video_post_count: number;
 }
 
 // ── 날씨 ─────────────────────────────────────────────────

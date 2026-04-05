@@ -1,5 +1,5 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import { fetchPosts, fetchTrending, fetchSources, fetchIssueDetail } from '../api/client';
+import { fetchPosts, fetchTrending, fetchSources, fetchIssueDetail, fetchIssueRankingDetail } from '../api/client';
 import type { PostsResponse } from '../types';
 
 interface PostsFilter {
@@ -44,4 +44,12 @@ export const useIssueDetail = (postId: number) =>
     queryFn: () => fetchIssueDetail(postId),
     staleTime: 60_000,
     enabled: postId > 0,
+  });
+
+export const useIssueRankingDetail = (issueId: number) =>
+  useQuery({
+    queryKey: ['issue-ranking-detail', issueId],
+    queryFn: () => fetchIssueRankingDetail(issueId),
+    staleTime: 60_000,
+    enabled: issueId > 0,
   });

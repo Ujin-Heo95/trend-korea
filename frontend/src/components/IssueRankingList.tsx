@@ -145,86 +145,84 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = ({ issue }) => {
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
       <div className="px-4 py-3">
-        <div className="flex items-start gap-3">
-          {/* Rank + Change */}
-          <div className="flex-shrink-0 flex flex-col items-center gap-0.5">
-            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${
-              issue.rank <= 3
-                ? 'bg-blue-600 text-white dark:bg-blue-500'
-                : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
-            }`}>
-              {issue.rank}
+        {/* Line 1: Rank (small) + Category */}
+        <div className="flex items-center gap-1.5 mb-1">
+          <span className={`flex-shrink-0 text-xs font-bold tabular-nums ${
+            issue.rank <= 3
+              ? 'text-blue-600 dark:text-blue-400'
+              : 'text-slate-400 dark:text-slate-500'
+          }`}>
+            {issue.rank}
+          </span>
+          <RankChangeIndicator change={issue.rank_change} />
+          {issue.category_label && (
+            <span className={`text-xs font-medium ${categoryColor}`}>
+              {issue.category_label}
             </span>
-            <RankChangeIndicator change={issue.rank_change} />
-          </div>
+          )}
+        </div>
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            {/* Category | Title */}
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50 leading-snug mb-1.5">
-              {issue.category_label && (
-                <span className={`${categoryColor} font-medium`}>
-                  {issue.category_label}
-                </span>
-              )}
-              {issue.category_label && <span className="text-slate-300 dark:text-slate-600 mx-1">|</span>}
-              {issue.title}
-            </h3>
+        {/* Title — prominent, full width */}
+        <h3 className="text-base font-bold text-slate-900 dark:text-slate-50 leading-snug mb-2">
+          {issue.title}
+        </h3>
 
-            {/* Summary — full text, no clamp */}
+        {/* Thumbnail (left) + Summary (right) */}
+        {(issue.thumbnail || issue.summary) && (
+          <div className="flex items-start gap-3 mb-2">
+            {issue.thumbnail ? (
+              <div className="flex-shrink-0 w-24 h-16 sm:w-28 sm:h-20 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
+                <img
+                  src={issue.thumbnail}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            ) : (
+              <div className="flex-shrink-0 w-24 h-16 sm:w-28 sm:h-20 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                <span className="text-2xl">{fallbackIcon}</span>
+              </div>
+            )}
             {issue.summary && (
-              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-2">
+              <p className="flex-1 min-w-0 text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-3">
                 {issue.summary}
               </p>
             )}
-
-            {/* "자세히 보기" → detail page */}
-            <Link
-              to={`/issue/${issue.id}`}
-              className="text-xs text-blue-600 dark:text-blue-400 hover:underline mb-2 inline-block"
-            >
-              자세히 보기
-            </Link>
-
-            {/* Channel Tags */}
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {issue.channel_tags.map(tag => {
-                const style = CHANNEL_TAG_STYLES[tag];
-                const isActive = activeChannels.has(tag);
-                const count = tag === 'news'
-                  ? issue.news_post_count + issue.video_post_count
-                  : tag === 'community'
-                    ? issue.community_post_count
-                    : 0;
-
-                return (
-                  <button
-                    key={tag}
-                    onClick={() => toggleChannel(tag)}
-                    className={`px-2 py-0.5 rounded-full border text-[11px] font-medium transition-colors ${
-                      isActive ? style.active : style.default
-                    }`}
-                  >
-                    {style.label}{count > 0 ? ` ${count}` : ''}
-                  </button>
-                );
-              })}
-            </div>
           </div>
+        )}
 
-          {/* Thumbnail */}
-          <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-            {issue.thumbnail ? (
-              <img
-                src={issue.thumbnail}
-                alt=""
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <span className="text-2xl">{fallbackIcon}</span>
-            )}
+        {/* Channel Tags + Detail Link */}
+        <div className="flex items-center justify-between gap-2 mt-1">
+          <div className="flex flex-wrap gap-1.5">
+            {issue.channel_tags.map(tag => {
+              const style = CHANNEL_TAG_STYLES[tag];
+              const isActive = activeChannels.has(tag);
+              const count = tag === 'news'
+                ? issue.news_post_count + issue.video_post_count
+                : tag === 'community'
+                  ? issue.community_post_count
+                  : 0;
+
+              return (
+                <button
+                  key={tag}
+                  onClick={() => toggleChannel(tag)}
+                  className={`px-2 py-0.5 rounded-full border text-[11px] font-medium transition-colors ${
+                    isActive ? style.active : style.default
+                  }`}
+                >
+                  {style.label}{count > 0 ? ` ${count}` : ''}
+                </button>
+              );
+            })}
           </div>
+          <Link
+            to={`/issue/${issue.id}`}
+            className="flex-shrink-0 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            자세히 보기 →
+          </Link>
         </div>
       </div>
 
@@ -242,7 +240,7 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = ({ issue }) => {
           )}
           {activeChannels.has('portal') && issue.matched_keywords.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1 mt-1">포털 ��렌드</p>
+              <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1 mt-1">포털 트렌드</p>
               <div className="flex flex-wrap gap-1">
                 {issue.matched_keywords.map((kw) => (
                   <span key={kw} className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300">
@@ -306,21 +304,21 @@ function IssueRankingSkeleton() {
     <div className="space-y-3">
       {Array.from({ length: 8 }, (_, i) => (
         <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 animate-pulse">
-          <div className="flex items-start gap-3">
-            <div className="flex flex-col items-center gap-1">
-              <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700" />
-              <div className="w-6 h-3 rounded bg-slate-200 dark:bg-slate-700" />
-            </div>
+          <div className="flex items-center gap-1.5 mb-1">
+            <div className="w-4 h-4 rounded bg-slate-200 dark:bg-slate-700" />
+            <div className="w-10 h-3 rounded bg-slate-200 dark:bg-slate-700" />
+          </div>
+          <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-3/4 mb-2" />
+          <div className="flex items-start gap-3 mb-2">
+            <div className="w-24 h-16 sm:w-28 sm:h-20 rounded-lg bg-slate-200 dark:bg-slate-700 flex-shrink-0" />
             <div className="flex-1 space-y-2">
-              <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />
               <div className="h-4 bg-slate-100 dark:bg-slate-700/50 rounded w-full" />
               <div className="h-4 bg-slate-100 dark:bg-slate-700/50 rounded w-2/3" />
-              <div className="flex gap-1.5 mt-1">
-                <div className="w-14 h-5 rounded-full bg-slate-200 dark:bg-slate-700" />
-                <div className="w-16 h-5 rounded-full bg-slate-200 dark:bg-slate-700" />
-              </div>
             </div>
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-slate-200 dark:bg-slate-700" />
+          </div>
+          <div className="flex gap-1.5">
+            <div className="w-14 h-5 rounded-full bg-slate-200 dark:bg-slate-700" />
+            <div className="w-16 h-5 rounded-full bg-slate-200 dark:bg-slate-700" />
           </div>
         </div>
       ))}
