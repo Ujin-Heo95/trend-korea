@@ -114,3 +114,72 @@ export function volumeDampeningFactor(sourceCount: number, medianCount: number):
   if (sourceCount <= medianCount || medianCount <= 0) return 1.0;
   return Math.max(0.7, 1.0 - 0.15 * Math.log(sourceCount / medianCount));
 }
+
+// ─── DB Config Pre-fetched Weights ───
+// 배치 사이클 시작 시 한 번 로드하여 동기 함수에 전달하는 패턴
+
+import { getScoringConfig } from './scoringConfig.js';
+
+export interface PreloadedWeights {
+  readonly sourceWeights: Record<string, number>;
+  readonly defaultSourceWeight: number;
+  readonly categoryWeights: Record<string, number>;
+  readonly defaultCategoryWeight: number;
+  readonly communitySourceWeights: Record<string, number>;
+  readonly defaultCommunitySourceWeight: number;
+  readonly communityDecayHalfLives: Record<string, number>;
+  readonly defaultCommunityDecay: number;
+  readonly channelHalfLives: Record<string, number>;
+  readonly defaultHalfLife: number;
+}
+
+/** 배치 시작 시 DB에서 설정을 한 번만 로드 (Pre-fetch 패턴) */
+export async function preloadWeights(): Promise<PreloadedWeights> {
+  const config = getScoringConfig();
+
+  const [srcRec, catRec, commSrcRec, commDecayRec, chHalfRec] = await Promise.all([
+    config.getRecord('source_weights', 'values'),
+    config.getRecord('category_weights', 'values'),
+    config.getRecord('community_source_weights', 'values'),
+    config.getRecord('community_decay_half_lives', 'values'),
+    config.getRecord('channel_half_lives', 'values'),
+  ]);
+
+  return {
+    sourceWeights: srcRec,
+    defaultSourceWeight: srcRec['DEFAULT'] ?? DEFAULT_SOURCE_WEIGHT,
+    categoryWeights: catRec,
+    defaultCategoryWeight: catRec['DEFAULT'] ?? DEFAULT_CATEGORY_WEIGHT,
+    communitySourceWeights: commSrcRec,
+    defaultCommunitySourceWeight: commSrcRec['DEFAULT'] ?? DEFAULT_COMMUNITY_SOURCE_WEIGHT,
+    communityDecayHalfLives: commDecayRec,
+    defaultCommunityDecay: commDecayRec['DEFAULT'] ?? DEFAULT_COMMUNITY_DECAY,
+    channelHalfLives: chHalfRec,
+    defaultHalfLife: chHalfRec['DEFAULT'] ?? DEFAULT_HALF_LIFE_MINUTES,
+  };
+}
+
+/** Pre-loaded 가중치에서 소스 가중치 조회 */
+export function getSourceWeightFrom(w: PreloadedWeights, sourceKey: string): number {
+  return w.sourceWeights[sourceKey] ?? w.defaultSourceWeight;
+}
+
+/** Pre-loaded 가중치에서 카테고리 가중치 조회 */
+export function getCategoryWeightFrom(w: PreloadedWeights, category: string | null): number {
+  return category ? (w.categoryWeights[category] ?? w.defaultCategoryWeight) : w.defaultCategoryWeight;
+}
+
+/** Pre-loaded 가중치에서 커뮤니티 소스 가중치 조회 */
+export function getCommunitySourceWeightFrom(w: PreloadedWeights, sourceKey: string): number {
+  return w.communitySourceWeights[sourceKey] ?? w.defaultCommunitySourceWeight;
+}
+
+/** Pre-loaded 가중치에서 커뮤니티 반감기 조회 */
+export function getCommunityHalfLifeFrom(w: PreloadedWeights, sourceKey: string): number {
+  return w.communityDecayHalfLives[sourceKey] ?? w.defaultCommunityDecay;
+}
+
+/** Pre-loaded 가중치에서 채널 반감기 조회 */
+export function getHalfLifeFrom(w: PreloadedWeights, channel: Channel): number {
+  return w.channelHalfLives[channel] ?? w.defaultHalfLife;
+}

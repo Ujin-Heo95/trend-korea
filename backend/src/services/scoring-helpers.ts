@@ -241,7 +241,7 @@ export async function calculateChannelStats(pool: Pool): Promise<Map<Channel, So
   return map;
 }
 
-/** 채널별 댓글 가중치 */
+/** 채널별 댓글 가중치 (코드 기본값 — DB 설정으로 오버라이드 가능) */
 const CHANNEL_COMMENT_WEIGHT: Record<Channel, number> = {
   community: 1.5,    // 커뮤니티 댓글은 참여 지표로 중요
   news: 0.5,         // 뉴스 댓글은 덜 의미 있음
@@ -250,7 +250,7 @@ const CHANNEL_COMMENT_WEIGHT: Record<Channel, number> = {
   specialized: 1.0,  // 테크블로그 등
 };
 
-/** 채널별 좋아요 가중치 */
+/** 채널별 좋아요 가중치 (코드 기본값 — DB 설정으로 오버라이드 가능) */
 const CHANNEL_LIKE_WEIGHT: Record<Channel, number> = {
   community: 2.0,    // 커뮤니티 추천은 가장 강한 품질 지표
   sns: 1.5,          // SNS 좋아요는 높은 참여
@@ -258,6 +258,26 @@ const CHANNEL_LIKE_WEIGHT: Record<Channel, number> = {
   specialized: 0.8,  // 전문 사이트는 보통
   news: 0.3,         // 뉴스 좋아요는 약한 신호 (대부분 없음)
 };
+
+export interface EngagementWeights {
+  readonly commentWeights: Record<string, number>;
+  readonly likeWeights: Record<string, number>;
+}
+
+import { getScoringConfig } from './scoringConfig.js';
+
+/** 배치 시작 시 참여도 가중치를 한 번만 로드 */
+export async function preloadEngagementWeights(): Promise<EngagementWeights> {
+  const config = getScoringConfig();
+  const [commentWeights, likeWeights] = await Promise.all([
+    config.getRecord('engagement_weights', 'comment_weights'),
+    config.getRecord('engagement_weights', 'like_weights'),
+  ]);
+  return {
+    commentWeights: Object.keys(commentWeights).length > 0 ? commentWeights : { ...CHANNEL_COMMENT_WEIGHT },
+    likeWeights: Object.keys(likeWeights).length > 0 ? likeWeights : { ...CHANNEL_LIKE_WEIGHT },
+  };
+}
 
 /** Z-Score 정규화된 engagement 계산 (채널 인식) */
 export function normalizeEngagement(
@@ -269,9 +289,10 @@ export function normalizeEngagement(
   channelStatsMap: Map<Channel, SourceStats>,
   channel: Channel,
   categoryBaseline: number,
+  engagementWeights?: EngagementWeights,
 ): number {
-  const commentWeight = CHANNEL_COMMENT_WEIGHT[channel];
-  const likeWeight = CHANNEL_LIKE_WEIGHT[channel];
+  const commentWeight = engagementWeights?.commentWeights[channel] ?? CHANNEL_COMMENT_WEIGHT[channel];
+  const likeWeight = engagementWeights?.likeWeights[channel] ?? CHANNEL_LIKE_WEIGHT[channel];
 
   // engagement 데이터가 없으면 Bayesian Prior 사용
   if (viewCount === 0 && commentCount === 0 && likeCount === 0) {

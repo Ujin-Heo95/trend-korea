@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useAdminToken, useAdminHealth, type MergedSource } from '../hooks/useAdminHealth';
+import { ScoringConfigPanel } from '../components/admin/ScoringConfigPanel';
 
 type SortKey = 'name' | 'category' | 'successRate' | 'lastRunAt' | 'postCount' | 'lastPostCount';
 type SortDir = 'asc' | 'desc';
@@ -181,10 +182,21 @@ function SourceTable({ sources }: { sources: MergedSource[] }) {
 }
 
 // ─── Admin Page ───────────────────────────────────────────────
+type AdminTab = 'dashboard' | 'config';
+
 export function AdminPage() {
   const { token, setToken, clearToken } = useAdminToken();
   const { data, isLoading, isError, error, isAuthed, refetch } = useAdminHealth(token);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
+  const [activeTab, setActiveTab] = useState<AdminTab>(() => {
+    const hash = window.location.hash.replace('#', '');
+    return hash === 'config' ? 'config' : 'dashboard';
+  });
+
+  // URL hash 동기화
+  React.useEffect(() => {
+    window.location.hash = activeTab;
+  }, [activeTab]);
 
   // 데이터 갱신 시 타임스탬프 업데이트
   React.useEffect(() => {
@@ -246,6 +258,21 @@ export function AdminPage() {
           }`}>
             {health.status}
           </span>
+          <div className="flex gap-1 ml-4">
+            {(['dashboard', 'config'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  activeTab === tab
+                    ? 'bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+              >
+                {tab === 'dashboard' ? '대시보드' : '스코어링 설정'}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex items-center gap-4 text-xs text-slate-400">
           <span>{secAgo < 5 ? '방금 갱신' : `${secAgo}초 전 갱신`} (30초 주기)</span>
@@ -254,6 +281,10 @@ export function AdminPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+        {activeTab === 'config' && token ? (
+          <ScoringConfigPanel token={token} />
+        ) : (
+        <>
         {/* System Overview */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <StatCard label="DB 크기" value={`${health.db.db_size_mb} MB`} sub="Supabase 500MB 한도" />
@@ -324,6 +355,8 @@ export function AdminPage() {
 
         {/* Source Table */}
         <SourceTable sources={sources} />
+        </>
+        )}
       </main>
     </div>
   );

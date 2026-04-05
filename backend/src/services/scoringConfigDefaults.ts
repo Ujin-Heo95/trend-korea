@@ -1,0 +1,241 @@
+// ─── Scoring Config Defaults ───
+// 모든 스코어링 상수의 기본값, 검증 범위, 한국어 라벨 정의
+// DB에 행이 없으면 이 기본값 사용 (= 현재 하드코딩 값과 동일)
+
+export type FieldType = 'number' | 'record' | 'array';
+
+export interface ConfigField {
+  readonly key: string;
+  readonly defaultValue: number | number[] | Record<string, number>;
+  readonly min?: number;
+  readonly max?: number;
+  readonly step?: number;
+  readonly label: string;
+  readonly description?: string;
+  readonly type: FieldType;
+}
+
+export interface ConfigGroup {
+  readonly groupName: string;
+  readonly label: string;
+  readonly description: string;
+  readonly fields: readonly ConfigField[];
+}
+
+export const CONFIG_GROUPS: readonly ConfigGroup[] = [
+  // ─── 1. 이슈 어그리게이터 ───
+  {
+    groupName: 'issue_aggregator',
+    label: '이슈 어그리게이션',
+    description: '전체 탭 이슈 순위 생성 파이프라인 설정',
+    fields: [
+      { key: 'ISSUE_WINDOW_HOURS', defaultValue: 12, min: 1, max: 48, step: 1, label: '이슈 윈도우 (시간)', description: '이슈 생성에 사용할 게시물 수집 기간', type: 'number' },
+      { key: 'MAX_ISSUES', defaultValue: 30, min: 5, max: 100, step: 1, label: '최대 이슈 수', description: '전체 탭에 표시할 최대 이슈 개수', type: 'number' },
+      { key: 'NEWS_WEIGHT', defaultValue: 1.0, min: 0.1, max: 5.0, step: 0.1, label: '뉴스 가중치', description: '이슈 점수에서 뉴스 점수 비중', type: 'number' },
+      { key: 'COMMUNITY_WEIGHT', defaultValue: 0.3, min: 0.0, max: 5.0, step: 0.1, label: '커뮤니티 가중치', description: '이슈 점수에서 커뮤니티 점수 비중', type: 'number' },
+      { key: 'TREND_SIGNAL_WEIGHT', defaultValue: 0.5, min: 0.0, max: 5.0, step: 0.1, label: '트렌드 신호 가중치', description: '이슈 점수에서 트렌드 신호 비중', type: 'number' },
+      { key: 'ISSUE_DEDUP_THRESHOLD', defaultValue: 0.55, min: 0.1, max: 1.0, step: 0.05, label: '이슈 중복제거 임계값', description: 'Jaccard 유사도 이상이면 같은 이슈로 병합', type: 'number' },
+    ],
+  },
+
+  // ─── 2. 채널별 반감기 ───
+  {
+    groupName: 'channel_half_lives',
+    label: '채널 반감기',
+    description: '채널별 점수 감쇠 반감기 (분 단위). 작을수록 빠르게 하락',
+    fields: [
+      {
+        key: 'values',
+        defaultValue: {
+          community: 150, sns: 120, news: 240, specialized: 300, video: 360,
+          DEFAULT: 300,
+        },
+        min: 10, max: 1440, step: 10,
+        label: '채널별 반감기 (분)',
+        type: 'record',
+      },
+    ],
+  },
+
+  // ─── 3. 소스 가중치 ───
+  {
+    groupName: 'source_weights',
+    label: '소스 가중치',
+    description: '소스별 기본 가중치. 높을수록 해당 소스 게시물의 점수 상승',
+    fields: [
+      {
+        key: 'values',
+        defaultValue: {
+          // T1: 통신사 + 뉴스 집계
+          yna: 2.5, naver_news_ranking: 2.5, bigkinds_issues: 2.5,
+          // T2: 방송사 + 조중
+          sbs: 2.2, kbs: 2.2, mbc: 2.2, jtbc: 2.2, chosun: 2.2, joins: 2.2,
+          // T3: 주요 언론
+          khan: 2.0, mk: 2.0, hani: 2.0, donga: 2.0, hankyung: 2.0, ytn: 2.0,
+          // T4: 포털·통합
+          daum_news: 1.8, google_news_kr: 1.6, newsis: 1.8,
+          // YouTube
+          youtube: 2.5,
+          // 테크
+          geeknews: 1.3, yozm: 1.3, etnews: 1.5,
+          naver_d2: 1.1, kakao_tech: 1.1, toss_tech: 1.1,
+          // 커뮤니티
+          dcinside: 1.0, bobaedream: 1.0, ruliweb: 1.0, theqoo: 1.0,
+          instiz: 1.0, natepann: 1.0,
+          // 기타
+          ppomppu: 1.0, kopis_boxoffice: 1.2, sports_donga: 1.2,
+          ruliweb_hot: 0.9, clien_jirum: 0.9, quasarzone_deal: 0.9, dcinside_hotdeal: 0.9,
+          DEFAULT: 0.8,
+        },
+        min: 0.1, max: 5.0, step: 0.1,
+        label: '소스별 가중치',
+        type: 'record',
+      },
+    ],
+  },
+
+  // ─── 4. 카테고리 가중치 ───
+  {
+    groupName: 'category_weights',
+    label: '카테고리 가중치',
+    description: '카테고리별 점수 보정 계수',
+    fields: [
+      {
+        key: 'values',
+        defaultValue: {
+          alert: 1.25, news: 1.20, trend: 1.15, tech: 1.15,
+          finance: 1.10, community: 1.08, video: 0.95,
+          movie: 1.05, performance: 1.05, travel: 1.05, music: 1.05,
+          books: 1.05, ott: 1.05,
+          deals: 1.00, government: 0.85, newsletter: 0.80,
+          DEFAULT: 1.00,
+        },
+        min: 0.1, max: 5.0, step: 0.05,
+        label: '카테고리별 가중치',
+        type: 'record',
+      },
+    ],
+  },
+
+  // ─── 5. 커뮤니티 소스 가중치 ───
+  {
+    groupName: 'community_source_weights',
+    label: '커뮤니티 소스 가중치',
+    description: '커뮤니티 채널 내부에서의 소스별 추가 가중치',
+    fields: [
+      {
+        key: 'values',
+        defaultValue: {
+          // Tier A
+          theqoo: 1.4, instiz: 1.35, natepann: 1.3,
+          // Tier B
+          clien: 1.2, dcinside: 1.15, fmkorea: 1.15, todayhumor: 1.1,
+          // Tier C
+          ppomppu: 1.0, bobaedream: 1.0, mlbpark: 1.0, cook82: 1.0, dogdrip: 1.0,
+          // Tier D
+          inven: 0.9, ddanzi: 0.9, humoruniv: 0.85, ygosu: 0.85, slrclub: 0.8, etoland: 0.8,
+          DEFAULT: 1.0,
+        },
+        min: 0.1, max: 5.0, step: 0.05,
+        label: '커뮤니티 소스별 가중치',
+        type: 'record',
+      },
+    ],
+  },
+
+  // ─── 6. 커뮤니티 반감기 ───
+  {
+    groupName: 'community_decay_half_lives',
+    label: '커뮤니티 반감기',
+    description: '커뮤니티 소스별 점수 감쇠 반감기 (분)',
+    fields: [
+      {
+        key: 'values',
+        defaultValue: {
+          dcinside: 120, fmkorea: 120, dogdrip: 120,
+          theqoo: 150, instiz: 150, natepann: 150, todayhumor: 150, cook82: 150,
+          clien: 200, bobaedream: 200,
+          ppomppu: 180, mlbpark: 180, inven: 180,
+          DEFAULT: 150,
+        },
+        min: 10, max: 1440, step: 10,
+        label: '커뮤니티 소스별 반감기 (분)',
+        type: 'record',
+      },
+    ],
+  },
+
+  // ─── 7. 참여도 가중치 ───
+  {
+    groupName: 'engagement_weights',
+    label: '참여도 가중치',
+    description: '채널별 댓글/좋아요 가중치 (Z-Score 정규화에 사용)',
+    fields: [
+      {
+        key: 'comment_weights',
+        defaultValue: {
+          community: 1.5, news: 0.5, video: 1.0, sns: 1.0, specialized: 1.0,
+        },
+        min: 0.0, max: 5.0, step: 0.1,
+        label: '채널별 댓글 가중치',
+        type: 'record',
+      },
+      {
+        key: 'like_weights',
+        defaultValue: {
+          community: 2.0, sns: 1.5, video: 1.2, specialized: 0.8, news: 0.3,
+        },
+        min: 0.0, max: 5.0, step: 0.1,
+        label: '채널별 좋아요 가중치',
+        type: 'record',
+      },
+    ],
+  },
+
+  // ─── 8. 트렌드 신호 ───
+  {
+    groupName: 'trend_signal',
+    label: '트렌드 신호',
+    description: '외부 트렌드 키워드 매칭 및 보너스 설정',
+    fields: [
+      { key: 'TREND_SIGNAL_BONUS_CAP', defaultValue: 1.8, min: 1.0, max: 5.0, step: 0.1, label: '트렌드 보너스 상한', description: '트렌드 매칭 보너스 최대값', type: 'number' },
+      { key: 'MIN_KOREAN_KEYWORD_LEN', defaultValue: 2, min: 1, max: 10, step: 1, label: '한국어 키워드 최소 길이', type: 'number' },
+      { key: 'MIN_LATIN_KEYWORD_LEN', defaultValue: 3, min: 1, max: 10, step: 1, label: '라틴 키워드 최소 길이', type: 'number' },
+      { key: 'BASE_BONUS_BY_COUNT', defaultValue: [1.0, 1.15, 1.35, 1.6], min: 1.0, max: 3.0, step: 0.05, label: '매칭 소스 수별 기본 보너스', description: '[0소스, 1소스, 2소스, 3+소스]', type: 'array' },
+      {
+        key: 'temporal_decay',
+        defaultValue: { '0_1h': 1.0, '1_3h': 0.85, '3_6h': 0.6, '6_12h': 0.3 },
+        min: 0.0, max: 1.0, step: 0.05,
+        label: '시간대별 감쇠율',
+        description: '키워드 감지 시간 경과에 따른 감쇠',
+        type: 'record',
+      },
+    ],
+  },
+
+  // ─── 9. 속보 감지 ───
+  {
+    groupName: 'breaking_news',
+    label: '속보 감지',
+    description: '여러 언론사가 동시 보도 시 적용되는 속보 부스트 설정',
+    fields: [
+      { key: 'DETECTION_WINDOW_HOURS', defaultValue: 2, min: 0.5, max: 12, step: 0.5, label: '감지 윈도우 (시간)', description: '클러스터 생성 후 속보로 간주하는 기간', type: 'number' },
+      { key: 'MIN_SOURCES', defaultValue: 3, min: 2, max: 10, step: 1, label: '최소 소스 수', description: '속보로 판정하기 위한 최소 언론사 수', type: 'number' },
+      { key: 'TIME_WINDOW_MINUTES', defaultValue: 30, min: 5, max: 120, step: 5, label: '시간 간격 (분)', description: '첫 보도~마지막 보도 간 최대 허용 간격', type: 'number' },
+      { key: 'BOOST_HALF_LIFE_MINUTES', defaultValue: 30, min: 5, max: 120, step: 5, label: '부스트 반감기 (분)', description: '속보 부스트 감쇠 속도', type: 'number' },
+      { key: 'MAX_BOOST', defaultValue: 3.0, min: 1.5, max: 10.0, step: 0.5, label: '최대 부스트', description: '속보 부스트 상한값', type: 'number' },
+    ],
+  },
+] as const;
+
+// ─── Utility: 그룹 이름으로 조회 ───
+
+const GROUP_MAP = new Map(CONFIG_GROUPS.map(g => [g.groupName, g]));
+
+export function getGroupDefaults(groupName: string): ConfigGroup | undefined {
+  return GROUP_MAP.get(groupName);
+}
+
+export function getAllGroupNames(): readonly string[] {
+  return CONFIG_GROUPS.map(g => g.groupName);
+}

@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { config } from '../config/index.js';
 import { checkApiKeys } from '../services/apiKeyHealth.js';
 import { getQuotaStatus } from '../services/apiQuota.js';
+import { isAdminRequest } from '../middleware/adminAuth.js';
 
 interface ScraperRunRow {
   source_key: string;
@@ -12,12 +12,7 @@ interface ScraperRunRow {
 
 export async function healthRoutes(app: FastifyInstance): Promise<void> {
   const handler = async (req: FastifyRequest, reply: FastifyReply) => {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    const isProduction = config.nodeEnv === 'production';
-    // 프로덕션에서 ADMIN_TOKEN 미설정 시 어드민 접근 거부
-    const isAdmin = !isProduction && config.adminToken === ''
-      ? true
-      : token !== '' && token === config.adminToken;
+    const isAdmin = isAdminRequest(req);
 
     // 1. DB 연결 확인
     try {

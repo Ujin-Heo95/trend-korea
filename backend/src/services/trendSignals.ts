@@ -17,13 +17,29 @@ export interface MatchResult {
   readonly avgTemporalDecay: number;
 }
 
-// ─── Constants ───
+// ─── Constants (코드 기본값 — DB 설정으로 오버라이드 가능) ───
 
-const MIN_KOREAN_KEYWORD_LEN = 2;
-const MIN_LATIN_KEYWORD_LEN = 3;
-const TREND_SIGNAL_BONUS_CAP = 1.8;
+let MIN_KOREAN_KEYWORD_LEN = 2;
+let MIN_LATIN_KEYWORD_LEN = 3;
+let TREND_SIGNAL_BONUS_CAP = 1.8;
+let BASE_BONUS_BY_COUNT: readonly number[] = [1.0, 1.15, 1.35, 1.6];
 
-const BASE_BONUS_BY_COUNT: readonly number[] = [1.0, 1.15, 1.35, 1.6];
+import { getScoringConfig } from './scoringConfig.js';
+
+/** 트렌드 신호 상수를 DB에서 로드하여 모듈 변수에 반영 */
+export async function reloadTrendSignalConfig(): Promise<void> {
+  try {
+    const config = getScoringConfig();
+    const group = await config.getGroup('trend_signal');
+    MIN_KOREAN_KEYWORD_LEN = (group['MIN_KOREAN_KEYWORD_LEN'] as number) ?? 2;
+    MIN_LATIN_KEYWORD_LEN = (group['MIN_LATIN_KEYWORD_LEN'] as number) ?? 3;
+    TREND_SIGNAL_BONUS_CAP = (group['TREND_SIGNAL_BONUS_CAP'] as number) ?? 1.8;
+    const arr = group['BASE_BONUS_BY_COUNT'];
+    if (Array.isArray(arr)) BASE_BONUS_BY_COUNT = arr as number[];
+  } catch {
+    // DB 실패 시 기존 값 유지
+  }
+}
 
 // ─── Keyword Extraction ───
 
@@ -325,6 +341,7 @@ export async function calculateTrendSignalMap(
   pool: Pool,
   posts: readonly { id: number; title: string }[],
 ): Promise<Map<number, number>> {
+  await reloadTrendSignalConfig();
   const index = await buildKeywordIndex(pool);
   if (index.length === 0) return new Map();
 

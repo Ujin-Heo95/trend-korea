@@ -2,20 +2,27 @@ import type { Pool } from 'pg';
 import { calculateTrendSignalMap } from './trendSignals.js';
 import {
   type Channel,
-  CHANNEL_HALF_LIFE_MINUTES,
-  DEFAULT_HALF_LIFE_MINUTES,
+  type PreloadedWeights,
   getChannel,
   getSourceWeight,
   getCategoryWeight,
   getCommunitySourceWeight,
   getCommunityHalfLife,
   volumeDampeningFactor,
+  preloadWeights,
+  getSourceWeightFrom,
+  getCategoryWeightFrom,
+  getCommunitySourceWeightFrom,
+  getCommunityHalfLifeFrom,
+  getHalfLifeFrom,
 } from './scoring-weights.js';
 import {
   type ScoreFactors,
   type VelocityData,
+  type EngagementWeights,
   computeScore,
   normalizeEngagement,
+  preloadEngagementWeights,
   calculateSourceStats,
   calculateChannelStats,
   calculateVelocityMap,
@@ -49,6 +56,21 @@ export async function calculateScores(pool: Pool): Promise<number> {
 }
 
 async function _calculateScores(pool: Pool): Promise<number> {
+  // Step 0: DB에서 설정 한 번 로드 (Pre-fetch 패턴)
+  const [weights, engWeights] = await Promise.all([
+    preloadWeights().catch((): PreloadedWeights => ({
+      sourceWeights: {}, defaultSourceWeight: 0.8,
+      categoryWeights: {}, defaultCategoryWeight: 1.0,
+      communitySourceWeights: {}, defaultCommunitySourceWeight: 1.0,
+      communityDecayHalfLives: {}, defaultCommunityDecay: 150,
+      channelHalfLives: {}, defaultHalfLife: 300,
+    })),
+    preloadEngagementWeights().catch((): EngagementWeights => ({
+      commentWeights: { community: 1.5, news: 0.5, video: 1.0, sns: 1.0, specialized: 1.0 },
+      likeWeights: { community: 2.0, sns: 1.5, video: 1.2, specialized: 0.8, news: 0.3 },
+    })),
+  ]);
+
   // Step 1: 서브 계산 병렬 실행
   const [
     sourceStatsMap,
@@ -115,15 +137,15 @@ async function _calculateScores(pool: Pool): Promise<number> {
       if (clusterBonusMap.has(row.id)) credibilityFactor = 1.15;
     }
 
-    // 채널별 분기: 소스 가중치
+    // 채널별 분기: 소스 가중치 (DB 설정 우선)
     const srcW = isCommunity
-      ? getCommunitySourceWeight(row.source_key)
-      : getSourceWeight(row.source_key);
+      ? getCommunitySourceWeightFrom(weights, row.source_key)
+      : getSourceWeightFrom(weights, row.source_key);
 
-    // 채널별 분기: decay 반감기
+    // 채널별 분기: decay 반감기 (DB 설정 우선)
     const halfLife = isCommunity
-      ? getCommunityHalfLife(row.source_key)
-      : (CHANNEL_HALF_LIFE_MINUTES[channel] ?? DEFAULT_HALF_LIFE_MINUTES);
+      ? getCommunityHalfLifeFrom(weights, row.source_key)
+      : getHalfLifeFrom(weights, channel);
 
     // 채널별 분기: velocity 보너스
     const velBonus = isCommunity
@@ -136,13 +158,13 @@ async function _calculateScores(pool: Pool): Promise<number> {
       ? 0.8 + 0.6 * pctRank                // subcategoryNorm [0.8, 1.4]
       : isCommunity
         ? 1.0                               // 커뮤니티는 categoryWeight 불필요
-        : getCategoryWeight(row.category);
+        : getCategoryWeightFrom(weights, row.category);
 
     const factors: ScoreFactors = {
       normalizedEngagement: normalizeEngagement(
         row.view_count, row.comment_count, row.like_count,
         row.source_key, sourceStatsMap, channelStatsMap, channel,
-        catBaseline * credibilityFactor,
+        catBaseline * credibilityFactor, engWeights,
       ),
       decay: Math.exp(-LN2 * ageMinutes / halfLife),
       sourceWeight: srcW,

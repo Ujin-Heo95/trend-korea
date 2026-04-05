@@ -40,13 +40,37 @@ interface IssueRow {
   readonly matchedTrendKeywords: readonly string[];
 }
 
-// ─── Constants ───
+// ─── Constants (코드 기본값 — DB 설정으로 오버라이드 가능) ───
 
-const ISSUE_WINDOW_HOURS = 12;
-const MAX_ISSUES = 30;
-const NEWS_WEIGHT = 1.0;
-const COMMUNITY_WEIGHT = 0.3;
-const TREND_SIGNAL_WEIGHT = 0.5;
+const DEFAULT_ISSUE_WINDOW_HOURS = 12;
+const DEFAULT_MAX_ISSUES = 30;
+const DEFAULT_NEWS_WEIGHT = 1.0;
+const DEFAULT_COMMUNITY_WEIGHT = 0.3;
+const DEFAULT_TREND_SIGNAL_WEIGHT = 0.5;
+
+import { getScoringConfig } from './scoringConfig.js';
+
+interface IssueConfig {
+  readonly issueWindowHours: number;
+  readonly maxIssues: number;
+  readonly newsWeight: number;
+  readonly communityWeight: number;
+  readonly trendSignalWeight: number;
+  readonly issueDedupThreshold: number;
+}
+
+async function loadIssueConfig(): Promise<IssueConfig> {
+  const config = getScoringConfig();
+  const group = await config.getGroup('issue_aggregator');
+  return {
+    issueWindowHours: (group['ISSUE_WINDOW_HOURS'] as number) ?? DEFAULT_ISSUE_WINDOW_HOURS,
+    maxIssues: (group['MAX_ISSUES'] as number) ?? DEFAULT_MAX_ISSUES,
+    newsWeight: (group['NEWS_WEIGHT'] as number) ?? DEFAULT_NEWS_WEIGHT,
+    communityWeight: (group['COMMUNITY_WEIGHT'] as number) ?? DEFAULT_COMMUNITY_WEIGHT,
+    trendSignalWeight: (group['TREND_SIGNAL_WEIGHT'] as number) ?? DEFAULT_TREND_SIGNAL_WEIGHT,
+    issueDedupThreshold: (group['ISSUE_DEDUP_THRESHOLD'] as number) ?? 0.55,
+  };
+}
 
 // ─── Main Entry Point ───
 
@@ -66,8 +90,18 @@ export async function aggregateIssues(pool: Pool): Promise<number> {
 }
 
 async function _aggregateIssues(pool: Pool): Promise<number> {
+  // Step 0: DB에서 이슈 설정 로드
+  const cfg = await loadIssueConfig().catch((): IssueConfig => ({
+    issueWindowHours: DEFAULT_ISSUE_WINDOW_HOURS,
+    maxIssues: DEFAULT_MAX_ISSUES,
+    newsWeight: DEFAULT_NEWS_WEIGHT,
+    communityWeight: DEFAULT_COMMUNITY_WEIGHT,
+    trendSignalWeight: DEFAULT_TREND_SIGNAL_WEIGHT,
+    issueDedupThreshold: 0.55,
+  }));
+
   // Step 1: Fetch scored posts from the last N hours
-  const posts = await fetchScoredPosts(pool);
+  const posts = await fetchScoredPosts(pool, cfg.issueWindowHours);
   if (posts.length === 0) return 0;
 
   // Step 2: Build cluster-based groups
@@ -77,17 +111,17 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
   const mergedGroups = await mergeViaTrendKeywords(pool, clusterGroups, posts);
 
   // Step 3.5: Deduplicate issues by title similarity
-  const dedupedGroups = deduplicateIssuesByTitle(mergedGroups);
+  const dedupedGroups = deduplicateIssuesByTitle(mergedGroups, cfg.issueDedupThreshold);
 
   // Step 4: Filter (must have news) and score
-  const scoredIssues = scoreAndFilter(dedupedGroups);
+  const scoredIssues = scoreAndFilter(dedupedGroups, cfg);
 
   // Step 5: Take top N and prepare for summarization
-  const topIssues = scoredIssues.slice(0, MAX_ISSUES);
+  const topIssues = scoredIssues.slice(0, cfg.maxIssues);
 
   // Step 6: Try Gemini summarization (handled externally, pass-through here)
   // Summaries are generated separately and cached; here we use canonical title
-  const issueRows = topIssues.map(buildIssueRow);
+  const issueRows = topIssues.map(g => buildIssueRow(g, cfg));
 
   // Step 7: Write to DB (delete old → insert new, atomic)
   return await writeIssueRankings(pool, issueRows);
@@ -95,7 +129,7 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
 
 // ─── Step 1: Fetch Posts ───
 
-async function fetchScoredPosts(pool: Pool): Promise<ScoredPost[]> {
+async function fetchScoredPosts(pool: Pool, windowHours: number = DEFAULT_ISSUE_WINDOW_HOURS): Promise<ScoredPost[]> {
   const { rows } = await pool.query<{
     id: number; source_key: string; category: string | null;
     title: string; thumbnail: string | null; trend_score: number;
@@ -107,7 +141,7 @@ async function fetchScoredPosts(pool: Pool): Promise<ScoredPost[]> {
     FROM posts p
     LEFT JOIN post_scores ps ON ps.post_id = p.id
     LEFT JOIN post_cluster_members pcm ON pcm.post_id = p.id
-    WHERE p.scraped_at > NOW() - INTERVAL '${ISSUE_WINDOW_HOURS} hours'
+    WHERE p.scraped_at > NOW() - INTERVAL '${windowHours} hours'
       AND COALESCE(p.category, '') IN ('news', 'press', 'community')
     ORDER BY COALESCE(ps.trend_score, 0) DESC
   `);
@@ -282,9 +316,9 @@ async function mergeViaTrendKeywords(
 
 // ─── Step 3.5: Deduplicate Issues by Title Similarity ───
 
-const ISSUE_DEDUP_THRESHOLD = 0.55;
+const DEFAULT_ISSUE_DEDUP_THRESHOLD = 0.55;
 
-function deduplicateIssuesByTitle(groups: readonly IssueGroup[]): IssueGroup[] {
+function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: number = DEFAULT_ISSUE_DEDUP_THRESHOLD): IssueGroup[] {
   if (groups.length <= 1) return [...groups];
 
   // Compute representative title bigrams for each group
@@ -315,7 +349,7 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[]): IssueGroup[] {
   for (let i = 0; i < groups.length; i++) {
     for (let j = i + 1; j < groups.length; j++) {
       if (find(i) === find(j)) continue;
-      if (jaccardSimilarity(bigramSets[i], bigramSets[j]) >= ISSUE_DEDUP_THRESHOLD) {
+      if (jaccardSimilarity(bigramSets[i], bigramSets[j]) >= threshold) {
         union(i, j);
       }
     }
@@ -345,7 +379,11 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[]): IssueGroup[] {
 
 // ─── Step 4: Score and Filter ───
 
-function scoreAndFilter(groups: readonly IssueGroup[]): IssueGroup[] {
+function scoreAndFilter(groups: readonly IssueGroup[], cfg?: IssueConfig): IssueGroup[] {
+  const newsW = cfg?.newsWeight ?? DEFAULT_NEWS_WEIGHT;
+  const commW = cfg?.communityWeight ?? DEFAULT_COMMUNITY_WEIGHT;
+  const trendW = cfg?.trendSignalWeight ?? DEFAULT_TREND_SIGNAL_WEIGHT;
+
   // Filter: must have at least 1 news post
   const withNews = groups.filter(g => g.newsPosts.length > 0);
 
@@ -354,9 +392,9 @@ function scoreAndFilter(groups: readonly IssueGroup[]): IssueGroup[] {
     const newsScore = g.newsPosts.reduce((sum, p) => sum + p.trendScore, 0);
     const communityScore = g.communityPosts.reduce((sum, p) => sum + p.trendScore, 0);
     const issueScore =
-      newsScore * NEWS_WEIGHT +
-      communityScore * COMMUNITY_WEIGHT +
-      g.trendSignalScore * TREND_SIGNAL_WEIGHT;
+      newsScore * newsW +
+      communityScore * commW +
+      g.trendSignalScore * trendW;
     return { group: g, issueScore, newsScore, communityScore };
   });
 
@@ -368,7 +406,11 @@ function scoreAndFilter(groups: readonly IssueGroup[]): IssueGroup[] {
 
 // ─── Step 5: Build Issue Row ───
 
-function buildIssueRow(group: IssueGroup): IssueRow {
+function buildIssueRow(group: IssueGroup, cfg?: IssueConfig): IssueRow {
+  const newsW = cfg?.newsWeight ?? DEFAULT_NEWS_WEIGHT;
+  const commW = cfg?.communityWeight ?? DEFAULT_COMMUNITY_WEIGHT;
+  const trendW = cfg?.trendSignalWeight ?? DEFAULT_TREND_SIGNAL_WEIGHT;
+
   // Use highest-scoring news post title as default title
   const sortedNews = [...group.newsPosts].sort((a, b) => b.trendScore - a.trendScore);
   const canonicalPost = sortedNews[0];
@@ -376,9 +418,9 @@ function buildIssueRow(group: IssueGroup): IssueRow {
   const newsScore = group.newsPosts.reduce((sum, p) => sum + p.trendScore, 0);
   const communityScore = group.communityPosts.reduce((sum, p) => sum + p.trendScore, 0);
   const issueScore =
-    newsScore * NEWS_WEIGHT +
-    communityScore * COMMUNITY_WEIGHT +
-    group.trendSignalScore * TREND_SIGNAL_WEIGHT;
+    newsScore * newsW +
+    communityScore * commW +
+    group.trendSignalScore * trendW;
 
   // Derive category label from canonical post title
   const categoryLabel = deriveCategoryLabel(canonicalPost?.title ?? '');

@@ -18,8 +18,10 @@ import { ogImageRoutes } from './routes/ogImage.js';
 import { votesRoutes } from './routes/votes.js';
 import { sitemapRoutes } from './routes/sitemap.js';
 import { issueRoutes } from './routes/issues.js';
+import { adminConfigRoutes } from './routes/adminConfig.js';
 import { startScheduler } from './scheduler/index.js';
 import { registerPrerender } from './middleware/prerender.js';
+import { initScoringConfig } from './services/scoringConfig.js';
 
 if (config.sentryDsn) {
   Sentry.init({
@@ -35,6 +37,7 @@ declare module 'fastify' { interface FastifyInstance { pg: Pool; } }
 export async function buildApp() {
   const app = Fastify({ logger: true, trustProxy: true });
   app.decorate('pg', pool);
+  initScoringConfig(pool);
 
   // ── Central Error Handler ────────────────────────────
   app.setErrorHandler((error: Error & { statusCode?: number; validation?: unknown }, request, reply) => {
@@ -94,6 +97,7 @@ export async function buildApp() {
   await app.register(votesRoutes);
   await app.register(sitemapRoutes);
   await app.register(issueRoutes);
+  await app.register(adminConfigRoutes);
 
   // 봇 프리렌더: API 이외의 봇 요청에 동적 meta 태그 HTML 반환
   registerPrerender(app, pool);
