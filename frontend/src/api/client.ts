@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Post, Source, PostsResponse, WeatherResponse, CityInfo, IssueDetailResponse } from '../types';
+import type { Post, Source, PostsResponse, WeatherResponse, CityInfo, IssueDetailResponse, IssueRankingResponse } from '../types';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 const api = axios.create({ baseURL });
@@ -21,6 +21,9 @@ export const fetchCities = () =>
 
 export const fetchIssueDetail = (postId: number) =>
   api.get<IssueDetailResponse>(`/posts/${postId}`).then(r => r.data);
+
+export const fetchIssueRankings = (params?: { page?: number; limit?: number }) =>
+  api.get<IssueRankingResponse>('/issues', { params }).then(r => r.data);
 
 export const postVote = (postId: number) =>
   api.post<{ vote_count: number; is_new_vote: boolean }>(`/posts/${postId}/vote`).then(r => r.data);

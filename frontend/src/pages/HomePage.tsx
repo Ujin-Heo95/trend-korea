@@ -17,6 +17,7 @@ import { BookRankingTable } from '../components/BookRankingTable';
 import { OttRankingTable } from '../components/OttRankingTable';
 import { EntertainmentSubTabs, type EntertainmentSub } from '../components/EntertainmentSubTabs';
 import { CommunityRankingList } from '../components/CommunityRankingList';
+import { IssueRankingList } from '../components/IssueRankingList';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useReadPosts } from '../hooks/useReadPosts';
 import { useVotes } from '../hooks/useVotes';
@@ -191,7 +192,9 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         </p>
       )}
 
-      {isLoading ? (
+      {isAllTab ? (
+        <IssueRankingList />
+      ) : isLoading ? (
         <div className="grid gap-3">
           {Array.from({ length: 8 }, (_, i) => (
             <PostCardSkeleton key={i} />
@@ -239,7 +242,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         )
       )}
 
-      <div ref={sentinelRef} className="h-10" />
+      {!isAllTab && <div ref={sentinelRef} className="h-10" />}
 
       {category === 'video' && popularVideos && popularVideos.posts.length > 0 && (
         <div className="mt-6 mb-4">
@@ -254,13 +257,13 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         </div>
       )}
 
-      {isFetchingNextPage && (
+      {!isAllTab && isFetchingNextPage && (
         <div className="flex justify-center py-4">
           <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
-      {!hasNextPage && allPosts.length > 0 && (
+      {!isAllTab && !hasNextPage && allPosts.length > 0 && (
         <p className="text-center text-sm text-slate-400 dark:text-slate-500 py-4">모든 글을 불러왔습니다</p>
       )}
     </div>

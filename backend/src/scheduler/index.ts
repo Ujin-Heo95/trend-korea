@@ -4,6 +4,8 @@ import { runAllScrapers, runScrapersByPriority, runApifyScrapers } from '../scra
 import { cleanOldPosts, cleanOldScraperRuns, cleanOldEngagementSnapshots, cleanNumericTitlePosts } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
 import { extractTrendKeywords, cleanExpiredTrendKeywords } from '../services/trendSignals.js';
+import { aggregateIssues, cleanExpiredIssueRankings } from '../services/issueAggregator.js';
+import { summarizeAndUpdateIssues } from '../services/geminiSummarizer.js';
 import { checkDbSize } from '../services/dbMonitor.js';
 import { pool } from '../db/client.js';
 
@@ -32,9 +34,11 @@ export function startScheduler(): void {
     });
   }
 
-  // 트렌드 스코어 갱신: 5분 주기
-  cron.schedule('*/5 * * * *', () => {
-    calculateScores(pool).catch(err => captureError(err));
+  // 트렌드 스코어 갱신 + 이슈 집계: 5분 주기
+  cron.schedule('*/5 * * * *', async () => {
+    await calculateScores(pool).catch(captureError);
+    await aggregateIssues(pool).catch(captureError);
+    await summarizeAndUpdateIssues(pool).catch(captureError);
   });
 
   // 트렌드 키워드 추출: 15분 주기 (외부 소스 → trend_keywords 테이블)
@@ -55,6 +59,7 @@ export function startScheduler(): void {
     cleanOldScraperRuns().catch(captureError);
     cleanOldEngagementSnapshots().catch(captureError);
     cleanExpiredTrendKeywords(pool).catch(captureError);
+    cleanExpiredIssueRankings(pool).catch(captureError);
     checkDbSize(pool).catch(captureError);
   });
 }

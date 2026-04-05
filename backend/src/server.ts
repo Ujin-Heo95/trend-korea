@@ -17,6 +17,7 @@ import { issueDetailRoutes } from './routes/issueDetail.js';
 import { ogImageRoutes } from './routes/ogImage.js';
 import { votesRoutes } from './routes/votes.js';
 import { sitemapRoutes } from './routes/sitemap.js';
+import { issueRoutes } from './routes/issues.js';
 import { startScheduler } from './scheduler/index.js';
 import { registerPrerender } from './middleware/prerender.js';
 
@@ -92,6 +93,7 @@ export async function buildApp() {
   await app.register(ogImageRoutes);
   await app.register(votesRoutes);
   await app.register(sitemapRoutes);
+  await app.register(issueRoutes);
 
   // 봇 프리렌더: API 이외의 봇 요청에 동적 meta 태그 HTML 반환
   registerPrerender(app, pool);
