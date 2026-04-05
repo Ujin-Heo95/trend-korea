@@ -24,6 +24,12 @@ interface Config {
   bigkindsApiKey: string;
   geminiApiKey: string;
   dataGoKrApiKey: string;
+  kcisaTravelApiKey: string;
+  kcisaFestivalApiKey: string;
+  kcisaEventApiKey: string;
+  kcisaPerformanceApiKey: string;
+  kcisaExhibitionApiKey: string;
+  culturePerformanceApiKey: string;
   adminToken: string;
   corsOrigin: string[];
   nodeEnv: string;
@@ -98,6 +104,12 @@ export const config: Config = {
   bigkindsApiKey: process.env.BIGKINDS_API_KEY ?? '',
   geminiApiKey: process.env.GEMINI_API_KEY ?? '',
   dataGoKrApiKey: process.env.DATA_GO_KR_API_KEY ?? '',
+  kcisaTravelApiKey: process.env.KCISA_TRAVEL_API_KEY ?? '',
+  kcisaFestivalApiKey: process.env.KCISA_FESTIVAL_API_KEY ?? '',
+  kcisaEventApiKey: process.env.KCISA_EVENT_API_KEY ?? '',
+  kcisaPerformanceApiKey: process.env.KCISA_PERFORMANCE_API_KEY ?? '',
+  kcisaExhibitionApiKey: process.env.KCISA_EXHIBITION_API_KEY ?? '',
+  culturePerformanceApiKey: process.env.CULTURE_PERFORMANCE_API_KEY ?? '',
   adminToken: process.env.ADMIN_TOKEN ?? (() => {
     if (process.env.NODE_ENV === 'production') {
       console.warn('[config] WARNING: ADMIN_TOKEN is not set — admin endpoints are disabled in production');

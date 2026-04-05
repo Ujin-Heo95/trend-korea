@@ -54,8 +54,14 @@ const API_KEY_REQUIREMENTS: Record<string, { key: keyof typeof config; label: st
   kopis_boxoffice:{ key: 'kopisApiKey',      label: 'KOPIS_API_KEY' },
   tour_festival:  { key: 'dataGoKrApiKey',   label: 'DATA_GO_KR_API_KEY' },
   tour_visitor:   { key: 'dataGoKrApiKey',   label: 'DATA_GO_KR_API_KEY' },
+  tour_photo:     { key: 'dataGoKrApiKey',   label: 'DATA_GO_KR_API_KEY' },
   kcisa_performance:{ key: 'dataGoKrApiKey',  label: 'DATA_GO_KR_API_KEY' },
   airkorea:         { key: 'dataGoKrApiKey',   label: 'DATA_GO_KR_API_KEY' },
+  kcisa_travel:          { key: 'kcisaTravelApiKey',      label: 'KCISA_TRAVEL_API_KEY' },
+  kcisa_festival:        { key: 'kcisaFestivalApiKey',    label: 'KCISA_FESTIVAL_API_KEY' },
+  kcisa_event:           { key: 'kcisaEventApiKey',       label: 'KCISA_EVENT_API_KEY' },
+  kcisa_cca_performance: { key: 'kcisaPerformanceApiKey', label: 'KCISA_PERFORMANCE_API_KEY' },
+  kcisa_cca_exhibition:  { key: 'kcisaExhibitionApiKey',  label: 'KCISA_EXHIBITION_API_KEY' },
 };
 
 let cachedScrapers: readonly ResolvedScraper[] | null = null;

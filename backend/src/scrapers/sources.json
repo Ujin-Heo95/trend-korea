@@ -369,6 +369,7 @@
       "key": "investing_kr",
       "name": "Investing.com 한국",
       "category": "finance",
+      "subcategory": "경제",
       "type": "rss",
       "feedUrl": "https://kr.investing.com/rss/news.rss",
       "priority": "medium",
@@ -378,6 +379,7 @@
       "key": "sedaily",
       "name": "서울경제",
       "category": "finance",
+      "subcategory": "경제",
       "type": "rss",
       "feedUrl": "https://www.sedaily.com/RSS/Economy",
       "priority": "medium",
@@ -795,7 +797,7 @@
       "module": "./tour-festival.js",
       "className": "TourFestivalScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "tour_visitor",
@@ -815,6 +817,75 @@
       "module": "./kcisa-performance.js",
       "className": "KcisaPerformanceScraper",
       "priority": "low",
+      "enabled": false
+    },
+    {
+      "key": "tour_photo",
+      "name": "관광사진",
+      "category": "travel",
+      "type": "api",
+      "module": "./tour-photo.js",
+      "className": "TourPhotoScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "traveltimes",
+      "name": "여행신문",
+      "category": "travel",
+      "type": "rss",
+      "feedUrl": "https://www.traveltimes.co.kr/rss/allArticle.xml",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "kcisa_travel",
+      "name": "추천여행지",
+      "category": "travel",
+      "type": "api",
+      "module": "./kcisa-travel.js",
+      "className": "KcisaTravelScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "kcisa_festival",
+      "name": "지역축제정보",
+      "category": "travel",
+      "type": "api",
+      "module": "./kcisa-festival.js",
+      "className": "KcisaFestivalScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "kcisa_event",
+      "name": "문화예술행사",
+      "category": "performance",
+      "type": "api",
+      "module": "./kcisa-event.js",
+      "className": "KcisaEventScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "kcisa_cca_performance",
+      "name": "공연정보(통합)",
+      "category": "performance",
+      "type": "api",
+      "module": "./kcisa-cca-performance.js",
+      "className": "KcisaCcaPerformanceScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "kcisa_cca_exhibition",
+      "name": "전시정보(통합)",
+      "category": "performance",
+      "type": "api",
+      "module": "./kcisa-cca-exhibition.js",
+      "className": "KcisaCcaExhibitionScraper",
+      "priority": "low",
       "enabled": true
     },
     {
@@ -830,6 +901,7 @@
       "key": "moneytoday",
       "name": "머니투데이",
       "category": "finance",
+      "subcategory": "경제",
       "type": "rss",
       "feedUrl": "https://rss.mt.co.kr/mt_news.xml",
       "priority": "medium",
@@ -961,6 +1033,7 @@
       "key": "edaily",
       "name": "이데일리",
       "category": "finance",
+      "subcategory": "경제",
       "type": "rss",
       "feedUrl": "http://rss.edaily.co.kr/edaily_news.xml",
       "priority": "medium",
@@ -970,6 +1043,7 @@
       "key": "bizwatch",
       "name": "비즈워치",
       "category": "finance",
+      "subcategory": "경제",
       "type": "rss",
       "feedUrl": "https://news.bizwatch.co.kr/rss/service/industry",
       "priority": "medium",
