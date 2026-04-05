@@ -1,5 +1,5 @@
 # ── Stage 1: Build ──────────────────────────────────────
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
@@ -20,8 +20,11 @@ RUN npm run build --workspace=frontend
 # Build backend (tsc + copy migrations → backend/dist/)
 RUN npm run build --workspace=backend
 
+# Verify build artifacts exist
+RUN ls -la backend/dist/server.js frontend/dist/index.html
+
 # ── Stage 2: Production ────────────────────────────────
-FROM node:20-slim
+FROM node:22-slim
 
 WORKDIR /app
 
@@ -37,4 +40,4 @@ COPY --from=builder /app/frontend/dist frontend/dist
 
 ENV NODE_ENV=production
 
-CMD ["sh", "-c", "node backend/dist/db/migrate.js && node backend/dist/server.js"]
+CMD ["sh", "-c", "echo '[docker] starting server...' && node backend/dist/db/migrate.js && echo '[docker] migration done, launching server' && node backend/dist/server.js 2>&1"]
