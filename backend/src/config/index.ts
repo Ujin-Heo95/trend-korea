@@ -62,10 +62,10 @@ if (crawlIntervalMinutes !== rawInterval) {
   console.warn(`[config] WARNING: CRAWL_INTERVAL_MINUTES="${process.env.CRAWL_INTERVAL_MINUTES}" invalid — defaulting to 10`);
 }
 
-const rawTtl = Number(process.env.POST_TTL_DAYS ?? 3);
-const postTtlDays = Number.isInteger(rawTtl) && rawTtl >= 1 ? rawTtl : 3;
+const rawTtl = Number(process.env.POST_TTL_DAYS ?? 7);
+const postTtlDays = Number.isInteger(rawTtl) && rawTtl >= 1 ? rawTtl : 7;
 if (postTtlDays !== rawTtl) {
-  console.warn(`[config] WARNING: POST_TTL_DAYS="${process.env.POST_TTL_DAYS}" invalid — defaulting to 3`);
+  console.warn(`[config] WARNING: POST_TTL_DAYS="${process.env.POST_TTL_DAYS}" invalid — defaulting to 7`);
 }
 
 const rawScraperRunsTtl = Number(process.env.SCRAPER_RUNS_TTL_DAYS ?? 30);

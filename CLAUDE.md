@@ -26,7 +26,7 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포 + Supabas
 
 - **Git**: Conventional commits (`feat|fix|refactor|docs|test|chore: 설명`)
 - **Scrapers**: `BaseScraper` 상속, `sources.json` 레지스트리, 최대 30개, retry 2회
-- **DB**: 배치 INSERT + ON CONFLICT UPSERT, TTL 자동 정리 (posts 3일, 공연 7일)
+- **DB**: 배치 INSERT + ON CONFLICT UPSERT, TTL 자동 정리 (posts 7일, 공연 7일)
 - **환경변수**: `backend/src/config/index.ts`에서 중앙 파싱 + 검증
 - **ESLint**: `eslint.config.js` (모노레포 루트), CI에서 검증
 

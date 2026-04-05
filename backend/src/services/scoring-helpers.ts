@@ -147,7 +147,7 @@ export async function calculateSourceStats(pool: Pool): Promise<Map<string, Sour
       GREATEST(STDDEV(ln(1 + like_count)), 0.1)::float AS stddev_log_likes,
       COUNT(*)::int AS sample_count
     FROM posts
-    WHERE scraped_at > NOW() - INTERVAL '24 hours' AND view_count > 0
+    WHERE scraped_at > NOW() - INTERVAL '7 days' AND view_count > 0
     GROUP BY source_key
   `);
 
@@ -222,7 +222,7 @@ export async function calculateChannelStats(pool: Pool): Promise<Map<Channel, So
       GREATEST(STDDEV(ln(1 + like_count)), 0.1)::float AS stddev_log_likes,
       COUNT(*)::int AS sample_count
     FROM posts
-    WHERE scraped_at > NOW() - INTERVAL '24 hours' AND view_count > 0
+    WHERE scraped_at > NOW() - INTERVAL '7 days' AND view_count > 0
     GROUP BY channel
   `);
 

@@ -126,7 +126,7 @@ BaseScraper (base.ts)
 | metadata | JSONB | nullable — 구조화 데이터 |
 
 Indices: `source_key`, `scraped_at DESC`, `view_count DESC`, `category`, `title_hash`
-TTL: 3일 (공연 7일)
+TTL: 7일 (공연 7일)
 
 #### post_scores
 
