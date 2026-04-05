@@ -14,6 +14,9 @@ interface DailyBoxOfficeItem {
   readonly rankInten: string;
   readonly rankOldAndNew: 'NEW' | 'OLD';
   readonly movieCd: string;
+  readonly scrnCnt: string;
+  readonly salesAmt: string;
+  readonly salesAcc: string;
 }
 
 interface KobisBoxOfficeResponse {
@@ -155,7 +158,7 @@ export class KobisBoxofficeScraper extends BaseScraper {
         title: `${item.rank}위 ${item.movieNm} (${rankLabel}) — 일 ${parseInt(item.audiCnt, 10).toLocaleString()}명`,
         url: `https://www.kobis.or.kr/kobis/business/mast/mvie/searchMovieList.do?movieCd=${item.movieCd}`,
         thumbnail: kmdb.posterUrl ?? undefined,
-        author: `누적 ${parseInt(item.audiAcc, 10).toLocaleString()}명`,
+        author: kmdb.director || undefined,
         viewCount: parseInt(item.audiAcc, 10),
         commentCount: parseInt(item.audiCnt, 10),
         publishedAt: yesterday,
@@ -169,6 +172,9 @@ export class KobisBoxofficeScraper extends BaseScraper {
           accumulatedAudience: parseInt(item.audiAcc, 10),
           rankChange,
           isNew: item.rankOldAndNew === 'NEW',
+          screenCount: parseInt(item.scrnCnt, 10) || undefined,
+          dailySales: parseInt(item.salesAmt, 10) || undefined,
+          accumulatedSales: parseInt(item.salesAcc, 10) || undefined,
           dataDate: targetDt,
           posterUrl: kmdb.posterUrl,
           director: kmdb.director,

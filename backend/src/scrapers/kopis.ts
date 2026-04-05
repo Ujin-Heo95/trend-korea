@@ -154,7 +154,7 @@ export class KopisBoxofficeScraper extends BaseScraper {
             title: `[${item.cate}] ${item.prfnm} — ${item.prfplcnm}`,
             url: `http://www.kopis.or.kr/por/db/pblprfr/pblprfrView.do?menuId=MNU_00020&mt20Id=${item.mt20id}`,
             thumbnail: posterUrl,
-            author: item.prfplcnm || undefined,
+            author: detail?.cast?.split(',')[0]?.trim() || undefined,
             viewCount: parseInt(item.rnum ?? '0', 10),
             commentCount: parseInt(item.prfdtcnt ?? '0', 10),
             publishedAt: new Date(),

@@ -52,7 +52,6 @@ export class NateRealtimeScraper extends BaseScraper {
         sourceName: '네이트 실시간 검색어',
         title: `${dirIcon} ${rank}위 ${headline}`,
         url: `https://search.nate.com/search/all?q=${query}`,
-        viewCount: 100 - (rank - 1) * 10, // 순위 기반 가상 인기도 (100~10)
         publishedAt: new Date(),
         category: 'trend',
         metadata: {

@@ -139,8 +139,6 @@ export class NaverDatalabScraper extends BaseScraper {
         title: `${trendIcon} ${result.title} — 검색량 ${recent} (${changeLabel}) | 이전 ${previous}`,
         url: `https://datalab.naver.com/keyword/trendSearch.naver?keyword=${query}`,
         author: result.keywords.join(', '),
-        viewCount: changePercent,
-        commentCount: recent,
         publishedAt: new Date(),
         category: 'trend',
         metadata: {
