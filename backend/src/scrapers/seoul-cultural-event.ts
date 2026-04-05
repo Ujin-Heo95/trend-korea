@@ -108,7 +108,7 @@ export class SeoulCulturalEventScraper extends BaseScraper {
         publishedAt: startDate
           ? new Date(startDate.slice(0, 10))
           : new Date(),
-        category: 'performance',
+        category: 'travel',
         metadata: {
           genre,
           place,

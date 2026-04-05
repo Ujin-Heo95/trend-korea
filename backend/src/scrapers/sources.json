@@ -1226,7 +1226,7 @@
     {
       "key": "seoul_cultural_event",
       "name": "서울문화행사",
-      "category": "performance",
+      "category": "travel",
       "type": "api",
       "module": "./seoul-cultural-event.js",
       "className": "SeoulCulturalEventScraper",
