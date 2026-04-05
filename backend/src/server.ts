@@ -107,15 +107,16 @@ export async function buildApp() {
       wildcard: false,
       serve: false,  // 자동 서빙 비활성화 — setNotFoundHandler에서 직접 처리
     });
-    // SPA fallback: API·sitemap 이외의 모든 GET → 정적 파일 또는 index.html
+    // SPA fallback: API 이외의 모든 GET → 정적 파일 또는 index.html
     app.setNotFoundHandler(async (req, reply) => {
       if (req.method === 'GET' && !req.url.startsWith('/api/')) {
-        // 정적 파일 먼저 시도, 없으면 index.html (SPA)
-        try {
-          return await reply.sendFile(req.url === '/' ? 'index.html' : req.url.slice(1));
-        } catch {
-          return reply.sendFile('index.html');
+        // 확장자가 있는 경로(.js, .css 등)는 정적 파일로 시도
+        const hasExt = /\.\w+(\?|$)/.test(req.url);
+        if (hasExt) {
+          return reply.sendFile(req.url.slice(1));
         }
+        // SPA 라우트: 항상 index.html 서빙
+        return reply.sendFile('index.html');
       }
       return reply.status(404).send({ error: 'Not Found' });
     });
