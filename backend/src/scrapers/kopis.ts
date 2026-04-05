@@ -5,6 +5,7 @@ import { parseStringPromise } from 'xml2js';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
 import { config } from '../config/index.js';
+import { LRUCache } from '../cache/lru.js';
 
 interface BoxofficeItem {
   mt20id: string;
@@ -27,9 +28,8 @@ interface KopisDetail {
   fetchedAt: number;
 }
 
-// 모듈 레벨 캐시 (6시간 TTL)
-const detailCache = new Map<string, KopisDetail>();
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+// 모듈 레벨 캐시 (6시간 TTL, 최대 500 엔트리)
+const detailCache = new LRUCache<KopisDetail>(500, 6 * 60 * 60 * 1000);
 
 const GENRES = [
   { code: 'GGGA', name: '뮤지컬' },
@@ -42,9 +42,9 @@ const GENRES = [
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 async function fetchDetail(mt20id: string): Promise<KopisDetail | null> {
-  // 캐시 확인
+  // 캐시 확인 (LRU — TTL + size limit 자동 관리)
   const cached = detailCache.get(mt20id);
-  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) return cached;
+  if (cached) return cached;
 
   try {
     const { data: xml } = await axios.get(

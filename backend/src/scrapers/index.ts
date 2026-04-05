@@ -7,10 +7,18 @@ import { notifyScraperErrors, type ScraperError } from '../services/discord.js';
 const SCRAPER_TIMEOUT_MS = 30_000;
 const runningLocks = new Map<string, boolean>();
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+function withTimeout<T>(
+  promiseFn: (signal: AbortSignal) => Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  const controller = new AbortController();
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`[${label}] timed out after ${ms}ms`)), ms);
-    promise.then(resolve, reject).finally(() => clearTimeout(timer));
+    const timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error(`[${label}] timed out after ${ms}ms`));
+    }, ms);
+    promiseFn(controller.signal).then(resolve, reject).finally(() => clearTimeout(timer));
   });
 }
 
@@ -33,7 +41,7 @@ async function runScraper(entry: ResolvedScraper): Promise<ScraperError | null> 
   let runId: number | null = null;
   try {
     runId = await logRunStart(entry.sourceKey);
-    const result = await withTimeout(entry.scraper.run(), SCRAPER_TIMEOUT_MS, entry.sourceKey);
+    const result = await withTimeout(() => entry.scraper.run(), SCRAPER_TIMEOUT_MS, entry.sourceKey);
     await logRunEnd(runId, result.count, result.error ?? null);
     if (result.error) {
       console.error(`[scraper:${entry.sourceKey}] saved: ${result.count} err: ${result.error}`);

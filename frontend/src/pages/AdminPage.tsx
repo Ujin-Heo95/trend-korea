@@ -297,6 +297,31 @@ export function AdminPage() {
           </div>
         )}
 
+        {/* API Quota */}
+        {health.api_quota && Object.keys(health.api_quota).length > 0 && (
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">API 쿼터 (일일)</h2>
+            <div className="space-y-2">
+              {Object.entries(health.api_quota).map(([key, q]) => {
+                const limit = key === 'gemini' ? 500 : key === 'youtube' ? 10000 : 1000;
+                const pct = Math.min(100, Math.round((q.used / limit) * 100));
+                return (
+                  <div key={key} className="flex items-center gap-3">
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300 w-16">{key}</span>
+                    <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 w-24 text-right">{q.used} / {limit}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Source Table */}
         <SourceTable sources={sources} />
       </main>

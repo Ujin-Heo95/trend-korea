@@ -35,7 +35,7 @@ interface FetchHtmlOptions {
   timeout?: number;
   /** Site uses EUC-KR encoding instead of UTF-8 */
   eucKr?: boolean;
-  /** Random delay range in ms before request [min, max] (default [500, 2000]) */
+  /** Random delay range in ms before request [min, max] (default [300, 1000]) */
   delay?: [number, number];
 }
 
@@ -48,7 +48,7 @@ export async function fetchHtml(
   url: string,
   opts: FetchHtmlOptions = {},
 ): Promise<cheerio.CheerioAPI> {
-  const { headers = {}, timeout = 15_000, eucKr = false, delay = [500, 2000] } = opts;
+  const { headers = {}, timeout = 15_000, eucKr = false, delay = [300, 1000] } = opts;
 
   await randomDelay(delay[0], delay[1]);
 

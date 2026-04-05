@@ -38,6 +38,10 @@ interface Config {
   siteDescription: string;
   googleSiteVerification: string;
   naverSiteVerification: string;
+  supabaseUrl: string;
+  supabaseServiceRoleKey: string;
+  backupEnabled: boolean;
+  backupRetentionDays: number;
 }
 
 const dbUrl = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/trend_korea';
@@ -124,4 +128,11 @@ export const config: Config = {
   siteDescription: process.env.SITE_DESCRIPTION ?? '위클릿은 한국 주요 커뮤니티, 뉴스, YouTube에서 실시간 이슈를 모아보는 트렌드 어그리게이터입니다',
   googleSiteVerification: process.env.GOOGLE_SITE_VERIFICATION ?? '',
   naverSiteVerification: process.env.NAVER_SITE_VERIFICATION ?? '',
+  supabaseUrl: process.env.SUPABASE_URL ?? '',
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+  backupEnabled: process.env.BACKUP_ENABLED !== 'false',
+  backupRetentionDays: (() => {
+    const v = Number(process.env.BACKUP_RETENTION_DAYS ?? 7);
+    return Number.isInteger(v) && v >= 1 ? v : 7;
+  })(),
 };

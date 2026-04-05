@@ -80,6 +80,43 @@ export async function notifyApiKeyFailure(
   }
 }
 
+export async function notifyBackupResult(
+  result: { success: boolean; fileName?: string; sizeBytes?: number; durationMs?: number; error?: string },
+): Promise<void> {
+  if (!config.discordWebhookUrl) return;
+
+  const embed = result.success
+    ? {
+        title: '💾 DB 백업 완료',
+        description: [
+          `파일: \`${result.fileName}\``,
+          `크기: ${Math.round((result.sizeBytes ?? 0) / 1024)}KB`,
+          `소요: ${((result.durationMs ?? 0) / 1000).toFixed(1)}초`,
+        ].join('\n'),
+        color: 0x22cc44,
+        footer: { text: new Date().toISOString() },
+      }
+    : {
+        title: '❌ DB 백업 실패',
+        description: (result.error ?? 'unknown error').slice(0, 500),
+        color: 0xff4444,
+        footer: { text: new Date().toISOString() },
+      };
+
+  try {
+    const res = await fetch(config.discordWebhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeds: [embed] }),
+    });
+    if (!res.ok) {
+      console.error(`[discord] backup alert webhook failed: ${res.status}`);
+    }
+  } catch (err) {
+    logger.error({ err }, '[discord] backup alert webhook error');
+  }
+}
+
 export async function notifyBudgetAlert(
   usedCents: number,
   budgetCents: number,

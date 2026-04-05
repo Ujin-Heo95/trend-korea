@@ -7,6 +7,8 @@ import { extractTrendKeywords, cleanExpiredTrendKeywords } from '../services/tre
 import { aggregateIssues, cleanExpiredIssueRankings } from '../services/issueAggregator.js';
 import { summarizeAndUpdateIssues } from '../services/geminiSummarizer.js';
 import { checkDbSize } from '../services/dbMonitor.js';
+import { performDatabaseBackup } from '../services/backup.js';
+import { notifyBackupResult } from '../services/discord.js';
 import { pool } from '../db/client.js';
 
 function captureError(err: unknown): void {
@@ -52,14 +54,30 @@ export function startScheduler(): void {
   });
   console.log('[scheduler] apify SNS: 00:00, 09:00 UTC (09:00, 18:00 KST)');
 
-  // 자정 + 정오 2회 (Railway 서버 = UTC 기준) — DB 100MB 한도 대응
-  cron.schedule('0 0,12 * * *', () => {
-    cleanOldPosts().catch(captureError);
-    cleanNumericTitlePosts().catch(captureError);
-    cleanOldScraperRuns().catch(captureError);
-    cleanOldEngagementSnapshots().catch(captureError);
-    cleanExpiredTrendKeywords(pool).catch(captureError);
-    cleanExpiredIssueRankings(pool).catch(captureError);
-    checkDbSize(pool).catch(captureError);
+  // 일일 DB 백업: 17:00 UTC = 02:00 KST (저트래픽 시간)
+  cron.schedule('0 17 * * *', async () => {
+    try {
+      const result = await performDatabaseBackup();
+      await notifyBackupResult(result);
+    } catch (err) {
+      captureError(err);
+    }
+  });
+  console.log('[scheduler] backup: 17:00 UTC daily (02:00 KST)');
+
+  // 자정 + 정오 2회 (Railway 서버 = UTC 기준) — DB 한도 대응
+  // 순차 실행: 동시 fire 시 pool 커넥션 고갈 위험 (max=10인데 7개 동시 소비)
+  cron.schedule('0 0,12 * * *', async () => {
+    try {
+      await cleanOldPosts();
+      await cleanNumericTitlePosts();
+      await cleanOldScraperRuns();
+      await cleanOldEngagementSnapshots();
+      await cleanExpiredTrendKeywords(pool);
+      await cleanExpiredIssueRankings(pool);
+      await checkDbSize(pool);
+    } catch (err) {
+      captureError(err);
+    }
   });
 }

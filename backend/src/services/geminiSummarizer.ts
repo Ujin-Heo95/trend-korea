@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config/index.js';
+import { checkQuota, incrementQuota } from './apiQuota.js';
 
 // ─── Types ───
 
@@ -60,6 +61,9 @@ export async function summarizeIssue(
   const client = getClient();
   if (!client) return null;
 
+  // 일일 쿼터 가드: Gemini API 과도 호출 방지
+  if (!checkQuota('gemini', 500)) return null;
+
   try {
     const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const titlesText = titles.slice(0, 15).map((t, i) => `${i + 1}. ${t}`).join('\n');
@@ -84,6 +88,7 @@ export async function summarizeIssue(
       summary: parsed.summary,
     };
 
+    incrementQuota('gemini');
     summaryCache.set(cacheKey, { summary, cachedAt: Date.now() });
     return summary;
   } catch (err) {

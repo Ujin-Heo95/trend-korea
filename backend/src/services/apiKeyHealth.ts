@@ -1,4 +1,5 @@
 import { config } from '../config/index.js';
+import { notifyApiKeyFailure } from './discord.js';
 
 export interface ApiKeyStatus {
   key: string;
@@ -68,9 +69,21 @@ const API_DEFINITIONS: readonly {
     },
   },
   {
+    key: 'data_go_kr',
+    envValue: () => config.dataGoKrApiKey,
+    checkFn: async () => {
+      // 공공데이터포털 API 경량 테스트 (관광사진 1건)
+      const res = await fetch(
+        `https://apis.data.go.kr/B551011/PhotoGalleryService1/galleryList1?serviceKey=${config.dataGoKrApiKey}&numOfRows=1&MobileOS=ETC&MobileApp=weeklit&_type=json`,
+        { signal: AbortSignal.timeout(10000) }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    },
+  },
+  {
     key: 'kma',
     envValue: () => config.kmaApiKey,
-    // 설정 여부만 확인
+    // 기상청 API는 부작용 회피 — 설정 여부만 확인
   },
   {
     key: 'kakao_rest',
@@ -89,7 +102,24 @@ const API_DEFINITIONS: readonly {
   {
     key: 'naver',
     envValue: () => config.naverClientId,
-    // 설정 여부만 확인
+    checkFn: async () => {
+      const res = await fetch('https://openapi.naver.com/v1/datalab/search', {
+        method: 'POST',
+        headers: {
+          'X-Naver-Client-Id': config.naverClientId,
+          'X-Naver-Client-Secret': config.naverClientSecret,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          startDate: '2026-01-01',
+          endDate: '2026-01-02',
+          timeUnit: 'date',
+          keywordGroups: [{ groupName: 'test', keywords: ['test'] }],
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    },
   },
   {
     key: 'discord',
@@ -100,6 +130,29 @@ const API_DEFINITIONS: readonly {
     key: 'sentry',
     envValue: () => config.sentryDsn,
     // 설정 여부만 확인
+  },
+  {
+    key: 'bigkinds',
+    envValue: () => config.bigkindsApiKey,
+    checkFn: async () => {
+      const res = await fetch(
+        `https://tools.kinds.or.kr/api/v2/issues/ranking?serviceKey=${config.bigkindsApiKey}&page=1&perPage=1`,
+        { signal: AbortSignal.timeout(10000) }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    },
+  },
+  {
+    key: 'gemini',
+    envValue: () => config.geminiApiKey,
+    checkFn: async () => {
+      // Gemini API 경량 테스트 (모델 목록 조회 — 토큰 소비 없음)
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${config.geminiApiKey}`,
+        { signal: AbortSignal.timeout(10000) }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    },
   },
 ];
 
@@ -134,12 +187,15 @@ export async function checkApiKeys(forceRefresh = false): Promise<ApiKeyStatus[]
           lastChecked: new Date().toISOString(),
         };
       } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        // 실패 시 Discord 알림 (1시간 쿨다운 내장)
+        notifyApiKeyFailure(def.key, errorMsg).catch(() => {});
         return {
           key: def.key,
           configured,
           valid: false,
           lastChecked: new Date().toISOString(),
-          error: err instanceof Error ? err.message : String(err),
+          error: errorMsg,
         };
       }
     })

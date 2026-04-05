@@ -30,6 +30,7 @@ export interface HealthResponse {
     sources: ScraperRunInfo[];
   };
   api_keys: ApiKeyInfo[];
+  api_quota?: Record<string, { used: number; resetAt: string }>;
 }
 
 export interface SourceInfo {

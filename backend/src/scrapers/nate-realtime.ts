@@ -25,7 +25,13 @@ export class NateRealtimeScraper extends BaseScraper {
     });
 
     const decoded = iconv.decode(Buffer.from(data), 'euc-kr');
-    const rows: NateKeywordRow[] = JSON.parse(decoded);
+
+    let rows: NateKeywordRow[];
+    try {
+      rows = JSON.parse(decoded);
+    } catch {
+      throw new Error(`Nate realtime: JSON parse failed (body starts with: ${decoded.slice(0, 80)})`);
+    }
 
     if (!Array.isArray(rows) || rows.length === 0) {
       throw new Error('Nate realtime: empty or invalid response');

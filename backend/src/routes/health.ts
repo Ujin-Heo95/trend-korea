@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { config } from '../config/index.js';
 import { checkApiKeys } from '../services/apiKeyHealth.js';
+import { getQuotaStatus } from '../services/apiQuota.js';
 
 interface ScraperRunRow {
   source_key: string;
@@ -85,6 +86,7 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
         sources,
       },
       api_keys: apiKeys,
+      api_quota: getQuotaStatus(),
     });
   };
   app.get('/health', handler);
