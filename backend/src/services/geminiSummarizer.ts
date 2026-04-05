@@ -66,7 +66,7 @@ export async function summarizeIssue(
   incrementQuota('gemini'); // 즉시 예약 (비동기 호출 전 race condition 방지)
 
   try {
-    const model = client.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
+    const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
     const titlesText = titles.slice(0, 15).map((t, i) => `${i + 1}. ${t}`).join('\n');
 
     const result = await model.generateContent({
