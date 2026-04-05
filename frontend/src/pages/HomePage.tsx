@@ -47,8 +47,8 @@ const ENTERTAINMENT_CATEGORY_MAP: Record<EntertainmentSub, string> = {
 
 const TRAVEL_SOURCE_MAP: Record<TravelSub, string | undefined> = {
   all: undefined,
-  hotplace: 'tour_visitor,kcisa_travel',
-  festival: 'kcisa_festival',
+  hotplace: 'tour_visitor,seoul_citydata',
+  festival: 'seoul_cultural_event',
   photo: 'tour_photo',
   news: 'traveltimes',
 };
@@ -346,8 +346,8 @@ function TravelAllView({ posts }: { posts: Post[] }) {
     return map;
   }, [posts]);
 
-  const visitorPosts = [...(grouped['tour_visitor'] ?? []), ...(grouped['kcisa_travel'] ?? [])];
-  const festivalPosts = grouped['kcisa_festival'] ?? [];
+  const visitorPosts = [...(grouped['tour_visitor'] ?? []), ...(grouped['seoul_citydata'] ?? [])];
+  const festivalPosts = grouped['seoul_cultural_event'] ?? [];
   const photoPosts = grouped['tour_photo'] ?? [];
   const newsPosts = grouped['traveltimes'] ?? [];
 
