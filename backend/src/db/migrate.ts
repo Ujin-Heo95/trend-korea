@@ -85,10 +85,10 @@ try {
     }
   }
   console.log('All migrations complete');
+  await pool.end();
+  process.exit(0);
 } catch (err) {
   console.error('Migration failed:', err instanceof Error ? err.message : String(err));
   if (err instanceof Error && err.stack) console.error(err.stack);
   process.exit(1);
-} finally {
-  await pool.end();
 }
