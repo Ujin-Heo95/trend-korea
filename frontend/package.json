@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "start": "serve dist -s -l 3000",
+    "start": "serve dist -s -l ${PORT:-3000}",
     "test": "vitest run"
   },
   "dependencies": {
