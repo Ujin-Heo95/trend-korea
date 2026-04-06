@@ -34,7 +34,7 @@ export function resetCircuitBreakers(): void {
   circuitStates.clear();
 }
 
-function stripHtml(s: string): string {
+export function stripHtml(s: string): string {
   return s.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
 }
 

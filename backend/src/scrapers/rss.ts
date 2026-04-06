@@ -1,7 +1,7 @@
 import Parser from 'rss-parser';
 import axios from 'axios';
 import type { Pool } from 'pg';
-import { BaseScraper } from './base.js';
+import { BaseScraper, stripHtml } from './base.js';
 import type { ScrapedPost } from './types.js';
 import { logger } from '../utils/logger.js';
 import { classifyNewsSubcategory } from './news-classifier.js';
@@ -176,7 +176,10 @@ export class RssScraper extends BaseScraper {
       ?? ext['media:thumbnail']?.['$']?.url
       ?? undefined;
 
-    const contentSnippet = item.contentSnippet?.slice(0, 500)?.trim() || undefined;
+    const rawSnippet = item.contentSnippet?.trim()
+      || stripHtml(item.content ?? '')
+      || '';
+    const contentSnippet = rawSnippet.slice(0, 500).trim() || undefined;
 
     return {
       sourceKey: this.cfg.sourceKey,
@@ -198,12 +201,19 @@ export class RssScraper extends BaseScraper {
       ?? mediaGroup['media:thumbnail']?.['$']?.url
       ?? undefined;
 
+    // YouTube Atom: <media:group><media:description>...</media:description></media:group>
+    const descRaw = mediaGroup['media:description']?.[0]
+      ?? mediaGroup['media:description']
+      ?? '';
+    const contentSnippet = descRaw.toString().slice(0, 500).trim() || undefined;
+
     return {
       sourceKey: this.cfg.sourceKey,
       sourceName: this.cfg.sourceName,
       title: item.title?.trim() ?? '(제목 없음)',
       url: (item.link ?? item.guid ?? '').trim(),
       thumbnail,
+      contentSnippet,
       author: ext.author ?? item.creator ?? undefined,
       publishedAt: safeDate(item.isoDate ?? item.pubDate),
     };
