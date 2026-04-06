@@ -32,7 +32,7 @@ const CHANNEL_TAG_STYLES: Record<ChannelTag, { default: string; active: string; 
   portal: {
     default: 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400',
     active: 'border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-900/30 dark:text-green-300',
-    label: '포털',
+    label: '트렌드',
   },
   sns: {
     default: 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400',
@@ -161,14 +161,14 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = React.memo(({ issue }) => {
         </div>
 
         {/* Title — prominent, full width */}
-        <h3 className="text-base font-bold text-slate-900 dark:text-slate-50 leading-snug mb-2">
+        <h3 className="text-base font-bold text-slate-900 dark:text-slate-50 leading-snug mb-2 line-clamp-2">
           {issue.title}
         </h3>
 
-        {/* Thumbnail (left) + Summary (right) */}
-        {(issue.thumbnail || issue.summary) && (
-          <div className="flex items-start gap-3 mb-2">
-            {issue.thumbnail ? (
+        {/* Thumbnail + Summary */}
+        {(issue.thumbnail || issue.summary || issue.news_posts.length > 0) && (
+          <div className={`mb-2 ${issue.thumbnail ? 'flex items-start gap-3' : ''}`}>
+            {issue.thumbnail && (
               <div className="flex-shrink-0 w-24 h-16 sm:w-28 sm:h-20 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
                 <img
                   src={optimizedImage(issue.thumbnail, 224)}
@@ -177,16 +177,16 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = React.memo(({ issue }) => {
                   loading="lazy"
                 />
               </div>
-            ) : (
-              <div className="flex-shrink-0 w-24 h-16 sm:w-28 sm:h-20 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                <span className="text-2xl">{fallbackIcon}</span>
-              </div>
             )}
-            {issue.summary && (
-              <p className="flex-1 min-w-0 text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-4">
+            {issue.summary ? (
+              <p className="flex-1 min-w-0 text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-3">
                 {issue.summary}
               </p>
-            )}
+            ) : issue.news_posts.length > 0 ? (
+              <p className="flex-1 min-w-0 text-sm text-slate-500 dark:text-slate-400 italic truncate">
+                {issue.news_posts[0].title}
+              </p>
+            ) : null}
           </div>
         )}
 
@@ -199,7 +199,9 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = React.memo(({ issue }) => {
               ? issue.news_post_count + issue.video_post_count
               : tag === 'community'
                 ? issue.community_post_count
-                : 0;
+                : tag === 'portal'
+                  ? issue.matched_keywords.length
+                  : issue.sns_keywords.length;
 
             return (
               <button

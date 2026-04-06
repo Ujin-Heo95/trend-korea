@@ -394,13 +394,22 @@ async function mergeViaTrendKeywords(
 
 // ─── Step 3.5: Deduplicate Issues by Title Similarity ───
 
-function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: number = 0.55): IssueGroup[] {
+function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: number = 0.45): IssueGroup[] {
   if (groups.length <= 1) return [...groups];
 
+  // Use top-3 post titles' bigram union for broader matching
   const bigramSets = groups.map(g => {
-    const sorted = [...g.newsPosts].sort((a, b) => b.trendScore - a.trendScore);
-    const title = sorted[0]?.title ?? g.videoPosts[0]?.title ?? g.communityPosts[0]?.title ?? '';
-    return bigrams(title);
+    const allPosts = [
+      ...[...g.newsPosts].sort((a, b) => b.trendScore - a.trendScore),
+      ...g.videoPosts,
+      ...g.communityPosts,
+    ];
+    const topTitles = allPosts.slice(0, 3).map(p => p.title);
+    const merged = new Set<string>();
+    for (const t of topTitles) {
+      for (const bg of bigrams(t)) merged.add(bg);
+    }
+    return merged;
   });
 
   const parent = Array.from({ length: groups.length }, (_, i) => i);
@@ -422,7 +431,20 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
   for (let i = 0; i < groups.length; i++) {
     for (let j = i + 1; j < groups.length; j++) {
       if (find(i) === find(j)) continue;
-      if (jaccardSimilarity(bigramSets[i], bigramSets[j]) >= threshold) {
+
+      // Condition 1: title bigram Jaccard similarity
+      const titleMatch = jaccardSimilarity(bigramSets[i], bigramSets[j]) >= threshold;
+
+      // Condition 2: shared trend keywords (2+ in common → same topic)
+      const kwA = new Set(groups[i].matchedKeywords);
+      const kwB = groups[j].matchedKeywords;
+      let sharedKw = 0;
+      for (const kw of kwB) {
+        if (kwA.has(kw)) sharedKw++;
+      }
+      const keywordMatch = sharedKw >= 2;
+
+      if (titleMatch || keywordMatch) {
         union(i, j);
       }
     }
@@ -584,10 +606,11 @@ function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): IssueG
 
 // ─── Thumbnail Selection ───
 
-const LOW_QUALITY_PATTERNS = /no_image|noimage|placeholder|favicon|logo|icon_default|thumb_default/i;
+const LOW_QUALITY_PATTERNS = /no_image|noimage|placeholder|favicon|logo|icon_default|thumb_default|default_thumb|blank\.|empty_img|generic_thumb|missing_img|spacer\.|pixel\./i;
+const TINY_IMAGE_PATTERNS = /[?&](?:w|width|size|sz)=(?:[1-9]|[1-4]\d)(?:&|$)/i;
 
 function isValidThumbnail(url: string): boolean {
-  return !LOW_QUALITY_PATTERNS.test(url);
+  return !LOW_QUALITY_PATTERNS.test(url) && !TINY_IMAGE_PATTERNS.test(url);
 }
 
 function pickBestThumbnail(posts: readonly ScoredPost[]): string | null {
@@ -597,8 +620,8 @@ function pickBestThumbnail(posts: readonly ScoredPost[]): string | null {
   const scored = candidates.map(p => {
     let score = 0;
     const ch = getChannel(p.category);
-    if (ch === 'news') score += 3;
-    else if (ch === 'video') score += 2;
+    if (ch === 'video') score += 4;  // YouTube thumbnails are always valid
+    else if (ch === 'news') score += 3;
     else score += 1;
     score += Math.min(p.trendScore, 5);
     return { thumbnail: p.thumbnail!, score };
