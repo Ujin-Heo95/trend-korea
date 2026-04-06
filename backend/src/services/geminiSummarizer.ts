@@ -21,7 +21,7 @@ interface PostForSummary {
 // ─── Cache ───
 
 const summaryCache = new Map<string, { summary: IssueSummary; cachedAt: number }>();
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const CACHE_TTL_MS = 60 * 60 * 1000; // 60 minutes
 
 function makeCacheKey(clusterIds: readonly number[], standalonePostIds: readonly number[]): string {
   return [...clusterIds].sort().join(',') + '|' + [...standalonePostIds].sort().join(',');
@@ -99,42 +99,46 @@ export async function summarizeIssue(
   if (!checkQuota('gemini', 500)) return null;
   incrementQuota('gemini');
 
-  try {
-    const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
-    const postsText = formatPostsForPrompt(posts);
+  const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+  const postsText = formatPostsForPrompt(posts);
 
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: `${SYSTEM_PROMPT}\n\n게시글:\n${postsText}` }] }],
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 500,
-        responseMimeType: 'application/json',
-      },
-    });
+  // Retry 1회 (2초 backoff)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: `${SYSTEM_PROMPT}\n\n게시글:\n${postsText}` }] }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 500,
+          responseMimeType: 'application/json',
+        },
+      });
 
-    const text = result.response.text();
-    const parsed = JSON.parse(text) as { title?: string; category?: string; summary?: string };
+      const text = result.response.text();
+      const parsed = JSON.parse(text) as { title?: string; category?: string; summary?: string };
 
-    if (!parsed.title || !parsed.category || !parsed.summary) return null;
+      if (!parsed.title || !parsed.category || !parsed.summary) return null;
 
-    const summary: IssueSummary = {
-      title: parsed.title,
-      category: parsed.category,
-      summary: parsed.summary,
-    };
+      const summary: IssueSummary = {
+        title: parsed.title,
+        category: parsed.category,
+        summary: parsed.summary,
+      };
 
-    summaryCache.set(cacheKey, { summary, cachedAt: Date.now() });
-    return summary;
-  } catch (err) {
-    console.warn('[geminiSummarizer] failed:', (err as Error).message);
-    return null;
+      summaryCache.set(cacheKey, { summary, cachedAt: Date.now() });
+      return summary;
+    } catch (err) {
+      console.warn(`[geminiSummarizer] attempt ${attempt + 1} failed:`, (err as Error).message);
+      if (attempt === 0) await new Promise(r => setTimeout(r, 2000));
+    }
   }
+  return null;
 }
 
 /** Batch summarize top issues and update DB */
 export async function summarizeAndUpdateIssues(
   pool: import('pg').Pool,
-  maxIssues = 20,
+  maxIssues = 30,
 ): Promise<number> {
   // Fetch unsummarized issues + check for stale summaries (cluster composition changed)
   const { rows } = await pool.query<{

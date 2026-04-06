@@ -278,11 +278,8 @@ async function mergeViaTrendKeywords(
   const groupsWithKw: GroupWithKeywords[] = groups.map(g => {
     const keywords = new Set<string>();
     for (const post of g.posts) {
-      // Use title + content_snippet for richer matching
-      const matchText = post.contentSnippet
-        ? `${post.title} ${post.contentSnippet}`
-        : post.title;
-      const match = matchPostToKeywords(matchText, keywordIndex);
+      // Title-only: 본문 부수 언급으로 인한 잘못된 병합 방지
+      const match = matchPostToKeywords(post.title, keywordIndex);
       for (const src of match.matchedSources) {
         keywords.add(src);
       }
@@ -319,10 +316,14 @@ async function mergeViaTrendKeywords(
     groupSize[rb] += groupSize[ra];
   }
 
+  const MIN_MERGE_KW_LEN = 3; // 2글자 키워드("이란","미국" 등) 병합 제외
+
   const kwToGroups = new Map<string, number[]>();
   for (let i = 0; i < groupsWithKw.length; i++) {
     for (const kw of groupsWithKw[i].keywords) {
       if (!kw.startsWith('kw:')) continue;
+      const rawKw = kw.slice(3);
+      if (rawKw.length < MIN_MERGE_KW_LEN) continue;
       const arr = kwToGroups.get(kw) ?? [];
       arr.push(i);
       kwToGroups.set(kw, arr);
@@ -394,22 +395,16 @@ async function mergeViaTrendKeywords(
 
 // ─── Step 3.5: Deduplicate Issues by Title Similarity ───
 
-function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: number = 0.45): IssueGroup[] {
+function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: number): IssueGroup[] {
   if (groups.length <= 1) return [...groups];
 
-  // Use top-3 post titles' bigram union for broader matching
+  // 대표 제목 1개의 bigram — top-3 union 대비 정밀한 매칭
   const bigramSets = groups.map(g => {
-    const allPosts = [
-      ...[...g.newsPosts].sort((a, b) => b.trendScore - a.trendScore),
-      ...g.videoPosts,
-      ...g.communityPosts,
-    ];
-    const topTitles = allPosts.slice(0, 3).map(p => p.title);
-    const merged = new Set<string>();
-    for (const t of topTitles) {
-      for (const bg of bigrams(t)) merged.add(bg);
-    }
-    return merged;
+    const rep =
+      [...g.newsPosts].sort((a, b) => b.trendScore - a.trendScore)[0] ??
+      [...g.videoPosts].sort((a, b) => b.trendScore - a.trendScore)[0] ??
+      g.communityPosts[0];
+    return rep ? bigrams(rep.title) : new Set<string>();
   });
 
   const parent = Array.from({ length: groups.length }, (_, i) => i);
@@ -428,23 +423,27 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
     if (ra !== rb) parent[ra] = rb;
   }
 
+  const HIGH_CONFIDENCE_THRESHOLD = 0.65;
+
   for (let i = 0; i < groups.length; i++) {
     for (let j = i + 1; j < groups.length; j++) {
       if (find(i) === find(j)) continue;
 
-      // Condition 1: title bigram Jaccard similarity
-      const titleMatch = jaccardSimilarity(bigramSets[i], bigramSets[j]) >= threshold;
+      const sim = jaccardSimilarity(bigramSets[i], bigramSets[j]);
 
-      // Condition 2: shared trend keywords (2+ in common → same topic)
       const kwA = new Set(groups[i].matchedKeywords);
       const kwB = groups[j].matchedKeywords;
       let sharedKw = 0;
       for (const kw of kwB) {
         if (kwA.has(kw)) sharedKw++;
       }
-      const keywordMatch = sharedKw >= 2;
 
-      if (titleMatch || keywordMatch) {
+      // 3단계 신뢰도 기반 병합
+      const highConf = sim >= HIGH_CONFIDENCE_THRESHOLD;     // 제목만으로 확실
+      const medConf = sim >= threshold && sharedKw >= 1;     // 제목 유사 + 키워드 보강
+      const kwOnly = sharedKw >= 3;                          // 키워드 3개↑ 공유
+
+      if (highConf || medConf || kwOnly) {
         union(i, j);
       }
     }
@@ -777,6 +776,21 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    // Carry forward: 기존 요약을 stable_id 기준으로 보존
+    const { rows: existingSummaries } = await client.query<{
+      stable_id: string; title: string; summary: string; category_label: string;
+    }>(
+      `SELECT stable_id, title, summary, category_label
+       FROM issue_rankings
+       WHERE summary IS NOT NULL AND stable_id IS NOT NULL`,
+    );
+    const summaryMap = new Map(
+      existingSummaries.map(r => [r.stable_id, {
+        title: r.title, summary: r.summary, categoryLabel: r.category_label,
+      }]),
+    );
+
     await client.query('DELETE FROM issue_rankings');
 
     const values: string[] = [];
@@ -817,6 +831,34 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
        VALUES ${values.join(',')}`,
       params,
     );
+
+    // Carry forward: 기존 요약 복원 (stable_id 일치 시)
+    if (summaryMap.size > 0) {
+      const sids: string[] = [];
+      const titles: string[] = [];
+      const summaries: string[] = [];
+      const categories: string[] = [];
+      for (const issue of issues) {
+        const prev = summaryMap.get(issue.stableId);
+        if (prev) {
+          sids.push(issue.stableId);
+          titles.push(prev.title);
+          summaries.push(prev.summary);
+          categories.push(prev.categoryLabel);
+        }
+      }
+      if (sids.length > 0) {
+        await client.query(
+          `UPDATE issue_rankings ir
+           SET title = v.title, summary = v.summary, category_label = v.cat
+           FROM unnest($1::text[], $2::text[], $3::text[], $4::text[])
+             AS v(sid, title, summary, cat)
+           WHERE ir.stable_id = v.sid AND ir.summary IS NULL`,
+          [sids, titles, summaries, categories],
+        );
+        console.log(`[issueAggregator] restored ${sids.length} summaries via carry-forward`);
+      }
+    }
 
     await client.query('COMMIT');
     const inserted = result.rowCount ?? 0;
