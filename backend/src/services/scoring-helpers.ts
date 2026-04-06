@@ -312,11 +312,13 @@ export function normalizeEngagement(
     return Math.max(raw, 0.5);
   }
 
-  const zViews = (Math.log1p(viewCount) - stats.meanLogViews) / stats.stddevLogViews;
-  const zComments = (Math.log1p(commentCount) - stats.meanLogComments) / stats.stddevLogComments;
-  const zLikes = (Math.log1p(likeCount) - stats.meanLogLikes) / stats.stddevLogLikes;
-  // z-score를 양수 범위로 시프트: 평균 = 2.0, 1시그마 위 = 3.0
-  return Math.max(2.0 + zViews + zComments * commentWeight + zLikes * likeWeight, 0.5);
+  const safeDiv = (num: number, denom: number) => denom > 0.01 ? num / denom : 0;
+  const zViews = safeDiv(Math.log1p(viewCount) - stats.meanLogViews, stats.stddevLogViews);
+  const zComments = safeDiv(Math.log1p(commentCount) - stats.meanLogComments, stats.stddevLogComments);
+  const zLikes = safeDiv(Math.log1p(likeCount) - stats.meanLogLikes, stats.stddevLogLikes);
+  // z-score를 양수 범위로 시프트: 평균 = 2.0, 1시그마 위 = 3.0, 상한 20.0
+  const raw = 2.0 + zViews + zComments * commentWeight + zLikes * likeWeight;
+  return Math.max(Math.min(raw, 20.0), 0.5);
 }
 
 /** Engagement 스냅샷 기반 velocity 계산 */
