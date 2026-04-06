@@ -296,8 +296,10 @@ async function mergeViaTrendKeywords(
     return { group: g, keywords };
   });
 
-  // Union-Find
+  // Union-Find with group size limit to prevent chain merging
+  const MAX_POSTS_PER_ISSUE = 50;
   const parent = Array.from({ length: groupsWithKw.length }, (_, i) => i);
+  const groupSize = groupsWithKw.map(g => g.group.posts.length);
 
   function find(x: number): number {
     while (parent[x] !== x) {
@@ -310,7 +312,11 @@ async function mergeViaTrendKeywords(
   function union(a: number, b: number): void {
     const ra = find(a);
     const rb = find(b);
-    if (ra !== rb) parent[ra] = rb;
+    if (ra === rb) return;
+    // Refuse merge if combined size would exceed limit
+    if (groupSize[ra] + groupSize[rb] > MAX_POSTS_PER_ISSUE) return;
+    parent[ra] = rb;
+    groupSize[rb] += groupSize[ra];
   }
 
   const kwToGroups = new Map<string, number[]>();
