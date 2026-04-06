@@ -16,6 +16,8 @@ interface ScoredPost {
   readonly thumbnail: string | null;
   readonly trendScore: number;
   readonly clusterId: number | null;
+  readonly clusterBonus: number;
+  readonly scrapedAt: Date;
 }
 
 interface IssueGroup {
@@ -53,10 +55,19 @@ interface IssueRow {
 const DEFAULT_ISSUE_WINDOW_HOURS = 12;
 const DEFAULT_MAX_ISSUES = 30;
 const DEFAULT_NEWS_WEIGHT = 1.0;
-const DEFAULT_COMMUNITY_WEIGHT = 0.3;
+const DEFAULT_COMMUNITY_WEIGHT = 0.6;
 const DEFAULT_VIDEO_NEWS_WEIGHT = 1.0;
 const DEFAULT_VIDEO_GENERAL_WEIGHT = 0.4;
-const DEFAULT_TREND_SIGNAL_WEIGHT = 0.5;
+const DEFAULT_TREND_SIGNAL_WEIGHT = 0.4;
+const DEFAULT_DIMINISHING_K = 0.7;
+const DEFAULT_MOMENTUM_WEIGHT = 0.4;
+const DEFAULT_MOMENTUM_PENALTY_MIN = 0.7;
+const DEFAULT_COMMUNITY_BOOST = 0.3;
+const DEFAULT_DIVERSITY_CAP = 2.5;
+const DEFAULT_CROSS_SOURCE_2 = 0.1;
+const DEFAULT_CROSS_SOURCE_3 = 0.2;
+const DEFAULT_BREAKING_KW_HALFLIFE = 30;
+const DEFAULT_BREAKING_KW_MAX_BOOST = 3.0;
 
 const NEWS_VIDEO_SOURCES = new Set([
   'youtube_sbs_news', 'youtube_ytn', 'youtube_mbc_news',
@@ -72,6 +83,15 @@ interface IssueConfig {
   readonly videoGeneralWeight: number;
   readonly trendSignalWeight: number;
   readonly issueDedupThreshold: number;
+  readonly diminishingK: number;
+  readonly momentumWeight: number;
+  readonly momentumPenaltyMin: number;
+  readonly communityBoost: number;
+  readonly diversityCap: number;
+  readonly crossSource2: number;
+  readonly crossSource3: number;
+  readonly breakingKwHalflife: number;
+  readonly breakingKwMaxBoost: number;
 }
 
 async function loadIssueConfig(): Promise<IssueConfig> {
@@ -86,6 +106,15 @@ async function loadIssueConfig(): Promise<IssueConfig> {
     videoGeneralWeight: (group['VIDEO_GENERAL_WEIGHT'] as number) ?? DEFAULT_VIDEO_GENERAL_WEIGHT,
     trendSignalWeight: (group['TREND_SIGNAL_WEIGHT'] as number) ?? DEFAULT_TREND_SIGNAL_WEIGHT,
     issueDedupThreshold: (group['ISSUE_DEDUP_THRESHOLD'] as number) ?? 0.55,
+    diminishingK: (group['DIMINISHING_K'] as number) ?? DEFAULT_DIMINISHING_K,
+    momentumWeight: (group['MOMENTUM_WEIGHT'] as number) ?? DEFAULT_MOMENTUM_WEIGHT,
+    momentumPenaltyMin: (group['MOMENTUM_PENALTY_MIN'] as number) ?? DEFAULT_MOMENTUM_PENALTY_MIN,
+    communityBoost: (group['COMMUNITY_BOOST'] as number) ?? DEFAULT_COMMUNITY_BOOST,
+    diversityCap: (group['DIVERSITY_CAP'] as number) ?? DEFAULT_DIVERSITY_CAP,
+    crossSource2: (group['CROSS_SOURCE_2'] as number) ?? DEFAULT_CROSS_SOURCE_2,
+    crossSource3: (group['CROSS_SOURCE_3'] as number) ?? DEFAULT_CROSS_SOURCE_3,
+    breakingKwHalflife: (group['BREAKING_KW_HALFLIFE'] as number) ?? DEFAULT_BREAKING_KW_HALFLIFE,
+    breakingKwMaxBoost: (group['BREAKING_KW_MAX_BOOST'] as number) ?? DEFAULT_BREAKING_KW_MAX_BOOST,
   };
 }
 
@@ -123,6 +152,15 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
     videoGeneralWeight: DEFAULT_VIDEO_GENERAL_WEIGHT,
     trendSignalWeight: DEFAULT_TREND_SIGNAL_WEIGHT,
     issueDedupThreshold: 0.55,
+    diminishingK: DEFAULT_DIMINISHING_K,
+    momentumWeight: DEFAULT_MOMENTUM_WEIGHT,
+    momentumPenaltyMin: DEFAULT_MOMENTUM_PENALTY_MIN,
+    communityBoost: DEFAULT_COMMUNITY_BOOST,
+    diversityCap: DEFAULT_DIVERSITY_CAP,
+    crossSource2: DEFAULT_CROSS_SOURCE_2,
+    crossSource3: DEFAULT_CROSS_SOURCE_3,
+    breakingKwHalflife: DEFAULT_BREAKING_KW_HALFLIFE,
+    breakingKwMaxBoost: DEFAULT_BREAKING_KW_MAX_BOOST,
   }));
 
   // Step 1: Fetch scored posts (now includes video)
@@ -161,10 +199,13 @@ async function fetchScoredPosts(pool: Pool, windowHours: number): Promise<Scored
     id: number; source_key: string; category: string | null;
     title: string; content_snippet: string | null; thumbnail: string | null;
     trend_score: number; cluster_id: number | null;
+    cluster_bonus: number; scraped_at: Date;
   }>(`
     SELECT p.id, p.source_key, p.category, p.title, p.content_snippet, p.thumbnail,
            COALESCE(ps.trend_score, 0) AS trend_score,
-           pcm.cluster_id
+           pcm.cluster_id,
+           COALESCE(ps.cluster_bonus, 1.0) AS cluster_bonus,
+           p.scraped_at
     FROM posts p
     LEFT JOIN post_scores ps ON ps.post_id = p.id
     LEFT JOIN post_cluster_members pcm ON pcm.post_id = p.id
@@ -182,6 +223,8 @@ async function fetchScoredPosts(pool: Pool, windowHours: number): Promise<Scored
     thumbnail: r.thumbnail,
     trendScore: r.trend_score,
     clusterId: r.cluster_id,
+    clusterBonus: r.cluster_bonus,
+    scrapedAt: new Date(r.scraped_at),
   }));
 }
 
@@ -401,7 +444,78 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
   return [...merged.values()];
 }
 
-// ─── Step 4: Score and Filter (includes video) ───
+// ─── Step 4: Score and Filter (Fix 1~6 적용) ───
+
+const LN2 = Math.LN2;
+const BREAKING_KEYWORDS = ['속보', '[속보]', '긴급', '[긴급]'];
+
+/** Fix 1: 로그 체감 수익 — 상위 포스트 우선, 추가 포스트는 체감 기여 */
+function aggregatePostScores(scores: readonly number[], k: number): number {
+  if (scores.length === 0) return 0;
+  const sorted = [...scores].sort((a, b) => b - a);
+  let total = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    total += sorted[i] / (1 + k * Math.log1p(i));
+  }
+  return total;
+}
+
+/** Fix 3: 이슈 모멘텀 — 최근 포스트 유입 가속도 */
+function issueMomentum(group: IssueGroup, cfg: IssueConfig): number {
+  const allPosts = [...group.newsPosts, ...group.communityPosts, ...group.videoPosts];
+  if (allPosts.length < 2) return 1.0;
+
+  const now = Date.now();
+  const oneHourAgo = now - 3_600_000;
+  const threeHoursAgo = now - 10_800_000;
+
+  const recentCount = allPosts.filter(p => p.scrapedAt.getTime() > oneHourAgo).length;
+  const olderCount = allPosts.filter(p => {
+    const t = p.scrapedAt.getTime();
+    return t > threeHoursAgo && t <= oneHourAgo;
+  }).length;
+
+  const acceleration = olderCount > 0
+    ? (recentCount / 1) / (olderCount / 2)
+    : recentCount > 0 ? 2.0 : 0.5;
+
+  return Math.max(cfg.momentumPenaltyMin, Math.min(1.0 + cfg.momentumWeight * Math.log(acceleration), 1.8));
+}
+
+/** Fix 5: 이슈 레벨 교차소스 + 다양성 보너스 */
+function sourceDiversityBonus(group: IssueGroup, cfg: IssueConfig): number {
+  const newsOutlets = new Set(group.newsPosts.map(p => p.sourceKey));
+  const communityOutlets = new Set(group.communityPosts.map(p => p.sourceKey));
+  const videoOutlets = new Set(group.videoPosts.map(p => p.sourceKey));
+
+  const totalDistinct = newsOutlets.size + communityOutlets.size + videoOutlets.size;
+  const channelCount = [newsOutlets.size, communityOutlets.size, videoOutlets.size]
+    .filter(n => n > 0).length;
+
+  const sourceDiv = 1.0 + 0.3 * Math.log2(Math.max(totalDistinct, 1));
+  const channelDiv = channelCount === 3 ? 1.0 + cfg.crossSource3
+    : channelCount === 2 ? 1.0 + cfg.crossSource2
+    : 1.0;
+
+  return Math.min(sourceDiv * channelDiv, cfg.diversityCap);
+}
+
+/** Fix 6: "속보" 키워드 이슈 레벨 부스트 */
+function breakingKeywordBoost(group: IssueGroup, cfg: IssueConfig): number {
+  const allPosts = [...group.newsPosts, ...group.communityPosts, ...group.videoPosts];
+
+  const breakingPosts = allPosts.filter(p =>
+    BREAKING_KEYWORDS.some(kw => p.title.includes(kw)),
+  );
+  if (breakingPosts.length === 0) return 1.0;
+
+  const now = Date.now();
+  const newestBreakingAge = Math.min(
+    ...breakingPosts.map(p => (now - p.scrapedAt.getTime()) / 60_000),
+  );
+
+  return 1.0 + (cfg.breakingKwMaxBoost - 1.0) * Math.exp(-LN2 * newestBreakingAge / cfg.breakingKwHalflife);
+}
 
 function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): IssueGroup[] {
   // Filter: must have ≥1 news post OR ≥1 news-channel video post
@@ -410,18 +524,51 @@ function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): IssueG
     g.videoPosts.some(p => NEWS_VIDEO_SOURCES.has(p.sourceKey)),
   );
 
-  const scored = anchored.map(g => {
-    const newsScore = g.newsPosts.reduce((sum, p) => sum + p.trendScore, 0);
-    const communityScore = g.communityPosts.reduce((sum, p) => sum + p.trendScore, 0);
-    const videoScore = g.videoPosts.reduce((sum, p) => {
-      const w = NEWS_VIDEO_SOURCES.has(p.sourceKey) ? cfg.videoNewsWeight : cfg.videoGeneralWeight;
-      return sum + p.trendScore * w;
-    }, 0);
-    const issueScore =
-      newsScore * cfg.newsWeight +
-      communityScore * cfg.communityWeight +
-      videoScore +
+  // Fix 4: 커뮤니티 동적 가중치를 위한 중앙값 계산
+  const communityScores = anchored.map(g =>
+    aggregatePostScores(
+      g.communityPosts.map(p => p.trendScore / p.clusterBonus),
+      cfg.diminishingK,
+    ),
+  );
+  const sortedCS = [...communityScores].sort((a, b) => a - b);
+  const medianCommunityAgg = sortedCS.length > 0
+    ? sortedCS[Math.floor(sortedCS.length / 2)]
+    : 1.0;
+
+  const scored = anchored.map((g, i) => {
+    // Fix 2: clusterBonus 제거한 기본 점수 사용
+    const newsAgg = aggregatePostScores(
+      g.newsPosts.map(p => p.trendScore / p.clusterBonus),
+      cfg.diminishingK,
+    );
+    const communityAgg = communityScores[i];
+    const videoAgg = aggregatePostScores(
+      g.videoPosts.map(p => {
+        const w = NEWS_VIDEO_SOURCES.has(p.sourceKey) ? cfg.videoNewsWeight : cfg.videoGeneralWeight;
+        return (p.trendScore / p.clusterBonus) * w;
+      }),
+      cfg.diminishingK,
+    );
+
+    // Fix 4: 동적 커뮤니티 가중치
+    const communityIntensity = medianCommunityAgg > 0
+      ? communityAgg / medianCommunityAgg
+      : 0;
+    const effectiveCW = cfg.communityWeight + cfg.communityBoost * Math.min(communityIntensity / 3.0, 1.0);
+
+    const rawScore =
+      newsAgg * cfg.newsWeight +
+      communityAgg * effectiveCW +
+      videoAgg +
       g.trendSignalScore * cfg.trendSignalWeight;
+
+    // Fix 3 + Fix 5 + Fix 6: 곱셈 보너스
+    const momentum = issueMomentum(g, cfg);
+    const diversity = sourceDiversityBonus(g, cfg);
+    const breaking = breakingKeywordBoost(g, cfg);
+
+    const issueScore = rawScore * momentum * diversity * breaking;
     return { group: g, issueScore };
   });
 
@@ -462,12 +609,19 @@ function buildIssueRow(group: IssueGroup, cfg: IssueConfig): IssueRow {
   const sortedVideo = [...group.videoPosts].sort((a, b) => b.trendScore - a.trendScore);
   const canonicalPost = sortedNews[0] ?? sortedVideo[0];
 
-  const newsScore = group.newsPosts.reduce((sum, p) => sum + p.trendScore, 0);
-  const communityScore = group.communityPosts.reduce((sum, p) => sum + p.trendScore, 0);
-  const videoScore = group.videoPosts.reduce((sum, p) => {
-    const w = NEWS_VIDEO_SOURCES.has(p.sourceKey) ? cfg.videoNewsWeight : cfg.videoGeneralWeight;
-    return sum + p.trendScore * w;
-  }, 0);
+  // 새 공식과 동일한 채널별 집계 (Fix 1+2)
+  const newsScore = aggregatePostScores(
+    group.newsPosts.map(p => p.trendScore / p.clusterBonus), cfg.diminishingK,
+  );
+  const communityScore = aggregatePostScores(
+    group.communityPosts.map(p => p.trendScore / p.clusterBonus), cfg.diminishingK,
+  );
+  const videoScore = aggregatePostScores(
+    group.videoPosts.map(p => {
+      const w = NEWS_VIDEO_SOURCES.has(p.sourceKey) ? cfg.videoNewsWeight : cfg.videoGeneralWeight;
+      return (p.trendScore / p.clusterBonus) * w;
+    }), cfg.diminishingK,
+  );
   const issueScore =
     newsScore * cfg.newsWeight +
     communityScore * cfg.communityWeight +
