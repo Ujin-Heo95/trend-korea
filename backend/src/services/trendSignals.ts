@@ -262,12 +262,13 @@ function isKorean(ch: string): boolean {
 }
 
 function effectiveMinLength(keyword: string): number {
+  if (!keyword || !keyword[0]) return MIN_LATIN_KEYWORD_LEN;
   return isKorean(keyword[0]) ? MIN_KOREAN_KEYWORD_LEN : MIN_LATIN_KEYWORD_LEN;
 }
 
 /** Tier 1: 부분 문자열 매칭 (공백 무시 포함) */
 function substringMatch(normTitle: string, normKeyword: string): boolean {
-  if (normKeyword.length < effectiveMinLength(normKeyword)) return false;
+  if (!normKeyword || normKeyword.length < effectiveMinLength(normKeyword)) return false;
   if (normTitle.includes(normKeyword)) return true;
   // 공백 제거 비교 (한국어 복합어 대응: "부동산시장" ↔ "부동산 시장")
   const strippedTitle = normTitle.replace(/\s/g, '');

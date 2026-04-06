@@ -527,7 +527,7 @@ function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): IssueG
   // Fix 4: 커뮤니티 동적 가중치를 위한 중앙값 계산
   const communityScores = anchored.map(g =>
     aggregatePostScores(
-      g.communityPosts.map(p => p.trendScore / p.clusterBonus),
+      g.communityPosts.map(p => p.trendScore / Math.max(p.clusterBonus, 0.01)),
       cfg.diminishingK,
     ),
   );
@@ -539,14 +539,14 @@ function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): IssueG
   const scored = anchored.map((g, i) => {
     // Fix 2: clusterBonus 제거한 기본 점수 사용
     const newsAgg = aggregatePostScores(
-      g.newsPosts.map(p => p.trendScore / p.clusterBonus),
+      g.newsPosts.map(p => p.trendScore / Math.max(p.clusterBonus, 0.01)),
       cfg.diminishingK,
     );
     const communityAgg = communityScores[i];
     const videoAgg = aggregatePostScores(
       g.videoPosts.map(p => {
         const w = NEWS_VIDEO_SOURCES.has(p.sourceKey) ? cfg.videoNewsWeight : cfg.videoGeneralWeight;
-        return (p.trendScore / p.clusterBonus) * w;
+        return (p.trendScore / Math.max(p.clusterBonus, 0.01)) * w;
       }),
       cfg.diminishingK,
     );
@@ -611,15 +611,15 @@ function buildIssueRow(group: IssueGroup, cfg: IssueConfig): IssueRow {
 
   // 새 공식과 동일한 채널별 집계 (Fix 1+2)
   const newsScore = aggregatePostScores(
-    group.newsPosts.map(p => p.trendScore / p.clusterBonus), cfg.diminishingK,
+    group.newsPosts.map(p => p.trendScore / Math.max(p.clusterBonus, 0.01)), cfg.diminishingK,
   );
   const communityScore = aggregatePostScores(
-    group.communityPosts.map(p => p.trendScore / p.clusterBonus), cfg.diminishingK,
+    group.communityPosts.map(p => p.trendScore / Math.max(p.clusterBonus, 0.01)), cfg.diminishingK,
   );
   const videoScore = aggregatePostScores(
     group.videoPosts.map(p => {
       const w = NEWS_VIDEO_SOURCES.has(p.sourceKey) ? cfg.videoNewsWeight : cfg.videoGeneralWeight;
-      return (p.trendScore / p.clusterBonus) * w;
+      return (p.trendScore / Math.max(p.clusterBonus, 0.01)) * w;
     }), cfg.diminishingK,
   );
   const issueScore =
