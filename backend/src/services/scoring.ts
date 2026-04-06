@@ -125,7 +125,7 @@ async function _calculateScores(pool: Pool): Promise<number> {
   for (const row of rows) {
     // 실제 게시 시점 기준 decay: published_at → first_scraped_at → scraped_at 순 폴백
     const postOrigin = row.published_at ?? row.first_scraped_at ?? row.scraped_at;
-    const ageMinutes = (now - new Date(postOrigin).getTime()) / 60_000;
+    const ageMinutes = Math.max((now - new Date(postOrigin).getTime()) / 60_000, 0);
     const channel = getChannel(row.category);
     const isCommunity = channel === 'community';
     const isNews = channel === 'news';
