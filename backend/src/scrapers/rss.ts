@@ -64,7 +64,10 @@ type RssExt = Record<string, any>;
 function safeDate(value: string | undefined): Date | undefined {
   if (!value) return undefined;
   const d = new Date(value);
-  return isNaN(d.getTime()) ? undefined : d;
+  if (isNaN(d.getTime())) return undefined;
+  // 미래일자 방어: 1시간 이상 미래면 파싱 오류로 간주 (nocutnews 비표준 날짜 등)
+  if (d.getTime() > Date.now() + 3_600_000) return undefined;
+  return d;
 }
 
 export class RssScraper extends BaseScraper {
@@ -179,7 +182,7 @@ export class RssScraper extends BaseScraper {
       sourceKey: this.cfg.sourceKey,
       sourceName: this.cfg.sourceName,
       title: item.title?.trim() ?? '(제목 없음)',
-      url: item.link ?? item.guid ?? '',
+      url: (item.link ?? item.guid ?? '').trim(),
       thumbnail,
       author: item.creator ?? ext['dc:creator'] ?? undefined,
       publishedAt: safeDate(item.pubDate),
@@ -199,7 +202,7 @@ export class RssScraper extends BaseScraper {
       sourceKey: this.cfg.sourceKey,
       sourceName: this.cfg.sourceName,
       title: item.title?.trim() ?? '(제목 없음)',
-      url: item.link ?? item.guid ?? '',
+      url: (item.link ?? item.guid ?? '').trim(),
       thumbnail,
       author: ext.author ?? item.creator ?? undefined,
       publishedAt: safeDate(item.isoDate ?? item.pubDate),

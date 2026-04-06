@@ -62,14 +62,23 @@ export async function fetchHtml(
   return cheerio.load(decoded);
 }
 
+// 한국 커뮤니티 시각은 KST(UTC+9). 서버(Railway)는 UTC이므로 보정 필요.
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/** KST 시각 요소를 UTC Date로 변환 */
+function kstToUtc(year: number, month0: number, day: number, h = 0, m = 0, s = 0): Date {
+  return new Date(Date.UTC(year, month0, day, h, m, s) - KST_OFFSET_MS);
+}
+
 /**
  * 한국어 커뮤니티 게시판의 다양한 날짜 형식을 파싱합니다.
+ * 모든 절대 시각은 KST로 해석하여 UTC Date를 반환합니다.
  *
  * 지원 형식:
  * - 절대: "2026-04-05 14:30:00", "2026.04.05 14:30", "04.05", "04-05", "04/05"
  * - 상대: "3시간 전", "2분 전", "1일 전", "방금 전", "3시간전"
  * - 영문 상대: "3h", "2m", "1d", "3 hours ago"
- * - 시간만: "14:30" → 오늘 날짜 + 해당 시간
+ * - 시간만: "14:30" → 오늘 KST 날짜 + 해당 시간
  */
 export function parseKoreanDate(text: string, now?: Date): Date | undefined {
   if (!text) return undefined;
@@ -80,6 +89,7 @@ export function parseKoreanDate(text: string, now?: Date): Date | undefined {
   if (/^방금/.test(s)) return ref;
 
   // 한국어 상대시간: "N분 전", "N시간 전", "N일 전", "N초 전"
+  // 상대시간은 서버 now 기준 차감이므로 KST 보정 불필요
   const koRel = s.match(/(\d+)\s*(초|분|시간|일)\s*전?/);
   if (koRel) {
     const n = parseInt(koRel[1]);
@@ -87,7 +97,7 @@ export function parseKoreanDate(text: string, now?: Date): Date | undefined {
     const d = new Date(ref);
     if (unit === '초') d.setSeconds(d.getSeconds() - n);
     else if (unit === '분') d.setMinutes(d.getMinutes() - n);
-    else if (unit === '시���') d.setHours(d.getHours() - n);
+    else if (unit === '시간') d.setHours(d.getHours() - n);
     else if (unit === '일') d.setDate(d.getDate() - n);
     return d;
   }
@@ -106,26 +116,27 @@ export function parseKoreanDate(text: string, now?: Date): Date | undefined {
   }
 
   // 절대 날짜: "2026-04-05 14:30:00", "2026.04.05 14:30", "2026/04/05"
+  // 사이트가 KST로 표시하므로 KST→UTC 변환
   const fullDate = s.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
   if (fullDate) {
-    const [, y, m, d, hh, mm, ss] = fullDate;
-    return new Date(+y, +m - 1, +d, +(hh ?? 0), +(mm ?? 0), +(ss ?? 0));
+    const [, y, mo, d, hh, mm, ss] = fullDate;
+    return kstToUtc(+y, +mo - 1, +d, +(hh ?? 0), +(mm ?? 0), +(ss ?? 0));
   }
 
   // 월-일만: "04.05", "04-05", "04/05"
   const shortDate = s.match(/^(\d{1,2})[.\-/](\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/);
   if (shortDate) {
-    const [, m, d, hh, mm] = shortDate;
-    return new Date(ref.getFullYear(), +m - 1, +d, +(hh ?? 0), +(mm ?? 0));
+    const [, mo, d, hh, mm] = shortDate;
+    const kstNow = new Date(ref.getTime() + KST_OFFSET_MS);
+    return kstToUtc(kstNow.getUTCFullYear(), +mo - 1, +d, +(hh ?? 0), +(mm ?? 0));
   }
 
-  // 시간만: "14:30", "09:05"
+  // 시간만: "14:30", "09:05" — 오늘 KST 날짜 + 해당 시간
   const timeOnly = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (timeOnly) {
     const [, hh, mm, ss] = timeOnly;
-    const d = new Date(ref);
-    d.setHours(+hh, +mm, +(ss ?? 0), 0);
-    return d;
+    const kstNow = new Date(ref.getTime() + KST_OFFSET_MS);
+    return kstToUtc(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate(), +hh, +mm, +(ss ?? 0));
   }
 
   return undefined;

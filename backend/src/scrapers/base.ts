@@ -42,6 +42,13 @@ function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max) : s;
 }
 
+/** 프로토콜 상대 URL ("//example.com/...") 에 https: 접두어 추가 */
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  return trimmed;
+}
+
 export abstract class BaseScraper {
   category?: string;
   subcategory?: string;
@@ -57,12 +64,13 @@ export abstract class BaseScraper {
     const placeholders = posts.map((p, i) => {
       const b = i * COLS;
       const metaJson = p.metadata ? JSON.stringify(p.metadata) : null;
+      const thumb = p.thumbnail ? normalizeUrl(p.thumbnail) : null;
       values.push(
         truncate(stripHtml(p.sourceKey), 100),
         truncate(stripHtml(p.sourceName), 100),
         truncate(stripHtml(p.title), MAX_TITLE_LEN),
-        truncate(p.url, MAX_URL_LEN),
-        p.thumbnail ? truncate(p.thumbnail, MAX_URL_LEN) : null,
+        truncate(p.url.trim(), MAX_URL_LEN),
+        thumb ? truncate(thumb, MAX_URL_LEN) : null,
         p.author ? truncate(stripHtml(p.author), MAX_AUTHOR_LEN) : null,
         p.viewCount ?? 0, p.commentCount ?? 0, p.likeCount ?? 0,
         p.publishedAt ?? null,
