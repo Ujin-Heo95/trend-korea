@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useIssueRankings } from '../hooks/useIssueRankings';
 import { getSourceColor } from '../constants/sourceColors';
@@ -130,12 +130,12 @@ const RankChangeIndicator: React.FC<{ change: number | null }> = ({ change }) =>
 
 // ─── Issue Card ───
 
-const IssueCard: React.FC<{ issue: IssueRanking }> = ({ issue }) => {
+const IssueCard: React.FC<{ issue: IssueRanking }> = React.memo(({ issue }) => {
   const [activeChannel, setActiveChannel] = useState<ChannelTag | null>(null);
 
-  const toggleChannel = (tag: ChannelTag) => {
+  const toggleChannel = useCallback((tag: ChannelTag) => {
     setActiveChannel(prev => prev === tag ? null : tag);
-  };
+  }, []);
 
   const categoryColor = CATEGORY_BADGE[issue.category_label ?? ''] ?? 'text-slate-600 dark:text-slate-400';
   const fallbackIcon = CATEGORY_ICONS[issue.category_label ?? ''] ?? '📰';
@@ -171,7 +171,7 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = ({ issue }) => {
             {issue.thumbnail ? (
               <div className="flex-shrink-0 w-24 h-16 sm:w-28 sm:h-20 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
                 <img
-                  src={optimizedImage(issue.thumbnail, 400)}
+                  src={optimizedImage(issue.thumbnail, 224)}
                   alt=""
                   className="w-full h-full object-cover"
                   loading="lazy"
@@ -262,7 +262,7 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = ({ issue }) => {
       )}
     </div>
   );
-};
+});
 
 // ─── Post Group ───
 

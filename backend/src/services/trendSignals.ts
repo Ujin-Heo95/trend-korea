@@ -13,6 +13,7 @@ export interface TrendKeywordEntry {
 
 export interface MatchResult {
   readonly matchedSources: ReadonlySet<string>;
+  readonly matchedKeywords: ReadonlySet<string>;
   readonly bestStrength: number;
   readonly avgTemporalDecay: number;
 }
@@ -292,6 +293,7 @@ function bigramContainment(normTitle: string, normKeyword: string): boolean {
 export function matchPostToKeywords(title: string, index: readonly TrendKeywordEntry[]): MatchResult {
   const normTitle = normalizeTitle(title);
   const matchedSources = new Set<string>();
+  const matchedKeywords = new Set<string>();
   let bestStrength = 0;
   const decays: number[] = [];
   const now = Date.now();
@@ -304,6 +306,7 @@ export function matchPostToKeywords(title: string, index: readonly TrendKeywordE
     if (!matched) continue;
 
     matchedSources.add(entry.sourceKey);
+    matchedKeywords.add(entry.keyword);
     bestStrength = Math.max(bestStrength, entry.signalStrength);
 
     // 시간 감쇠
@@ -320,7 +323,7 @@ export function matchPostToKeywords(title: string, index: readonly TrendKeywordE
     ? decays.reduce((a, b) => a + b, 0) / decays.length
     : 0;
 
-  return { matchedSources, bestStrength, avgTemporalDecay };
+  return { matchedSources, matchedKeywords, bestStrength, avgTemporalDecay };
 }
 
 // ─── Bonus Calculation ───

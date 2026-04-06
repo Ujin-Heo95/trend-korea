@@ -21,7 +21,7 @@ export const useInfinitePosts = (filter: PostsFilter) =>
       return nextPage <= Math.ceil(last.total / last.limit) ? nextPage : undefined;
     },
     refetchInterval: 60_000,
-    staleTime: 30_000,
+    staleTime: 55_000,
   });
 
 export const useTrending = () =>

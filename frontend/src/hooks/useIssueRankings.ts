@@ -13,5 +13,5 @@ export const useIssueRankings = () =>
     queryKey: ['issue-rankings'],
     queryFn: () => fetchIssueRankings({ limit: 30 }),
     refetchInterval: getRefetchInterval(),
-    staleTime: 30_000,
+    staleTime: 55_000,
   });

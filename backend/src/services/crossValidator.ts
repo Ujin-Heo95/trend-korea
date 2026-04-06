@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import pLimit from 'p-limit';
 import { config } from '../config/index.js';
 
 /**
@@ -19,6 +20,7 @@ const CROSS_VALIDATION_MULTIPLIERS: Record<number, number> = {
   3: 1.20,  // 3개 소스 확인
 };
 const MAX_MULTIPLIER = 1.30;
+const API_CONCURRENCY = 5;
 
 let isValidating = false;
 
@@ -54,47 +56,60 @@ async function _crossValidate(pool: Pool): Promise<number> {
 
   if (issues.length === 0) return 0;
 
-  let updated = 0;
+  // Extract keywords for all issues
+  const issueKeywords = issues.map(issue => ({
+    ...issue,
+    keyword: issue.matched_trend_keywords[0] ?? extractKeyword(issue.title),
+  }));
 
-  for (const issue of issues) {
-    // Extract representative keyword (first matched keyword, or first 2 title words)
-    const keyword = issue.matched_trend_keywords[0]
-      ?? extractKeyword(issue.title);
+  const validIssues = issueKeywords.filter(i => i.keyword !== null);
+  if (validIssues.length === 0) return 0;
 
-    if (!keyword) continue;
+  // Batch: check trend_keywords for all keywords in one query
+  const allKeywords = validIssues.map(i => i.keyword!.toLowerCase().replace(/\s/g, ''));
+  const trendMatchMap = await checkTrendKeywordsBatch(pool, allKeywords);
 
-    const sources: string[] = [];
+  // Parallel: external API checks with concurrency limit
+  const limit = pLimit(API_CONCURRENCY);
+  const results = await Promise.all(
+    validIssues.map((issue, idx) =>
+      limit(async () => {
+        const keyword = issue.keyword!;
+        const normalizedKw = allKeywords[idx];
+        const sources: string[] = [...(trendMatchMap.get(normalizedKw) ?? [])];
 
-    // 1. Check trend_keywords table (Google Trends, BigKinds, Naver DataLab, etc.)
-    const trendMatch = await checkTrendKeywords(pool, keyword);
-    sources.push(...trendMatch);
+        const [youtubeMatch, naverMatch] = await Promise.all([
+          checkYouTubeSearch(keyword),
+          checkNaverSearch(keyword),
+        ]);
 
-    // 2. YouTube Data API search
-    const youtubeMatch = await checkYouTubeSearch(keyword);
-    if (youtubeMatch) sources.push('youtube_search');
+        if (youtubeMatch) sources.push('youtube_search');
+        if (naverMatch) sources.push('naver_search');
 
-    // 3. Naver search trend (via API)
-    const naverMatch = await checkNaverSearch(keyword);
-    if (naverMatch) sources.push('naver_search');
+        const uniqueSources = [...new Set(sources)];
+        const sourceCount = Math.min(uniqueSources.length, 4);
+        const multiplier = CROSS_VALIDATION_MULTIPLIERS[sourceCount]
+          ?? Math.min(1.0 + sourceCount * 0.1, MAX_MULTIPLIER);
 
-    const uniqueSources = [...new Set(sources)];
-    const sourceCount = Math.min(uniqueSources.length, 4);
-    const multiplier = CROSS_VALIDATION_MULTIPLIERS[sourceCount]
-      ?? Math.min(1.0 + sourceCount * 0.1, MAX_MULTIPLIER);
+        return { id: issue.id, multiplier, uniqueSources };
+      }),
+    ),
+  );
 
+  // Batch update results
+  for (const r of results) {
     await pool.query(
       `UPDATE issue_rankings
        SET cross_validation_score = $1, cross_validation_sources = $2
        WHERE id = $3`,
-      [multiplier, uniqueSources, issue.id],
+      [r.multiplier, r.uniqueSources, r.id],
     );
-    updated++;
   }
 
-  if (updated > 0) {
-    console.log(`[crossValidator] validated ${updated} issues`);
+  if (results.length > 0) {
+    console.log(`[crossValidator] validated ${results.length} issues`);
   }
-  return updated;
+  return results.length;
 }
 
 // ─── Keyword Extraction ───
@@ -109,18 +124,47 @@ function extractKeyword(title: string): string | null {
   return words.slice(0, 2).join(' ') || null;
 }
 
-// ─── Check 1: trend_keywords table (zero API cost) ───
+// ─── Check 1: trend_keywords table — batch query (zero API cost) ───
 
-async function checkTrendKeywords(pool: Pool, keyword: string): Promise<string[]> {
-  const normalized = keyword.toLowerCase().replace(/\s/g, '');
-  const { rows } = await pool.query<{ source_key: string }>(
-    `SELECT DISTINCT source_key FROM trend_keywords
+async function checkTrendKeywordsBatch(
+  pool: Pool,
+  keywords: string[],
+): Promise<Map<string, string[]>> {
+  if (keywords.length === 0) return new Map();
+
+  // Build a single query with ANY array matching
+  const { rows } = await pool.query<{ keyword_normalized: string; source_key: string }>(
+    `SELECT DISTINCT keyword_normalized, source_key FROM trend_keywords
      WHERE expires_at > NOW()
-       AND (keyword_normalized LIKE '%' || $1 || '%'
-            OR $1 LIKE '%' || keyword_normalized || '%')`,
-    [normalized],
+       AND keyword_normalized = ANY($1)`,
+    [keywords],
   );
-  return rows.map(r => r.source_key);
+
+  const map = new Map<string, string[]>();
+  for (const r of rows) {
+    const arr = map.get(r.keyword_normalized) ?? [];
+    arr.push(r.source_key);
+    map.set(r.keyword_normalized, arr);
+  }
+
+  // Also check partial matches (keyword contains trend or trend contains keyword)
+  const { rows: partialRows } = await pool.query<{ source_key: string; matched_kw: string }>(
+    `SELECT DISTINCT tk.source_key, kw.val AS matched_kw
+     FROM trend_keywords tk, unnest($1::text[]) AS kw(val)
+     WHERE tk.expires_at > NOW()
+       AND tk.keyword_normalized != kw.val
+       AND (tk.keyword_normalized LIKE '%' || kw.val || '%'
+            OR kw.val LIKE '%' || tk.keyword_normalized || '%')`,
+    [keywords],
+  );
+
+  for (const r of partialRows) {
+    const arr = map.get(r.matched_kw) ?? [];
+    arr.push(r.source_key);
+    map.set(r.matched_kw, [...new Set(arr)]);
+  }
+
+  return map;
 }
 
 // ─── Check 2: YouTube Data API search ───

@@ -138,7 +138,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     return () => observer.disconnect();
   }, [handleIntersect]);
 
-  const allPosts = (() => {
+  const allPosts = useMemo(() => {
     const raw = data?.pages.flatMap((p) => p.posts) ?? [];
     const seen = new Set<number>();
     return raw.filter((p) => {
@@ -146,7 +146,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       seen.add(p.id);
       return true;
     });
-  })();
+  }, [data?.pages]);
   const total = data?.pages[0]?.total ?? 0;
 
   return (

@@ -13,14 +13,13 @@ export const ShareButton: React.FC<Props> = ({ url, title, description, thumbnai
   const [kakaoReady, setKakaoReady] = useState(false);
 
   useEffect(() => {
-    initKakao();
-    setKakaoReady(isKakaoAvailable());
+    initKakao().then(() => setKakaoReady(isKakaoAvailable()));
   }, []);
 
-  const handleKakaoShare = (e: React.MouseEvent) => {
+  const handleKakaoShare = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    shareToKakao({ title, description, imageUrl: thumbnail, linkUrl: url });
+    await shareToKakao({ title, description, imageUrl: thumbnail, linkUrl: url });
   };
 
   const handleCopy = async (e: React.MouseEvent) => {

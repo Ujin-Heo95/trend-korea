@@ -286,10 +286,10 @@ async function mergeViaTrendKeywords(
       for (const src of match.matchedSources) {
         keywords.add(src);
       }
-      for (const entry of keywordIndex) {
-        const m = matchPostToKeywords(matchText, [entry]);
-        if (m.matchedSources.size > 0) {
-          keywords.add(`kw:${entry.keyword}`);
+      // Collect kw: tags from matched keywords (single pass via matchedKeywords)
+      if (match.matchedKeywords) {
+        for (const kw of match.matchedKeywords) {
+          keywords.add(`kw:${kw}`);
         }
       }
     }
