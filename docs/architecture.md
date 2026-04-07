@@ -1,6 +1,6 @@
 # Architecture
 
-> 2026-04-03 제로베이스 코드 분석으로 전면 재작성.
+> 2026-04-07 소스 품질 검사 반영. 123개 등록/85개 활성.
 
 ## System Overview
 
@@ -19,13 +19,13 @@
                                                │
                               ┌─────────────────▼────────────────┐
                               │  PostgreSQL 17.6                  │
-                              │  Supabase (서울, 500MB 무료)      │
+                              │  Supabase Pro (서울, 8GB)      │
                               │  Session pooler (IPv4), SSL       │
                               └──────────────────────────────────┘
 
 외부 API:
 ├── Google Gemini Flash (키워드 추출, 일일 리포트)
-├── YouTube Data API v3 (인기/검색)
+├── YouTube Data API v3 (disabled — 할당량 초과)
 ├── KOBIS 박스오피스 + KMDB 포스터/줄거리
 ├── KOPIS 예매순위 + 상세 API
 ├── Naver DataLab (검색 트렌드)
@@ -39,14 +39,14 @@
 ## Backend Data Flow
 
 ```
-sources.json (72개 소스 레지스트리)
+sources.json (123개 소스 레지스트리, 85개 활성)
 └── registry.ts (로더: RSS 자동생성, HTML/API 동적 import)
 
 node-cron 우선순위 스케줄러 (8개 크론 잡)
 ├── 최초 실행: runAllScrapers() — 활성 소스 전체
-├── 매 10분: high-priority (커뮤니티 16개, 트렌딩)
-├── 매 15분: medium-priority (뉴스 RSS, 테크, API)
-├── 매 30분: low-priority (정부, 기상, 테크블로그)
+├── 매 10분: high-priority (커뮤니티, 주요 뉴스)
+├── 매 15분: medium-priority (뉴스 RSS, 테크, 금융, 커뮤니티 일부)
+├── 매 30분: low-priority (정부, YouTube RSS, 음악/영화/공연, 도서)
 │     └── 각 실행: p-limit(4) 동시성, 30초 타임아웃, retry 2회 (2s→8s backoff)
 │           ├── logRunStart()  → scraper_runs INSERT
 │           ├── scraper.fetch() → HTML/RSS/API 파싱
@@ -86,19 +86,24 @@ BaseScraper (base.ts)
 └── run()               — fetch + saveToDb + clusterPosts + retry 2회
 
 소스 유형별 (sources.json 레지스트리):
-├── HTML/Cheerio (15개 활성): dcinside, bobaedream, ruliweb, theqoo, instiz,
-│     natepann, todayhumor, clien, fmkorea, mlbpark, cook82, inven,
-│     humoruniv, ygosu, slrclub, etoland
-├── RSS (34개 등록): ppomppu, yna, hani, sbs, donga, khan, hankyung, mk, kmib,
-│     yozm, google_trends, koreaherald, koreatimes, newsis, chosun, jtbc,
-│     etnews, newswire, naver_d2, kakao_tech, toss_tech, ddanzi, ppomppu_hot,
-│     investing_kr, sedaily, korea_press/policy/briefing, uppity,
-│     google_news_kr, youtube_sbs/ytn/mbc/kbs/jtbc_news
-├── API (8개): youtube, youtube_search, kobis_boxoffice, kopis_boxoffice,
-│     naver_datalab, daum_cafe, daum_blog, bigkinds_issues
+├── HTML/Cheerio (28개 활성): dcinside, bobaedream, ruliweb, theqoo, instiz,
+│     natepann, natepann_ranking, todayhumor, clien, fmkorea, mlbpark, cook82,
+│     inven, humoruniv, ygosu, slrclub, etoland, dogdrip, geeknews,
+│     naver_news_ranking, melon_chart, bugs_chart, genie_chart,
+│     kworb_spotify_kr, kworb_youtube_kr, yes24, aladin, flixpatrol,
+│     nate_realtime, zum_realtime, clien_jirum, quasarzone_deal
+├── RSS (37개 활성): ddanzi, yna, hani, sbs, donga, khan, hankyung, mk, kmib,
+│     yozm, google_trends, newsis, chosun, jtbc, etnews, newswire,
+│     ppomppu_hot, investing_kr, sedaily, moneytoday, edaily, bizwatch,
+│     korea_press/policy/briefing, uppity, google_news_kr, bbc_korean,
+│     ohmynews, nocutnews, asiae, segye, mbn, boannews, zdnet_kr,
+│     itworld_kr, traveltimes, youtube_sbs/ytn/mbc/kbs/jtbc_news
+├── API (14개 활성): kobis_boxoffice, kopis_boxoffice, naver_datalab,
+│     daum_cafe, bigkinds_issues, airkorea, wikipedia_ko, tour_photo,
+│     seoul_cultural_event, kcisa_cca_performance, kcisa_cca_exhibition
 └── Apify (3개 비활성): instagram, x, tiktok (SNS 플랫폼 제약)
 
-총계: 72개 등록, ~59개 활성
+총계: 123개 등록, 85개 활성
 ```
 
 ## Database Schema

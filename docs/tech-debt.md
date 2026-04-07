@@ -125,3 +125,39 @@ Playwright 설치 + 5건 happy path 작성 (`e2e/happy-paths.spec.ts`).
 ### ~~구조화 데이터 부재 (P1-03)~~ ✅ 해결 (2026-04-04)
 
 Article (이슈 상세) + WebSite SearchAction (홈) JSON-LD 삽입.
+
+---
+
+## 스크래퍼 품질 — 2026-04-07 진단·수정
+
+### ~~fmkorea/ruliweb/dogdrip 봇 차단 (sr < 5%)~~ ✅ 수정 (2026-04-07)
+
+- **fmkorea**: 3-전략 폴백 재작성 (fetchHtml → 쿠키 바이패스+RSS → 쿠키 바이패스+HTML). WASM 봇 차단 대응, 성공률 미보장 — 모니터링 필요.
+- **ruliweb**: Sec-Fetch-* 풀 헤더 + 딜레이 1.5-3초. curl 200 확인.
+- **dogdrip**: Sec-Fetch-* 헤더 + 셀렉터 수정 (좋아요/날짜). Cloudflare 대응, curl 200 확인.
+
+### ~~etoland 간헐적 실패 (sr 54%)~~ ✅ 개선 (2026-04-07)
+
+Sec-Fetch 헤더 + 딜레이 1.5-3초 추가.
+
+### ~~kworb_youtube_kr 수집 0건~~ ✅ 해결 (2026-04-07)
+
+raw `axios.get()` → `fetchHtml()` 전환. User-Agent/브라우저 헤더 정상화.
+
+### ~~youtube_sbs_news 잘못된 채널 ID~~ ✅ 해결 (2026-04-07)
+
+SBS Australia(`UCuuTCoo...`) → SBS Korea(`UCkinYTS9IHq...`) 수정.
+
+### ~~RSS 파서 타임아웃 부족 (korea.kr 50% 실패)~~ ✅ 해결 (2026-04-07)
+
+10초→20초 전역 증가. korea.kr 대용량 피드(300-651KB) 대응.
+
+### ~~YouTube API 할당량 초과~~ 비활성화 (2026-04-07)
+
+`youtube`, `youtube_search` disabled. 공유 키로 일 14K+ 유닛 소비 vs 10K 한도. YouTube RSS 뉴스 채널로 대체.
+
+### 남은 관찰 항목
+
+- **fmkorea**: WASM 봇 차단 강력 — 배포 후 24h 모니터링 필요, 개선 안되면 Apify/Puppeteer 전환 또는 disable.
+- **YouTube RSS 레이트 리밋**: 4개 뉴스 채널 sr 55-61%. priority low(30분)로 완화했으나 추가 개선 불가 — 허용 가능 수준.
+- **airkorea**: sr 79%, data.go.kr 간헐적 500 — 구조적 한계, 현상 유지.

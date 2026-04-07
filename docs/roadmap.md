@@ -60,6 +60,20 @@ AdSense 수익화 + 트래픽 확보.
 
 </details>
 
+<details>
+<summary>소스 품질 검사 + 스크래퍼 재작성 (2026-04-07)</summary>
+
+- **전체 95개 활성 소스 품질 진단**: 프로덕션 API 기반 성공률/수집량/최종 업데이트 분석
+- **스크래퍼 재작성 4건**: fmkorea(3-전략 폴백), ruliweb/dogdrip(Sec-Fetch 헤더), etoland(딜레이+헤더)
+- **kworb_youtube_kr**: raw axios → fetchHtml 전환
+- **youtube_sbs_news**: 잘못된 채널 ID 수정 (SBS Australia → SBS Korea)
+- **RSS 파서 타임아웃**: 10초→20초 전역 증가 (korea.kr 대용량 피드)
+- **YouTube RSS**: priority medium→low (레이트 리밋 완화)
+- **비활성화 10개**: youtube/youtube_search(할당량), cnn/nature/koreaherald/koreatimes(영문), ppomppu(핫딜 전용), tour_visitor/ruliweb_hot/seoul_citydata
+- **최종**: 123개 등록 → 85개 활성, 305 tests 통과
+
+</details>
+
 ---
 
 ## 신규 로드맵 (2026-04-03 제로베이스 분석)
