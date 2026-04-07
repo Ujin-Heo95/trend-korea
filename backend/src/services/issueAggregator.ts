@@ -135,13 +135,21 @@ function computeStableId(clusterIds: readonly number[], standalonePostIds: reado
 // ─── Main Entry Point ───
 
 let isAggregating = false;
+let aggregationStartedAt = 0;
+const AGGREGATION_TIMEOUT_MS = 5 * 60_000; // 5분 타임아웃
 
 export async function aggregateIssues(pool: Pool): Promise<number> {
   if (isAggregating) {
-    console.warn('[issueAggregator] skipping — previous run still active');
-    return 0;
+    const elapsed = Date.now() - aggregationStartedAt;
+    if (elapsed < AGGREGATION_TIMEOUT_MS) {
+      console.warn('[issueAggregator] skipping — previous run still active');
+      return 0;
+    }
+    console.warn(`[issueAggregator] force-releasing stale lock (${Math.round(elapsed / 1000)}s old)`);
+    isAggregating = false;
   }
   isAggregating = true;
+  aggregationStartedAt = Date.now();
   try {
     return await _aggregateIssues(pool);
   } finally {
