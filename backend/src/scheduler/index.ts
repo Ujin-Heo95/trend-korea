@@ -10,6 +10,7 @@ import { crossValidateIssues } from '../services/crossValidator.js';
 import { checkDbSize } from '../services/dbMonitor.js';
 import { performDatabaseBackup } from '../services/backup.js';
 import { notifyBackupResult } from '../services/discord.js';
+import { generateEmbeddingsForRecentPosts } from '../services/embedding.js';
 import { pool } from '../db/client.js';
 
 function captureError(err: unknown): void {
@@ -51,6 +52,7 @@ export function startScheduler(): void {
       return;
     }
     await calculateScores(pool).catch(captureError);
+    await generateEmbeddingsForRecentPosts(pool).catch(captureError);
     await aggregateIssues(pool).catch(captureError);
     await summarizeAndUpdateIssues(pool).catch(captureError);
   });

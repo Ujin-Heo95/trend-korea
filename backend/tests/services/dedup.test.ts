@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeTitle, titleHash, bigrams, jaccardSimilarity } from '../../src/services/dedup.js';
+import { normalizeTitle, titleHash, bigrams, jaccardSimilarity, koreanTokenize, wordJaccardSimilarity } from '../../src/services/dedup.js';
 
 describe('normalizeTitle', () => {
   it('removes bracket expressions', () => {
@@ -92,5 +92,96 @@ describe('jaccardSimilarity', () => {
     const a = bigrams('삼성전자 신제품 갤럭시 출시');
     const b = bigrams('서울 날씨 오늘 비 소식');
     expect(jaccardSimilarity(a, b)).toBeLessThan(0.8);
+  });
+});
+
+describe('koreanTokenize', () => {
+  it('strips particles from word endings', () => {
+    const tokens = koreanTokenize('대통령은 탄핵을 발표했다');
+    expect(tokens.has('대통령')).toBe(true);
+    expect(tokens.has('탄핵')).toBe(true);
+    // '은', '을' 조사가 제거됨
+    expect(tokens.has('대통령은')).toBe(false);
+    expect(tokens.has('탄핵을')).toBe(false);
+  });
+
+  it('removes stop words', () => {
+    const tokens = koreanTokenize('이번 관련 삼성전자 발표');
+    expect(tokens.has('삼성전자')).toBe(true);
+    expect(tokens.has('발표')).toBe(true);
+    expect(tokens.has('이번')).toBe(false);
+    expect(tokens.has('관련')).toBe(false);
+  });
+
+  it('filters single-char tokens and pure numbers', () => {
+    const tokens = koreanTokenize('삼성 3분기 실적 5조원');
+    expect(tokens.has('삼성')).toBe(true);
+    expect(tokens.has('실적')).toBe(true);
+    // 단일 문자와 숫자 제거
+    expect(tokens.has('3')).toBe(false);
+    expect(tokens.has('5')).toBe(false);
+  });
+
+  it('handles bracket-containing titles after normalization', () => {
+    const tokens = koreanTokenize('[속보] 대통령이 긴급 담화를 발표');
+    expect(tokens.has('대통령')).toBe(true);
+    expect(tokens.has('긴급')).toBe(true);
+    expect(tokens.has('담화')).toBe(true);
+  });
+
+  it('returns empty set for empty string', () => {
+    expect(koreanTokenize('').size).toBe(0);
+  });
+
+  it('strips longest matching particle first', () => {
+    // '에서는' should match before '에' or '서'
+    const tokens = koreanTokenize('학교에서는 수업을 진행');
+    expect(tokens.has('학교')).toBe(true);
+    expect(tokens.has('수업')).toBe(true);
+  });
+});
+
+describe('wordJaccardSimilarity', () => {
+  it('returns 1.0 for identical token sets', () => {
+    const a = koreanTokenize('대통령 탄핵안 가결');
+    expect(wordJaccardSimilarity(a, a)).toBe(1);
+  });
+
+  it('word order does not matter (unlike bigrams)', () => {
+    const a = koreanTokenize('대통령 탄핵안 가결');
+    const b = koreanTokenize('탄핵안 가결 대통령');
+    // 단어 Jaccard는 어순 무관 → 1.0
+    expect(wordJaccardSimilarity(a, b)).toBe(1);
+    // 반면 bigram Jaccard는 어순에 민감
+    const ba = bigrams('대통령 탄핵안 가결');
+    const bb = bigrams('탄핵안 가결 대통령');
+    expect(jaccardSimilarity(ba, bb)).toBeLessThan(1);
+  });
+
+  it('particle differences do not reduce similarity', () => {
+    const a = koreanTokenize('삼성전자가 반도체를 발표');
+    const b = koreanTokenize('삼성전자는 반도체의 발표');
+    // 조사 제거 후 동일 토큰 → 높은 유사도
+    expect(wordJaccardSimilarity(a, b)).toBeGreaterThanOrEqual(0.65);
+  });
+
+  it('completely different topics score low', () => {
+    const a = koreanTokenize('삼성전자 반도체 실적 발표');
+    const b = koreanTokenize('서울 날씨 비 예보 안내');
+    expect(wordJaccardSimilarity(a, b)).toBeLessThan(0.2);
+  });
+
+  it('partially overlapping topics score medium', () => {
+    const a = koreanTokenize('삼성전자 반도체 실적 발표');
+    const b = koreanTokenize('현대차 실적 발표 호조');
+    // '실적', '발표' 공유 → 중간 유사도
+    const sim = wordJaccardSimilarity(a, b);
+    expect(sim).toBeGreaterThan(0.2);
+    expect(sim).toBeLessThan(0.7);
+  });
+
+  it('handles empty sets', () => {
+    expect(wordJaccardSimilarity(new Set(), new Set())).toBe(1);
+    expect(wordJaccardSimilarity(new Set(['테스트']), new Set())).toBe(0);
   });
 });

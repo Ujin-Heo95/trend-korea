@@ -2,7 +2,8 @@ import type { Pool, PoolClient } from 'pg';
 import { createHash } from 'crypto';
 import { buildKeywordIndex, matchPostToKeywords, computeTrendSignalBonus } from './trendSignals.js';
 import { getChannel } from './scoring-weights.js';
-import { bigrams, jaccardSimilarity } from './dedup.js';
+import { bigrams, jaccardSimilarity, koreanTokenize, wordJaccardSimilarity } from './dedup.js';
+import { cosineSimilarity as embeddingCosine } from './embedding.js';
 import { getScoringConfig } from './scoringConfig.js';
 
 // ─── Types ───
@@ -169,8 +170,21 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
     breakingKwMaxBoost: DEFAULT_BREAKING_KW_MAX_BOOST,
   }));
 
+  // Step 0.5: Adaptive window — 볼륨 기반 동적 조정 (네이버 36h 적응형 윈도우 응용)
+  const { rows: [{ cnt }] } = await pool.query<{ cnt: string }>(
+    `SELECT COUNT(*) AS cnt FROM posts
+     WHERE scraped_at > NOW() - INTERVAL '3 hours'
+       AND COALESCE(category, '') IN ('news','press','community','video','video_popular')`,
+  );
+  const recentVolume = parseInt(cnt, 10);
+  const adaptiveWindow = recentVolume > 200
+    ? Math.max(8, cfg.issueWindowHours - 4)   // 고볼륨: 집중 윈도우
+    : recentVolume < 50
+      ? Math.min(18, cfg.issueWindowHours + 6) // 저볼륨(주말/야간): 확장
+      : cfg.issueWindowHours;                  // 평상: 기본값(12h)
+
   // Step 1: Fetch scored posts (now includes video)
-  const posts = await fetchScoredPosts(pool, cfg.issueWindowHours);
+  const posts = await fetchScoredPosts(pool, adaptiveWindow);
   if (posts.length === 0) return 0;
 
   // Step 2: Build cluster-based groups
@@ -402,14 +416,53 @@ async function mergeViaTrendKeywords(
 function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: number): IssueGroup[] {
   if (groups.length <= 1) return [...groups];
 
-  // 대표 제목 1개의 bigram — top-3 union 대비 정밀한 매칭
-  const bigramSets = groups.map(g => {
-    const rep =
-      [...g.newsPosts].sort((a, b) => b.trendScore - a.trendScore)[0] ??
-      [...g.videoPosts].sort((a, b) => b.trendScore - a.trendScore)[0] ??
-      g.communityPosts[0];
-    return rep ? bigrams(rep.title) : new Set<string>();
-  });
+  // 대표 포스트 추출
+  const repPosts = groups.map(g =>
+    [...g.newsPosts].sort((a, b) => b.trendScore - a.trendScore)[0] ??
+    [...g.videoPosts].sort((a, b) => b.trendScore - a.trendScore)[0] ??
+    g.communityPosts[0] ?? null,
+  );
+
+  // 제목 word token 세트 (한국어 토크나이저 사용)
+  const wordSets = repPosts.map(p => p ? koreanTokenize(p.title) : new Set<string>());
+
+  // 스니펫 word token 세트 (있으면 하이브리드 유사도에 사용)
+  const snippetSets = repPosts.map(p =>
+    p?.contentSnippet ? koreanTokenize(p.contentSnippet) : null,
+  );
+
+  // IDF 가중치 계산 — 모든 이슈 제목에서 단어 DF 집계
+  const docFreq = new Map<string, number>();
+  for (const ws of wordSets) {
+    for (const w of ws) {
+      docFreq.set(w, (docFreq.get(w) ?? 0) + 1);
+    }
+  }
+  const totalDocs = wordSets.length;
+  const idf = new Map<string, number>();
+  for (const [word, df] of docFreq) {
+    idf.set(word, Math.log(totalDocs / (1 + df)));
+  }
+
+  /** IDF 가중 Jaccard: 교집합 IDF 합 / 합집합 IDF 합 */
+  function weightedJaccard(a: Set<string>, b: Set<string>): number {
+    if (a.size === 0 && b.size === 0) return 1;
+    if (a.size === 0 || b.size === 0) return 0;
+    let interSum = 0;
+    let unionSum = 0;
+    const allWords = new Set([...a, ...b]);
+    for (const w of allWords) {
+      const weight = idf.get(w) ?? 1;
+      const inA = a.has(w) ? 1 : 0;
+      const inB = b.has(w) ? 1 : 0;
+      interSum += Math.min(inA, inB) * weight;
+      unionSum += Math.max(inA, inB) * weight;
+    }
+    return unionSum === 0 ? 0 : interSum / unionSum;
+  }
+
+  // 기존 bigram도 유지 (하위 호환)
+  const bigramSets = repPosts.map(p => p ? bigrams(p.title) : new Set<string>());
 
   const parent = Array.from({ length: groups.length }, (_, i) => i);
 
@@ -428,12 +481,32 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
   }
 
   const HIGH_CONFIDENCE_THRESHOLD = 0.65;
+  const WORD_HIGH_CONF = 0.6;   // word-level은 bigram보다 관대 (의미 단위)
+  const SNIPPET_WEIGHT = 0.3;   // 스니펫 블렌딩 비율
 
   for (let i = 0; i < groups.length; i++) {
     for (let j = i + 1; j < groups.length; j++) {
       if (find(i) === find(j)) continue;
 
-      const sim = jaccardSimilarity(bigramSets[i], bigramSets[j]);
+      // 1) Bigram 유사도 (기존)
+      const bigramSim = jaccardSimilarity(bigramSets[i], bigramSets[j]);
+
+      // 2) IDF 가중 word 유사도 (신규)
+      let titleWordSim = weightedJaccard(wordSets[i], wordSets[j]);
+
+      // 3) 스니펫 하이브리드 — 양쪽 모두 스니펫이 있으면 블렌딩
+      if (snippetSets[i] && snippetSets[j]) {
+        const snippetSim = wordJaccardSimilarity(snippetSets[i]!, snippetSets[j]!);
+        titleWordSim = (1 - SNIPPET_WEIGHT) * titleWordSim + SNIPPET_WEIGHT * snippetSim;
+      }
+
+      // 임베딩 코사인 유사도 (있으면)
+      const repA = repPosts[i];
+      const repB = repPosts[j];
+      const embSim = (repA && repB) ? (embeddingCosine(repA.id, repB.id) ?? 0) : 0;
+
+      // 최종 유사도: bigram, word, embedding 중 높은 쪽 채택
+      const bestSim = Math.max(bigramSim, titleWordSim, embSim);
 
       const kwA = new Set(groups[i].matchedKeywords);
       const kwB = groups[j].matchedKeywords;
@@ -442,12 +515,14 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
         if (kwA.has(kw)) sharedKw++;
       }
 
-      // 3단계 신뢰도 기반 병합
-      const highConf = sim >= HIGH_CONFIDENCE_THRESHOLD;     // 제목만으로 확실
-      const medConf = sim >= threshold && sharedKw >= 1;     // 제목 유사 + 키워드 보강
-      const kwOnly = sharedKw >= 3;                          // 키워드 3개↑ 공유
+      // 5단계 신뢰도 기반 병합
+      const highConf = bigramSim >= HIGH_CONFIDENCE_THRESHOLD;   // bigram 확실
+      const wordHighConf = titleWordSim >= WORD_HIGH_CONF;       // word 의미적 확실
+      const embHighConf = embSim >= 0.80;                        // 임베딩 의미적 확실
+      const medConf = bestSim >= threshold && sharedKw >= 1;     // 유사 + 키워드 보강
+      const kwOnly = sharedKw >= 3;                              // 키워드 3개↑ 공유
 
-      if (highConf || medConf || kwOnly) {
+      if (highConf || wordHighConf || embHighConf || medConf || kwOnly) {
         union(i, j);
       }
     }

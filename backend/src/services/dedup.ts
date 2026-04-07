@@ -2,10 +2,76 @@ import { createHash } from 'crypto';
 import type { Pool } from 'pg';
 import type { ScrapedPost } from '../scrapers/types.js';
 import { logger } from '../utils/logger.js';
+import { cosineSimilarity } from './embedding.js';
 
 const JACCARD_THRESHOLD = 0.8;
+const WORD_JACCARD_THRESHOLD = 0.65;
+const EMBEDDING_COSINE_THRESHOLD = 0.85;
 const MIN_TITLE_LENGTH_FOR_L2 = 8;
 const WINDOW_HOURS = 6;
+
+// ─── Korean Tokenizer ───
+
+/** 한국어 조사/어미 — 긴 것부터 매칭해야 '에서'가 '에' 전에 시도됨 */
+const PARTICLES = [
+  '에서는', '으로서', '으로는', '에서도', '으로도',
+  '에서', '으로', '에게', '까지', '부터', '라는', '이라',
+  '처럼', '만큼', '에는', '에도', '와는', '과는',
+  '은', '는', '이', '가', '을', '를', '에', '의',
+  '도', '와', '과', '로', '며', '면', '고', '한',
+  '된', '할', '들',
+] as const;
+
+/** 고빈도 무의미 단어 (IDF 가중 전에도 기본 제거) */
+const STOP_WORDS = new Set([
+  '관련', '대한', '이번', '통해', '위해', '따르면', '대해',
+  '오늘', '내일', '어제', '현재', '최근', '사실',
+  '것으로', '것이', '하는', '있는', '없는', '되는',
+  '그리고', '하지만', '그러나', '또한', '그래서',
+]);
+
+/**
+ * 경량 한국어 토크나이저: 공백 분리 → 조사/어미 제거 → 불용어 필터.
+ * 네이버의 형태소 분석을 대체하는 룰 기반 접근.
+ */
+export function koreanTokenize(text: string): Set<string> {
+  const normalized = normalizeTitle(text);
+  const tokens = new Set<string>();
+
+  for (const word of normalized.split(' ')) {
+    if (word.length === 0) continue;
+
+    let stem = word;
+    // 가장 긴 매칭 파티클부터 제거 (1회만)
+    for (const p of PARTICLES) {
+      if (stem.length > p.length && stem.endsWith(p)) {
+        stem = stem.slice(0, -p.length);
+        break;
+      }
+    }
+
+    // 1글자 토큰, 불용어, 순수 숫자 제거
+    if (stem.length <= 1) continue;
+    if (STOP_WORDS.has(stem)) continue;
+    if (/^\d+$/.test(stem)) continue;
+
+    tokens.add(stem);
+  }
+
+  return tokens;
+}
+
+/** 단어 수준 Jaccard 유사도 (어순 무관) */
+export function wordJaccardSimilarity(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 && b.size === 0) return 1;
+  if (a.size === 0 || b.size === 0) return 0;
+  let intersection = 0;
+  for (const w of a) {
+    if (b.has(w)) intersection++;
+  }
+  const union = a.size + b.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
 
 /** Strip bracket expressions, special chars, collapse whitespace, lowercase, trim.
  *  Must produce identical output to the PostgreSQL GENERATED column expression. */
@@ -224,17 +290,32 @@ async function clusterOnePostBatch(
     }
   }
 
-  // L2: 2-gram Jaccard (same category, in-memory)
+  // L2: Hybrid matching — bigram Jaccard OR word Jaccard (same category, in-memory)
   const normalized = normalizeTitle(row.title);
   if (normalized.length >= MIN_TITLE_LENGTH_FOR_L2 && row.category) {
     const candidates = ctx.recentByCategory.get(row.category) ?? [];
     const postBigrams = bigrams(row.title);
+    const postWords = koreanTokenize(row.title);
     for (const c of candidates) {
       if (c.id !== row.id && !matchedIds.has(c.id)) {
-        const sim = jaccardSimilarity(postBigrams, bigrams(c.title));
-        if (sim >= JACCARD_THRESHOLD) {
-          matches.push({ postId: c.id, score: sim, layer: 'L2' });
+        const bigramSim = jaccardSimilarity(postBigrams, bigrams(c.title));
+        if (bigramSim >= JACCARD_THRESHOLD) {
+          matches.push({ postId: c.id, score: bigramSim, layer: 'L2' });
           matchedIds.add(c.id);
+        } else if (postWords.size >= 2) {
+          // 바이그램 미달이면 단어 수준 Jaccard 시도 (어순/조사 차이 보완)
+          const wordSim = wordJaccardSimilarity(postWords, koreanTokenize(c.title));
+          if (wordSim >= WORD_JACCARD_THRESHOLD) {
+            matches.push({ postId: c.id, score: wordSim, layer: 'L2' });
+            matchedIds.add(c.id);
+          } else {
+            // 최종 폴백: Gemini 임베딩 코사인 유사도 (의미적 유사도)
+            const embSim = cosineSimilarity(row.id, c.id);
+            if (embSim !== null && embSim >= EMBEDDING_COSINE_THRESHOLD) {
+              matches.push({ postId: c.id, score: embSim, layer: 'L2' });
+              matchedIds.add(c.id);
+            }
+          }
         }
       }
     }
