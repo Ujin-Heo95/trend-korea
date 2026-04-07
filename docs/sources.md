@@ -79,7 +79,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | news | ohmynews, nocutnews, asiae, segye, bbc_korean, mbn | RSS | medium | 안정 |
 | news | naver_news_ranking | HTML (euc-kr) | medium | 안정 |
 | news | google_news_kr, newsis | RSS | medium/high | 안정 |
-| news | bigkinds_issues | API | low | 안정 |
+| trend | bigkinds_issues | API→trend_keywords 직접 | low | 안정 |
 | news | cnn, koreaherald, koreatimes | RSS | medium/low | **disabled** (영문 중심, 2026-04-07) |
 | news | joins, kbs, mbc, ytn, daum_news, seoul | RSS | high | **disabled** (RSS 서비스 종료/404) |
 | tech | yozm, etnews | RSS | medium | 안정 |
@@ -101,11 +101,11 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | music | kworb_youtube_kr | HTML | low | 수리 (fetchHtml 전환, 2026-04-07) |
 | books | yes24_bestseller, aladin_bestseller | HTML | low | 안정 |
 | ott | flixpatrol | HTML | low | 안정 |
-| trend | google_trends | RSS | medium | 안정 |
-| trend | naver_datalab | API | medium | 안정 |
-| trend | nate_realtime | JSON (EUC-KR) | medium | 안정 |
-| trend | zum_realtime | HTML | medium | 안정 |
-| trend | wikipedia_ko | API | low | 안정 |
+| trend | google_trends | API→trend_keywords 직접 | medium | 안정 |
+| trend | naver_datalab | API→trend_keywords 직접 | medium | 안정 |
+| trend | nate_realtime | JSON→trend_keywords 직접 | medium | 안정 |
+| trend | zum_realtime | HTML→trend_keywords 직접 | medium | 안정 |
+| trend | wikipedia_ko | API→trend_keywords 직접 | low | 안정 |
 | government | korea_press, korea_policy, korea_briefing | RSS | low | 개선 (RSS 타임아웃 20s로 증가, 2026-04-07) |
 | performance | kopis_boxoffice | API | low | 안정 |
 | performance | kcisa_cca_performance, kcisa_cca_exhibition | API | low | 안정 |

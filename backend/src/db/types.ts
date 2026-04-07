@@ -19,6 +19,7 @@ export interface PostRow {
   subcategory: string | null;
   content_snippet: string | null;
   metadata: Record<string, unknown> | null;
+  event_date: string | null;
 }
 
 export interface PostRowWithScore extends PostRow {

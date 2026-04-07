@@ -141,3 +141,10 @@ export function parseKoreanDate(text: string, now?: Date): Date | undefined {
 
   return undefined;
 }
+
+/** 미래일자 방어: 1시간 이상 미래면 파싱 오류로 간주하여 undefined 반환 */
+export function guardFutureDate(d: Date | undefined): Date | undefined {
+  if (!d) return undefined;
+  if (d.getTime() > Date.now() + 3_600_000) return undefined;
+  return d;
+}

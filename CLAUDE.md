@@ -52,8 +52,9 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포 + Supabas
 ## Current Phase
 
 v0.12.0 — 신규 로드맵 P0 진행중.
-소스 123개 등록 (85개 활성) + 345 tests (백엔드 305 + 프론트 40) + Supabase Pro 8GB 서울.
+소스 123개 등록 (85개 활성, 6개 트렌드→trend_keywords 직접 기록) + 339 tests (백엔드 299 + 프론트 40) + Supabase Pro 8GB 서울.
 채널별 분기 스코어링 — 커뮤니티(소스차등+적응감쇠+트렌드신호) / 뉴스(서브카테고리정규화+속보감지+트렌드신호). 비스코어링 탭은 최신순만.
+트렌드 소스(nate/zum/google/naver/wikipedia/bigkinds)는 posts 거치지 않고 trend_keywords에 직접 UPSERT.
 
 **완료**: P0 도메인+Umami+URL (2026-04-03) + P1 SEO파이프라인+Security Headers (2026-04-04) + P2 보안·품질·기술부채 전면 해소 (2026-04-04)
 **다음**: P0 사업자·모니터링 (사용자 개입) → P1 런칭·마케팅 → P3 리텐션 → P4 스케일.

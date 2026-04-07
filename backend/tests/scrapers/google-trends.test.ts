@@ -12,41 +12,43 @@ describe('GoogleTrendsScraper', () => {
     vi.clearAllMocks();
   });
 
-  it('should fetch daily trending searches for Korea', async () => {
+  it('should fetch daily trending searches for Korea as TrendKeywordInput[]', async () => {
     vi.mocked(axios.get).mockResolvedValueOnce({ data: trendsFixture });
 
     const scraper = new GoogleTrendsScraper(mockPool);
-    const posts = await scraper.fetch();
+    const keywords = await scraper.fetchTrendKeywords();
 
-    expect(posts.length).toBe(2);
-    expect(posts[0]).toMatchObject({
+    expect(keywords.length).toBe(2);
+    expect(keywords[0]).toMatchObject({
       sourceKey: 'google_trends',
-      sourceName: 'Google 트렌드',
-      category: 'trend',
+      keyword: '손흥민',
     });
   });
 
-  it('should use query as title and article URL as link', async () => {
+  it('should include signalStrength and rankPosition', async () => {
     vi.mocked(axios.get).mockResolvedValueOnce({ data: trendsFixture });
 
     const scraper = new GoogleTrendsScraper(mockPool);
-    const posts = await scraper.fetch();
+    const keywords = await scraper.fetchTrendKeywords();
 
-    expect(posts[0].title).toContain('손흥민');
-    expect(posts[0].url).toBe('https://news.example.com/son');
-    expect(posts[0].thumbnail).toBe('https://example.com/son.jpg');
+    expect(keywords[0].keyword).toBe('손흥민');
+    expect(typeof keywords[0].signalStrength).toBe('number');
+    expect(keywords[0].signalStrength).toBeGreaterThanOrEqual(0);
+    expect(keywords[0].signalStrength).toBeLessThanOrEqual(1);
+    expect(keywords[0].rankPosition).toBe(1);
   });
 
-  it('should fallback to Google search URL if no article', async () => {
-    const noArticle = structuredClone(trendsFixture);
-    noArticle.default.trendingSearchesDays[0].trendingSearches[0].articles = [];
-    vi.mocked(axios.get).mockResolvedValueOnce({ data: noArticle });
+  it('should include articles in metadata', async () => {
+    vi.mocked(axios.get).mockResolvedValueOnce({ data: trendsFixture });
 
     const scraper = new GoogleTrendsScraper(mockPool);
-    const posts = await scraper.fetch();
+    const keywords = await scraper.fetchTrendKeywords();
 
-    expect(posts[0].url).toContain('google.com/search');
-    expect(posts[0].url).toContain(encodeURIComponent('손흥민'));
+    const son = keywords.find(k => k.keyword === '손흥민');
+    expect(son).toBeDefined();
+    expect(son!.metadata).toBeDefined();
+    const articles = (son!.metadata as any).articles as { url: string }[];
+    expect(articles[0].url).toBe('https://news.example.com/son');
   });
 
   it('should cap at 30 items', async () => {
@@ -59,17 +61,17 @@ describe('GoogleTrendsScraper', () => {
     vi.mocked(axios.get).mockResolvedValueOnce({ data: manyItems });
 
     const scraper = new GoogleTrendsScraper(mockPool);
-    const posts = await scraper.fetch();
+    const keywords = await scraper.fetchTrendKeywords();
 
-    expect(posts.length).toBe(30);
+    expect(keywords.length).toBe(30);
   });
 
   it('should return empty array on error', async () => {
     vi.mocked(axios.get).mockRejectedValueOnce(new Error('timeout'));
 
     const scraper = new GoogleTrendsScraper(mockPool);
-    const posts = await scraper.fetch();
+    const keywords = await scraper.fetchTrendKeywords();
 
-    expect(posts).toEqual([]);
+    expect(keywords).toEqual([]);
   });
 });

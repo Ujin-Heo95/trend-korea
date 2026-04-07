@@ -52,7 +52,7 @@ export class KcisaCcaPerformanceScraper extends KcisaBaseScraper {
           author: item.CONTRIBUTOR || undefined,
           viewCount: 0,
           commentCount: 0,
-          publishedAt: this.parsePeriod(item.PERIOD || item.ISSUED_DATE),
+          eventDate: this.parsePeriod(item.PERIOD || item.ISSUED_DATE),
           category: 'performance',
           metadata: {
             genre,

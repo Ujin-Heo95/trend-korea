@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { Pool } from 'pg';
-import { BaseScraper } from './base.js';
-import type { ScrapedPost } from './types.js';
+import { TrendSignalScraper } from './trend-base.js';
+import type { TrendKeywordInput } from './types.js';
 import { config } from '../config/index.js';
 
 interface KeywordGroup {
@@ -52,7 +52,6 @@ function formatDate(d: Date): string {
 function computeTrend(data: readonly DatalabRatio[]): { recent: number; previous: number; changePercent: number } {
   if (data.length < 4) return { recent: 0, previous: 0, changePercent: 0 };
 
-  // 최근 3일 평균 vs 이전 4일 평균
   const recentDays = data.slice(-3);
   const previousDays = data.slice(-7, -3);
 
@@ -66,12 +65,14 @@ function computeTrend(data: readonly DatalabRatio[]): { recent: number; previous
   return { recent: Math.round(recent), previous: Math.round(previous), changePercent: Math.round(changePercent) };
 }
 
-export class NaverDatalabScraper extends BaseScraper {
+export class NaverDatalabScraper extends TrendSignalScraper {
   constructor(pool: Pool) {
     super(pool);
   }
 
-  async fetch(): Promise<ScrapedPost[]> {
+  protected override getSourceKey(): string { return 'naver_datalab'; }
+
+  async fetchTrendKeywords(): Promise<TrendKeywordInput[]> {
     if (!config.naverClientId || !config.naverClientSecret) {
       throw new Error('NAVER_CLIENT_ID or NAVER_CLIENT_SECRET not configured');
     }
@@ -80,16 +81,16 @@ export class NaverDatalabScraper extends BaseScraper {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 7);
 
-    const allResults: ScrapedPost[] = [];
+    const allResults: TrendKeywordInput[] = [];
 
     for (const batch of KEYWORD_BATCHES) {
       const results = await this.fetchBatch(batch, startDate, endDate);
       allResults.push(...results);
     }
 
-    // 변화율 절대값 기준 내림차순 정렬 (가장 큰 변화가 먼저)
+    // 변화율 절대값 기준 내림차순 (가장 큰 변화가 먼저)
     return allResults
-      .sort((a, b) => Math.abs(b.viewCount ?? 0) - Math.abs(a.viewCount ?? 0))
+      .sort((a, b) => Math.abs(b.signalStrength) - Math.abs(a.signalStrength))
       .slice(0, 10);
   }
 
@@ -97,7 +98,7 @@ export class NaverDatalabScraper extends BaseScraper {
     keywordGroups: readonly KeywordGroup[],
     startDate: Date,
     endDate: Date,
-  ): Promise<ScrapedPost[]> {
+  ): Promise<TrendKeywordInput[]> {
     const { data } = await axios.post<DatalabResponse>(
       'https://openapi.naver.com/v1/datalab/search',
       {
@@ -121,31 +122,20 @@ export class NaverDatalabScraper extends BaseScraper {
 
     if (!data?.results?.length) return [];
 
-    return data.results.map((result): ScrapedPost => {
+    return data.results.map((result): TrendKeywordInput => {
       const { recent, previous, changePercent } = computeTrend(result.data);
 
-      const trendIcon = changePercent > 10 ? '🔥'
-        : changePercent > 0 ? '📈'
-        : changePercent < -10 ? '📉'
-        : changePercent < 0 ? '↘️'
-        : '➡️';
-
-      const changeLabel = changePercent > 0 ? `+${changePercent}%` : `${changePercent}%`;
-      const query = encodeURIComponent(result.keywords[0]);
-
+      // 각 키워드를 개별 엔트리로 (그룹 대표 키워드)
       return {
+        keyword: result.title,
         sourceKey: 'naver_datalab',
-        sourceName: '네이버 검색 트렌드',
-        title: `${trendIcon} ${result.title} — 검색량 ${recent} (${changeLabel}) | 이전 ${previous}`,
-        url: `https://datalab.naver.com/keyword/trendSearch.naver?keyword=${query}`,
-        author: result.keywords.join(', '),
-        publishedAt: new Date(),
-        category: 'trend',
+        signalStrength: Math.min(Math.max(changePercent, 0) / 100, 1.0),
         metadata: {
           groupName: result.title,
           keywords: [...result.keywords],
           changePct: changePercent,
           recentRatio: recent,
+          previousRatio: previous,
         },
       };
     });

@@ -59,7 +59,7 @@ export abstract class BaseScraper {
   async saveToDb(posts: ScrapedPost[]): Promise<number> {
     if (!posts.length) return 0;
 
-    const COLS = 14;
+    const COLS = 15;
     const values: unknown[] = [];
     const placeholders = posts.map((p, i) => {
       const b = i * COLS;
@@ -78,8 +78,9 @@ export abstract class BaseScraper {
         p.subcategory ?? this.subcategory ?? null,
         p.contentSnippet ? truncate(stripHtml(p.contentSnippet), MAX_SNIPPET_LEN) : null,
         metaJson && metaJson.length <= MAX_METADATA_BYTES ? metaJson : null,
+        p.eventDate ?? null,
       );
-      return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11},$${b+12},$${b+13},$${b+14})`;
+      return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11},$${b+12},$${b+13},$${b+14},$${b+15})`;
     });
 
     const category = posts[0].category ?? this.category ?? null;
@@ -106,7 +107,7 @@ export abstract class BaseScraper {
            scraped_at = NOW()`;
 
     const result = await this.pool.query(
-      `INSERT INTO posts (source_key,source_name,title,url,thumbnail,author,view_count,comment_count,like_count,published_at,category,subcategory,content_snippet,metadata)
+      `INSERT INTO posts (source_key,source_name,title,url,thumbnail,author,view_count,comment_count,like_count,published_at,category,subcategory,content_snippet,metadata,event_date)
        VALUES ${placeholders.join(',')} ${conflictClause}`,
       values
     );

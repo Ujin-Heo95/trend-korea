@@ -11,6 +11,7 @@ vi.mock('../../src/scrapers/http-utils.js', async (importOriginal) => {
   return {
     fetchHtml: vi.fn(),
     parseKoreanDate: actual.parseKoreanDate,
+    guardFutureDate: actual.guardFutureDate,
   };
 });
 

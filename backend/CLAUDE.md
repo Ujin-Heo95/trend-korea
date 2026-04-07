@@ -3,7 +3,8 @@
 ## Conventions
 
 ### Scrapers
-- `BaseScraper` 상속, `fetch(): Promise<ScrapedPost[]>` 구현
+- `BaseScraper` 상속, `fetch(): Promise<ScrapedPost[]>` 구현 — 콘텐츠 소스용
+- `TrendSignalScraper` 상속, `fetchTrendKeywords(): Promise<TrendKeywordInput[]>` 구현 — 트렌드 소스용 (posts 대신 trend_keywords 직접 기록)
 - 최대 30개 반환 (`.slice(0, 30)`)
 - **소스 등록:** `scrapers/sources.json`에 JSON 6줄 추가 (RSS는 코드 0줄)
 - `registry.ts`가 JSON → 스크래퍼 인스턴스 자동 생성 (RSS/HTML/API/Apify)
@@ -19,7 +20,7 @@
 - 소스별 수집 필드 현황: `docs/sources.md` 2-1절 참조
 
 ### Database
-- 배치 INSERT (12컬럼) + `ON CONFLICT (url) DO UPDATE` engagement UPSERT (view/comment/like GREATEST), 전체 UPSERT (영화/공연)
+- 배치 INSERT (15컬럼, event_date 포함) + `ON CONFLICT (url) DO UPDATE` engagement UPSERT (view/comment/like GREATEST), 전체 UPSERT (영화/공연)
 - `title_hash` GENERATED 컬럼: 정규화 후 MD5 (괄호/특수문자 제거)
 - `post_clusters` + `post_cluster_members`: 중복 게시글 그룹핑
 - `post_scores`: 채널별 분기 스코어 (5분 주기, 뉴스+커뮤니티+금융 대상, velocity/cluster/trend_signal 분해 컬럼)
@@ -39,6 +40,7 @@
 | 앱 진입점 | `src/server.ts` |
 | 설정 | `src/config/index.ts` |
 | 스크래퍼 베이스 | `src/scrapers/base.ts` |
+| 트렌드 스크래퍼 베이스 | `src/scrapers/trend-base.ts` |
 | 소스 레지스트리 | `src/scrapers/sources.json` |
 | 레지스트리 로더 | `src/scrapers/registry.ts` |
 | 스크래퍼 실행 | `src/scrapers/index.ts` |

@@ -389,8 +389,9 @@
       "key": "google_trends",
       "name": "Google 트렌드",
       "category": "trend",
-      "type": "rss",
-      "feedUrl": "https://trends.google.com/trending/rss?geo=KR",
+      "type": "api",
+      "module": "./google-trends.js",
+      "className": "GoogleTrendsScraper",
       "priority": "medium",
       "enabled": true
     },
@@ -782,7 +783,7 @@
     {
       "key": "bigkinds_issues",
       "name": "빅카인즈 오늘의 이슈",
-      "category": "news",
+      "category": "trend",
       "type": "api",
       "module": "./bigkinds.js",
       "className": "BigKindsScraper",

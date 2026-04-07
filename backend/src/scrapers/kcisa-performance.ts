@@ -131,7 +131,7 @@ export class KcisaPerformanceScraper extends BaseScraper {
         author: item.area || undefined,
         viewCount: 0,
         commentCount: 0,
-        publishedAt: this.parseDateStr(item.startDate),
+        eventDate: this.parseDateStr(item.startDate),
         category: 'performance',
         metadata: {
           dataSource: 'culture_data_go_kr',

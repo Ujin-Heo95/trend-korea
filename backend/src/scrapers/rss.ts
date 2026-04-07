@@ -41,23 +41,6 @@ const youtubeParser = new Parser({
   },
 });
 
-const googleTrendsParser = new Parser({
-  timeout: 20_000,
-  headers: {
-    'User-Agent': UA,
-    Accept: 'application/rss+xml, application/xml, text/xml, */*;q=0.1',
-    'Accept-Language': 'ko-KR,ko;q=0.9',
-  },
-  customFields: {
-    item: [
-      ['ht:approx_traffic', 'htApproxTraffic'],
-      ['ht:picture', 'htPicture'],
-      ['ht:news_item_url', 'htNewsItemUrl'],
-      ['ht:news_item_title', 'htNewsItemTitle'],
-    ],
-  },
-});
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- RSS parser returns dynamic XML-parsed fields
 type RssExt = Record<string, any>;
 
@@ -79,11 +62,9 @@ export class RssScraper extends BaseScraper {
   }
 
   async fetch(): Promise<ScrapedPost[]> {
-    const parser = this.cfg.sourceKey === 'google_trends'
-      ? googleTrendsParser
-      : this.cfg.sourceKey.startsWith('youtube_')
-        ? youtubeParser
-        : defaultParser;
+    const parser = this.cfg.sourceKey.startsWith('youtube_')
+      ? youtubeParser
+      : defaultParser;
 
     // 섹션별 RSS 피드가 있는 뉴스 소스: 각 섹션을 병렬 fetch → subcategory 태깅
     if (this.cfg.sectionFeeds && Object.keys(this.cfg.sectionFeeds).length > 0) {
@@ -163,9 +144,6 @@ export class RssScraper extends BaseScraper {
   }
 
   private mapItem(item: Parser.Item): ScrapedPost {
-    if (this.cfg.sourceKey === 'google_trends') {
-      return this.mapGoogleTrendsItem(item);
-    }
     if (this.cfg.sourceKey.startsWith('youtube_')) {
       return this.mapYoutubeItem(item);
     }
@@ -218,42 +196,5 @@ export class RssScraper extends BaseScraper {
       publishedAt: safeDate(item.isoDate ?? item.pubDate),
     };
   }
-
-  private mapGoogleTrendsItem(item: Parser.Item): ScrapedPost {
-    const ext = item as RssExt;
-    const keyword = item.title?.trim() ?? '';
-    const traffic = ext.htApproxTraffic ?? '';
-    const picture = ext.htPicture ?? undefined;
-    const newsUrl = ext.htNewsItemUrl ?? '';
-    const newsTitle = ext.htNewsItemTitle ?? '';
-
-    // 키워드 기반 고유 URL 생성 (link가 피드 URL로 동일하므로)
-    const uniqueUrl = newsUrl || `https://trends.google.com/trends/trendingsearches/daily?geo=KR#${encodeURIComponent(keyword)}`;
-
-    const title = newsTitle
-      ? `${keyword} (${traffic}) — ${newsTitle}`
-      : `${keyword} (검색량 ${traffic})`;
-
-    return {
-      sourceKey: this.cfg.sourceKey,
-      sourceName: this.cfg.sourceName,
-      title,
-      url: uniqueUrl,
-      thumbnail: picture,
-      author: `검색량 ${traffic}`,
-      viewCount: parseTraffic(traffic),
-      publishedAt: safeDate(item.pubDate),
-      metadata: { keyword, traffic, trafficNum: parseTraffic(traffic) },
-    };
-  }
-}
-
-function parseTraffic(traffic: string): number {
-  const cleaned = traffic.replace(/[^0-9KkMm+,]/g, '').replace(/,/g, '');
-  const num = parseInt(cleaned, 10);
-  if (isNaN(num)) return 0;
-  if (/[Kk]/.test(traffic)) return num * 1000;
-  if (/[Mm]/.test(traffic)) return num * 1000000;
-  return num;
 }
 

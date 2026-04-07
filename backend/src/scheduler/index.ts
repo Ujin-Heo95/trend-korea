@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/node';
 import { runAllScrapers, runScrapersByPriority, runApifyScrapers } from '../scrapers/index.js';
 import { cleanOldPosts, cleanOldScraperRuns, cleanOldEngagementSnapshots, cleanNumericTitlePosts } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
-import { extractTrendKeywords, cleanExpiredTrendKeywords } from '../services/trendSignals.js';
+import { cleanExpiredTrendKeywords } from '../services/trendSignals.js';
 import { aggregateIssues, snapshotRankings, cleanExpiredIssueRankings } from '../services/issueAggregator.js';
 import { summarizeAndUpdateIssues } from '../services/geminiSummarizer.js';
 import { crossValidateIssues } from '../services/crossValidator.js';
@@ -44,8 +44,8 @@ export function startScheduler(): void {
     });
   }
 
-  // 트렌드 스코어 갱신 + 이슈 집계 + Gemini 요약: 5분 주기 (quiet hours 제외)
-  cron.schedule('*/5 * * * *', async () => {
+  // 트렌드 스코어 갱신 + 이슈 집계 + Gemini 요약: 10분 주기 (quiet hours 제외)
+  cron.schedule('*/10 * * * *', async () => {
     if (isQuietHours()) {
       console.log('[scheduler] quiet hours (02-06 KST) — skipping issue pipeline');
       return;
@@ -53,11 +53,6 @@ export function startScheduler(): void {
     await calculateScores(pool).catch(captureError);
     await aggregateIssues(pool).catch(captureError);
     await summarizeAndUpdateIssues(pool).catch(captureError);
-  });
-
-  // 트렌드 키워드 추출: 15분 주기 (외부 소스 → trend_keywords 테이블)
-  cron.schedule('*/15 * * * *', () => {
-    extractTrendKeywords(pool).catch(captureError);
   });
 
   // 교차검증: 15분 주기 (quiet hours 제외)

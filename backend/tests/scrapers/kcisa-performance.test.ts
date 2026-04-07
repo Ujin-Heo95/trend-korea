@@ -145,6 +145,6 @@ describe('KcisaPerformanceScraper', () => {
     const posts = await scraper.fetch();
 
     const monet = posts.find(p => p.title.includes('모네'));
-    expect(monet!.publishedAt).toEqual(new Date('2026-03-01'));
+    expect(monet!.eventDate).toEqual(new Date('2026-03-01'));
   });
 });
