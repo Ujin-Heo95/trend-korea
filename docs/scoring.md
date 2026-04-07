@@ -1,6 +1,6 @@
 # 콘텐츠 랭킹 시스템
 
-> 2026-04-05 v3 — 코드 기준 전면 재작성. 모든 수치는 소스 코드에서 추출.
+> 2026-04-07 v4 — 모멘텀·동적TTL·Gemini병렬화·보안 반영. 코드 기준 동기화.
 
 ---
 
@@ -250,20 +250,44 @@ zero-engagement 게시글 보정:
 | ISSUE_WINDOW_HOURS | 12 | 1~48 |
 | MAX_ISSUES | 30 | 5~100 |
 | NEWS_WEIGHT | 1.0 | 0.1~5.0 |
-| COMMUNITY_WEIGHT | 0.3 | 0.0~5.0 |
+| COMMUNITY_WEIGHT | 0.6 | 0.0~5.0 |
 | VIDEO_NEWS_WEIGHT | 1.0 | — |
 | VIDEO_GENERAL_WEIGHT | 0.4 | — |
-| TREND_SIGNAL_WEIGHT | 0.5 | 0.0~5.0 |
+| TREND_SIGNAL_WEIGHT | 0.4 | 0.0~5.0 |
 | ISSUE_DEDUP_THRESHOLD | 0.55 | 0.1~1.0 |
+| DIMINISHING_K | 0.7 | 0.1~2.0 |
+| MOMENTUM_WEIGHT | 0.4 | 0.0~1.0 |
+| MOMENTUM_PENALTY_MIN | 0.7 | 0.5~1.0 |
+| COMMUNITY_BOOST | 0.3 | 0.0~0.5 |
+| DIVERSITY_CAP | 2.5 | 1.0~5.0 |
+| BREAKING_KW_HALFLIFE | 30 | 10~120 |
+| BREAKING_KW_MAX_BOOST | 3.0 | 1.5~5.0 |
 
-### 4.2 이슈 스코어 공식
+### 4.2 이슈 스코어 공식 (v2 — 로그 체감 + 곱셈 보너스)
 
 ```
-issueScore = newsScore × NEWS_WEIGHT
-           + communityScore × COMMUNITY_WEIGHT
-           + videoScore
-           + trendSignalScore × TREND_SIGNAL_WEIGHT
+// 채널별 집계 — clusterBonus 제거 + 로그 체감
+newsAgg = Σ(baseScore_i / (1 + K × ln(1+i)))      // K=0.7
+communityAgg = 동일 공식
+videoAgg = 동일 공식 (뉴스채널 ×1.0, 일반 ×0.4)
+// baseScore = trendScore / clusterBonus (이중 적용 방지)
+
+// 커뮤니티 동적 가중치
+effectiveCW = COMMUNITY_WEIGHT + COMMUNITY_BOOST × min(communityIntensity/3, 1)
+
+// 기본 점수 합산
+rawScore = newsAgg × NEWS_WEIGHT + communityAgg × effectiveCW
+         + videoAgg + trendSignalScore × TREND_SIGNAL_WEIGHT
+
+// 곱셈 보너스
+issueScore = rawScore × momentumBonus × diversityBonus × breakingKeywordBoost
 ```
+
+| 컴포넌트 | 범위 | 설명 |
+|----------|------|------|
+| momentumBonus | [0.7, 1.8] | 최근 1h vs 이전 2h 가속도 |
+| diversityBonus | [1.0, 2.5] | 소스 다양성 + 채널 교차 |
+| breakingKeywordBoost | [1.0, 3.0] | "속보/긴급" 키워드, 30분 반감기 |
 
 videoScore 계산:
 - 뉴스 채널(SBS/YTN/MBC/KBS/JTBC YouTube): `trendScore × VIDEO_NEWS_WEIGHT`
@@ -345,5 +369,6 @@ momentumScore = clamp(1.0 + MOMENTUM_WEIGHT × ln(acceleration), [MOMENTUM_PENAL
 | `scoring-weights.ts` | 소스/카테고리/커뮤니티 가중치 + 감쇠 상수 |
 | `scoring-helpers.ts` | computeScore, normalizeEngagement, velocity, cluster, breaking |
 | `trendSignals.ts` | 외부 키워드 추출·매칭·보너스 계산 |
-| `issueAggregator.ts` | 이슈 집계 + 채널별 순위 + 중복제거 |
+| `issueAggregator.ts` | 이슈 집계 + 채널별 순위 + 중복제거 + 모멘텀 + 동적 TTL |
+| `geminiSummarizer.ts` | Gemini 이슈 요약 (pLimit(3) 병렬, fallback, stable_id 캐시) |
 | `scoringConfigDefaults.ts` | DB 오버라이드용 기본값 + 범위 정의 |
