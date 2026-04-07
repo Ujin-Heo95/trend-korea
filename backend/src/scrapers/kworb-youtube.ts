@@ -1,8 +1,7 @@
-import axios from 'axios';
-import * as cheerio from 'cheerio';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
+import { fetchHtml } from './http-utils.js';
 
 /**
  * YouTube 한국 일간 차트 (kworb.net)
@@ -14,11 +13,10 @@ export class KworbYoutubeKrScraper extends BaseScraper {
   }
 
   async fetch(): Promise<ScrapedPost[]> {
-    const { data } = await axios.get('https://kworb.net/youtube/insights/kr_daily.html', {
+    const $ = await fetchHtml('https://kworb.net/youtube/insights/kr_daily.html', {
+      headers: { Referer: 'https://kworb.net/' },
       timeout: 15_000,
     });
-
-    const $ = cheerio.load(data);
     const posts: ScrapedPost[] = [];
 
     $('table tbody tr').each((i, el) => {

@@ -9,7 +9,17 @@ export class EtolandScraper extends BaseScraper {
   async fetch(): Promise<ScrapedPost[]> {
     const $ = await fetchHtml(
       'https://www.etoland.co.kr/bbs/board.php?bo_table=etohumor01',
-      { eucKr: true, headers: { Referer: 'https://www.etoland.co.kr/' } },
+      {
+        eucKr: true,
+        delay: [1500, 3000],
+        headers: {
+          Referer: 'https://www.etoland.co.kr/',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'same-origin',
+          'Upgrade-Insecure-Requests': '1',
+        },
+      },
     );
 
     const posts: ScrapedPost[] = [];

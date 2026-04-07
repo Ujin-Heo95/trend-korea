@@ -19,7 +19,7 @@ interface RssScraperConfig {
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 const defaultParser = new Parser({
-  timeout: 10_000,
+  timeout: 20_000,
   headers: {
     'User-Agent': UA,
     Accept: 'application/rss+xml, application/xml, text/xml, */*;q=0.1',
@@ -28,7 +28,7 @@ const defaultParser = new Parser({
 });
 
 const youtubeParser = new Parser({
-  timeout: 10_000,
+  timeout: 20_000,
   headers: {
     'User-Agent': UA,
     Accept: 'application/atom+xml, application/xml, text/xml, */*;q=0.1',
@@ -42,7 +42,7 @@ const youtubeParser = new Parser({
 });
 
 const googleTrendsParser = new Parser({
-  timeout: 10_000,
+  timeout: 20_000,
   headers: {
     'User-Agent': UA,
     Accept: 'application/rss+xml, application/xml, text/xml, */*;q=0.1',
@@ -150,7 +150,7 @@ export class RssScraper extends BaseScraper {
   private async fetchWithEncoding(parser: Parser, encoding: string) {
     const { data } = await axios.get<ArrayBuffer>(this.cfg.feedUrl, {
       responseType: 'arraybuffer',
-      timeout: 10_000,
+      timeout: 20_000,
       headers: {
         'User-Agent': UA,
         Accept: 'application/rss+xml, application/xml, text/xml, */*;q=0.1',

@@ -5,18 +5,31 @@ import { fetchHtml, parseKoreanDate } from './http-utils.js';
 
 export class RuliwebScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
+
   async fetch(): Promise<ScrapedPost[]> {
     const $ = await fetchHtml('https://bbs.ruliweb.com/best/now', {
-      headers: { Referer: 'https://bbs.ruliweb.com/' },
+      headers: {
+        Referer: 'https://bbs.ruliweb.com/',
+        'Accept-Encoding': 'gzip, deflate, br',
+        Connection: 'keep-alive',
+        'Cache-Control': 'max-age=0',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
+      },
+      delay: [1500, 3000],
       timeout: 20000,
     });
+
     const posts: ScrapedPost[] = [];
 
     $('tr.table_body').each((_, row) => {
       const $row = $(row);
       const $link = $row.find('td.subject a.subject_link');
       const href = $link.attr('href') ?? '';
-      if (!href || href.startsWith('/market')) return;
+      if (!href || href.includes('/market')) return;
 
       const title =
         $link.find('strong.text_over').text().trim() ||
@@ -32,7 +45,17 @@ export class RuliwebScraper extends BaseScraper {
 
       const dateText = $row.find('td.time').text().trim();
       const publishedAt = parseKoreanDate(dateText);
-      posts.push({ sourceKey: 'ruliweb', sourceName: '루리웹', title, url, author, viewCount, commentCount, likeCount, publishedAt });
+      posts.push({
+        sourceKey: 'ruliweb',
+        sourceName: '루리웹',
+        title,
+        url,
+        author,
+        viewCount,
+        commentCount,
+        likeCount,
+        publishedAt,
+      });
     });
 
     return posts.slice(0, 30);

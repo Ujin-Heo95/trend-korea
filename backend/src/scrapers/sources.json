@@ -78,14 +78,14 @@
       "module": "./youtube.js",
       "className": "YoutubeScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "youtube_sbs_news",
       "name": "SBS 뉴스 YouTube",
       "category": "video",
       "type": "rss",
-      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCuuTCooIMbBFHNbPcSS70uw",
+      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCkinYTS9IHqOEwR1Sze2JTw",
       "priority": "medium",
       "enabled": true
     },
@@ -95,7 +95,7 @@
       "category": "video",
       "type": "rss",
       "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UChlgI3UHCOnwUGzWzbJ3H5w",
-      "priority": "medium",
+      "priority": "low",
       "enabled": true
     },
     {
@@ -104,7 +104,7 @@
       "category": "video",
       "type": "rss",
       "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCF4Wxdo3inmxP-Y59wXDsFw",
-      "priority": "medium",
+      "priority": "low",
       "enabled": true
     },
     {
@@ -113,7 +113,7 @@
       "category": "video",
       "type": "rss",
       "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCcQTRi69dsVYHN3exePtZ1A",
-      "priority": "medium",
+      "priority": "low",
       "enabled": true
     },
     {
@@ -133,7 +133,7 @@
       "module": "./youtube-search.js",
       "className": "YoutubeSearchScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "ppomppu",
@@ -142,7 +142,7 @@
       "type": "rss",
       "feedUrl": "https://www.ppomppu.co.kr/rss.php?id=ppomppu",
       "priority": "high",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "yna",
@@ -323,7 +323,7 @@
       "type": "rss",
       "feedUrl": "https://bbs.ruliweb.com/market/board/1020/rss",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "clien_jirum",
@@ -446,7 +446,7 @@
       "type": "rss",
       "feedUrl": "https://www.koreaherald.com/rss/newsAll",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "koreatimes",
@@ -455,7 +455,7 @@
       "type": "rss",
       "feedUrl": "https://feed.koreatimes.co.kr/k/allnews.xml",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "newsis",
@@ -807,7 +807,7 @@
       "module": "./tour-visitor.js",
       "className": "TourVisitorScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kcisa_performance",
@@ -1056,7 +1056,7 @@
       "type": "rss",
       "feedUrl": "http://rss.cnn.com/rss/cnn_latest.rss",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "nature",
@@ -1065,7 +1065,7 @@
       "type": "rss",
       "feedUrl": "https://www.nature.com/nature.rss",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "bbc_korean",
@@ -1221,7 +1221,7 @@
       "module": "./seoul-citydata.js",
       "className": "SeoulCitydataScraper",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "seoul_cultural_event",

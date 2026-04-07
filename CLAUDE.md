@@ -37,6 +37,7 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포 + Supabas
 | 시스템 구조 파악 | `docs/architecture.md` |
 | 스크래퍼 추가/수정 | `docs/sources.md` |
 | 스코어링/중복제거 | `docs/scoring.md` |
+| 이슈 랭킹 파이프라인 | `docs/issue_ranking.md` |
 | Railway 배포/설정 | `docs/railway.md` |
 | 인프라/비용 결정 | `docs/scaling.md` |
 | 비즈니스/수익 분석 | `docs/business/financials.md` |
@@ -51,7 +52,7 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포 + Supabas
 ## Current Phase
 
 v0.12.0 — 신규 로드맵 P0 진행중.
-소스 120개 등록 (95개 활성) + 345 tests (백엔드 305 + 프론트 40) + Supabase Pro 8GB 서울.
+소스 123개 등록 (85개 활성) + 345 tests (백엔드 305 + 프론트 40) + Supabase Pro 8GB 서울.
 채널별 분기 스코어링 — 커뮤니티(소스차등+적응감쇠+트렌드신호) / 뉴스(서브카테고리정규화+속보감지+트렌드신호). 비스코어링 탭은 최신순만.
 
 **완료**: P0 도메인+Umami+URL (2026-04-03) + P1 SEO파이프라인+Security Headers (2026-04-04) + P2 보안·품질·기술부채 전면 해소 (2026-04-04)
