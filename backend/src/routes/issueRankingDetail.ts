@@ -44,6 +44,50 @@ export async function issueRankingDetailRoutes(app: FastifyInstance): Promise<vo
     const issue = rows[0];
     if (!issue) return reply.status(404).send({ error: 'Issue not found' });
 
+    // ─── Dynamic rank_change: current rank vs latest history snapshot ───
+    const [rankResult, historyResult] = await Promise.all([
+      app.pg.query<{ current_rank: number }>(
+        `SELECT COUNT(*)::int + 1 AS current_rank
+         FROM issue_rankings
+         WHERE expires_at > NOW() AND issue_score > $1`,
+        [issue.issue_score],
+      ),
+      app.pg.query<{
+        rank_position: number;
+        stable_id: string | null;
+        cluster_ids: number[];
+        standalone_post_ids: number[];
+      }>(`
+        SELECT rank_position, stable_id, cluster_ids, standalone_post_ids
+        FROM issue_rankings_history
+        WHERE batch_id = (SELECT MAX(batch_id) FROM issue_rankings_history)
+        ORDER BY rank_position ASC
+      `),
+    ]);
+
+    const currentRank = rankResult.rows[0]?.current_rank ?? 0;
+    const prevRows = historyResult.rows;
+
+    let dynamicRankChange: number | null = null;
+    if (prevRows.length > 0) {
+      const byStableId = prevRows.find(r => r.stable_id && r.stable_id === issue.stable_id);
+      if (byStableId) {
+        dynamicRankChange = byStableId.rank_position - currentRank;
+      } else {
+        const currIds = [...issue.cluster_ids, ...issue.standalone_post_ids];
+        for (const prev of prevRows) {
+          const prevIds = new Set([...prev.cluster_ids, ...prev.standalone_post_ids]);
+          if (prevIds.size === 0 && currIds.length === 0) continue;
+          const overlap = currIds.filter(id => prevIds.has(id)).length;
+          const maxSize = Math.max(prevIds.size, currIds.length);
+          if (maxSize > 0 && overlap / maxSize >= 0.5) {
+            dynamicRankChange = prev.rank_position - currentRank;
+            break;
+          }
+        }
+      }
+    }
+
     // Collect all post IDs from clusters + standalone
     const postIds = new Set<number>();
     for (const pid of issue.standalone_post_ids) postIds.add(pid);
@@ -103,7 +147,7 @@ export async function issueRankingDetailRoutes(app: FastifyInstance): Promise<vo
         category_label: issue.category_label,
         issue_score: issue.issue_score,
         thumbnail: issue.representative_thumbnail,
-        rank_change: issue.rank_change,
+        rank_change: dynamicRankChange,
         calculated_at: issue.calculated_at,
       },
       news_posts: newsPosts,

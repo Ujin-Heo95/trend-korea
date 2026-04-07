@@ -53,7 +53,6 @@ interface IssueRow {
   readonly clusterIds: readonly number[];
   readonly standalonePostIds: readonly number[];
   readonly matchedTrendKeywords: readonly string[];
-  readonly rankChange: number | null;
   readonly stableId: string;
 }
 
@@ -192,11 +191,9 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
   // Step 6: Build issue rows with stable IDs (pre-computed scores)
   const issueRows = topIssues.map(si => buildIssueRow(si, cfg));
 
-  // Step 7: Calculate rank changes vs previous hourly snapshot
-  const rankedRows = await calculateRankChanges(pool, issueRows);
-
-  // Step 8: Write to DB (delete old → insert new, atomic)
-  return await writeIssueRankings(pool, rankedRows);
+  // Step 7: Write to DB (delete old → insert new, atomic)
+  // rank_change is now computed dynamically at API time (issues.ts / issueRankingDetail.ts)
+  return await writeIssueRankings(pool, issueRows);
 }
 
 // ─── Step 1: Fetch Posts (now includes video) ───
@@ -684,7 +681,6 @@ function buildIssueRow(scoredIssue: ScoredIssue, cfg: IssueConfig): IssueRow {
     clusterIds,
     standalonePostIds,
     matchedTrendKeywords: group.matchedKeywords,
-    rankChange: null, // filled by calculateRankChanges
     stableId: computeStableId(clusterIds, standalonePostIds),
   };
 }
@@ -710,57 +706,7 @@ function deriveCategoryLabel(title: string): string {
 
 // ─── Step 7: Calculate Rank Changes ───
 
-async function calculateRankChanges(
-  pool: Pool,
-  issues: readonly IssueRow[],
-): Promise<IssueRow[]> {
-  // Fetch the latest hourly snapshot
-  const { rows: prevRows } = await pool.query<{
-    rank_position: number;
-    stable_id: string | null;
-    cluster_ids: number[];
-    standalone_post_ids: number[];
-  }>(`
-    SELECT rank_position, stable_id, cluster_ids, standalone_post_ids
-    FROM issue_rankings_history
-    WHERE batch_id = (SELECT MAX(batch_id) FROM issue_rankings_history)
-    ORDER BY rank_position ASC
-  `);
-
-  if (prevRows.length === 0) {
-    // No previous snapshot — all issues are NEW
-    return issues.map(issue => ({ ...issue, rankChange: null }));
-  }
-
-  return issues.map((issue, idx) => {
-    const newRank = idx + 1;
-
-    // Try matching by stable_id first
-    let prevRank: number | null = null;
-    const byStableId = prevRows.find(r => r.stable_id && r.stable_id === issue.stableId);
-    if (byStableId) {
-      prevRank = byStableId.rank_position;
-    } else {
-      // Fallback: match by 50%+ cluster/standalone overlap
-      for (const prev of prevRows) {
-        const prevIds = new Set([...prev.cluster_ids, ...prev.standalone_post_ids]);
-        const currIds = [...issue.clusterIds, ...issue.standalonePostIds];
-        if (prevIds.size === 0 && currIds.length === 0) continue;
-        const overlap = currIds.filter(id => prevIds.has(id)).length;
-        const maxSize = Math.max(prevIds.size, currIds.length);
-        if (maxSize > 0 && overlap / maxSize >= 0.5) {
-          prevRank = prev.rank_position;
-          break;
-        }
-      }
-    }
-
-    const rankChange = prevRank === null ? null : prevRank - newRank;
-    return { ...issue, rankChange };
-  });
-}
-
-// ─── Step 8: Write to DB ───
+// ─── Step 7: Write to DB ───
 
 async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Promise<number> {
   if (issues.length === 0) return 0;
@@ -828,7 +774,7 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
         issue.clusterIds,               // 14
         issue.standalonePostIds,        // 15
         issue.matchedTrendKeywords,     // 16
-        issue.rankChange,               // 17
+        null,                           // 17  rank_change (computed at API time)
         issue.stableId,                 // 18
         `${ttlMs} milliseconds`,        // 19
       );

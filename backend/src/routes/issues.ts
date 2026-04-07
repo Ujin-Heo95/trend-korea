@@ -72,6 +72,41 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         return empty;
       }
 
+      // ─── Dynamic rank_change: compare current rank against latest history snapshot ───
+      const { rows: prevRows } = await app.pg.query<{
+        rank_position: number;
+        stable_id: string | null;
+        cluster_ids: number[];
+        standalone_post_ids: number[];
+      }>(`
+        SELECT rank_position, stable_id, cluster_ids, standalone_post_ids
+        FROM issue_rankings_history
+        WHERE batch_id = (SELECT MAX(batch_id) FROM issue_rankings_history)
+        ORDER BY rank_position ASC
+      `);
+
+      const computeRankChange = (issue: IssueRankingRow, currentRank: number): number | null => {
+        if (prevRows.length === 0) return null;
+
+        // Match by stable_id first
+        const byStableId = prevRows.find(r => r.stable_id && r.stable_id === issue.stable_id);
+        if (byStableId) return byStableId.rank_position - currentRank;
+
+        // Fallback: 50%+ cluster/standalone overlap
+        const currIds = [...issue.cluster_ids, ...issue.standalone_post_ids];
+        for (const prev of prevRows) {
+          const prevIds = new Set([...prev.cluster_ids, ...prev.standalone_post_ids]);
+          if (prevIds.size === 0 && currIds.length === 0) continue;
+          const overlap = currIds.filter(id => prevIds.has(id)).length;
+          const maxSize = Math.max(prevIds.size, currIds.length);
+          if (maxSize > 0 && overlap / maxSize >= 0.5) {
+            return prev.rank_position - currentRank;
+          }
+        }
+
+        return null; // NEW issue
+      };
+
       // Collect all post IDs to fetch in one query
       const allClusterIds = new Set<number>();
       const allStandaloneIds = new Set<number>();
@@ -167,9 +202,10 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         if (portalKeywords.length > 0 || issue.matched_trend_keywords.length > 0) channelTags.push('portal');
         if (snsKeywords.length > 0) channelTags.push('sns');
 
+        const currentRank = offset + idx + 1;
         return {
           id: issue.id,
-          rank: offset + idx + 1,
+          rank: currentRank,
           title: issue.title,
           summary: issue.summary,
           category_label: issue.category_label,
@@ -177,7 +213,7 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
           momentum_score: issue.momentum_score ?? 1.0,
           thumbnail: issue.representative_thumbnail,
           stable_id: issue.stable_id,
-          rank_change: issue.rank_change,
+          rank_change: computeRankChange(issue, currentRank),
           // Posts by channel
           news_posts: newsPosts.slice(0, 10),
           community_posts: communityPosts.slice(0, 10),
