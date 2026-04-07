@@ -174,6 +174,7 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
           summary: issue.summary,
           category_label: issue.category_label,
           issue_score: issue.issue_score,
+          momentum_score: issue.momentum_score ?? 1.0,
           thumbnail: issue.representative_thumbnail,
           stable_id: issue.stable_id,
           rank_change: issue.rank_change,

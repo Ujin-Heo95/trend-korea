@@ -30,6 +30,12 @@ interface IssueGroup {
   readonly trendSignalScore: number;
 }
 
+interface ScoredIssue {
+  readonly group: IssueGroup;
+  readonly issueScore: number;
+  readonly momentumScore: number;
+}
+
 interface IssueRow {
   readonly title: string;
   readonly summary: string | null;
@@ -39,6 +45,7 @@ interface IssueRow {
   readonly communityScore: number;
   readonly videoScore: number;
   readonly trendSignalScore: number;
+  readonly momentumScore: number;
   readonly newsPostCount: number;
   readonly communityPostCount: number;
   readonly videoPostCount: number;
@@ -182,8 +189,8 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
   // Step 5: Take top N
   const topIssues = scoredIssues.slice(0, cfg.maxIssues);
 
-  // Step 6: Build issue rows with stable IDs
-  const issueRows = topIssues.map(g => buildIssueRow(g, cfg));
+  // Step 6: Build issue rows with stable IDs (pre-computed scores)
+  const issueRows = topIssues.map(si => buildIssueRow(si, cfg));
 
   // Step 7: Calculate rank changes vs previous hourly snapshot
   const rankedRows = await calculateRankChanges(pool, issueRows);
@@ -209,10 +216,10 @@ async function fetchScoredPosts(pool: Pool, windowHours: number): Promise<Scored
     FROM posts p
     LEFT JOIN post_scores ps ON ps.post_id = p.id
     LEFT JOIN post_cluster_members pcm ON pcm.post_id = p.id
-    WHERE p.scraped_at > NOW() - INTERVAL '${windowHours} hours'
+    WHERE p.scraped_at > NOW() - make_interval(hours => $1)
       AND COALESCE(p.category, '') IN ('news', 'press', 'community', 'video', 'video_popular')
     ORDER BY COALESCE(ps.trend_score, 0) DESC
-  `);
+  `, [windowHours]);
 
   return rows.map(r => ({
     id: r.id,
@@ -544,7 +551,7 @@ function breakingKeywordBoost(group: IssueGroup, cfg: IssueConfig): number {
   return 1.0 + (cfg.breakingKwMaxBoost - 1.0) * Math.exp(-LN2 * newestBreakingAge / cfg.breakingKwHalflife);
 }
 
-function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): IssueGroup[] {
+function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): ScoredIssue[] {
   // Filter: must have ≥1 news post OR ≥1 news-channel video post
   const anchored = groups.filter(g =>
     g.newsPosts.length > 0 ||
@@ -596,11 +603,11 @@ function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): IssueG
     const breaking = breakingKeywordBoost(g, cfg);
 
     const issueScore = rawScore * momentum * diversity * breaking;
-    return { group: g, issueScore };
+    return { group: g, issueScore, momentumScore: momentum };
   });
 
   scored.sort((a, b) => b.issueScore - a.issueScore);
-  return scored.map(s => s.group);
+  return scored;
 }
 
 // ─── Thumbnail Selection ───
@@ -632,12 +639,13 @@ function pickBestThumbnail(posts: readonly ScoredPost[]): string | null {
 
 // ─── Step 5: Build Issue Row ───
 
-function buildIssueRow(group: IssueGroup, cfg: IssueConfig): IssueRow {
+function buildIssueRow(scoredIssue: ScoredIssue, cfg: IssueConfig): IssueRow {
+  const { group, issueScore, momentumScore } = scoredIssue;
   const sortedNews = [...group.newsPosts].sort((a, b) => b.trendScore - a.trendScore);
   const sortedVideo = [...group.videoPosts].sort((a, b) => b.trendScore - a.trendScore);
   const canonicalPost = sortedNews[0] ?? sortedVideo[0];
 
-  // 새 공식과 동일한 채널별 집계 (Fix 1+2)
+  // 채널별 집계 (분해 점수용 — DB 기록)
   const newsScore = aggregatePostScores(
     group.newsPosts.map(p => p.trendScore / Math.max(p.clusterBonus, 0.01)), cfg.diminishingK,
   );
@@ -650,11 +658,6 @@ function buildIssueRow(group: IssueGroup, cfg: IssueConfig): IssueRow {
       return (p.trendScore / Math.max(p.clusterBonus, 0.01)) * w;
     }), cfg.diminishingK,
   );
-  const issueScore =
-    newsScore * cfg.newsWeight +
-    communityScore * cfg.communityWeight +
-    videoScore +
-    group.trendSignalScore * cfg.trendSignalWeight;
 
   const categoryLabel = deriveCategoryLabel(canonicalPost?.title ?? '');
 
@@ -668,11 +671,12 @@ function buildIssueRow(group: IssueGroup, cfg: IssueConfig): IssueRow {
     title: canonicalPost?.title ?? '알 수 없는 이슈',
     summary: null,
     categoryLabel,
-    issueScore,
+    issueScore,  // scoreAndFilter에서 계산된 최종 점수 (momentum×diversity×breaking 포함)
     newsScore,
     communityScore,
     videoScore,
     trendSignalScore: group.trendSignalScore,
+    momentumScore,
     newsPostCount: group.newsPosts.length,
     communityPostCount: group.communityPosts.length,
     videoPostCount: group.videoPosts.length,
@@ -763,14 +767,15 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
 
   // Quiet hours: extend expires_at if next batch would be in quiet hours
   const kstHour = (new Date().getUTCHours() + 9) % 24;
-  let ttlMs = 6 * 60 * 60 * 1000; // default 6h
+  const baseTtlMs = 6 * 60 * 60 * 1000; // default 6h
+  let quietTtlMs = baseTtlMs;
   if (kstHour >= 1 && kstHour < 6) {
     // Extend to cover quiet hours until 07:00 KST
     const now = new Date();
     const expiresKST = new Date(now);
     expiresKST.setUTCHours(22, 0, 0, 0); // 07:00 KST = 22:00 UTC
     if (expiresKST <= now) expiresKST.setUTCDate(expiresKST.getUTCDate() + 1);
-    ttlMs = expiresKST.getTime() - now.getTime();
+    quietTtlMs = expiresKST.getTime() - now.getTime();
   }
 
   const client = await pool.connect();
@@ -796,9 +801,15 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
     const values: string[] = [];
     const params: unknown[] = [];
     for (const issue of issues) {
+      // 동적 TTL: momentum 낮은 이슈(≤0.7)는 2시간, 나머지는 기본 6시간
+      const isStale = issue.momentumScore <= 0.7;
+      const ttlMs = kstHour >= 1 && kstHour < 6
+        ? quietTtlMs
+        : isStale ? 2 * 60 * 60 * 1000 : baseTtlMs;
+
       const i = params.length;
       values.push(
-        `($${i+1},$${i+2},$${i+3},$${i+4},$${i+5},$${i+6},$${i+7},$${i+8},$${i+9},$${i+10},$${i+11},$${i+12},$${i+13},$${i+14},$${i+15},$${i+16},$${i+17},NOW(),NOW()+$${i+18}::interval)`,
+        `($${i+1},$${i+2},$${i+3},$${i+4},$${i+5},$${i+6},$${i+7},$${i+8},$${i+9},$${i+10},$${i+11},$${i+12},$${i+13},$${i+14},$${i+15},$${i+16},$${i+17},$${i+18},NOW(),NOW()+$${i+19}::interval)`,
       );
       params.push(
         issue.title,                    // 1
@@ -809,23 +820,24 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
         issue.communityScore,           // 6
         issue.trendSignalScore,         // 7
         issue.videoScore,               // 8
-        issue.newsPostCount,            // 9
-        issue.communityPostCount,       // 10
-        issue.videoPostCount,           // 11
-        issue.representativeThumbnail,  // 12
-        issue.clusterIds,               // 13
-        issue.standalonePostIds,        // 14
-        issue.matchedTrendKeywords,     // 15
-        issue.rankChange,               // 16
-        issue.stableId,                 // 17
-        `${ttlMs} milliseconds`,        // 18
+        issue.momentumScore,            // 9
+        issue.newsPostCount,            // 10
+        issue.communityPostCount,       // 11
+        issue.videoPostCount,           // 12
+        issue.representativeThumbnail,  // 13
+        issue.clusterIds,               // 14
+        issue.standalonePostIds,        // 15
+        issue.matchedTrendKeywords,     // 16
+        issue.rankChange,               // 17
+        issue.stableId,                 // 18
+        `${ttlMs} milliseconds`,        // 19
       );
     }
 
     const result = await client.query(
       `INSERT INTO issue_rankings
         (title, summary, category_label, issue_score, news_score, community_score,
-         trend_signal_score, video_score, news_post_count, community_post_count,
+         trend_signal_score, video_score, momentum_score, news_post_count, community_post_count,
          video_post_count, representative_thumbnail, cluster_ids, standalone_post_ids,
          matched_trend_keywords, rank_change, stable_id, calculated_at, expires_at)
        VALUES ${values.join(',')}`,
@@ -879,8 +891,8 @@ export async function snapshotRankings(pool: Pool): Promise<void> {
 
   // Snapshot current rankings into history
   const { rowCount } = await pool.query(
-    `INSERT INTO issue_rankings_history (batch_id, rank_position, title, issue_score, stable_id, cluster_ids, standalone_post_ids)
-     SELECT $1, ROW_NUMBER() OVER (ORDER BY issue_score DESC), title, issue_score, stable_id, cluster_ids, standalone_post_ids
+    `INSERT INTO issue_rankings_history (batch_id, rank_position, title, issue_score, momentum_score, stable_id, cluster_ids, standalone_post_ids)
+     SELECT $1, ROW_NUMBER() OVER (ORDER BY issue_score DESC), title, issue_score, COALESCE(momentum_score, 1.0), stable_id, cluster_ids, standalone_post_ids
      FROM issue_rankings WHERE expires_at > NOW()`,
     [batchId],
   );

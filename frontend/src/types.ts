@@ -65,6 +65,7 @@ export interface IssueRanking {
   summary: string | null;
   category_label: string | null;
   issue_score: number;
+  momentum_score: number;
   thumbnail: string | null;
   stable_id: string | null;
   rank_change: number | null; // null=NEW, 0=동일, +N=상승, -N=하락

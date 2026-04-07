@@ -153,6 +153,11 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = React.memo(({ issue }) => {
             {issue.rank}
           </span>
           <RankChangeIndicator change={issue.rank_change} />
+          {issue.momentum_score >= 1.5 && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400 animate-pulse">
+              급상승
+            </span>
+          )}
           {issue.category_label && (
             <span className={`text-xs font-medium ${categoryColor}`}>
               {issue.category_label}

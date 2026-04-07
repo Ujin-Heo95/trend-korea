@@ -1,7 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import pLimit from 'p-limit';
 import { config } from '../config/index.js';
 import { checkQuota, incrementQuota } from './apiQuota.js';
 import { getChannel } from './scoring-weights.js';
+
+const GEMINI_DAILY_QUOTA = parseInt(process.env.GEMINI_DAILY_QUOTA ?? '1500', 10);
 
 // ─── Types ───
 
@@ -58,6 +61,25 @@ const SYSTEM_PROMPT = `당신은 한국 뉴스/커뮤니티/영상 트렌드를 
 
 JSON만 출력: {"title": "...", "category": "...", "summary": "..."}`;
 
+// ─── Fallback Category ───
+
+const FALLBACK_CATEGORY_PATTERNS: readonly [RegExp, string][] = [
+  [/주식|코스피|코스닥|환율|금리|부동산|경제|투자|증시/, '경제'],
+  [/대통령|국회|여당|야당|정치|선거|탄핵|의원/, '정치'],
+  [/AI|반도체|로봇|우주|IT|테크|앱|소프트웨어/, 'IT과학'],
+  [/아이돌|드라마|영화|배우|가수|연예|방송/, '연예'],
+  [/축구|야구|농구|올림픽|스포츠|경기|선수/, '스포츠'],
+  [/미국|중국|일본|유럽|전쟁|외교|세계/, '세계'],
+  [/생활|날씨|건강|교통|맛집|여행|육아|교육|의료/, '생활'],
+];
+
+function fallbackCategory(title: string): string {
+  for (const [pattern, label] of FALLBACK_CATEGORY_PATTERNS) {
+    if (pattern.test(title)) return label;
+  }
+  return '사회';
+}
+
 // ─── Channel Label ───
 
 function channelLabel(category: string | null): string {
@@ -96,7 +118,7 @@ export async function summarizeIssue(
   const client = getClient();
   if (!client) return null;
 
-  if (!checkQuota('gemini', 500)) return null;
+  if (!checkQuota('gemini', GEMINI_DAILY_QUOTA)) return null;
   incrementQuota('gemini');
 
   const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
@@ -156,18 +178,22 @@ export async function summarizeAndUpdateIssues(
   if (rows.length === 0) return 0;
 
   let updated = 0;
-  for (const row of rows) {
-    // Try reuse: check if a previous issue with same stable_id had a summary
-    if (row.stable_id) {
-      const prev = summaryCache.get(makeCacheKey(row.cluster_ids, row.standalone_post_ids));
-      if (prev && Date.now() - prev.cachedAt < CACHE_TTL_MS) {
-        await pool.query(
-          `UPDATE issue_rankings SET title = $1, summary = $2, category_label = $3 WHERE id = $4`,
-          [prev.summary.title, prev.summary.summary, prev.summary.category, row.id],
-        );
-        updated++;
-        continue;
-      }
+
+  async function processOneRow(row: typeof rows[number]): Promise<void> {
+    // Try reuse: prefer stable_id as cache key, fall back to legacy key
+    const stableCacheKey = row.stable_id ?? undefined;
+    const legacyCacheKey = makeCacheKey(row.cluster_ids, row.standalone_post_ids);
+    const cacheKey = stableCacheKey ?? legacyCacheKey;
+
+    const prev = summaryCache.get(cacheKey)
+      ?? (stableCacheKey ? summaryCache.get(legacyCacheKey) : undefined);
+    if (prev && Date.now() - prev.cachedAt < CACHE_TTL_MS) {
+      await pool.query(
+        `UPDATE issue_rankings SET title = $1, summary = $2, category_label = $3 WHERE id = $4`,
+        [prev.summary.title, prev.summary.summary, prev.summary.category, row.id],
+      );
+      updated++;
+      return;
     }
 
     // Collect post IDs
@@ -180,7 +206,7 @@ export async function summarizeAndUpdateIssues(
       for (const cp of clusterPosts.rows) postIds.push(cp.post_id);
     }
 
-    if (postIds.length === 0) continue;
+    if (postIds.length === 0) return;
 
     const uniqueIds = [...new Set(postIds)];
     // Fetch titles + content_snippet + category + source_key
@@ -201,17 +227,37 @@ export async function summarizeAndUpdateIssues(
       sourceKey: r.source_key,
     }));
 
-    if (posts.length === 0) continue;
+    if (posts.length === 0) return;
 
-    const summary = await summarizeIssue(posts, row.cluster_ids, row.standalone_post_ids);
-    if (!summary) continue;
+    let summary = await summarizeIssue(posts, row.cluster_ids, row.standalone_post_ids);
+
+    // Fallback: generate minimal summary when Gemini fails
+    if (!summary) {
+      const firstTitle = posts[0].title;
+      summary = {
+        title: firstTitle.length > 25 ? firstTitle.slice(0, 25) : firstTitle,
+        category: fallbackCategory(firstTitle),
+        summary: `관련 기사 ${posts.length}건`,
+      };
+    }
 
     await pool.query(
       `UPDATE issue_rankings SET title = $1, summary = $2, category_label = $3 WHERE id = $4`,
       [summary.title, summary.summary, summary.category, row.id],
     );
+
+    // Cache with stable_id key (and legacy key for backward compat)
+    const entry = { summary, cachedAt: Date.now() };
+    summaryCache.set(cacheKey, entry);
+    if (stableCacheKey && stableCacheKey !== legacyCacheKey) {
+      summaryCache.set(legacyCacheKey, entry);
+    }
+
     updated++;
   }
+
+  const limit = pLimit(3);
+  await Promise.all(rows.map(row => limit(() => processOneRow(row))));
 
   if (updated > 0) {
     console.log(`[geminiSummarizer] updated ${updated} issue summaries`);

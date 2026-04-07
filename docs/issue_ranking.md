@@ -231,6 +231,18 @@ LIMIT $1 OFFSET $2
 
 설정 정의: `scoringConfigDefaults.ts`, 로딩: `scoringConfig.ts`
 
+### 5-2. 모멘텀 기반 동적 TTL 및 급상승 배지
+
+- `momentum_score` 컬럼이 `issue_rankings`에 저장됨
+- `momentum_score ≥ 1.5`: 프론트엔드 "급상승" 배지 표시
+- `momentum_score ≤ 0.7`: TTL 2시간으로 단축 (비활성 이슈 빠른 퇴출)
+- 기본 TTL: 6시간, 야간(KST 01-06): 07:00 KST까지 연장
+
+### 5-3. 보안: SQL 인젝션 수정
+
+- `fetchScoredPosts`: 문자열 보간 `'${windowHours} hours'` → `make_interval(hours => $1)` 파라미터화
+- `buildIssueRow`: scoreAndFilter에서 계산된 최종 issueScore를 직접 전달 (DB 점수 = 정렬 점수 일치)
+
 ---
 
 ## 6. DB 스키마

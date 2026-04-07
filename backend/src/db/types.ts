@@ -107,6 +107,7 @@ export interface IssueRankingRow {
   community_score: number;
   trend_signal_score: number;
   video_score: number;
+  momentum_score: number;
   news_post_count: number;
   community_post_count: number;
   video_post_count: number;
