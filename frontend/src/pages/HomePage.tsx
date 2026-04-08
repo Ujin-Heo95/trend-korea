@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useTransition, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useInfinitePosts } from '../hooks/usePosts';
 import type { Post } from '../types';
-import { fetchPosts } from '../api/client';
 import { AdSlot } from '../components/shared/AdSlot';
 import { PostCard } from '../components/PostCard';
 import { PostCardSkeleton } from '../components/shared/PostCardSkeleton';
@@ -107,15 +105,6 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     fetchNextPage,
     isFetching,
   } = useInfinitePosts(filter);
-
-  // 영상 탭: 인기 급상승 영상 별도 조회
-  const { data: popularVideos } = useQuery({
-    queryKey: ['video_popular'],
-    queryFn: () => fetchPosts({ category: 'video_popular', limit: 10 }),
-    enabled: category === 'video',
-    refetchInterval: 120_000,
-    staleTime: 60_000,
-  });
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -260,19 +249,6 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       )}
 
       {!isAllTab && <div ref={sentinelRef} className="h-10" />}
-
-      {category === 'video' && popularVideos && popularVideos.posts.length > 0 && (
-        <div className="mt-6 mb-4">
-          <h3 className="text-base font-bold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
-            <span>🔥</span> 인기 급상승 영상
-          </h3>
-          <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
-            {popularVideos.posts.map((post, i) => (
-              <PostCard key={post.id} post={post} rank={i + 1} isRead={isRead(post.url)} onRead={markAsRead} />
-            ))}
-          </div>
-        </div>
-      )}
 
       {!isAllTab && isFetchingNextPage && (
         <div className="flex justify-center py-4">
