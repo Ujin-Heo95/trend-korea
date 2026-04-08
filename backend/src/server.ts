@@ -174,10 +174,19 @@ export async function buildApp() {
 
 const isMain = process.argv[1]?.endsWith('server.ts') || process.argv[1]?.endsWith('server.js');
 if (isMain) {
-  await validateConnection();
+  // Listen FIRST so Railway healthcheck gets 200 immediately
   const app = await buildApp();
-  startScheduler();
   await app.listen({ port: config.port, host: '0.0.0.0' });
+
+  // DB validation + scheduler in background (non-blocking)
+  validateConnection()
+    .then(() => {
+      startScheduler();
+    })
+    .catch((err) => {
+      console.error('[server] DB validation failed, starting scheduler anyway:', err);
+      startScheduler();
+    });
 
   const shutdown = async (signal: string) => {
     console.log(`[server] ${signal} received — shutting down gracefully`);
