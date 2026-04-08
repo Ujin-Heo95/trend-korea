@@ -139,9 +139,9 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = React.memo(({ issue }) => {
         {(issue.thumbnail || issue.summary || issue.news_posts.length > 0) && (
           <div className={issue.thumbnail ? 'flex items-start gap-3' : ''}>
             {issue.thumbnail && (
-              <div className="flex-shrink-0 w-24 h-16 sm:w-28 sm:h-20 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
+              <div className="flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
                 <img
-                  src={optimizedImage(issue.thumbnail, 224)}
+                  src={optimizedImage(issue.thumbnail, 192)}
                   alt=""
                   className="w-full h-full object-cover"
                   loading="lazy"
@@ -149,9 +149,12 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = React.memo(({ issue }) => {
               </div>
             )}
             {issue.summary ? (
-              <p className="flex-1 min-w-0 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                {issue.summary}
-              </p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-4">
+                  {issue.summary}
+                </p>
+                <span className="text-xs text-blue-500 dark:text-blue-400 mt-1 inline-block">더보기 ›</span>
+              </div>
             ) : issue.news_posts.length > 0 ? (
               <p className="flex-1 min-w-0 text-sm text-slate-500 dark:text-slate-400 italic truncate">
                 {issue.news_posts[0].title}
