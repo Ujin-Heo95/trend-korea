@@ -454,7 +454,7 @@
     {
       "key": "google_news_kr",
       "name": "Google 뉴스 한국",
-      "category": "news",
+      "category": "portal",
       "type": "rss",
       "feedUrl": "https://news.google.com/rss?hl=ko&gl=KR&ceid=KR:ko",
       "priority": "high",
@@ -978,7 +978,7 @@
     {
       "key": "naver_news_ranking",
       "name": "네이버 뉴스 랭킹",
-      "category": "news",
+      "category": "portal",
       "type": "html",
       "module": "./naver-news-ranking.js",
       "className": "NaverNewsRankingScraper",
