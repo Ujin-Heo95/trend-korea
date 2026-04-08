@@ -104,6 +104,7 @@ export abstract class BaseScraper {
            comment_count = GREATEST(posts.comment_count, EXCLUDED.comment_count),
            like_count = GREATEST(posts.like_count, EXCLUDED.like_count),
            content_snippet = COALESCE(posts.content_snippet, EXCLUDED.content_snippet),
+           category = EXCLUDED.category,
            scraped_at = NOW()`;
 
     const result = await this.pool.query(
