@@ -52,7 +52,11 @@ declare module 'fastify' { interface FastifyInstance { pg: Pool; } }
 export async function buildApp() {
   const app = Fastify({ logger: true, trustProxy: true });
   app.decorate('pg', pool);
-  initScoringConfig(pool);
+  try {
+    initScoringConfig(pool);
+  } catch (err) {
+    console.error('[server] initScoringConfig failed, will use defaults:', err);
+  }
 
   // ── Central Error Handler ────────────────────────────
   app.setErrorHandler((error: Error & { statusCode?: number; validation?: unknown }, request, reply) => {

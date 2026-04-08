@@ -1,8 +1,11 @@
 #!/bin/sh
-set -e
 
 echo "[start] running migration..."
-node backend/dist/db/migrate.js
+if node backend/dist/db/migrate.js; then
+  echo "[start] migration complete"
+else
+  echo "[start] WARNING: migration failed, starting server anyway (degraded)"
+fi
 
 echo "[start] starting server..."
 exec node backend/dist/server.js
