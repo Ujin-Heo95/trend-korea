@@ -19,6 +19,7 @@ import { TravelHotplaceView } from '../components/TravelHotplaceView';
 import { TravelFestivalCard } from '../components/TravelFestivalCard';
 import { TravelPhotoGallery } from '../components/TravelPhotoGallery';
 import { CommunityRankingList } from '../components/CommunityRankingList';
+import { PortalRankingView } from '../components/PortalRankingView';
 import { IssueRankingList } from '../components/IssueRankingList';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useReadPosts } from '../hooks/useReadPosts';
@@ -27,6 +28,7 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh';
 const CATEGORY_TITLES: Record<string, string> = {
   community: '커뮤니티',
   'news,newsletter,tech': '뉴스',
+  portal: '포털',
   video: 'YouTube',
   deals: '핫딜',
   entertainment: '엔터테인먼트',
@@ -68,6 +70,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const [travelSub, setTravelSub] = useState<TravelSub>('all');
   const [, startTransition] = useTransition();
   const isNewsTab = category === 'news,newsletter,tech';
+  const isPortalTab = category === 'portal';
   const isEntertainmentTab = category === 'entertainment';
   const isTravelTab = category === 'travel';
   const isAllTab = !category && !searchQuery;
@@ -154,7 +157,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         <TravelSubTabs selected={travelSub} onChange={setTravelSub} />
       )}
 
-      {(category === 'community' || isNewsTab) && (
+      {(category === 'community' || isNewsTab || isPortalTab) && (
         <SourceFilterChips category={category!} selected={selectedSources} onChange={setSelectedSources} />
       )}
 
@@ -228,6 +231,8 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           <TravelPhotoGallery posts={allPosts} />
         ) : isTravelTab && travelSub === 'all' ? (
           <TravelAllView posts={allPosts} />
+        ) : isPortalTab && selectedSources.length === 0 ? (
+          <PortalRankingView posts={allPosts} isRead={isRead} onRead={markAsRead} onSourceFilter={setSelectedSources} />
         ) : category === 'community' && selectedSources.length === 0 && sortMode === 'trending' ? (
           <CommunityRankingList posts={allPosts} isRead={isRead} onRead={markAsRead} />
         ) : (
