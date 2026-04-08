@@ -1,33 +1,26 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useSources } from '../hooks/usePosts';
 import { getSourceColor } from '../constants/sourceColors';
 import { HorizontalScrollRow } from './shared/HorizontalScrollRow';
 
-const COMMUNITY_SOURCES = [
-  { key: 'dcinside', name: 'DC인사이드' },
-  { key: 'bobaedream', name: '보배드림' },
-  { key: 'theqoo', name: '더쿠' },
-  { key: 'instiz', name: '인스티즈' },
-  { key: 'natepann', name: '네이트판' },
-  { key: 'todayhumor', name: '오늘의유머' },
-  { key: 'ppomppu', name: '뽐뿌' },
-  { key: 'clien', name: '클리앙' },
-  { key: 'fmkorea', name: '에펨코리아' },
-  { key: 'mlbpark', name: 'MLB파크' },
-  { key: 'cook82', name: '82쿡' },
-  { key: 'inven', name: '인벤' },
-  { key: 'humoruniv', name: '웃긴대학' },
-  { key: 'ygosu', name: '와이고수' },
-  { key: 'slrclub', name: 'SLR클럽' },
-  { key: 'etoland', name: '에토랜드' },
-  { key: 'ddanzi', name: '딴지일보' },
-] as const;
-
 interface Props {
+  /** 현재 카테고리 (community, news 등) — 해당 카테고리 소스만 표시 */
+  category?: string;
   selected: readonly string[];
   onChange: (sources: string[]) => void;
 }
 
-export const SourceFilterChips: React.FC<Props> = ({ selected, onChange }) => {
+export const SourceFilterChips: React.FC<Props> = ({ category, selected, onChange }) => {
+  const { data: allSources = [] } = useSources();
+
+  const sources = useMemo(() => {
+    if (!category) return [];
+    const cats = category.split(',');
+    return allSources
+      .filter(s => cats.includes(s.category) && s.post_count > 0)
+      .sort((a, b) => b.post_count - a.post_count);
+  }, [allSources, category]);
+
   const isAll = selected.length === 0;
 
   const toggle = (key: string) => {
@@ -36,6 +29,8 @@ export const SourceFilterChips: React.FC<Props> = ({ selected, onChange }) => {
       : [...selected, key];
     onChange(next);
   };
+
+  if (sources.length === 0) return null;
 
   return (
     <HorizontalScrollRow className="gap-2 pb-2">
@@ -49,9 +44,9 @@ export const SourceFilterChips: React.FC<Props> = ({ selected, onChange }) => {
       >
         전체
       </button>
-      {COMMUNITY_SOURCES.map(({ key, name }) => {
+      {sources.map(({ key, name, category: cat }) => {
         const active = selected.includes(key);
-        const color = getSourceColor(key, 'community');
+        const color = getSourceColor(key, cat);
         return (
           <button
             key={key}
