@@ -4,6 +4,11 @@ import type { IssueRankingRow } from '../db/types.js';
 
 const issuesCache = new LRUCache<unknown>(50, 600_000);
 
+/** 외부에서 캐시 무효화 (요약 완료 후 호출) */
+export function clearIssuesCache(): void {
+  issuesCache.clear();
+}
+
 interface RelatedPost {
   id: number;
   source_name: string;
@@ -54,13 +59,13 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
       const [issueResult, countResult] = await Promise.all([
         app.pg.query<IssueRankingRow>(
           `SELECT * FROM issue_rankings
-           WHERE expires_at > NOW()
+           WHERE expires_at > NOW() AND summary IS NOT NULL
            ORDER BY issue_score DESC
            LIMIT $1 OFFSET $2`,
           [limit, offset],
         ),
         app.pg.query<{ total: number }>(
-          `SELECT COUNT(*)::int AS total FROM issue_rankings WHERE expires_at > NOW()`,
+          `SELECT COUNT(*)::int AS total FROM issue_rankings WHERE expires_at > NOW() AND summary IS NOT NULL`,
         ),
       ]);
 
@@ -166,9 +171,9 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
           const post = postsMap.get(pid);
           if (!post) continue;
           const { category, ...rest } = post;
-          if (category === 'news' || category === 'press') {
+          if (category === 'news' || category === 'portal') {
             newsPosts.push(rest);
-          } else if (category === 'video' || category === 'video_popular') {
+          } else if (category === 'video') {
             videoPosts.push(rest);
           } else {
             communityPosts.push(rest);

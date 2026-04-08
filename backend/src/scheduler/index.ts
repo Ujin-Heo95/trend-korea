@@ -8,6 +8,7 @@ import { aggregateIssues, snapshotRankings, cleanExpiredIssueRankings } from '..
 import { summarizeAndUpdateIssues } from '../services/geminiSummarizer.js';
 import { crossValidateIssues } from '../services/crossValidator.js';
 import { checkDbSize } from '../services/dbMonitor.js';
+import { clearIssuesCache } from '../routes/issues.js';
 import { performDatabaseBackup } from '../services/backup.js';
 import { notifyBackupResult } from '../services/discord.js';
 import { generateEmbeddingsForRecentPosts } from '../services/embedding.js';
@@ -65,6 +66,7 @@ function startCronJobs(): void {
     await generateEmbeddingsForRecentPosts(pool).catch(captureError);
     await aggregateIssues(pool).catch(captureError);
     await summarizeAndUpdateIssues(pool).catch(captureError);
+    clearIssuesCache();
   });
 
   // 교차검증: 15분 주기 (quiet hours 제외)
