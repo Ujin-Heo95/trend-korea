@@ -44,14 +44,22 @@ const LN2 = Math.LN2;
 // ─── Main Batch Calculator ───
 
 let isScoring = false;
+let scoringStartedAt = 0;
+const SCORING_TIMEOUT_MS = 5 * 60_000; // 5분 타임아웃
 
 /** Batch-calculate scores for all posts in the last 24 hours */
 export async function calculateScores(pool: Pool): Promise<number> {
   if (isScoring) {
-    console.warn('[scoring] skipping — previous run still active');
-    return 0;
+    const elapsed = Date.now() - scoringStartedAt;
+    if (elapsed < SCORING_TIMEOUT_MS) {
+      console.warn('[scoring] skipping — previous run still active');
+      return 0;
+    }
+    console.warn(`[scoring] force-releasing stale lock (${Math.round(elapsed / 1000)}s old)`);
+    isScoring = false;
   }
   isScoring = true;
+  scoringStartedAt = Date.now();
   try { return await _calculateScores(pool); } finally { isScoring = false; }
 }
 

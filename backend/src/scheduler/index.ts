@@ -35,9 +35,17 @@ export function startScheduler(): void {
   console.log(`[scheduler] cleanup: twice daily (00:00, 12:00 UTC)`);
   console.log(`[scheduler] quiet hours: 02:00-06:00 KST (issue aggregation paused)`);
 
-  // 최초 실행: 전체 스크래퍼 1회
-  runAllScrapers().catch(captureError);
+  // 최초 실행: 전체 스크래퍼 완료 후 cron 시작 (DB 풀 경쟁 방지)
+  console.log('[scheduler] running initial scraper batch before enabling cron jobs...');
+  runAllScrapers()
+    .catch(captureError)
+    .finally(() => {
+      console.log('[scheduler] initial scraper run complete — starting cron jobs');
+      startCronJobs();
+    });
+}
 
+function startCronJobs(): void {
   // 우선순위별 cron
   for (const [priority, minutes] of Object.entries(PRIORITY_INTERVALS)) {
     cron.schedule(`*/${minutes} * * * *`, () => {

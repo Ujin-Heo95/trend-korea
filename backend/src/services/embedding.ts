@@ -147,23 +147,53 @@ export function clearEmbeddingCache(): void {
 
 import type { Pool } from 'pg';
 
+let isGeneratingEmbeddings = false;
+let embeddingStartedAt = 0;
+const EMBEDDING_TIMEOUT_MS = 5 * 60_000; // 5분 타임아웃
+
 /**
  * 최근 6시간 이슈 대상 포스트의 임베딩을 생성.
  * 스케줄러에서 calculateScores() 직후, aggregateIssues() 전에 호출.
  */
 export async function generateEmbeddingsForRecentPosts(pool: Pool): Promise<void> {
-  const { rows } = await pool.query<{ id: number; title: string }>(
-    `SELECT id, title FROM posts
-     WHERE scraped_at > NOW() - INTERVAL '6 hours'
-       AND COALESCE(category, '') IN ('news','press','community','video','video_popular')
-     ORDER BY scraped_at DESC
-     LIMIT 1000`,
-  );
+  if (isGeneratingEmbeddings) {
+    const elapsed = Date.now() - embeddingStartedAt;
+    if (elapsed < EMBEDDING_TIMEOUT_MS) {
+      logger.warn('[embedding] skipping — previous run still active');
+      return;
+    }
+    logger.warn(`[embedding] force-releasing stale lock (${Math.round(elapsed / 1000)}s old)`);
+    isGeneratingEmbeddings = false;
+  }
+  isGeneratingEmbeddings = true;
+  embeddingStartedAt = Date.now();
+  try {
+    const { rows } = await pool.query<{ id: number; title: string }>(
+      `SELECT id, title FROM posts
+       WHERE scraped_at > NOW() - INTERVAL '6 hours'
+         AND COALESCE(category, '') IN ('news','press','community','video','video_popular')
+       ORDER BY scraped_at DESC
+       LIMIT 1000`,
+    );
 
-  if (rows.length === 0) return;
+    if (rows.length === 0) return;
 
-  const count = await generateEmbeddings(rows.map(r => ({ id: r.id, title: r.title })));
-  if (count > 0) {
-    logger.info({ generated: count, cached: embeddingCache.size }, '[embedding] batch complete');
+    const count = await generateEmbeddings(rows.map(r => ({ id: r.id, title: r.title })));
+    if (count > 0) {
+      logger.info({ generated: count, cached: embeddingCache.size }, '[embedding] batch complete');
+    }
+  } finally {
+    isGeneratingEmbeddings = false;
   }
 }
+
+// ─── Periodic Cache Pruning ───
+
+setInterval(() => {
+  const before = embeddingCache.size;
+  pruneCache();
+  const pruned = before - embeddingCache.size;
+  if (pruned > 0) {
+    logger.info({ pruned, remaining: embeddingCache.size }, '[embedding] periodic cache prune');
+  }
+}, 60 * 60_000); // 1시간마다

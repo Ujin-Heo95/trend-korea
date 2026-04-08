@@ -33,6 +33,18 @@ if (config.sentryDsn) {
   console.log('[sentry] initialized');
 }
 
+// ── Process-level error handlers ─────────────────────
+process.on('unhandledRejection', (reason) => {
+  console.error('[process] unhandledRejection:', reason);
+  if (config.sentryDsn) Sentry.captureException(reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[process] uncaughtException:', err);
+  if (config.sentryDsn) Sentry.captureException(err);
+  setTimeout(() => process.exit(1), 3000);
+});
+
 declare module 'fastify' { interface FastifyInstance { pg: Pool; } }
 
 export async function buildApp() {
