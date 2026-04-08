@@ -146,8 +146,8 @@
     },
     {
       "key": "ppomppu_best",
-      "name": "뽐뿌",
-      "category": "community",
+      "name": "뽐뿌 베스트",
+      "category": "deals",
       "type": "html",
       "module": "./ppomppu-best.js",
       "className": "PpomppuBestScraper",
@@ -781,26 +781,6 @@
       "enabled": false
     },
     {
-      "key": "daum_cafe",
-      "name": "다음 카페 검색",
-      "category": "community",
-      "type": "api",
-      "module": "./daum-search.js",
-      "className": "DaumCafeScraper",
-      "priority": "medium",
-      "enabled": true
-    },
-    {
-      "key": "daum_blog",
-      "name": "다음 블로그 검색",
-      "category": "blog",
-      "type": "api",
-      "module": "./daum-search.js",
-      "className": "DaumBlogScraper",
-      "priority": "low",
-      "enabled": false
-    },
-    {
       "key": "bigkinds_issues",
       "name": "빅카인즈 오늘의 이슈",
       "category": "trend",
@@ -947,24 +927,6 @@
       "className": "DogdripScraper",
       "priority": "medium",
       "enabled": true
-    },
-    {
-      "key": "reddit_korea",
-      "name": "Reddit r/korea",
-      "category": "community",
-      "type": "rss",
-      "feedUrl": "https://www.reddit.com/r/korea/.rss",
-      "priority": "low",
-      "enabled": false
-    },
-    {
-      "key": "reddit_hanguk",
-      "name": "Reddit r/hanguk",
-      "category": "community",
-      "type": "rss",
-      "feedUrl": "https://www.reddit.com/r/hanguk/.rss",
-      "priority": "low",
-      "enabled": false
     },
     {
       "key": "daangn_tech",

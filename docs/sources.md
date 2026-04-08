@@ -58,7 +58,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ---
 
-## 2. 현재 소스 현황 (125개 등록, 87개 활성)
+## 2. 현재 소스 현황 (122개 등록, 86개 활성)
 
 | 카테고리 | 소스 | 수집방식 | 우선순위 | 상태 |
 |----------|------|----------|----------|------|
@@ -71,11 +71,9 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | community | mlbpark, cook82, inven, humoruniv, ygosu, slrclub | HTML | high/medium | 안정 |
 | community | etoland | HTML | high | 개선 (Sec-Fetch+딜레이 추가, 2026-04-07) |
 | community | natepann_ranking | HTML | medium | 안정 |
-| community | daum_cafe | API (Kakao) | medium | 안정 |
-| community | ppomppu_best | HTML (euc-kr) | high | **신규** (베스트 게시판 크롤링, 2026-04-08) |
+| deals | ppomppu_best | HTML (euc-kr) | high | **신규** (베스트 게시판 크롤링, 2026-04-08) |
 | community | arcalive | HTML | medium | **신규** (라이브 채널 크롤링, 2026-04-08) |
 | community | ppomppu | RSS | high | **disabled** (핫딜 전용 전환, 2026-04-07) |
-| community | reddit_korea, reddit_hanguk | RSS (Atom) | low | **disabled** (비활성화 2026-04-04) |
 | news | yna, hani, sbs, donga, khan, hankyung, mk, kmib | RSS | medium | 안정 |
 | news | chosun, jtbc | RSS | high | 안정 |
 | news | ohmynews, nocutnews, asiae, segye, bbc_korean, mbn | RSS | medium | 안정 |
@@ -184,7 +182,6 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | tour_visitor | ✓ | ✓ | ✗ | ✗ | ✓* | ✓* | ✗ | ✓ | ✓ |
 | upbit | ✓ | ✓ | ✗ | ✗ | ✓* | ✗ | ✗ | ✗ | ✓ |
 | bigkinds | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ |
-| daum_cafe/blog | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ |
 | airkorea | ✓ | ✓ | ✗ | ✗ | ✓* | ✗ | ✗ | ✗ | ✓ |
 
 ### Apify SNS

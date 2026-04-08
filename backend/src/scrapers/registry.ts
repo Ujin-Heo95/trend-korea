@@ -47,8 +47,6 @@ export function getSourcesByPriority(priority: SourcePriority): readonly SourceE
 const API_KEY_REQUIREMENTS: Record<string, { key: keyof typeof config; label: string }> = {
   youtube:        { key: 'youtubeApiKey',    label: 'YOUTUBE_API_KEY' },
   youtube_search: { key: 'youtubeApiKey',    label: 'YOUTUBE_API_KEY' },
-  daum_cafe:      { key: 'kakaoRestApiKey',  label: 'KAKAO_REST_API_KEY' },
-  daum_blog:      { key: 'kakaoRestApiKey',  label: 'KAKAO_REST_API_KEY' },
   naver_datalab:  { key: 'naverClientId',    label: 'NAVER_CLIENT_ID' },
   kobis_boxoffice:{ key: 'kobisApiKey',      label: 'KOBIS_API_KEY' },
   kopis_boxoffice:{ key: 'kopisApiKey',      label: 'KOPIS_API_KEY' },
@@ -140,9 +138,6 @@ async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<BaseScr
     // API scrapers that need extra apiKey argument
     if (source.key === 'youtube' || source.key === 'youtube_search') {
       return new ScraperClass(pool, config.youtubeApiKey);
-    }
-    if (source.key === 'daum_cafe' || source.key === 'daum_blog') {
-      return new ScraperClass(pool, config.kakaoRestApiKey);
     }
     return new ScraperClass(pool);
   } catch (err) {
