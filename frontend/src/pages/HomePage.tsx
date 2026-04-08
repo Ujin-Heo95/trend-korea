@@ -154,8 +154,8 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         <TravelSubTabs selected={travelSub} onChange={setTravelSub} />
       )}
 
-      {category === 'community' && (
-        <SourceFilterChips category="community" selected={selectedSources} onChange={setSelectedSources} />
+      {(category === 'community' || isNewsTab) && (
+        <SourceFilterChips category={category!} selected={selectedSources} onChange={setSelectedSources} />
       )}
 
       {(category === 'community' || isNewsTab) && (
