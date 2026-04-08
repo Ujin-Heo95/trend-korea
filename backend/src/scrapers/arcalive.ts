@@ -8,7 +8,15 @@ export class ArcaliveScraper extends BaseScraper {
 
   async fetch(): Promise<ScrapedPost[]> {
     const $ = await fetchHtml('https://arca.live/b/live', {
-      headers: { Referer: 'https://arca.live/' },
+      headers: {
+        Referer: 'https://arca.live/',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
+        Cookie: 'bb_warning_closed=true',
+      },
     });
 
     const posts: ScrapedPost[] = [];
