@@ -40,10 +40,10 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
             날씨
           </Link>
           <Link
-            to="/bookmarks"
-            className="text-xs font-medium px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-colors hidden sm:inline-block"
+            to="/fortune"
+            className="text-xs font-medium px-2 py-1 rounded-full bg-violet-50 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/60 transition-colors hidden sm:inline-block"
           >
-            북마크
+            운세
           </Link>
         </div>
 

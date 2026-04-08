@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useIssueRankingDetail } from '../hooks/usePosts';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { getSourceColor } from '../constants/sourceColors';
-import { ShareButton } from '../components/shared/ShareButton';
 import { ErrorRetry } from '../components/shared/ErrorRetry';
 import { AdSlot } from '../components/shared/AdSlot';
 import { IssueDetailSkeleton } from '../components/shared/IssueDetailSkeleton';
@@ -131,15 +130,6 @@ export const IssueDetailPage: React.FC = () => {
       {/* Ad slot */}
       <AdSlot slotId="issue-detail" format="rectangle" className="my-6" />
 
-      {/* Share button */}
-      <div className="flex items-center gap-3 mt-6">
-        <ShareButton
-          url={`${window.location.origin}/issue/${issue.id}`}
-          title={issue.title}
-          description={issue.summary ?? issue.title}
-          thumbnail={issue.thumbnail ?? undefined}
-        />
-      </div>
     </div>
   );
 };

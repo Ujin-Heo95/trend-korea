@@ -2,9 +2,6 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Post } from '../types';
 import { getSourceColor } from '../constants/sourceColors';
-import { ShareButton } from './shared/ShareButton';
-import { VoteButton } from './shared/VoteButton';
-import { BookmarkButton } from './shared/BookmarkButton';
 import { optimizedImage } from '../utils/imageProxy';
 import { timeAgo } from '../utils/timeAgo';
 import { formatCount } from '../utils/formatCount';
@@ -16,12 +13,10 @@ interface PostCardProps {
   rank?: number;
   isRead?: boolean;
   onRead?: (url: string) => void;
-  hasVoted?: boolean;
-  onVote?: (postId: number, onCountUpdate?: (count: number) => void) => void;
   style?: React.CSSProperties;
 }
 
-export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRead, onRead, hasVoted, onVote, style }) => {
+export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRead, onRead, style }) => {
   const [expanded, setExpanded] = useState(false);
   const clusterSize = post.cluster_size ?? 1;
   const hasClusters = clusterSize > 1;
@@ -53,19 +48,13 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
               </div>
             )}
 
-            {/* Thumbnail */}
-            {post.thumbnail && (
-              <div className="flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
-                <img src={optimizedImage(post.thumbnail, 128)} alt="" loading="lazy" decoding="async" width={64} height={48} className="w-full h-full object-cover" />
-              </div>
-            )}
-
-            {/* Content: title-first */}
+            {/* Content: title + metrics */}
             <div className="flex-1 min-w-0">
               <p className={`text-sm leading-snug line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 ${
                 isRead ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-50'
               }`}>
                 {post.title}
+                <span className="text-[11px] text-slate-400 dark:text-slate-500 ml-1.5 whitespace-nowrap">{timeAgo(post.published_at ?? post.first_scraped_at)}</span>
               </p>
               {/* Metrics row */}
               <div className="flex items-center gap-3 mt-1 text-xs text-slate-400 dark:text-slate-500 tabular-nums">
@@ -100,10 +89,25 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
                     {post.source_name}
                   </span>
                 )}
-                <span className="text-slate-300 dark:text-slate-600">·</span>
-                <span>{timeAgo(post.published_at ?? post.first_scraped_at)}</span>
+                {hasClusters && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(!expanded); }}
+                    aria-expanded={expanded}
+                    className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
+                  >
+                    +{clusterSize - 1}
+                  </button>
+                )}
               </div>
             </div>
+
+            {/* Thumbnail — square, right-aligned */}
+            {post.thumbnail && (
+              <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
+                <img src={optimizedImage(post.thumbnail, 96)} alt="" loading="lazy" decoding="async" width={48} height={48} className="w-full h-full object-cover" />
+              </div>
+            )}
           </div>
         );
         return isExternalLink ? (
@@ -117,34 +121,8 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
         );
       })()}
 
-      {/* Action buttons + clusters — inline row (hidden for news) */}
-      {(() => {
-        const isNews = NEWS_CATEGORIES.includes(post.category ?? '');
-        const showActions = !isNews && (onVote || true);
-        const showCluster = hasClusters;
-        if (!showActions && !showCluster) return null;
-        return (
-          <div className="flex items-center gap-2 px-4 pb-2 -mt-1">
-            {!isNews && onVote && (
-              <VoteButton postId={post.id} voteCount={post.vote_count} hasVoted={hasVoted ?? false} onVote={onVote} />
-            )}
-            {!isNews && <BookmarkButton post={post} />}
-            {!isNews && <ShareButton url={post.url} title={post.title} thumbnail={post.thumbnail} />}
-            {showCluster && (
-              <button
-                type="button"
-                onClick={() => setExpanded(!expanded)}
-                aria-expanded={expanded}
-                className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
-              >
-                외 {clusterSize - 1}개 소스 {expanded ? '▲' : '▼'}
-              </button>
-            )}
-          </div>
-        );
-      })()}
       {expanded && post.related_sources && post.related_sources.length > 0 && (
-        <div className="px-4 pb-3 ml-4 space-y-1 border-l-2 border-slate-200 dark:border-slate-600 pl-3">
+        <div className="px-4 pb-2 ml-10 space-y-1 border-l-2 border-slate-200 dark:border-slate-600 pl-3">
           {post.related_sources.map((s) => {
             const isExternalSource = post.category === 'community' || NEWS_CATEGORIES.includes(post.category ?? '');
             return isExternalSource ? (

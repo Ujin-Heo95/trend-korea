@@ -9,7 +9,6 @@ const WeatherPage = lazy(() => import('./pages/WeatherPage').then(m => ({ defaul
 const AboutPage = lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 const IssueDetailPage = lazy(() => import('./pages/IssueDetailPage').then(m => ({ default: m.IssueDetailPage })));
-const BookmarksPage = lazy(() => import('./pages/BookmarksPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
 const FortunePage = lazy(() => import('./pages/FortunePage').then(m => ({ default: m.FortunePage })));
 
@@ -65,7 +64,6 @@ function MainRoutes() {
           <Route path="/entertainment" element={<Navigate to="/?category=movie" replace />} />
           <Route path="/weather" element={<WeatherPage />} />
           <Route path="/issue/:postId" element={<IssueDetailPage />} />
-          <Route path="/bookmarks" element={<BookmarksPage />} />
           <Route path="/fortune" element={<FortunePage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />

@@ -24,7 +24,6 @@ import { CommunityRankingList } from '../components/CommunityRankingList';
 import { IssueRankingList } from '../components/IssueRankingList';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useReadPosts } from '../hooks/useReadPosts';
-import { useVotes } from '../hooks/useVotes';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 
 const CATEGORY_TITLES: Record<string, string> = {
@@ -62,7 +61,6 @@ interface Props {
 export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQuery }) => {
   useDocumentTitle(category ? CATEGORY_TITLES[category] : undefined);
   const { isRead, markAsRead } = useReadPosts();
-  const { hasVoted, vote } = useVotes();
   const mainRef = useRef<HTMLDivElement>(null);
   usePullToRefresh(mainRef);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
@@ -252,8 +250,6 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
                   rank={(category === 'community' || isNewsTab) && sortMode === 'trending' ? i + 1 : undefined}
                   isRead={isRead(post.url)}
                   onRead={markAsRead}
-                  hasVoted={hasVoted(post.id)}
-                  onVote={vote}
                   style={i < 15 ? { '--enter-delay': `${i * 40}ms` } as React.CSSProperties : undefined}
                 />
                 {(i + 1) % 5 === 0 && <AdSlot slotId="home-infeed" format="native" className="my-1" />}
