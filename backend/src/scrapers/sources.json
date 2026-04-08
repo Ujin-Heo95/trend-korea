@@ -498,7 +498,7 @@
     {
       "key": "ddanzi",
       "name": "딴지일보",
-      "category": "community",
+      "category": "news",
       "type": "rss",
       "feedUrl": "https://www.ddanzi.com/rss",
       "priority": "high",
@@ -699,7 +699,7 @@
     {
       "key": "etnews",
       "name": "전자신문",
-      "category": "tech",
+      "category": "news",
       "type": "rss",
       "feedUrl": "https://rss.etnews.com/Section901.xml",
       "priority": "medium",

@@ -82,11 +82,11 @@ export const CONFIG_GROUPS: readonly ConfigGroup[] = [
           // T3: 주요 언론
           khan: 2.0, mk: 2.0, hani: 2.0, donga: 2.0, hankyung: 2.0, ytn: 2.0,
           // T4: 포털·통합
-          daum_news: 1.8, google_news_kr: 1.6, newsis: 1.8,
+          daum_news: 1.8, google_news_kr: 1.6, newsis: 1.8, ddanzi: 1.6, etnews: 2.0,
           // YouTube
           youtube: 2.5,
           // 테크
-          geeknews: 1.3, yozm: 1.3, etnews: 1.5,
+          geeknews: 1.3, yozm: 1.3,
           naver_d2: 1.1, kakao_tech: 1.1, toss_tech: 1.1,
           // 커뮤니티
           dcinside: 1.0, bobaedream: 1.0, ruliweb: 1.0, theqoo: 1.0,
@@ -142,7 +142,7 @@ export const CONFIG_GROUPS: readonly ConfigGroup[] = [
           // Tier C
           ppomppu: 1.0, bobaedream: 1.0, mlbpark: 1.0, cook82: 1.0, dogdrip: 1.0,
           // Tier D
-          inven: 0.9, ddanzi: 0.9, humoruniv: 0.85, ygosu: 0.85, slrclub: 0.8, etoland: 0.8,
+          inven: 0.9, humoruniv: 0.85, ygosu: 0.85, slrclub: 0.8, etoland: 0.8,
           DEFAULT: 1.0,
         },
         min: 0.1, max: 5.0, step: 0.05,

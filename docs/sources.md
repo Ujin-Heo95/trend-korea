@@ -63,7 +63,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | 카테고리 | 소스 | 수집방식 | 우선순위 | 상태 |
 |----------|------|----------|----------|------|
 | community | dcinside, bobaedream, theqoo, instiz, natepann, todayhumor | HTML | high | 안정 |
-| community | ddanzi | RSS | high | 안정 |
+| news | ddanzi | RSS | high | 안정 |
 | community | clien | HTML | medium | 안정 |
 | community | fmkorea | HTML | medium | 재작성 (쿠키 바이패스+Sec-Fetch, 2026-04-07) |
 | community | ruliweb | HTML | high | 재작성 (Sec-Fetch 헤더 보강, 2026-04-07) |
@@ -84,7 +84,8 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | trend | bigkinds_issues | API→trend_keywords 직접 | low | 안정 |
 | news | cnn, koreaherald, koreatimes | RSS | medium/low | **disabled** (영문 중심, 2026-04-07) |
 | news | joins, kbs, mbc, ytn, daum_news, seoul | RSS | high | **disabled** (RSS 서비스 종료/404) |
-| tech | yozm, etnews | RSS | medium | 안정 |
+| news | etnews | RSS | medium | 안정 |
+| tech | yozm | RSS | medium | 안정 |
 | tech | boannews | RSS (euc-kr) | medium | 안정 |
 | tech | zdnet_kr, itworld_kr | RSS | medium | 안정 |
 | tech | geeknews | HTML | medium | 안정 |
