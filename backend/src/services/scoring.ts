@@ -107,6 +107,7 @@ async function _calculateScores(pool: Pool): Promise<number> {
       FROM posts p
       WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
         AND COALESCE(p.category, '') IN ('news', 'press', 'community', 'finance', 'video', 'video_popular')
+        AND p.title NOT LIKE '[사진]%'
     `),
   ]);
 

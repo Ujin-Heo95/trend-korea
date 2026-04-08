@@ -60,6 +60,9 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
         conditions.push(`p.title ILIKE $${params.push(`%${escapedQ}%`)}`);
       }
 
+      // 포토뉴스 제외 ([사진] 접두사)
+      conditions.push(`p.title NOT LIKE '[사진]%'`);
+
       // Trending: limit scan to 48h window (scoring only covers 24h)
       if (isTrending) {
         conditions.push(`p.scraped_at > NOW() - INTERVAL '48 hours'`);
