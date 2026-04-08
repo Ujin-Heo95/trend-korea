@@ -81,7 +81,7 @@ if (apifyMonthlyBudgetCents !== rawApifyBudget) {
   console.warn(`[config] WARNING: APIFY_MONTHLY_BUDGET_CENTS="${process.env.APIFY_MONTHLY_BUDGET_CENTS}" invalid — defaulting to 2000`);
 }
 
-const dbPoolMax = Math.min(Math.max(Number(process.env.DB_POOL_MAX ?? 20) || 20, 1), 50);
+const dbPoolMax = Math.min(Math.max(Number(process.env.DB_POOL_MAX ?? 8) || 8, 1), 50);
 const dbIdleTimeoutMs = Number(process.env.DB_IDLE_TIMEOUT_MS ?? 30000) || 30000;
 const dbConnectionTimeoutMs = Number(process.env.DB_CONNECTION_TIMEOUT_MS ?? 5000) || 5000;
 

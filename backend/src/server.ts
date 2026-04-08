@@ -22,6 +22,7 @@ import { issueRankingDetailRoutes } from './routes/issueRankingDetail.js';
 import { adminConfigRoutes } from './routes/adminConfig.js';
 import { communityRankingRoutes } from './routes/communityRanking.js';
 import { startScheduler } from './scheduler/index.js';
+import { awaitRunningScrapers } from './scrapers/index.js';
 import { registerPrerender } from './middleware/prerender.js';
 import { initScoringConfig } from './services/scoringConfig.js';
 
@@ -181,6 +182,7 @@ if (isMain) {
   const shutdown = async (signal: string) => {
     console.log(`[server] ${signal} received — shutting down gracefully`);
     await app.close();
+    await awaitRunningScrapers(15_000);
     await gracefulShutdown();
     if (config.sentryDsn) await Sentry.close(2000);
     console.log('[server] shutdown complete');

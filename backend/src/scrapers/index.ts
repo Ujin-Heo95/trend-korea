@@ -65,7 +65,7 @@ export async function runScrapersByPriority(priority: SourcePriority): Promise<v
     if (entries.length === 0) return;
 
     console.log(`[scheduler] running ${entries.length} ${priority}-priority scrapers`);
-    const limit = pLimit(4);
+    const limit = pLimit(2);
     const results = await Promise.allSettled(entries.map(e => limit(() => runScraper(e))));
     const errors: ScraperError[] = [];
     results.forEach((r, i) => {
@@ -145,5 +145,21 @@ export async function runAllScrapers(): Promise<void> {
     }
   } finally {
     runningLocks.set('all', false);
+  }
+}
+
+/** Wait for all running scraper batches to finish (up to timeoutMs). */
+export async function awaitRunningScrapers(timeoutMs = 15_000): Promise<void> {
+  const isRunning = () => Array.from(runningLocks.values()).some(Boolean);
+  if (!isRunning()) return;
+  console.log('[scrapers] waiting for running scrapers to finish...');
+  const deadline = Date.now() + timeoutMs;
+  while (isRunning() && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  if (isRunning()) {
+    console.warn('[scrapers] timeout — proceeding with shutdown despite running scrapers');
+  } else {
+    console.log('[scrapers] all scrapers finished');
   }
 }

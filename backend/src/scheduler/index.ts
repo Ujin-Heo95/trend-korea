@@ -30,19 +30,21 @@ const PRIORITY_INTERVALS = {
   low: 30,    // 정부, 기상청
 } as const;
 
-export function startScheduler(): void {
+export function startScheduler(delayMs = 60_000): void {
   console.log(`[scheduler] priority intervals: high=${PRIORITY_INTERVALS.high}min, medium=${PRIORITY_INTERVALS.medium}min, low=${PRIORITY_INTERVALS.low}min`);
   console.log(`[scheduler] cleanup: twice daily (00:00, 12:00 UTC)`);
   console.log(`[scheduler] quiet hours: 02:00-06:00 KST (issue aggregation paused)`);
 
-  // 최초 실행: 전체 스크래퍼 완료 후 cron 시작 (DB 풀 경쟁 방지)
-  console.log('[scheduler] running initial scraper batch before enabling cron jobs...');
-  runAllScrapers()
-    .catch(captureError)
-    .finally(() => {
-      console.log('[scheduler] initial scraper run complete — starting cron jobs');
-      startCronJobs();
-    });
+  // 배포 직후 DB 커넥션 경쟁 방지: 서버 listen 후 일정 시간 대기
+  console.log(`[scheduler] waiting ${delayMs / 1000}s before initial scraper run...`);
+  setTimeout(() => {
+    runAllScrapers()
+      .catch(captureError)
+      .finally(() => {
+        console.log('[scheduler] initial scraper run complete — starting cron jobs');
+        startCronJobs();
+      });
+  }, delayMs);
 }
 
 function startCronJobs(): void {
