@@ -73,7 +73,7 @@
     {
       "key": "youtube",
       "name": "YouTube 인기",
-      "category": "video_popular",
+      "category": "video",
       "type": "api",
       "module": "./youtube.js",
       "className": "YoutubeScraper",
@@ -378,7 +378,7 @@
     {
       "key": "krx",
       "name": "KRX 시장",
-      "category": "finance",
+      "category": "news",
       "type": "api",
       "module": "./krx.js",
       "className": "KrxScraper",
@@ -388,7 +388,7 @@
     {
       "key": "investing_kr",
       "name": "Investing.com 한국",
-      "category": "finance",
+      "category": "news",
       "subcategory": "경제",
       "type": "rss",
       "feedUrl": "https://kr.investing.com/rss/news.rss",
@@ -398,7 +398,7 @@
     {
       "key": "sedaily",
       "name": "서울경제",
-      "category": "finance",
+      "category": "news",
       "subcategory": "경제",
       "type": "rss",
       "feedUrl": "https://www.sedaily.com/RSS/Economy",
@@ -717,7 +717,7 @@
     {
       "key": "newswire",
       "name": "뉴스와이어",
-      "category": "press",
+      "category": "news",
       "type": "rss",
       "feedUrl": "https://api.newswire.co.kr/rss/all",
       "priority": "medium",
@@ -901,7 +901,7 @@
     {
       "key": "moneytoday",
       "name": "머니투데이",
-      "category": "finance",
+      "category": "news",
       "subcategory": "경제",
       "type": "rss",
       "feedUrl": "https://rss.mt.co.kr/mt_news.xml",
@@ -958,7 +958,7 @@
     {
       "key": "upbit",
       "name": "업비트 시세",
-      "category": "finance",
+      "category": "news",
       "type": "api",
       "module": "./upbit.js",
       "className": "UpbitScraper",
@@ -1015,7 +1015,7 @@
     {
       "key": "edaily",
       "name": "이데일리",
-      "category": "finance",
+      "category": "news",
       "subcategory": "경제",
       "type": "rss",
       "feedUrl": "http://rss.edaily.co.kr/edaily_news.xml",
@@ -1025,7 +1025,7 @@
     {
       "key": "bizwatch",
       "name": "비즈워치",
-      "category": "finance",
+      "category": "news",
       "subcategory": "경제",
       "type": "rss",
       "feedUrl": "https://news.bizwatch.co.kr/rss/service/industry",

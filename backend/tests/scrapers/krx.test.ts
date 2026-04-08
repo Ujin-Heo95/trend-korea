@@ -23,7 +23,7 @@ describe('KrxScraper', () => {
     expect(posts[0]).toMatchObject({
       sourceKey: 'krx',
       sourceName: 'KRX 시장',
-      category: 'finance',
+      category: 'news',
     });
     expect(posts[0].title).toContain('삼성전자');
     expect(posts[0].url).toContain('data.krx.co.kr');

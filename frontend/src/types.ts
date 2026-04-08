@@ -1,7 +1,7 @@
 export type Category =
-  | 'community' | 'video' | 'video_popular' | 'news' | 'tech'
-  | 'finance' | 'trend' | 'government' | 'newsletter'
-  | 'deals' | 'alert' | 'sports' | 'press' | 'techblog'
+  | 'community' | 'video' | 'news' | 'tech' | 'portal'
+  | 'trend' | 'government' | 'newsletter'
+  | 'deals' | 'alert' | 'sports' | 'techblog'
   | 'movie' | 'performance' | 'sns' | 'travel' | 'music'
   | 'books' | 'ott';
 

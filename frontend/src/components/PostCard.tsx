@@ -6,7 +6,7 @@ import { optimizedImage } from '../utils/imageProxy';
 import { timeAgo } from '../utils/timeAgo';
 import { formatCount } from '../utils/formatCount';
 
-const NEWS_CATEGORIES = ['news', 'press', 'newsletter', 'tech', 'finance'];
+const NEWS_CATEGORIES = ['news', 'newsletter', 'tech', 'portal'];
 
 interface PostCardProps {
   post: Post;

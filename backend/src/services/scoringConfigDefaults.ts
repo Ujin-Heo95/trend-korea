@@ -112,8 +112,8 @@ export const CONFIG_GROUPS: readonly ConfigGroup[] = [
       {
         key: 'values',
         defaultValue: {
-          alert: 1.25, news: 1.20, trend: 1.15, tech: 1.15,
-          finance: 1.10, community: 1.08, video: 0.95,
+          alert: 1.25, news: 1.20, portal: 1.20, trend: 1.15, tech: 1.15,
+          community: 1.08, video: 0.95,
           movie: 1.05, performance: 1.05, travel: 1.05, music: 1.05,
           books: 1.05, ott: 1.05,
           deals: 1.00, government: 0.85, newsletter: 0.80,

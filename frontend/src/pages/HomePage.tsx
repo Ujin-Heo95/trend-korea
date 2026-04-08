@@ -26,7 +26,7 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh';
 
 const CATEGORY_TITLES: Record<string, string> = {
   community: '커뮤니티',
-  'news,press,newsletter,tech,finance': '뉴스',
+  'news,newsletter,tech': '뉴스',
   video: 'YouTube',
   deals: '핫딜',
   entertainment: '엔터테인먼트',

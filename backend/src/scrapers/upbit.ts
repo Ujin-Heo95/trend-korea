@@ -64,7 +64,7 @@ export class UpbitScraper extends BaseScraper {
       title: `${name}(${symbol}) ${sign}${rate}% — ${price}원`,
       url: `https://upbit.com/exchange?code=CRIX.UPBIT.${t.market}`,
       viewCount: Math.round(t.acc_trade_price_24h / 1_000_000),
-      category: 'finance',
+      category: 'news',
       metadata: {
         symbol,
         price: t.trade_price,

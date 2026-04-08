@@ -6,6 +6,7 @@
 import { GoogleGenerativeAI, TaskType } from '@google/generative-ai';
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
+import { SCORED_CATEGORIES_SQL } from './scoring-weights.js';
 
 const EMBEDDING_MODEL = 'text-embedding-004';
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6시간
@@ -171,7 +172,7 @@ export async function generateEmbeddingsForRecentPosts(pool: Pool): Promise<void
     const { rows } = await pool.query<{ id: number; title: string }>(
       `SELECT id, title FROM posts
        WHERE scraped_at > NOW() - INTERVAL '6 hours'
-         AND COALESCE(category, '') IN ('news','press','community','video','video_popular')
+         AND COALESCE(category, '') IN ${SCORED_CATEGORIES_SQL}
        ORDER BY scraped_at DESC
        LIMIT 1000`,
     );

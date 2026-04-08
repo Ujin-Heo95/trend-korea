@@ -110,9 +110,9 @@ const HOME_CRUMB = { name: '위클릿', url: BASE_URL };
 
 const CATEGORY_LABELS: Record<string, string> = {
   community: '커뮤니티', news: '뉴스', tech: '테크', video: 'YouTube',
-  finance: '금융', trend: '트렌드', government: '정부', deals: '핫딜',
+  portal: '포털', trend: '트렌드', government: '정부', deals: '핫딜',
   sports: '스포츠', movie: '영화', performance: '공연/전시',
-  newsletter: '뉴스레터', press: '보도자료', techblog: '테크블로그', alert: '속보',
+  newsletter: '뉴스레터', techblog: '테크블로그', alert: '속보',
 };
 
 // ── 페이지별 메타데이터 ──

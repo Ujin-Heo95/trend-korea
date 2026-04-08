@@ -22,7 +22,7 @@ describe('CategoryTabs', () => {
     const onChange = vi.fn();
     render(<CategoryTabs selected={undefined} onChange={onChange} />);
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(7);
+    expect(tabs).toHaveLength(8);
   });
 
   it('marks the selected tab with aria-selected=true', () => {
@@ -89,7 +89,7 @@ describe('CategoryTabs', () => {
     render(<CategoryTabs selected={undefined} onChange={onChange} />);
 
     await user.click(screen.getByRole('tab', { name: /뉴스/ }));
-    expect(onChange).toHaveBeenCalledWith('news,press,newsletter,tech,finance');
+    expect(onChange).toHaveBeenCalledWith('news,newsletter,tech');
   });
 
   it('has proper tablist role on container', () => {

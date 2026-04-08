@@ -42,7 +42,7 @@ describe('getSourceColor', () => {
       { key: 'news', expected: 'bg-emerald-100' },
       { key: 'video', expected: 'bg-red-100' },
       { key: 'tech', expected: 'bg-violet-100' },
-      { key: 'finance', expected: 'bg-amber-100' },
+      { key: 'portal', expected: 'bg-amber-100' },
       { key: 'sns', expected: 'bg-pink-100' },
       { key: 'deal', expected: 'bg-orange-100' },
     ];

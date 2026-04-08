@@ -4,7 +4,7 @@ import { HorizontalScrollRow } from './shared/HorizontalScrollRow';
 const CATEGORIES: { key: string | undefined; label: string; icon: string }[] = [
   { key: undefined,                                                label: '전체',        icon: '📋' },
   { key: 'community',                                             label: '커뮤니티',    icon: '💬' },
-  { key: 'news,press,newsletter,tech,finance',                       label: '뉴스',        icon: '📰' },
+  { key: 'news,newsletter,tech',                                     label: '뉴스',        icon: '📰' },
   { key: 'video',                                                 label: '영상',        icon: '🎬' },
   { key: 'portal',                                                label: '포털',        icon: '🌐' },
   { key: 'deals',                                                 label: '핫딜',        icon: '🔥' },

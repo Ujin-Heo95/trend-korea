@@ -86,7 +86,7 @@ export async function calculateSubcategoryPercentiles(pool: Pool): Promise<Map<n
       )::float AS pct_rank
     FROM posts p
     LEFT JOIN post_scores ps ON ps.post_id = p.id
-    WHERE p.category IN ('news', 'press')
+    WHERE p.category = 'news'
       AND p.scraped_at > NOW() - INTERVAL '24 hours'
   `);
   const map = new Map<number, number>();
@@ -107,7 +107,7 @@ export async function detectBreakingNews(pool: Pool): Promise<Map<number, number
     JOIN post_cluster_members pcm ON pcm.cluster_id = pc.id
     JOIN posts p ON p.id = pcm.post_id
     WHERE pc.cluster_created_at > NOW() - INTERVAL '2 hours'
-      AND p.category IN ('news', 'press')
+      AND p.category = 'news'
     GROUP BY pc.canonical_post_id
     HAVING COUNT(DISTINCT p.source_key) >= 3
       AND MAX(p.scraped_at) - MIN(p.scraped_at) < INTERVAL '30 minutes'
@@ -209,8 +209,8 @@ export async function calculateChannelStats(pool: Pool): Promise<Map<Channel, So
     SELECT
       CASE
         WHEN category IN ('community','blog') THEN 'community'
-        WHEN category IN ('news','press','newsletter','government') THEN 'news'
-        WHEN category IN ('video','video_popular') THEN 'video'
+        WHEN category IN ('news','newsletter','government','portal') THEN 'news'
+        WHEN category = 'video' THEN 'video'
         WHEN category = 'sns' THEN 'sns'
         ELSE 'specialized'
       END AS channel,
@@ -385,7 +385,7 @@ export async function calculateClusterBonusMap(pool: Pool): Promise<Map<number, 
     SELECT pc.canonical_post_id, pc.member_count,
       COUNT(DISTINCT p.category)::int AS category_diversity,
       COUNT(DISTINCT p.source_key)::int AS source_diversity,
-      COUNT(DISTINCT CASE WHEN p.category IN ('news','press') THEN p.source_key END)::int AS news_outlet_count
+      COUNT(DISTINCT CASE WHEN p.category = 'news' THEN p.source_key END)::int AS news_outlet_count
     FROM post_clusters pc
     JOIN post_cluster_members pcm ON pcm.cluster_id = pc.id
     JOIN posts p ON p.id = pcm.post_id

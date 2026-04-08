@@ -114,9 +114,9 @@ export async function issueRankingDetailRoutes(app: FastifyInstance): Promise<vo
       );
       for (const p of posts.rows) {
         const { category, ...rest } = p;
-        if (category === 'news' || category === 'press') {
+        if (category === 'news' || category === 'portal') {
           newsPosts.push(rest);
-        } else if (category === 'video' || category === 'video_popular') {
+        } else if (category === 'video') {
           videoPosts.push(rest);
         } else {
           communityPosts.push(rest);

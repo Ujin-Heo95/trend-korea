@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import { createHash } from 'crypto';
 import { buildKeywordIndex, matchPostToKeywords, computeTrendSignalBonus } from './trendSignals.js';
-import { getChannel } from './scoring-weights.js';
+import { getChannel, SCORED_CATEGORIES_SQL } from './scoring-weights.js';
 import { bigrams, jaccardSimilarity, koreanTokenize, wordJaccardSimilarity } from './dedup.js';
 import { cosineSimilarity as embeddingCosine } from './embedding.js';
 import { getScoringConfig } from './scoringConfig.js';
@@ -182,7 +182,7 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
   const { rows: [{ cnt }] } = await pool.query<{ cnt: string }>(
     `SELECT COUNT(*) AS cnt FROM posts
      WHERE scraped_at > NOW() - INTERVAL '3 hours'
-       AND COALESCE(category, '') IN ('news','press','community','video','video_popular')`,
+       AND COALESCE(category, '') IN ${SCORED_CATEGORIES_SQL}`,
   );
   const recentVolume = parseInt(cnt, 10);
   const adaptiveWindow = recentVolume > 200
@@ -236,7 +236,7 @@ async function fetchScoredPosts(pool: Pool, windowHours: number): Promise<Scored
     LEFT JOIN post_scores ps ON ps.post_id = p.id
     LEFT JOIN post_cluster_members pcm ON pcm.post_id = p.id
     WHERE p.scraped_at > NOW() - make_interval(hours => $1)
-      AND COALESCE(p.category, '') IN ('news', 'press', 'community', 'video', 'video_popular')
+      AND COALESCE(p.category, '') IN ${SCORED_CATEGORIES_SQL}
     ORDER BY COALESCE(ps.trend_score, 0) DESC
   `, [windowHours]);
 

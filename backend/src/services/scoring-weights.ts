@@ -1,3 +1,10 @@
+// ─── Scored Categories (single source of truth) ───
+// 스코어링 + 이슈 집계 + 임베딩 대상 카테고리 — 변경 시 여기만 수정
+export const SCORED_CATEGORIES = ['news', 'community', 'video', 'portal'] as const;
+export type ScoredCategory = typeof SCORED_CATEGORIES[number];
+/** SQL IN 절용 리터럴: ('news','community','video','portal') */
+export const SCORED_CATEGORIES_SQL = `(${SCORED_CATEGORIES.map(c => `'${c}'`).join(',')})`;
+
 // ─── Channel-specific Decay ───
 // 커뮤니티/SNS는 실시간성 중시, 영상은 수명이 김
 
@@ -16,10 +23,10 @@ export const DEFAULT_HALF_LIFE_MINUTES = 300; // fallback
 
 const CATEGORY_TO_CHANNEL: Record<string, Channel> = {
   community: 'community', blog: 'community',
-  news: 'news', press: 'news', newsletter: 'news', government: 'news', portal: 'news',
-  video: 'video', video_popular: 'video',
+  news: 'news', newsletter: 'news', government: 'news', portal: 'news',
+  video: 'video',
   sns: 'sns',
-  tech: 'specialized', techblog: 'specialized', finance: 'specialized',
+  tech: 'specialized', techblog: 'specialized',
   deals: 'specialized', alert: 'specialized', trend: 'specialized',
   sports: 'specialized', movie: 'specialized', performance: 'specialized',
   travel: 'specialized', music: 'specialized', books: 'specialized', ott: 'specialized',
@@ -62,7 +69,7 @@ const DEFAULT_SOURCE_WEIGHT = 0.8;
 
 const CATEGORY_WEIGHTS: Record<string, number> = {
   alert: 1.25, news: 1.20, portal: 1.20, trend: 1.15, tech: 1.15,
-  finance: 1.10, community: 1.08, video: 0.95,
+  community: 1.08, video: 0.95,
   movie: 1.05, performance: 1.05, travel: 1.05, music: 1.05, books: 1.05, ott: 1.05,
   deals: 1.00, government: 0.85, newsletter: 0.80,
 };
