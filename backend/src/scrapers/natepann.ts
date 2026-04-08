@@ -29,15 +29,15 @@ export class NatepannScraper extends BaseScraper {
       const url = `https://pann.nate.com${href}`;
 
       const tds = $(el).find('td');
-      const viewCount = parseInt(tds.eq(2).text().replace(/,/g, '')) || undefined;
-      const likeCount = parseInt(tds.eq(3).text().replace(/,/g, '')) || undefined;
+      // c20001 페이지: td[0]=subject, td[1]=writer — viewCount/likeCount 컬럼 없음
       const commentMatch = subjectTd.find('.reple-num').text().match(/\((\d+)\)/);
       const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
+      const author = tds.eq(1).text().trim() || undefined;
 
-      const dateText = tds.eq(4).text().trim() || tds.eq(1).text().trim();
+      const dateText = tds.eq(2).text().trim() || tds.eq(3).text().trim();
       const publishedAt = parseKoreanDate(dateText);
       if (title && href) {
-        posts.push({ sourceKey: 'natepann', sourceName: '네이트판', title, url, viewCount, commentCount, likeCount, publishedAt });
+        posts.push({ sourceKey: 'natepann', sourceName: '네이트판', title, url, author, commentCount, publishedAt });
       }
     });
 

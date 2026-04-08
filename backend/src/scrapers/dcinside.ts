@@ -36,6 +36,8 @@ export class DcinsideScraper extends BaseScraper {
       const commentMatch = $(el).find('.reply_num').text().match(/\[(\d+)\]/);
       const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
       const likeCount = parseInt($(el).find('td.gall_recommend').text().replace(/,/g, '')) || undefined;
+      const writerEl = $(el).find('td.gall_writer');
+      const author = writerEl.attr('data-nick') || writerEl.find('em').text().trim() || undefined;
       const dateText = $(el).find('td.gall_date').attr('title') ?? $(el).find('td.gall_date').text().trim();
       const publishedAt = parseKoreanDate(dateText);
 
@@ -46,6 +48,7 @@ export class DcinsideScraper extends BaseScraper {
           title,
           url,
           thumbnail,
+          author,
           viewCount,
           commentCount,
           likeCount,

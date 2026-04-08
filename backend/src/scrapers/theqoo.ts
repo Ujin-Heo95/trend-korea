@@ -21,11 +21,11 @@ export class TheqooScraper extends BaseScraper {
       const viewCount = parseInt($(el).find('.m_no').text().replace(/,/g, '')) || undefined;
       const commentText = $(el).find('.replyNum').text().trim();
       const commentCount = commentText ? parseInt(commentText.replace(/,/g, '')) || undefined : undefined;
-      const likeCount = parseInt($(el).find('.m_no_voted').text().replace(/,/g, '')) || undefined;
+      // hot 페이지에 추천수(m_no_voted) 컬럼 미노출 — 테이블 헤더: 번호/카테고리/제목/날짜/조회만 존재
       const dateText = $(el).find('td.time').text().trim();
       const publishedAt = parseKoreanDate(dateText);
       if (title && url && url !== 'https://theqoo.net') {
-        posts.push({ sourceKey: 'theqoo', sourceName: '더쿠', title, url, viewCount, commentCount, likeCount, publishedAt });
+        posts.push({ sourceKey: 'theqoo', sourceName: '더쿠', title, url, viewCount, commentCount, publishedAt });
       }
     });
     return posts.slice(0, 30);

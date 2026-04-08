@@ -301,12 +301,12 @@ describe('InstizScraper', () => {
       sourceName: '인스티즈',
       title: '인스티즈 인기글',
       url: 'https://www.instiz.net/pt/12345',
-      viewCount: 1234,
       commentCount: 56,
     });
+    // 목록 페이지에 조회수/추천수 미노출 — viewCount/likeCount undefined
+    expect(posts[0].viewCount).toBeUndefined();
     expect(posts[1]).toMatchObject({
       title: '두번째 글',
-      viewCount: 500,
     });
   });
 });
@@ -394,20 +394,19 @@ describe('MlbparkScraper', () => {
 
 // ─── NatePann ────────────────────────────────────────────────
 describe('NatepannScraper', () => {
+  // 실제 c20001 페이지: td.subject + td(writer) 2컬럼 구조 — viewCount/likeCount 없음
   const html = `<html><body><table><tbody>
     <tr>
       <td class="subject">
         <a href="/talk/12345" title="네이트판 인기글">네이트판 인기글 <span class="reple-num">(15)</span></a>
       </td>
-      <td>기타</td>
-      <td>1,000</td>
+      <td>닉네임A</td>
     </tr>
     <tr>
       <td class="subject">
         <a href="/talk/67890">두번째 글</a>
       </td>
-      <td>기타</td>
-      <td>500</td>
+      <td>닉네임B</td>
     </tr>
   </tbody></table></body></html>`;
 
@@ -415,7 +414,7 @@ describe('NatepannScraper', () => {
     vi.mocked(axios.get).mockResolvedValue({ data: html });
   });
 
-  it('parses posts with view/comment counts', async () => {
+  it('parses posts with comment counts and author', async () => {
     const scraper = new NatepannScraper(pool);
     const posts = await scraper.fetch();
     expect(posts).toHaveLength(2);
@@ -424,13 +423,14 @@ describe('NatepannScraper', () => {
       sourceName: '네이트판',
       title: '네이트판 인기글',
       url: 'https://pann.nate.com/talk/12345',
-      viewCount: 1000,
       commentCount: 15,
+      author: '닉네임A',
     });
+    expect(posts[0].viewCount).toBeUndefined();
     expect(posts[1]).toMatchObject({
       title: '두번째 글',
       url: 'https://pann.nate.com/talk/67890',
-      viewCount: 500,
+      author: '닉네임B',
     });
   });
 });

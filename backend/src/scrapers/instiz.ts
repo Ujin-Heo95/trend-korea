@@ -20,11 +20,8 @@ export class InstizScraper extends BaseScraper {
 
       const url = $(el).attr('href') ?? '';
       const title = sbj.text().trim();
+      // 목록 페이지에 조회수/추천수 미노출 (개별 글 페이지에만 존재)
       const listnoText = $(el).find('.listno').text();
-      const viewMatch = listnoText.match(/조회\s+([\d,]+)/);
-      const viewCount = viewMatch ? parseInt(viewMatch[1].replace(/,/g, '')) : undefined;
-      const likeMatch = listnoText.match(/추천\s+([\d,]+)/);
-      const likeCount = likeMatch ? parseInt(likeMatch[1].replace(/,/g, '')) : undefined;
       const cmtEl = $(el).find('.cmt3');
       const cmtTitle = cmtEl.attr('title') ?? '';
       const cmtMatch = cmtTitle.match(/([\d,]+)/);
@@ -33,7 +30,7 @@ export class InstizScraper extends BaseScraper {
       const dateMatch = listnoText.match(/(\d{2}:\d{2}|\d{2}\.\d{2})/);
       const publishedAt = dateMatch ? parseKoreanDate(dateMatch[1]) : undefined;
       if (title && url) {
-        posts.push({ sourceKey: 'instiz', sourceName: '인스티즈', title, url, viewCount, commentCount, likeCount, publishedAt });
+        posts.push({ sourceKey: 'instiz', sourceName: '인스티즈', title, url, commentCount, publishedAt });
       }
     });
 
