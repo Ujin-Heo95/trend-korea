@@ -24,7 +24,7 @@
 - `title_hash` GENERATED 컬럼: 정규화 후 MD5 (괄호/특수문자 제거)
 - `post_clusters` + `post_cluster_members`: 중복 게시글 그룹핑
 - `post_scores`: 채널별 분기 스코어 (5분 주기, 뉴스+커뮤니티+금융 대상, velocity/cluster/trend_signal 분해 컬럼)
-- `trend_keywords`: 외부 트렌드 신호 키워드 (Google Trends/Naver DataLab/BigKinds, 12h TTL)
+- `trend_keywords`: 외부 트렌드 신호 키워드 (Google Trends/Wikipedia/BigKinds, 12h TTL)
 - posts TTL: 7일 (기본값), 공연 7일, scraper_runs TTL: 30일
 - 환경변수는 `config/index.ts`에서 중앙 파싱 + 검증
 - DB 풀: `DB_POOL_MAX=10`, `DB_IDLE_TIMEOUT_MS=30000`, `DB_CONNECTION_TIMEOUT_MS=5000`

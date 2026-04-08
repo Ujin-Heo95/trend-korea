@@ -23,7 +23,7 @@
 ```
 
 - `key`: 영문 소문자, 언더스코어 (DB source_key로 사용)
-- `category`: community, news, tech, techblog, video, video_popular, finance, music, trend, government, performance, movie, travel, sports, press, newsletter, deals, blog, sns, alert 중 선택
+- `category`: community, news, portal, tech, techblog, video, video_popular, finance, music, trend, government, performance, movie, travel, sports, press, newsletter, deals, blog, sns, alert 중 선택
 - `priority`: high(10분), medium(15분), low(30분)
 - `enabled`: false로 두면 수집 제외
 
@@ -79,7 +79,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | news | ohmynews, nocutnews, asiae, segye, bbc_korean, mbn | RSS | medium | 안정 |
 | news | naver_news_ranking | HTML (euc-kr) | medium | 안정 |
 | news | google_news_kr, newsis | RSS | medium/high | 안정 |
-| trend | bigkinds_issues | API→trend_keywords 직접 | low | 안정 |
+| portal | bigkinds_issues | API→trend_keywords 직접 | low | 안정 |
 | news | cnn, koreaherald, koreatimes | RSS | medium/low | **disabled** (영문 중심, 2026-04-07) |
 | news | joins, kbs, mbc, ytn, daum_news, seoul | RSS | high | **disabled** (RSS 서비스 종료/404) |
 | news | etnews | RSS | medium | 안정 |
@@ -103,9 +103,9 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | books | yes24_bestseller, aladin_bestseller | HTML | low | 안정 |
 | ott | flixpatrol | HTML | low | 안정 |
 | trend | google_trends | API→trend_keywords 직접 | medium | 안정 |
-| trend | naver_datalab | API→trend_keywords 직접 | medium | 안정 |
-| trend | nate_realtime | JSON→trend_keywords 직접 | medium | 안정 |
-| trend | zum_realtime | HTML→trend_keywords 직접 | medium | 안정 |
+| trend | naver_datalab | API→trend_keywords 직접 | medium | **disabled** (고정 카테고리만 반환, 2026-04-08) |
+| portal | nate_news | HTML→posts | medium | 전환 (검색어→뉴스랭킹, 2026-04-08) |
+| portal | zum_news | HTML→posts | medium | 전환 (검색어→뉴스랭킹, 2026-04-08) |
 | trend | wikipedia_ko | API→trend_keywords 직접 | low | 안정 |
 | government | korea_press, korea_policy, korea_briefing | RSS | low | 개선 (RSS 타임아웃 20s로 증가, 2026-04-07) |
 | performance | kopis_boxoffice | API | low | 안정 |
@@ -176,7 +176,8 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | kobis_boxoffice | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
 | kopis_boxoffice | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
 | kcisa_performance | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ |
-| naver_datalab | ✓ | ✓ | ✗ | ✓ | ✓* | ✓* | ✗ | ✓ | ✗ |
+| nate_news | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| zum_news | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
 | google_trends | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
 | tour_festival | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ |
 | tour_visitor | ✓ | ✓ | ✗ | ✗ | ✓* | ✓* | ✗ | ✓ | ✓ |

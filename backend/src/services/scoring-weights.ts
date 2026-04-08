@@ -16,7 +16,7 @@ export const DEFAULT_HALF_LIFE_MINUTES = 300; // fallback
 
 const CATEGORY_TO_CHANNEL: Record<string, Channel> = {
   community: 'community', blog: 'community',
-  news: 'news', press: 'news', newsletter: 'news', government: 'news',
+  news: 'news', press: 'news', newsletter: 'news', government: 'news', portal: 'news',
   video: 'video', video_popular: 'video',
   sns: 'sns',
   tech: 'specialized', techblog: 'specialized', finance: 'specialized',
@@ -42,6 +42,7 @@ const SOURCE_WEIGHTS: Record<string, number> = {
   khan: 2.0, mk: 2.0, hani: 2.0, donga: 2.0, hankyung: 2.0, ytn: 2.0,
   // T4: 포털·통합
   daum_news: 1.8, google_news_kr: 1.6, newsis: 1.8, ddanzi: 1.6, etnews: 2.0,
+  nate_news: 1.8, zum_news: 1.6,
   // YouTube (정규 언론사 = T1, 일반 = 1.2)
   youtube: 2.5,
   // 테크
@@ -60,7 +61,7 @@ const SOURCE_WEIGHTS: Record<string, number> = {
 const DEFAULT_SOURCE_WEIGHT = 0.8;
 
 const CATEGORY_WEIGHTS: Record<string, number> = {
-  alert: 1.25, news: 1.20, trend: 1.15, tech: 1.15,
+  alert: 1.25, news: 1.20, portal: 1.20, trend: 1.15, tech: 1.15,
   finance: 1.10, community: 1.08, video: 0.95,
   movie: 1.05, performance: 1.05, travel: 1.05, music: 1.05, books: 1.05, ott: 1.05,
   deals: 1.00, government: 0.85, newsletter: 0.80,

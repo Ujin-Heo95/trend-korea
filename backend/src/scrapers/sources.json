@@ -622,7 +622,7 @@
       "module": "./naver-datalab.js",
       "className": "NaverDatalabScraper",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "chosun",
@@ -783,7 +783,7 @@
     {
       "key": "bigkinds_issues",
       "name": "빅카인즈 오늘의 이슈",
-      "category": "trend",
+      "category": "portal",
       "type": "api",
       "module": "./bigkinds.js",
       "className": "BigKindsScraper",
@@ -1157,22 +1157,22 @@
       "enabled": true
     },
     {
-      "key": "nate_realtime",
-      "name": "네이트 실시간 검색어",
-      "category": "trend",
+      "key": "nate_news",
+      "name": "네이트 뉴스 랭킹",
+      "category": "portal",
       "type": "html",
       "module": "./nate-realtime.js",
-      "className": "NateRealtimeScraper",
+      "className": "NateNewsScraper",
       "priority": "medium",
       "enabled": true
     },
     {
-      "key": "zum_realtime",
-      "name": "ZUM 실시간 검색어",
-      "category": "trend",
+      "key": "zum_news",
+      "name": "ZUM 뉴스 랭킹",
+      "category": "portal",
       "type": "html",
       "module": "./zum-realtime.js",
-      "className": "ZumRealtimeScraper",
+      "className": "ZumNewsScraper",
       "priority": "medium",
       "enabled": true
     },

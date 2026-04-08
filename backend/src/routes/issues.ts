@@ -17,10 +17,9 @@ interface RelatedPost {
 
 type ChannelTag = 'news' | 'community' | 'portal' | 'sns';
 
-// Portal trend source keys
+// Portal trend source keys (trend_keywords 테이블의 source_key)
 const PORTAL_SOURCES = new Set([
-  'google_trends', 'naver_datalab', 'bigkinds_issues',
-  'nate_realtime', 'zum_realtime', 'wikipedia_ko',
+  'google_trends', 'bigkinds_issues', 'wikipedia_ko',
 ]);
 
 // SNS trend source keys

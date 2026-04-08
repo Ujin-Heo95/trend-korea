@@ -91,7 +91,7 @@ BaseScraper (base.ts)
 │     inven, humoruniv, ygosu, slrclub, etoland, dogdrip, geeknews,
 │     naver_news_ranking, melon_chart, bugs_chart, genie_chart,
 │     kworb_spotify_kr, kworb_youtube_kr, yes24, aladin, flixpatrol,
-│     nate_realtime, zum_realtime, clien_jirum, quasarzone_deal
+│     nate_news, zum_news, clien_jirum, quasarzone_deal
 ├── RSS (37개 활성): ddanzi, yna, hani, sbs, donga, khan, hankyung, mk, kmib,
 │     yozm, google_trends, newsis, chosun, jtbc, etnews, newswire,
 │     ppomppu_hot, investing_kr, sedaily, moneytoday, edaily, bizwatch,

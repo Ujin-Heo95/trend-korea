@@ -1,59 +1,69 @@
 import axios from 'axios';
-import iconv from 'iconv-lite';
+import * as cheerio from 'cheerio';
 import type { Pool } from 'pg';
-import { TrendSignalScraper } from './trend-base.js';
-import type { TrendKeywordInput } from './types.js';
+import { BaseScraper } from './base.js';
+import type { ScrapedPost } from './types.js';
 
-const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' };
+const HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+  'Referer': 'https://news.nate.com/',
+};
 
-// Nate 실시간 검색어 JSON 엔드포인트
-// 응답 형태: [["순위", "제목", "방향(+/-/n)", "변동폭", "키워드"], ...]
-type NateKeywordRow = [string, string, string, string, string];
+// Nate 뉴스 랭킹 (관심뉴스 일간)
+// https://news.nate.com/rank/interest?sc=all&p=day
+// EUC-KR 인코딩, cheerio 파싱
 
-export class NateRealtimeScraper extends TrendSignalScraper {
-  constructor(pool: Pool) { super(pool); }
+export class NateNewsScraper extends BaseScraper {
+  constructor(pool: Pool) {
+    super(pool);
+  }
 
-  protected override getSourceKey(): string { return 'nate_realtime'; }
+  async fetch(): Promise<ScrapedPost[]> {
+    const { data } = await axios.get<ArrayBuffer>(
+      'https://news.nate.com/rank/interest?sc=all&p=day',
+      {
+        headers: HEADERS,
+        timeout: 15_000,
+        responseType: 'arraybuffer',
+      },
+    );
 
-  async fetchTrendKeywords(): Promise<TrendKeywordInput[]> {
-    const now = new Date();
-    const v = now.toISOString().replace(/[-T:Z.]/g, '').slice(0, 12);
-    const url = `https://www.nate.com/js/data/jsonLiveKeywordDataV1.js?v=${v}`;
+    const html = new TextDecoder('euc-kr').decode(data);
+    const $ = cheerio.load(html);
+    const posts: ScrapedPost[] = [];
 
-    const { data } = await axios.get<ArrayBuffer>(url, {
-      headers: UA,
-      responseType: 'arraybuffer',
-      timeout: 15000,
+    // 각 mduSubjectList 블록이 하나의 랭킹 기사
+    $('div.mduSubjectList').each((_, block) => {
+      if (posts.length >= 30) return;
+
+      const rankText = $(block).find('dl.mduRank dt em').first().text().trim();
+      const rank = parseInt(rankText, 10) || posts.length + 1;
+
+      const a = $(block).find('a[href*="/view/"]').first();
+      const href = a.attr('href') ?? '';
+      const title = a.find('h2.tit').text().trim();
+      if (!title || !href) return;
+
+      const url = href.startsWith('http')
+        ? href
+        : `https://news.nate.com${href.replace(/^\/\/news\.nate\.com/, '')}`;
+
+      const thumbnail = a.find('img').first().attr('src') || undefined;
+      const mediumText = $(block).find('span.medium').text().trim();
+      const author = mediumText.replace(/\d{4}-\d{2}-\d{2}.*/, '').trim() || undefined;
+
+      posts.push({
+        sourceKey: 'nate_news',
+        sourceName: '네이트 뉴스 랭킹',
+        title,
+        url,
+        thumbnail,
+        author,
+        category: 'portal',
+        metadata: { rank },
+      });
     });
 
-    const decoded = iconv.decode(Buffer.from(data), 'euc-kr');
-
-    let rows: NateKeywordRow[];
-    try {
-      rows = JSON.parse(decoded);
-    } catch {
-      throw new Error(`Nate realtime: JSON parse failed (body starts with: ${decoded.slice(0, 80)})`);
-    }
-
-    if (!Array.isArray(rows) || rows.length === 0) {
-      throw new Error('Nate realtime: empty or invalid response');
-    }
-
-    return rows.slice(0, 30).map((row): TrendKeywordInput => {
-      const rank = parseInt(row[0], 10);
-      const direction = row[2] as '+' | '-' | 'n';
-      const change = parseInt(row[3], 10) || 0;
-      const keyword = row[4];
-
-      return {
-        keyword,
-        sourceKey: 'nate_realtime',
-        signalStrength: Math.max(1.0 - (rank - 1) * 0.03, 0.05),
-        rankPosition: rank,
-        rankDirection: direction,
-        rankChange: change,
-        metadata: { headline: row[1] },
-      };
-    });
+    return posts;
   }
 }
