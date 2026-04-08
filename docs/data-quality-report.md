@@ -52,14 +52,13 @@
 
 | 원인 | 소스 | 누락 환경변수 |
 |------|------|---------------|
-| API 키 미설정 (throw) | naver_datalab, bigkinds_issues | `NAVER_CLIENT_ID/SECRET`, `BIGKINDS_API_KEY` |
+| API 키 미설정 (throw) | bigkinds_issues | `BIGKINDS_API_KEY` |
 | API 키 미설정 (silent `[]`) | airkorea, tour_visitor, tour_photo | `DATA_GO_KR_API_KEY` |
 | API 키 미설정 (silent `[]`) | kcisa_cca_performance, kcisa_cca_exhibition | `KCISA_PERFORMANCE_API_KEY`, `KCISA_EXHIBITION_API_KEY` |
 | API 키 미설정 (silent `[]`) | seoul_citydata, seoul_cultural_event | `SEOUL_OPEN_API_KEY` |
-| API 키 미설정 (silent `[]`) | daum_cafe | `KAKAO_REST_API_KEY` |
 | HTML 구조 변경 | kworb_youtube_kr | URL 충돌 (fallback URL 중복) |
 
-**설계 문제**: 8/11개 소스가 API 키 없을 때 `return []` (무음 실패) → 모니터링에서 "성공 0건"으로 보임. naver_datalab, bigkinds_issues만 throw하여 에러 감지 가능.
+**설계 문제**: API 키 없을 때 `return []` (무음 실패) → 모니터링에서 "성공 0건"으로 보임. bigkinds_issues만 throw하여 에러 감지 가능.
 
 **수정안**:
 1. Railway에 누락 환경변수 설정, 또는 키 없는 소스는 `enabled: false`로 명시

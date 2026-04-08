@@ -98,12 +98,12 @@ BaseScraper (base.ts)
 │     korea_press/policy/briefing, uppity, google_news_kr, bbc_korean,
 │     ohmynews, nocutnews, asiae, segye, mbn, boannews, zdnet_kr,
 │     itworld_kr, traveltimes, youtube_sbs/ytn/mbc/kbs/jtbc_news
-├── API (14개 활성): kobis_boxoffice, kopis_boxoffice, naver_datalab,
-│     daum_cafe, bigkinds_issues, airkorea, wikipedia_ko, tour_photo,
+├── API (12개 활성): kobis_boxoffice, kopis_boxoffice,
+│     bigkinds_issues, airkorea, wikipedia_ko, tour_photo,
 │     seoul_cultural_event, kcisa_cca_performance, kcisa_cca_exhibition
 └── Apify (3개 비활성): instagram, x, tiktok (SNS 플랫폼 제약)
 
-총계: 123개 등록, 85개 활성
+총계: 121개 등록, 84개 활성
 ```
 
 ## Database Schema

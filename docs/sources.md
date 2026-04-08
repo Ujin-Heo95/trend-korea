@@ -123,7 +123,6 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | deals | clien_jirum, quasarzone_deal | HTML | medium | 안정 |
 | deals | ruliweb_hot | RSS | medium | **disabled** (루리웹 IP 차단, 2026-04-07) |
 | deals | dcinside_hotdeal | HTML | medium | **disabled** (갤러리 폐쇄, 2026-04-05) |
-| blog | daum_blog | API | low | **disabled** (비활성화 2026-04-04) |
 | sns | apify_instagram, apify_x, apify_tiktok | Apify | medium | **disabled** (토큰 미설정) |
 | alert | kma | RSS | low | **disabled** |
 | alert | airkorea | API | low | 안정 (sr≈0.79, data.go.kr 간헐적 오류) |
