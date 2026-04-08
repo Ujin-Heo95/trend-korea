@@ -2,7 +2,7 @@
 
 ## Conventions
 
-- React Query v5: refetchInterval 30초, staleTime 60초 기본
+- React Query v5: 이슈 랭킹 refetchInterval 10분 + staleTime 9분30초, 기타 훅은 60초 기본
 - React Router 6: `useSearchParams`로 필터 상태 URL 동기화
 - 코드 스플리팅: `React.lazy()` + Suspense (페이지 단위)
 - 공유 컴포넌트: `src/components/shared/` (RankBadge, PosterImage, ErrorRetry, ShareButton 등)

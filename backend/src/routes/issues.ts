@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { LRUCache } from '../cache/lru.js';
 import type { IssueRankingRow } from '../db/types.js';
 
-const issuesCache = new LRUCache<unknown>(50, 60_000);
+const issuesCache = new LRUCache<unknown>(50, 600_000);
 
 interface RelatedPost {
   id: number;
