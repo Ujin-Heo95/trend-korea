@@ -49,6 +49,10 @@ const migrations = [
   '040_content_snippet.sql',
   '041_scoring_config.sql',
   '042_issue_rankings_v2.sql',
+  '043_perf_indexes.sql',
+  '044_momentum_score.sql',
+  '045_event_date.sql',
+  '046_trend_keywords_rank.sql',
 ];
 
 try {
