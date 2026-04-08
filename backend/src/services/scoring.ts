@@ -80,47 +80,47 @@ async function _calculateScores(pool: Pool): Promise<number> {
     })),
   ]);
 
-  // Step 1a: 통계 계산 (DB 풀 고갈 방지 — 3개씩 분리)
-  const [sourceStatsMap, channelStatsMap, velocityMap] = await Promise.all([
+  // Step 1a: 통계 계산 (최대 2개 병렬 — 풀 고갈 방지)
+  const [sourceStatsMap, channelStatsMap] = await Promise.all([
     calculateSourceStats(pool),
     calculateChannelStats(pool),
-    calculateVelocityMap(pool).catch(() => new Map<number, VelocityData>()),
   ]);
+  const velocityMap = await calculateVelocityMap(pool).catch(() => new Map<number, VelocityData>());
 
-  // Step 1b: 나머지 계산
-  const [clusterBonusMap, categoryBaselines, postsResult] = await Promise.all([
+  // Step 1b: 나머지 계산 (2개 병렬 + 1개 순차)
+  const [clusterBonusMap, categoryBaselines] = await Promise.all([
     calculateClusterBonusMap(pool).catch(() => new Map<number, number>()),
     calculateCategoryBaselines(pool),
-    pool.query<{
-      id: number;
-      source_key: string;
-      category: string | null;
-      title: string;
-      view_count: number;
-      comment_count: number;
-      like_count: number;
-      published_at: Date | null;
-      first_scraped_at: Date;
-      scraped_at: Date;
-    }>(`
-      SELECT p.id, p.source_key, p.category, p.title, p.view_count, p.comment_count, p.like_count,
-             p.published_at, p.first_scraped_at, p.scraped_at
-      FROM posts p
-      WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
-        AND COALESCE(p.category, '') IN ${SCORED_CATEGORIES_SQL}
-        AND p.title NOT LIKE '[사진]%'
-    `),
   ]);
+  const postsResult = await pool.query<{
+    id: number;
+    source_key: string;
+    category: string | null;
+    title: string;
+    view_count: number;
+    comment_count: number;
+    like_count: number;
+    published_at: Date | null;
+    first_scraped_at: Date;
+    scraped_at: Date;
+  }>(`
+    SELECT p.id, p.source_key, p.category, p.title, p.view_count, p.comment_count, p.like_count,
+           p.published_at, p.first_scraped_at, p.scraped_at
+    FROM posts p
+    WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
+      AND COALESCE(p.category, '') IN ${SCORED_CATEGORIES_SQL}
+      AND p.title NOT LIKE '[사진]%'
+  `);
 
   const rows = postsResult.rows;
   if (rows.length === 0) return 0;
 
-  // Step 1.5: 채널별 추가 계산 (트렌드 신호, 서브카테고리, 속보)
-  const [trendSignalMap, subcategoryPercentiles, breakingNewsMap] = await Promise.all([
+  // Step 1.5: 채널별 추가 계산 (2개 병렬 + 1개 순차)
+  const [trendSignalMap, subcategoryPercentiles] = await Promise.all([
     calculateTrendSignalMap(pool, rows.map(r => ({ id: r.id, title: r.title }))).catch(() => new Map<number, number>()),
     calculateSubcategoryPercentiles(pool).catch(() => new Map<number, number>()),
-    detectBreakingNews(pool).catch(() => new Map<number, number>()),
   ]);
+  const breakingNewsMap = await detectBreakingNews(pool).catch(() => new Map<number, number>());
 
   const now = Date.now();
   const globalBaseline = 2.0;

@@ -7,14 +7,59 @@ const isSSL = config.dbUrl.includes('supabase.com') || config.dbUrl.includes('ss
 export const pool = new Pool({
   connectionString: config.dbUrl,
   max: config.dbPoolMax,
+  min: 2,
   idleTimeoutMillis: config.dbIdleTimeoutMs,
   connectionTimeoutMillis: config.dbConnectionTimeoutMs,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10_000,
   ...(isSSL && { ssl: { rejectUnauthorized: false } }),
 });
 
 pool.on('error', (err) => {
   logger.error({ err }, '[db:pool] idle client error');
 });
+
+// ── Pool monitoring ────────────────────────────
+
+pool.on('connect', () => {
+  if (pool.waitingCount > 0) {
+    logger.warn(
+      { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount },
+      '[db:pool] new connection while queries waiting',
+    );
+  }
+});
+
+pool.on('acquire', () => {
+  if (pool.waitingCount > 2) {
+    logger.warn(
+      { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount },
+      '[db:pool] high contention — queries queued',
+    );
+  }
+});
+
+pool.on('remove', () => {
+  logger.debug(
+    { total: pool.totalCount, idle: pool.idleCount },
+    '[db:pool] connection removed',
+  );
+});
+
+/** Log current pool stats (call from scheduler or health checks) */
+export function logPoolStats(label = ''): void {
+  const prefix = label ? `[db:pool:${label}]` : '[db:pool]';
+  const stats = {
+    total: pool.totalCount,
+    idle: pool.idleCount,
+    waiting: pool.waitingCount,
+  };
+  if (stats.waiting > 0) {
+    logger.warn(stats, `${prefix} connections exhausted`);
+  } else {
+    logger.info(stats, `${prefix} stats`);
+  }
+}
 
 // ── Connection error detection ──────────────────────────
 

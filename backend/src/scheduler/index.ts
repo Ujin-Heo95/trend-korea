@@ -12,7 +12,7 @@ import { clearIssuesCache } from '../routes/issues.js';
 import { performDatabaseBackup } from '../services/backup.js';
 import { notifyBackupResult } from '../services/discord.js';
 import { generateEmbeddingsForRecentPosts } from '../services/embedding.js';
-import { pool } from '../db/client.js';
+import { pool, logPoolStats } from '../db/client.js';
 
 function captureError(err: unknown): void {
   console.error(err);
@@ -56,17 +56,19 @@ function startCronJobs(): void {
     });
   }
 
-  // 트렌드 스코어 갱신 + 이슈 집계 + Gemini 요약: 10분 주기 (quiet hours 제외)
-  cron.schedule('*/10 * * * *', async () => {
+  // 트렌드 스코어 갱신 + 이슈 집계 + Gemini 요약: 10분 주기, +2분 오프셋 (스크래퍼와 시차)
+  cron.schedule('2,12,22,32,42,52 * * * *', async () => {
     if (isQuietHours()) {
       console.log('[scheduler] quiet hours (02-06 KST) — skipping issue pipeline');
       return;
     }
+    logPoolStats('pipeline-start');
     await calculateScores(pool).catch(captureError);
     await generateEmbeddingsForRecentPosts(pool).catch(captureError);
     await aggregateIssues(pool).catch(captureError);
     await summarizeAndUpdateIssues(pool).catch(captureError);
     clearIssuesCache();
+    logPoolStats('pipeline-end');
   });
 
   // 교차검증: 15분 주기 (quiet hours 제외)

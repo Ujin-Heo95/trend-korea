@@ -27,7 +27,7 @@
 - `trend_keywords`: 외부 트렌드 신호 키워드 (Google Trends/Wikipedia/BigKinds, 12h TTL)
 - posts TTL: 7일 (기본값), 공연 7일, scraper_runs TTL: 30일
 - 환경변수는 `config/index.ts`에서 중앙 파싱 + 검증
-- DB 풀: `DB_POOL_MAX=10`, `DB_IDLE_TIMEOUT_MS=30000`, `DB_CONNECTION_TIMEOUT_MS=5000`
+- DB 풀: `DB_POOL_MAX=15`, `DB_IDLE_TIMEOUT_MS=20000`, `DB_CONNECTION_TIMEOUT_MS=10000`, `min=2`, `keepAlive=true`
 
 ### Testing
 - Vitest + axios mock + fixture HTML 파일
