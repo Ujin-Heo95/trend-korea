@@ -67,7 +67,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const [entertainmentSub, setEntertainmentSub] = useState<EntertainmentSub>('all');
   const [travelSub, setTravelSub] = useState<TravelSub>('all');
   const [, startTransition] = useTransition();
-  const isNewsTab = category === 'news,press,newsletter,tech,finance';
+  const isNewsTab = category === 'news,newsletter,tech';
   const isEntertainmentTab = category === 'entertainment';
   const isTravelTab = category === 'travel';
   const isAllTab = !category && !searchQuery;
