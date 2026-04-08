@@ -25,12 +25,17 @@ export const CommunityRankingList: React.FC<Props> = ({ posts, isRead, onRead })
             read ? 'opacity-50' : ''
           }`}
         >
-          {/* Rank */}
-          <span className={`flex-shrink-0 w-7 text-center font-bold tabular-nums pt-0.5 ${
-            rank <= 3 ? 'text-amber-500 dark:text-amber-400 text-base' : 'text-slate-400 dark:text-slate-500 text-sm'
-          }`}>
-            {rank}
-          </span>
+          {/* Rank + source badge */}
+          <div className="flex-shrink-0 w-7 flex flex-col items-center gap-1 pt-0.5">
+            <span className={`font-bold tabular-nums ${
+              rank <= 3 ? 'text-amber-500 dark:text-amber-400 text-base' : 'text-slate-400 dark:text-slate-500 text-sm'
+            }`}>
+              {rank}
+            </span>
+            <span className={`text-[9px] font-medium px-1 py-0.5 rounded leading-none whitespace-nowrap ${getSourceColor(post.source_key, post.category)}`}>
+              {post.source_name}
+            </span>
+          </div>
 
           {/* Content: title-first layout */}
           <div className="flex-1 min-w-0">
@@ -67,9 +72,6 @@ export const CommunityRankingList: React.FC<Props> = ({ posts, isRead, onRead })
                   {post.comment_count.toLocaleString()}
                 </span>
               )}
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${getSourceColor(post.source_key, post.category)}`}>
-                {post.source_name}
-              </span>
             </div>
           </div>
         </a>

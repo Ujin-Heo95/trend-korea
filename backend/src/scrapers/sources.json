@@ -1194,7 +1194,7 @@
       "module": "./natepann-ranking.js",
       "className": "NatepannRankingScraper",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "seoul_citydata",

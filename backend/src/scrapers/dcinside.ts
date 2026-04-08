@@ -31,7 +31,6 @@ export class DcinsideScraper extends BaseScraper {
 
       const title = a.text().replace(/\[.*?\]/g, '').trim();
       const url = href.startsWith('http') ? href : `https://gall.dcinside.com${href}`;
-      const thumbnail = $(el).find('.thumimg img').attr('src') || undefined;
       const viewCount = parseInt($(el).find('td.gall_count').text().replace(/,/g, '')) || undefined;
       const commentMatch = $(el).find('.reply_num').text().match(/\[(\d+)\]/);
       const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
@@ -47,7 +46,6 @@ export class DcinsideScraper extends BaseScraper {
           sourceName: 'DC인사이드',
           title,
           url,
-          thumbnail,
           author,
           viewCount,
           commentCount,
