@@ -1,11 +1,13 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import type { Pool } from 'pg';
+import pLimit from 'p-limit';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { parseKoreanDate } from './http-utils.js';
+import { fetchHtml, parseKoreanDate } from './http-utils.js';
 
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' };
+const DETAIL_LIMIT = pLimit(3);
 
 export class InstizScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
@@ -20,7 +22,6 @@ export class InstizScraper extends BaseScraper {
 
       const url = $(el).attr('href') ?? '';
       const title = sbj.text().trim();
-      // 목록 페이지에 조회수/추천수 미노출 (개별 글 페이지에만 존재)
       const listnoText = $(el).find('.listno').text();
       const cmtEl = $(el).find('.cmt3');
       const cmtTitle = cmtEl.attr('title') ?? '';
@@ -34,6 +35,31 @@ export class InstizScraper extends BaseScraper {
       }
     });
 
-    return posts.slice(0, 30);
+    const sliced = posts.slice(0, 30);
+
+    // 2단계: 개별 글 페이지에서 조회수/추천수 보강
+    const enriched = await Promise.all(
+      sliced.map(post => DETAIL_LIMIT(async () => {
+        try {
+          const detail$ = await fetchHtml(post.url, {
+            timeout: 10_000,
+            headers: { Referer: 'https://www.instiz.net/pt' },
+            delay: [300, 800],
+          });
+          const bodyText = detail$.text();
+          const viewMatch = bodyText.match(/조회\s+([\d,]+)/);
+          const likeMatch = bodyText.match(/추천\s+([\d,]+)/);
+          return {
+            ...post,
+            viewCount: viewMatch ? parseInt(viewMatch[1].replace(/,/g, '')) : undefined,
+            likeCount: likeMatch ? parseInt(likeMatch[1].replace(/,/g, '')) : undefined,
+          };
+        } catch {
+          return post;
+        }
+      })),
+    );
+
+    return enriched;
   }
 }

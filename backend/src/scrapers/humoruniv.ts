@@ -1,7 +1,10 @@
 import type { Pool } from 'pg';
+import pLimit from 'p-limit';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
 import { fetchHtml, parseKoreanDate } from './http-utils.js';
+
+const DETAIL_LIMIT = pLimit(3);
 
 export class HumorunivScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
@@ -31,7 +34,6 @@ export class HumorunivScraper extends BaseScraper {
       const commentCount = commentMatch ? parseInt(commentMatch[1]) : undefined;
       const thumbnail = $(el).find('td.li_num img.thumb').attr('src') || undefined;
 
-      // 목록 페이지에 조회수 컬럼 없음 (개별 글 페이지에만 존재)
       const recText = $(el).find('td.li_sbj span').last().text();
       const recMatch = recText.match(/\+\s*([\d,]+)/);
       const likeCount = recMatch ? parseInt(recMatch[1].replace(/,/g, '')) : undefined;
@@ -54,6 +56,29 @@ export class HumorunivScraper extends BaseScraper {
       });
     }
 
-    return posts.slice(0, 30);
+    const sliced = posts.slice(0, 30);
+
+    // 2단계: 개별 글 페이지에서 조회수 보강 (EUC-KR)
+    const enriched = await Promise.all(
+      sliced.map(post => DETAIL_LIMIT(async () => {
+        try {
+          const detail$ = await fetchHtml(post.url, {
+            eucKr: true,
+            timeout: 10_000,
+            delay: [300, 800],
+          });
+          const bodyText = detail$.text();
+          const viewMatch = bodyText.match(/조회\s+([\d,]+)/);
+          return {
+            ...post,
+            viewCount: viewMatch ? parseInt(viewMatch[1].replace(/,/g, '')) : undefined,
+          };
+        } catch {
+          return post;
+        }
+      })),
+    );
+
+    return enriched;
   }
 }
