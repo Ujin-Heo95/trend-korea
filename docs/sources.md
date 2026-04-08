@@ -58,11 +58,11 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ---
 
-## 2. 현재 소스 현황 (122개 등록, 86개 활성)
+## 2. 현재 소스 현황 (121개 등록, 86개 활성)
 
 | 카테고리 | 소스 | 수집방식 | 우선순위 | 상태 |
 |----------|------|----------|----------|------|
-| community | dcinside, bobaedream, theqoo, instiz, natepann, todayhumor | HTML | high | 안정 |
+| community | dcinside, bobaedream, theqoo, instiz, natepann (명예의전당 포함), todayhumor | HTML | high | 안정 |
 | news | ddanzi | RSS | high | 안정 |
 | community | clien | HTML | medium | 안정 |
 | community | fmkorea | HTML | medium | 재작성 (쿠키 바이패스+Sec-Fetch, 2026-04-07) |
@@ -70,7 +70,6 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | community | dogdrip | HTML | medium | 재작성 (Sec-Fetch 헤더+셀렉터 수정, 2026-04-07) |
 | community | mlbpark, cook82, inven, humoruniv, ygosu, slrclub | HTML | high/medium | 안정 |
 | community | etoland | HTML | high | 개선 (Sec-Fetch+딜레이 추가, 2026-04-07) |
-| community | natepann_ranking | HTML | medium | **disabled** (네이트판 본체와 중복, 2026-04-08) |
 | deals | ppomppu_best | HTML (euc-kr) | high | **신규** (베스트 게시판 크롤링, 2026-04-08) |
 | community | arcalive | HTML | medium | **신규** (라이브 채널 크롤링, 2026-04-08) |
 | community | ppomppu | RSS | high | **disabled** (핫딜 전용 전환, 2026-04-07) |

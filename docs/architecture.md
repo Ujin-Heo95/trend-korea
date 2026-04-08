@@ -87,7 +87,7 @@ BaseScraper (base.ts)
 
 소스 유형별 (sources.json 레지스트리):
 ├── HTML/Cheerio (28개 활성): dcinside, bobaedream, ruliweb, theqoo, instiz,
-│     natepann, natepann_ranking, todayhumor, clien, fmkorea, mlbpark, cook82,
+│     natepann, todayhumor, clien, fmkorea, mlbpark, cook82,
 │     inven, humoruniv, ygosu, slrclub, etoland, dogdrip, geeknews,
 │     naver_news_ranking, melon_chart, bugs_chart, genie_chart,
 │     kworb_spotify_kr, kworb_youtube_kr, yes24, aladin, flixpatrol,

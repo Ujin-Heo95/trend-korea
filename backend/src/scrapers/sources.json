@@ -1187,16 +1187,6 @@
       "enabled": true
     },
     {
-      "key": "natepann_ranking",
-      "name": "네이트판 명예의 전당",
-      "category": "community",
-      "type": "html",
-      "module": "./natepann-ranking.js",
-      "className": "NatepannRankingScraper",
-      "priority": "medium",
-      "enabled": false
-    },
-    {
       "key": "seoul_citydata",
       "name": "서울 실시간 도시데이터",
       "category": "travel",
