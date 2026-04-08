@@ -145,6 +145,26 @@
       "enabled": false
     },
     {
+      "key": "ppomppu_best",
+      "name": "뽐뿌",
+      "category": "community",
+      "type": "html",
+      "module": "./ppomppu-best.js",
+      "className": "PpomppuBestScraper",
+      "priority": "high",
+      "enabled": true
+    },
+    {
+      "key": "arcalive",
+      "name": "아카라이브",
+      "category": "community",
+      "type": "html",
+      "module": "./arcalive.js",
+      "className": "ArcaliveScraper",
+      "priority": "medium",
+      "enabled": true
+    },
+    {
       "key": "yna",
       "name": "연합뉴스",
       "category": "news",

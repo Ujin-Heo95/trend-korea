@@ -20,6 +20,7 @@ import { sitemapRoutes } from './routes/sitemap.js';
 import { issueRoutes } from './routes/issues.js';
 import { issueRankingDetailRoutes } from './routes/issueRankingDetail.js';
 import { adminConfigRoutes } from './routes/adminConfig.js';
+import { communityRankingRoutes } from './routes/communityRanking.js';
 import { startScheduler } from './scheduler/index.js';
 import { registerPrerender } from './middleware/prerender.js';
 import { initScoringConfig } from './services/scoringConfig.js';
@@ -112,6 +113,7 @@ export async function buildApp() {
   await app.register(issueRoutes);
   await app.register(issueRankingDetailRoutes);
   await app.register(adminConfigRoutes);
+  await app.register(communityRankingRoutes);
 
   // 봇 프리렌더: API 이외의 봇 요청에 동적 meta 태그 HTML 반환
   registerPrerender(app, pool);
