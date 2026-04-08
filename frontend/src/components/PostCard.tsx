@@ -9,6 +9,8 @@ import { optimizedImage } from '../utils/imageProxy';
 import { timeAgo } from '../utils/timeAgo';
 import { formatCount } from '../utils/formatCount';
 
+const NEWS_CATEGORIES = ['news', 'press', 'newsletter', 'tech', 'finance'];
+
 interface PostCardProps {
   post: Post;
   rank?: number;
@@ -33,16 +35,22 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
     >
       {/* Clickable content area */}
       {(() => {
-        const isCommunity = post.category === 'community';
+        const isNews = NEWS_CATEGORIES.includes(post.category ?? '');
+        const isExternalLink = post.category === 'community' || isNews;
         const content = (
           <div className="flex gap-3">
-            {/* Rank number */}
+            {/* Rank number + source badge */}
             {rank != null && (
-              <span className={`flex-shrink-0 w-7 text-center font-bold tabular-nums pt-0.5 ${
-                rank <= 3 ? 'text-amber-500 dark:text-amber-400 text-base' : 'text-slate-400 dark:text-slate-500 text-sm'
-              }`}>
-                {rank}
-              </span>
+              <div className="flex-shrink-0 w-7 flex flex-col items-center gap-1 pt-0.5">
+                <span className={`font-bold tabular-nums ${
+                  rank <= 3 ? 'text-amber-500 dark:text-amber-400 text-base' : 'text-slate-400 dark:text-slate-500 text-sm'
+                }`}>
+                  {rank}
+                </span>
+                <span className={`text-[9px] font-medium px-1 py-0.5 rounded leading-none whitespace-nowrap ${getSourceColor(post.source_key, post.category)}`}>
+                  {post.source_name}
+                </span>
+              </div>
             )}
 
             {/* Thumbnail */}
@@ -54,13 +62,13 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
 
             {/* Content: title-first */}
             <div className="flex-1 min-w-0">
-              <p className={`text-base leading-snug line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 ${
+              <p className={`text-sm leading-snug line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 ${
                 isRead ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-50'
               }`}>
                 {post.title}
               </p>
               {/* Metrics row */}
-              <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400 dark:text-slate-500 tabular-nums">
+              <div className="flex items-center gap-3 mt-1 text-xs text-slate-400 dark:text-slate-500 tabular-nums">
                 {post.view_count > 0 && (
                   <span className="flex items-center gap-1">
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,48 +94,60 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
                     {post.comment_count.toLocaleString()}
                   </span>
                 )}
-                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${getSourceColor(post.source_key, post.category)}`}>
-                  {post.source_name}
-                </span>
+                {/* Source badge inline when no rank */}
+                {rank == null && (
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${getSourceColor(post.source_key, post.category)}`}>
+                    {post.source_name}
+                  </span>
+                )}
                 <span className="text-slate-300 dark:text-slate-600">·</span>
                 <span>{timeAgo(post.published_at ?? post.first_scraped_at)}</span>
               </div>
             </div>
           </div>
         );
-        return isCommunity ? (
-          <a href={post.url} target="_blank" rel="noopener noreferrer" onClick={() => onRead?.(post.url)} className="block px-4 py-3.5 group">
+        return isExternalLink ? (
+          <a href={post.url} target="_blank" rel="noopener noreferrer" onClick={() => onRead?.(post.url)} className="block px-4 py-2 group">
             {content}
           </a>
         ) : (
-          <Link to={`/issue/${post.id}`} onClick={() => onRead?.(post.url)} className="block px-4 py-3.5 group">
+          <Link to={`/issue/${post.id}`} onClick={() => onRead?.(post.url)} className="block px-4 py-2 group">
             {content}
           </Link>
         );
       })()}
 
-      {/* Action buttons + clusters — inline row */}
-      <div className="flex items-center gap-2 px-4 pb-2.5 -mt-1">
-        {onVote && (
-          <VoteButton postId={post.id} voteCount={post.vote_count} hasVoted={hasVoted ?? false} onVote={onVote} />
-        )}
-        <BookmarkButton post={post} />
-        <ShareButton url={post.url} title={post.title} thumbnail={post.thumbnail} />
-        {hasClusters && (
-          <button
-            type="button"
-            onClick={() => setExpanded(!expanded)}
-            aria-expanded={expanded}
-            className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
-          >
-            외 {clusterSize - 1}개 소스 {expanded ? '▲' : '▼'}
-          </button>
-        )}
-      </div>
+      {/* Action buttons + clusters — inline row (hidden for news) */}
+      {(() => {
+        const isNews = NEWS_CATEGORIES.includes(post.category ?? '');
+        const showActions = !isNews && (onVote || true);
+        const showCluster = hasClusters;
+        if (!showActions && !showCluster) return null;
+        return (
+          <div className="flex items-center gap-2 px-4 pb-2 -mt-1">
+            {!isNews && onVote && (
+              <VoteButton postId={post.id} voteCount={post.vote_count} hasVoted={hasVoted ?? false} onVote={onVote} />
+            )}
+            {!isNews && <BookmarkButton post={post} />}
+            {!isNews && <ShareButton url={post.url} title={post.title} thumbnail={post.thumbnail} />}
+            {showCluster && (
+              <button
+                type="button"
+                onClick={() => setExpanded(!expanded)}
+                aria-expanded={expanded}
+                className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
+              >
+                외 {clusterSize - 1}개 소스 {expanded ? '▲' : '▼'}
+              </button>
+            )}
+          </div>
+        );
+      })()}
       {expanded && post.related_sources && post.related_sources.length > 0 && (
         <div className="px-4 pb-3 ml-4 space-y-1 border-l-2 border-slate-200 dark:border-slate-600 pl-3">
-          {post.related_sources.map((s) =>
-            post.category === 'community' ? (
+          {post.related_sources.map((s) => {
+            const isExternalSource = post.category === 'community' || NEWS_CATEGORIES.includes(post.category ?? '');
+            return isExternalSource ? (
               <a
                 key={s.url}
                 href={s.url}
@@ -149,8 +169,8 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
                   {s.source_name}
                 </span>
               </Link>
-            )
-          )}
+            );
+          })}
         </div>
       )}
     </div>
