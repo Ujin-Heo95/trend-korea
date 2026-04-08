@@ -14,22 +14,25 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
   const handler = async (req: FastifyRequest, reply: FastifyReply) => {
     const isAdmin = isAdminRequest(req);
 
-    // 1. DB 연결 확인
+    // 1. DB 연결 확인 — 비관리자 요청은 DB 없이도 200 반환 (Railway healthcheck 통과용)
+    let dbConnected = true;
     try {
       await app.pg.query('SELECT 1');
     } catch {
-      const minimal = { status: 'degraded', db: { connected: false } };
-      if (!isAdmin) return reply.status(503).send(minimal);
+      dbConnected = false;
+    }
+
+    // 공개 응답: 서버 활성 상태만 반환 (DB 실패해도 200 — healthcheck 통과)
+    if (!isAdmin) {
+      return reply.status(200).send({ status: dbConnected ? 'ok' : 'degraded', db: { connected: dbConnected } });
+    }
+
+    if (!dbConnected) {
       return reply.status(503).send({
-        ...minimal,
+        status: 'degraded',
         db: { connected: false, post_count: 0, db_size_mb: 0, oldest_post_age_days: 0 },
         scrapers: { total: 0, last_run_at: null, failed_last_run: 0, sources: [] },
       });
-    }
-
-    // 공개 응답: 상태만 반환
-    if (!isAdmin) {
-      return reply.status(200).send({ status: 'ok', db: { connected: true } });
     }
 
     // 인증된 요청: 상세 정보 반환
