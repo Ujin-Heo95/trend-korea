@@ -153,7 +153,6 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = React.memo(({ issue }) => {
                 <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-4">
                   {issue.summary}
                 </p>
-                <span className="text-xs text-blue-500 dark:text-blue-400 mt-1 inline-block">더보기 ›</span>
               </div>
             ) : issue.news_posts.length > 0 ? (
               <p className="flex-1 min-w-0 text-sm text-slate-500 dark:text-slate-400 italic truncate">
