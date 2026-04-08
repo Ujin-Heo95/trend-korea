@@ -128,7 +128,7 @@ export async function runAllScrapers(): Promise<void> {
   try {
     const entries = await buildScrapers(pool);
     console.log(`[scheduler] running all ${entries.length} scrapers`);
-    const limit = pLimit(4);
+    const limit = pLimit(2); // 전체 실행 시 동시성 제한 (DB 풀 초과 방지)
     const results = await Promise.allSettled(entries.map(e => limit(() => runScraper(e))));
     const errors: ScraperError[] = [];
     results.forEach((r, i) => {
