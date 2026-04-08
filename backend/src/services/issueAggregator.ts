@@ -488,8 +488,9 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
     if (ra !== rb) parent[ra] = rb;
   }
 
-  const HIGH_CONFIDENCE_THRESHOLD = 0.65;
-  const WORD_HIGH_CONF = 0.6;   // word-level은 bigram보다 관대 (의미 단위)
+  const HIGH_CONFIDENCE_THRESHOLD = 0.60;
+  const WORD_HIGH_CONF = 0.50;  // word-level: 핵심 키워드 3/6 공유 시 병합
+  const EMB_HIGH_CONF = 0.72;   // 임베딩: 동일 주제 허용 범위 확대
   const SNIPPET_WEIGHT = 0.3;   // 스니펫 블렌딩 비율
 
   for (let i = 0; i < groups.length; i++) {
@@ -526,7 +527,7 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
       // 5단계 신뢰도 기반 병합
       const highConf = bigramSim >= HIGH_CONFIDENCE_THRESHOLD;   // bigram 확실
       const wordHighConf = titleWordSim >= WORD_HIGH_CONF;       // word 의미적 확실
-      const embHighConf = embSim >= 0.80;                        // 임베딩 의미적 확실
+      const embHighConf = embSim >= EMB_HIGH_CONF;                 // 임베딩 의미적 확실
       const medConf = bestSim >= threshold && sharedKw >= 1;     // 유사 + 키워드 보강
       const kwOnly = sharedKw >= 3;                              // 키워드 3개↑ 공유
 
