@@ -78,7 +78,7 @@ export async function runScrapersByPriority(priority: SourcePriority): Promise<v
       }
     });
     if (errors.length > 0) {
-      await notifyScraperErrors(priority, errors).catch(() => {});
+      await notifyScraperErrors(priority, errors).catch(err => console.warn('[discord] notification failed:', err));
     }
   } finally {
     runningLocks.set(priority, false);
@@ -111,7 +111,7 @@ export async function runApifyScrapers(): Promise<void> {
       }
     });
     if (errors.length > 0) {
-      await notifyScraperErrors('apify', errors).catch(() => {});
+      await notifyScraperErrors('apify', errors).catch(err => console.warn('[discord] notification failed:', err));
     }
   } finally {
     runningLocks.set('apify', false);
@@ -141,7 +141,7 @@ export async function runAllScrapers(): Promise<void> {
       }
     });
     if (errors.length > 0) {
-      await notifyScraperErrors('all', errors).catch(() => {});
+      await notifyScraperErrors('all', errors).catch(err => console.warn('[discord] notification failed:', err));
     }
   } finally {
     runningLocks.set('all', false);

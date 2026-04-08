@@ -79,18 +79,15 @@ async function _calculateScores(pool: Pool): Promise<number> {
     })),
   ]);
 
-  // Step 1: 서브 계산 병렬 실행
-  const [
-    sourceStatsMap,
-    channelStatsMap,
-    velocityMap,
-    clusterBonusMap,
-    categoryBaselines,
-    postsResult,
-  ] = await Promise.all([
+  // Step 1a: 통계 계산 (DB 풀 고갈 방지 — 3개씩 분리)
+  const [sourceStatsMap, channelStatsMap, velocityMap] = await Promise.all([
     calculateSourceStats(pool),
     calculateChannelStats(pool),
     calculateVelocityMap(pool).catch(() => new Map<number, VelocityData>()),
+  ]);
+
+  // Step 1b: 나머지 계산
+  const [clusterBonusMap, categoryBaselines, postsResult] = await Promise.all([
     calculateClusterBonusMap(pool).catch(() => new Map<number, number>()),
     calculateCategoryBaselines(pool),
     pool.query<{

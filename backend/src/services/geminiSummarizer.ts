@@ -25,6 +25,17 @@ interface PostForSummary {
 
 const summaryCache = new Map<string, { summary: IssueSummary; cachedAt: number }>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 60 minutes
+const MAX_SUMMARY_CACHE = 200;
+
+function evictOldestIfFull(): void {
+  if (summaryCache.size < MAX_SUMMARY_CACHE) return;
+  let oldestKey: string | null = null;
+  let oldestTime = Infinity;
+  for (const [key, entry] of summaryCache) {
+    if (entry.cachedAt < oldestTime) { oldestKey = key; oldestTime = entry.cachedAt; }
+  }
+  if (oldestKey) summaryCache.delete(oldestKey);
+}
 
 function makeCacheKey(clusterIds: readonly number[], standalonePostIds: readonly number[]): string {
   return [...clusterIds].sort().join(',') + '|' + [...standalonePostIds].sort().join(',');
@@ -147,6 +158,7 @@ export async function summarizeIssue(
         summary: parsed.summary,
       };
 
+      evictOldestIfFull();
       summaryCache.set(cacheKey, { summary, cachedAt: Date.now() });
       return summary;
     } catch (err) {
@@ -162,6 +174,8 @@ export async function summarizeAndUpdateIssues(
   pool: import('pg').Pool,
   maxIssues = 30,
 ): Promise<number> {
+  pruneCache();
+
   // Fetch unsummarized issues + check for stale summaries (cluster composition changed)
   const { rows } = await pool.query<{
     id: number; cluster_ids: number[]; standalone_post_ids: number[];
@@ -239,6 +253,7 @@ export async function summarizeAndUpdateIssues(
         category: fallbackCategory(firstTitle),
         summary: `관련 기사 ${posts.length}건`,
       };
+      console.warn(`[geminiSummarizer] fallback used for issue ${row.id} — Gemini unavailable`);
     }
 
     await pool.query(
@@ -248,8 +263,10 @@ export async function summarizeAndUpdateIssues(
 
     // Cache with stable_id key (and legacy key for backward compat)
     const entry = { summary, cachedAt: Date.now() };
+    evictOldestIfFull();
     summaryCache.set(cacheKey, entry);
     if (stableCacheKey && stableCacheKey !== legacyCacheKey) {
+      evictOldestIfFull();
       summaryCache.set(legacyCacheKey, entry);
     }
 

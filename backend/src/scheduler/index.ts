@@ -96,8 +96,8 @@ function startCronJobs(): void {
   });
   console.log('[scheduler] backup: 17:00 UTC daily (02:00 KST)');
 
-  // 자정 + 정오 2회 (Railway 서버 = UTC 기준) — DB 한도 대응
-  cron.schedule('0 0,12 * * *', async () => {
+  // 02:00 + 14:00 KST = 17:00, 05:00 UTC (피크 시간 회피) — DB 한도 대응
+  cron.schedule('0 17,5 * * *', async () => {
     try {
       await cleanOldPosts();
       await cleanNumericTitlePosts();

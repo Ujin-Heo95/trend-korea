@@ -825,7 +825,7 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
       }]),
     );
 
-    await client.query('DELETE FROM issue_rankings');
+    await client.query('TRUNCATE issue_rankings');
 
     const values: string[] = [];
     const params: unknown[] = [];
