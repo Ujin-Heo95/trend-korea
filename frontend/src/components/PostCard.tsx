@@ -50,12 +50,29 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
 
             {/* Content: title + metrics */}
             <div className="flex-1 min-w-0">
-              <p className={`text-sm leading-snug line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 ${
+              <div className={`text-sm leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 ${
                 isRead ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-50'
               }`}>
-                {post.title}
-                <span className="text-[11px] text-slate-400 dark:text-slate-500 ml-1.5 whitespace-nowrap">{timeAgo(post.published_at ?? post.first_scraped_at)}</span>
-              </p>
+                <span className="line-clamp-2">{post.title}</span>
+                <span className="inline-flex items-center gap-1 align-middle ml-0.5">
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap">{timeAgo(post.published_at ?? post.first_scraped_at)}</span>
+                  {rank == null && (
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${getSourceColor(post.source_key, post.category)}`}>
+                      {post.source_name}
+                    </span>
+                  )}
+                  {hasClusters && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(!expanded); }}
+                      aria-expanded={expanded}
+                      className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
+                    >
+                      +{clusterSize - 1}
+                    </button>
+                  )}
+                </span>
+              </div>
               {/* Metrics row */}
               <div className="flex items-center gap-3 mt-1 text-xs text-slate-400 dark:text-slate-500 tabular-nums">
                 {post.view_count > 0 && (
@@ -82,22 +99,6 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
                     </svg>
                     {post.comment_count.toLocaleString()}
                   </span>
-                )}
-                {/* Source badge inline when no rank */}
-                {rank == null && (
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${getSourceColor(post.source_key, post.category)}`}>
-                    {post.source_name}
-                  </span>
-                )}
-                {hasClusters && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(!expanded); }}
-                    aria-expanded={expanded}
-                    className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
-                  >
-                    +{clusterSize - 1}
-                  </button>
                 )}
               </div>
             </div>
