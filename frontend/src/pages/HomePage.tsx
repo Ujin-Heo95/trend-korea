@@ -17,7 +17,6 @@ import { EntertainmentCompactSection } from '../components/EntertainmentCompactS
 import { EntertainmentUnifiedView } from '../components/EntertainmentUnifiedView';
 import { TravelDashboard } from '../components/travel/TravelDashboard';
 import { CommunityRankingList } from '../components/CommunityRankingList';
-import { PortalRankingView } from '../components/PortalRankingView';
 import { IssueRankingList } from '../components/IssueRankingList';
 import { MetaHead } from '../components/shared/MetaHead';
 import { WebSiteJsonLd, CollectionPageJsonLd, DatasetJsonLd } from '../components/shared/JsonLd';
@@ -84,6 +83,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const isPortalTab = category === 'portal';
   const isEntertainmentTab = category === 'entertainment';
   const isTravelTab = category === 'travel';
+  const isDealsTab = category === 'deals';
   const isAllTab = !category && !searchQuery;
 
   const handleCategoryChange = (cat: string | undefined) => {
@@ -200,7 +200,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         <EntertainmentSubTabs selected={entertainmentSub} onChange={setEntertainmentSub} />
       )}
 
-      {(category === 'community' || isNewsTab || isPortalTab) && (
+      {(category === 'community' || isNewsTab || isPortalTab || isDealsTab) && (
         <SourceFilterChips category={category!} selected={selectedSources} onChange={setSelectedSources} />
       )}
 
@@ -264,7 +264,6 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           if (matched === 'OttRankingTable') return <OttRankingTable posts={allPosts} />;
           if (matched === 'EntertainmentAllView') return <EntertainmentUnifiedView onSubTabChange={setEntertainmentSub} />;
           if (matched === 'TravelDashboard') return <TravelDashboard posts={allPosts} />;
-          if (matched === 'PortalRankingView') return <PortalRankingView posts={allPosts} isRead={isRead} onRead={markAsRead} onSourceFilter={setSelectedSources} />;
           if (matched === 'CommunityRankingList') return <CommunityRankingList posts={allPosts} isRead={isRead} onRead={markAsRead} />;
           return (
             <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
@@ -272,7 +271,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
                 <React.Fragment key={post.id}>
                   <PostCard
                     post={post}
-                    rank={(category === 'community' || isNewsTab) && sortMode === 'trending' ? i + 1 : undefined}
+                    rank={(isPortalTab || isDealsTab || ((category === 'community' || isNewsTab) && sortMode === 'trending')) ? i + 1 : undefined}
                     isRead={isRead(post.url)}
                     onRead={markAsRead}
                     style={i < 15 ? { '--enter-delay': `${i * 40}ms` } as React.CSSProperties : undefined}

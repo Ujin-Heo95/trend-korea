@@ -31,7 +31,7 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
       {/* Clickable content area */}
       {(() => {
         const isNews = NEWS_CATEGORIES.includes(post.category ?? '');
-        const isExternalLink = post.category === 'community' || isNews;
+        const isExternalLink = post.category === 'community' || post.category === 'video' || isNews;
         const content = (
           <div className="flex gap-3">
             {/* Rank number + source badge */}

@@ -19,7 +19,7 @@ const SECTION_ORDER: { key: string; icon: string; label: string; sub: Entertainm
 // ── Compact row ──────────────────────────────────────
 
 function UnifiedRow({ item, fallbackIcon }: { item: UnifiedItem; fallbackIcon: string }) {
-  const thumbSrc = optimizedImage(item.thumbnail, 72);
+  const thumbSrc = optimizedImage(item.thumbnail, 112);
 
   return (
     <a
@@ -28,18 +28,18 @@ function UnifiedRow({ item, fallbackIcon }: { item: UnifiedItem; fallbackIcon: s
       rel="noopener noreferrer"
       className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors"
     >
-      <RankBadge rank={item.unifiedRank} />
+      <RankBadge rank={item.unifiedRank} variant="simple" />
 
       {/* Thumbnail */}
-      <div className="flex-shrink-0 w-9 h-9 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
+      <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
         {thumbSrc ? (
           <img
             src={thumbSrc}
             alt={item.title}
             loading="lazy"
             decoding="async"
-            width={36}
-            height={36}
+            width={56}
+            height={56}
             className="w-full h-full object-cover"
           />
         ) : (

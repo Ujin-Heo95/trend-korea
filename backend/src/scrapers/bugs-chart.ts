@@ -49,9 +49,9 @@ export class BugsChartScraper extends BaseScraper {
         category: 'music',
         metadata: {
           rank, songNo: trackId, title, artist, album,
-          rankChange: $(el).find('.ranking .change .up').length ? `+${$(el).find('.ranking .change .up').text().trim()}`
-            : $(el).find('.ranking .change .down').length ? `-${$(el).find('.ranking .change .down').text().trim()}`
-            : $(el).find('.ranking .change .new').length ? 'NEW'
+          rankChange: $(el).find('.ranking p.change.up').length ? `+${$(el).find('.ranking p.change.up em').text().trim()}`
+            : $(el).find('.ranking p.change.down').length ? `-${$(el).find('.ranking p.change.down em').text().trim()}`
+            : $(el).find('.ranking p.change.new').length ? 'NEW'
             : '-',
         },
       });
