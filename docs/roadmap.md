@@ -148,7 +148,7 @@ P1-01 → P1-03 (프리렌더에 JSON-LD 삽입)
 | P2-10 | **Core Web Vitals 개선** | 프론트 | 2d | TrendHero min-height, Inter 자체 호스팅, useTransition, content-visibility |
 | ~~P2-11~~ | ~~**이미지 최적화**~~ | 프론트 | — | ✅ **부분 완료** (2026-04-11) CLS용 width/height 추가, wsrv.nl 프록시 기적용 |
 | ~~P2-12~~ | ~~**접근성 개선**~~ | 프론트 | — | ✅ **완료** (2026-04-11) CategoryTabs ARIA, RankBadge aria-label, role="tabpanel" 제거, 터치 타겟 44px |
-| P2-13 | **백엔드 통합 테스트** | 테스트 | 8-12h | vote flow, posts trending+dedup, scoring batch (pg-mem or Docker PG) |
+| ~~P2-13~~ | ~~**백엔드 통합 테스트**~~ | 테스트 | — | ✅ **완료** (2026-04-11) pg-mem 기반 25 tests: vote flow 7, scoring batch 7, dedup+trending 11 |
 | ~~P2-14~~ | ~~**프론트엔드 테스트 시작**~~ | 테스트 | — | ✅ **완료** (2026-04-11) 9 test files, 79 tests (useVotes, useBookmarks, SearchBar, client, VoteButton 등) |
 | ~~P2-15~~ | ~~**vote 응답 로직 수정**~~ | 백엔드 | — | ✅ **완료** (2026-04-04) is_new_vote |
 | ~~P2-16~~ | ~~**cleanup.ts 인터벌 표준화**~~ | 백엔드 | — | ✅ **완료** (2026-04-04) |

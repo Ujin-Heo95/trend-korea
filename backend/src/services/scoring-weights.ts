@@ -52,8 +52,8 @@ const SOURCE_WEIGHTS: Record<string, number> = {
   nate_news: 1.8, zum_news: 1.6,
   // YouTube (정규 언론사 = T1, 일반 = 1.2)
   youtube: 2.5,
-  // 테크
-  geeknews: 1.3, yozm: 1.3,
+  // 전문매체
+  yozm: 1.0,
   naver_d2: 1.1, kakao_tech: 1.1, toss_tech: 1.1,
   // 커뮤니티
   dcinside: 1.0, bobaedream: 1.0, ruliweb: 1.0, theqoo: 1.0,

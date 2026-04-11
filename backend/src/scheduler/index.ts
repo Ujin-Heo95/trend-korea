@@ -16,6 +16,7 @@ import { generateEmbeddingsForRecentPosts, loadEmbeddingsFromDb } from '../servi
 import { batchPool, logPoolStats } from '../db/client.js';
 import { runPipeline } from './pipeline.js';
 import { loadFeatureFlags } from '../services/featureFlags.js';
+import { enrichYoutubeEngagement } from '../services/youtubeEnrichment.js';
 
 function captureError(err: unknown): void {
   console.error(err);
@@ -99,6 +100,12 @@ function startCronJobs(): void {
     await snapshotRankings(batchPool).catch(captureError);
   });
   console.log('[scheduler] rank snapshot: hourly');
+
+  // YouTube 영상 통계 보강: 30분 주기 (offset +5)
+  cron.schedule('5,35 * * * *', async () => {
+    await enrichYoutubeEngagement(batchPool).catch(captureError);
+  });
+  console.log('[scheduler] youtube enrichment: every 30 min (offset +5)');
 
   // Apify SNS 수집: 09:00, 18:00 KST (= 00:00, 09:00 UTC)
   cron.schedule('0 0,9 * * *', () => {
