@@ -59,7 +59,7 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
         </div>
       </div>
     </header>
-    <main id="main-content" role="tabpanel" className="max-w-5xl mx-auto px-0 sm:px-4 py-2 pb-16 sm:pb-6">{children}</main>
+    <main id="main-content" className="max-w-5xl mx-auto px-0 sm:px-4 py-2 pb-16 sm:pb-6">{children}</main>
     <Footer />
     <MobileBottomNav />
     <ScrollToTop />

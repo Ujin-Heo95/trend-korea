@@ -1,4 +1,6 @@
 import type { Pool } from 'pg';
+import { logger } from '../utils/logger.js';
+import { notifyPipelineWarning } from './discord.js';
 import { calculateTrendSignalMap } from './trendSignals.js';
 import {
   type Channel,
@@ -59,10 +61,12 @@ export async function calculateScores(pool: Pool): Promise<number> {
   if (isScoring) {
     const elapsed = Date.now() - scoringStartedAt;
     if (elapsed < SCORING_TIMEOUT_MS) {
-      console.warn('[scoring] skipping — previous run still active');
+      logger.warn({ elapsed: Math.round(elapsed / 1000) }, '[scoring] skipping — previous run still active');
       return 0;
     }
-    console.warn(`[scoring] force-releasing stale lock (${Math.round(elapsed / 1000)}s old)`);
+    const msg = `[scoring] stale lock force-released after ${Math.round(elapsed / 1000)}s`;
+    logger.warn(msg);
+    notifyPipelineWarning('scoring', msg).catch(() => {});
     isScoring = false;
   }
   isScoring = true;

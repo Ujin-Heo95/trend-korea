@@ -339,65 +339,78 @@ async function clusterOnePostBatch(
     }
   }
 
-  if (existingClusterIds.size > 0) {
-    // Join existing cluster (pick first)
-    const clusterId = existingClusterIds.values().next().value as number;
-    const bestMatch = matches.reduce((a, b) => a.score > b.score ? a : b);
-    await pool.query(
-      `INSERT INTO post_cluster_members (cluster_id, post_id, similarity_score, match_layer)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (cluster_id, post_id) DO NOTHING`,
-      [clusterId, row.id, bestMatch.score, bestMatch.layer],
-    );
-    // Update member_count and canonical (pick highest view_count)
-    await pool.query(
-      `UPDATE post_clusters SET
-         member_count = (SELECT COUNT(*) FROM post_cluster_members WHERE cluster_id = $1),
-         canonical_post_id = (
-           SELECT pcm.post_id FROM post_cluster_members pcm
-           JOIN posts p ON p.id = pcm.post_id
-           WHERE pcm.cluster_id = $1
-           ORDER BY p.view_count DESC NULLS LAST, p.scraped_at DESC
-           LIMIT 1
-         )
-       WHERE id = $1`,
-      [clusterId],
-    );
-  } else {
-    // Create new cluster
-    const allPostIds = [row.id, ...matches.map(m => m.postId)];
-    // Find canonical: highest view_count (in-memory from recent posts + current row)
-    const allRows = [row as PostRow, ...matches.map(m => {
-      const found = ctx.recentPosts.find(r => r.id === m.postId);
-      return found;
-    }).filter((r): r is PostRow => r !== undefined)];
-    const canonical = allRows.sort((a, b) => {
-      const viewDiff = (b.view_count ?? 0) - (a.view_count ?? 0);
-      if (viewDiff !== 0) return viewDiff;
-      return new Date(b.scraped_at).getTime() - new Date(a.scraped_at).getTime();
-    })[0];
-    const canonicalId = canonical?.id ?? row.id;
+  // Wrap cluster writes in a transaction to prevent orphan records and race conditions
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-    const { rows: [cluster] } = await pool.query<{ id: number }>(
-      `INSERT INTO post_clusters (canonical_post_id, member_count)
-       VALUES ($1, $2) RETURNING id`,
-      [canonicalId, allPostIds.length],
-    );
-    // Batch insert all members in a single query
-    const values: string[] = [];
-    const params: unknown[] = [cluster.id];
-    let paramIdx = 2;
-    for (const postId of allPostIds) {
-      const match = matches.find(m => m.postId === postId);
-      values.push(`($1, $${paramIdx}, $${paramIdx + 1}, $${paramIdx + 2})`);
-      params.push(postId, match?.score ?? 1.0, match?.layer ?? 'L1');
-      paramIdx += 3;
+    if (existingClusterIds.size > 0) {
+      // Join existing cluster (pick first)
+      const clusterId = existingClusterIds.values().next().value as number;
+      const bestMatch = matches.reduce((a, b) => a.score > b.score ? a : b);
+      await client.query(
+        `INSERT INTO post_cluster_members (cluster_id, post_id, similarity_score, match_layer)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (cluster_id, post_id) DO NOTHING`,
+        [clusterId, row.id, bestMatch.score, bestMatch.layer],
+      );
+      // Update member_count and canonical (pick highest view_count)
+      await client.query(
+        `UPDATE post_clusters SET
+           member_count = (SELECT COUNT(*) FROM post_cluster_members WHERE cluster_id = $1),
+           canonical_post_id = (
+             SELECT pcm.post_id FROM post_cluster_members pcm
+             JOIN posts p ON p.id = pcm.post_id
+             WHERE pcm.cluster_id = $1
+             ORDER BY p.view_count DESC NULLS LAST, p.scraped_at DESC
+             LIMIT 1
+           )
+         WHERE id = $1`,
+        [clusterId],
+      );
+    } else {
+      // Create new cluster
+      const allPostIds = [row.id, ...matches.map(m => m.postId)];
+      // Find canonical: highest view_count (in-memory from recent posts + current row)
+      const allRows = [row as PostRow, ...matches.map(m => {
+        const found = ctx.recentPosts.find(r => r.id === m.postId);
+        return found;
+      }).filter((r): r is PostRow => r !== undefined)];
+      const canonical = allRows.sort((a, b) => {
+        const viewDiff = (b.view_count ?? 0) - (a.view_count ?? 0);
+        if (viewDiff !== 0) return viewDiff;
+        return new Date(b.scraped_at).getTime() - new Date(a.scraped_at).getTime();
+      })[0];
+      const canonicalId = canonical?.id ?? row.id;
+
+      const { rows: [cluster] } = await client.query<{ id: number }>(
+        `INSERT INTO post_clusters (canonical_post_id, member_count)
+         VALUES ($1, $2) RETURNING id`,
+        [canonicalId, allPostIds.length],
+      );
+      // Batch insert all members in a single query
+      const values: string[] = [];
+      const params: unknown[] = [cluster.id];
+      let paramIdx = 2;
+      for (const postId of allPostIds) {
+        const match = matches.find(m => m.postId === postId);
+        values.push(`($1, $${paramIdx}, $${paramIdx + 1}, $${paramIdx + 2})`);
+        params.push(postId, match?.score ?? 1.0, match?.layer ?? 'L1');
+        paramIdx += 3;
+      }
+      await client.query(
+        `INSERT INTO post_cluster_members (cluster_id, post_id, similarity_score, match_layer)
+         VALUES ${values.join(', ')}
+         ON CONFLICT (cluster_id, post_id) DO NOTHING`,
+        params,
+      );
     }
-    await pool.query(
-      `INSERT INTO post_cluster_members (cluster_id, post_id, similarity_score, match_layer)
-       VALUES ${values.join(', ')}
-       ON CONFLICT (cluster_id, post_id) DO NOTHING`,
-      params,
-    );
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
 }

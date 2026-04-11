@@ -41,6 +41,7 @@ interface Config {
   naverSiteVerification: string;
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
+  supabaseJwtSecret: string;
   backupEnabled: boolean;
   backupRetentionDays: number;
   serveFrontend: boolean;
@@ -133,6 +134,7 @@ export const config: Config = {
   naverSiteVerification: process.env.NAVER_SITE_VERIFICATION ?? '',
   supabaseUrl: process.env.SUPABASE_URL ?? '',
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+  supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET ?? '',
   backupEnabled: process.env.BACKUP_ENABLED !== 'false',
   backupRetentionDays: (() => {
     const v = Number(process.env.BACKUP_RETENTION_DAYS ?? 7);

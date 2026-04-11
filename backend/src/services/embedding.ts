@@ -6,31 +6,18 @@
 import { GoogleGenerativeAI, TaskType } from '@google/generative-ai';
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
+import { LRUCache } from '../cache/lru.js';
 import { SCORED_CATEGORIES_SQL } from './scoring-weights.js';
 
 const EMBEDDING_MODEL = 'text-embedding-004';
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6시간
+const CACHE_MAX_SIZE = 5000; // ~15MB at 768 dims × 4B × 5000
 const BATCH_SIZE = 100; // batchEmbedContents 최대 요청 수
 
 // ─── Cache ───
 
-interface CachedEmbedding {
-  readonly vector: Float32Array;
-  readonly cachedAt: number;
-}
-
-/** postId → 임베딩 벡터 캐시. TTL 6시간, ~22MB at 7200 posts × 768 dims × 4B */
-const embeddingCache = new Map<number, CachedEmbedding>();
-
-/** 만료된 캐시 엔트리 정리 */
-function pruneCache(): void {
-  const now = Date.now();
-  for (const [id, entry] of embeddingCache) {
-    if (now - entry.cachedAt > CACHE_TTL_MS) {
-      embeddingCache.delete(id);
-    }
-  }
-}
+/** postId → 임베딩 벡터 캐시. LRU eviction + TTL 6시간, max 5000 entries (~15MB) */
+const embeddingCache = new LRUCache<Float32Array>(CACHE_MAX_SIZE, CACHE_TTL_MS);
 
 // ─── Client ───
 
@@ -59,10 +46,8 @@ export async function generateEmbeddings(posts: readonly PostForEmbedding[]): Pr
   const client = getClient();
   if (!client) return 0;
 
-  pruneCache();
-
   // 캐시에 없는 포스트만 필터
-  const uncached = posts.filter(p => !embeddingCache.has(p.id));
+  const uncached = posts.filter(p => !embeddingCache.get(String(p.id)));
   if (uncached.length === 0) return 0;
 
   const model = client.getGenerativeModel({ model: EMBEDDING_MODEL });
@@ -82,10 +67,7 @@ export async function generateEmbeddings(posts: readonly PostForEmbedding[]): Pr
 
       for (let j = 0; j < result.embeddings.length; j++) {
         const values = result.embeddings[j].values;
-        embeddingCache.set(batch[j].id, {
-          vector: new Float32Array(values),
-          cachedAt: Date.now(),
-        });
+        embeddingCache.set(String(batch[j].id), new Float32Array(values));
         generated++;
       }
     } catch (err) {
@@ -102,11 +84,11 @@ export async function generateEmbeddings(posts: readonly PostForEmbedding[]): Pr
  * @returns 유사도 [0, 1] 또는 null (임베딩 미존재)
  */
 export function cosineSimilarity(postIdA: number, postIdB: number): number | null {
-  const a = embeddingCache.get(postIdA);
-  const b = embeddingCache.get(postIdB);
+  const a = embeddingCache.get(String(postIdA));
+  const b = embeddingCache.get(String(postIdB));
   if (!a || !b) return null;
 
-  return cosineSimVectors(a.vector, b.vector);
+  return cosineSimVectors(a, b);
 }
 
 /** Float32Array 벡터 간 코사인 유사도 */
@@ -131,7 +113,7 @@ export function cosineSimVectors(a: Float32Array, b: Float32Array): number {
  * @returns Float32Array 또는 null
  */
 export function getEmbedding(postId: number): Float32Array | null {
-  return embeddingCache.get(postId)?.vector ?? null;
+  return embeddingCache.get(String(postId)) ?? null;
 }
 
 /** 캐시 크기 반환 (모니터링용) */
@@ -188,13 +170,4 @@ export async function generateEmbeddingsForRecentPosts(pool: Pool): Promise<void
   }
 }
 
-// ─── Periodic Cache Pruning ───
-
-setInterval(() => {
-  const before = embeddingCache.size;
-  pruneCache();
-  const pruned = before - embeddingCache.size;
-  if (pruned > 0) {
-    logger.info({ pruned, remaining: embeddingCache.size }, '[embedding] periodic cache prune');
-  }
-}, 60 * 60_000); // 1시간마다
+// LRUCache handles eviction automatically — no periodic pruning needed

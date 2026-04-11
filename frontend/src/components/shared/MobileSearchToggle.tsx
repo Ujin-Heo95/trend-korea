@@ -13,7 +13,13 @@ export const MobileSearchToggle: React.FC<Props> = ({ value, onChange }) => {
   useEffect(() => { setInput(value); }, [value]);
 
   useEffect(() => {
-    if (open) inputRef.current?.focus();
+    if (open) {
+      inputRef.current?.focus();
+      // Lock body scroll while search overlay is open
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
   }, [open]);
 
   useEffect(() => {
@@ -23,6 +29,16 @@ export const MobileSearchToggle: React.FC<Props> = ({ value, onChange }) => {
     }, 400);
     return () => clearTimeout(timer);
   }, [input, value, onChange, open]);
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
 
   const handleClose = () => {
     setOpen(false);

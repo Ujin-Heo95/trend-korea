@@ -117,6 +117,37 @@ export async function notifyBackupResult(
   }
 }
 
+export async function notifyPipelineWarning(
+  pipeline: string,
+  message: string,
+): Promise<void> {
+  if (!config.discordWebhookUrl) return;
+
+  const body = {
+    embeds: [
+      {
+        title: `⚠️ 파이프라인 경고: ${pipeline}`,
+        description: message.slice(0, 500),
+        color: 0xff8800,
+        footer: { text: new Date().toISOString() },
+      },
+    ],
+  };
+
+  try {
+    const res = await fetch(config.discordWebhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      console.error(`[discord] pipeline warning webhook failed: ${res.status}`);
+    }
+  } catch (err) {
+    logger.error({ err }, '[discord] pipeline warning webhook error');
+  }
+}
+
 export async function notifyBudgetAlert(
   usedCents: number,
   budgetCents: number,

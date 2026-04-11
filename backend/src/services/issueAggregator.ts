@@ -1,5 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import { createHash } from 'crypto';
+import { logger } from '../utils/logger.js';
+import { notifyPipelineWarning } from './discord.js';
 import { buildKeywordIndex, matchPostToKeywords, computeTrendSignalBonus } from './trendSignals.js';
 import { getChannel, SCORED_CATEGORIES_SQL } from './scoring-weights.js';
 import { bigrams, jaccardSimilarity, koreanTokenize, wordJaccardSimilarity } from './dedup.js';
@@ -144,10 +146,12 @@ export async function aggregateIssues(pool: Pool): Promise<number> {
   if (isAggregating) {
     const elapsed = Date.now() - aggregationStartedAt;
     if (elapsed < AGGREGATION_TIMEOUT_MS) {
-      console.warn('[issueAggregator] skipping — previous run still active');
+      logger.warn({ elapsed: Math.round(elapsed / 1000) }, '[issueAggregator] skipping — previous run still active');
       return 0;
     }
-    console.warn(`[issueAggregator] force-releasing stale lock (${Math.round(elapsed / 1000)}s old)`);
+    const msg = `[issueAggregator] stale lock force-released after ${Math.round(elapsed / 1000)}s`;
+    logger.warn(msg);
+    notifyPipelineWarning('issueAggregator', msg).catch(() => {});
     isAggregating = false;
   }
   isAggregating = true;

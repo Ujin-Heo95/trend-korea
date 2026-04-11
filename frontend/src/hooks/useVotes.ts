@@ -51,21 +51,32 @@ export function useVotes() {
 
   const vote = useCallback((postId: number, onCountUpdate?: (count: number) => void) => {
     const key = String(postId);
+    let wasAlreadyVoted = false;
     setStore(prev => {
-      if (key in prev) return prev;
+      if (key in prev) { wasAlreadyVoted = true; return prev; }
       const next = { ...prev, [key]: { ts: Date.now() } };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       } catch { /* quota exceeded */ }
       return next;
     });
+    if (wasAlreadyVoted) return;
 
     trackEvent('vote', { postId });
 
-    // Fire-and-forget backend sync
     postVote(postId)
       .then(res => onCountUpdate?.(res.vote_count))
-      .catch(() => { /* silently ignore — localStorage is source of truth for voted state */ });
+      .catch(() => {
+        // Revert optimistic vote on failure
+        setStore(prev => {
+          const { [key]: _, ...rest } = prev;
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
+          } catch { /* quota exceeded */ }
+          return rest;
+        });
+        onCountUpdate?.(-1); // Signal rollback with -1
+      });
   }, []);
 
   return { hasVoted, vote };

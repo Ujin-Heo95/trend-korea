@@ -21,7 +21,14 @@ export const VoteButton: React.FC<Props> = ({ postId, voteCount, hasVoted, onVot
     setAnimating(true);
     setTimeout(() => setAnimating(false), 300);
 
-    onVote(postId, (serverCount) => setDisplayCount(serverCount));
+    onVote(postId, (serverCount) => {
+      if (serverCount === -1) {
+        // Rollback: revert optimistic increment
+        setDisplayCount(voteCount);
+      } else {
+        setDisplayCount(serverCount);
+      }
+    });
   };
 
   const isMd = size === 'md';
