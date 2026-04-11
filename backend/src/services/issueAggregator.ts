@@ -1092,15 +1092,15 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
         }
       }
       if (sids.length > 0) {
-        await client.query(
-          `UPDATE issue_rankings ir
-           SET title = v.title, summary = v.summary, category_label = v.cat,
-               quality_score = v.qs, ai_keywords = v.kw, sentiment = v.sent
-           FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::smallint[], $6::text[][], $7::text[])
-             AS v(sid, title, summary, cat, qs, kw, sent)
-           WHERE ir.stable_id = v.sid AND ir.summary IS NULL`,
-          [sids, titles, summaries, categories, qualityScores, aiKeywordsArr, sentiments],
-        );
+        for (let k = 0; k < sids.length; k++) {
+          await client.query(
+            `UPDATE issue_rankings
+             SET title = $1, summary = $2, category_label = $3,
+                 quality_score = $4, ai_keywords = $5, sentiment = $6
+             WHERE stable_id = $7 AND summary IS NULL`,
+            [titles[k], summaries[k], categories[k], qualityScores[k], aiKeywordsArr[k], sentiments[k], sids[k]],
+          );
+        }
         console.log(`[issueAggregator] restored ${sids.length} summaries via carry-forward`);
       }
     }
