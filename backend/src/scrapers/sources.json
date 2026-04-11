@@ -810,7 +810,7 @@
       "module": "./tour-festival.js",
       "className": "TourFestivalScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "tour_visitor",

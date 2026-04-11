@@ -93,7 +93,7 @@ export class SeoulCitydataScraper extends BaseScraper {
           sourceKey: 'seoul_citydata',
           sourceName: '서울 실시간 도시데이터',
           title,
-          url: `https://data.seoul.go.kr/dataList/OA-21778/A/1/datasetView.do`,
+          url: `https://data.seoul.go.kr/dataList/OA-21778/A/1/datasetView.do#${encodeURIComponent(area)}`,
           category: 'travel',
           metadata: {
             area,
