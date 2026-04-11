@@ -26,6 +26,7 @@ import {
   type EngagementWeights,
   computeScore,
   normalizeEngagement,
+  sourceHasLikeData,
   preloadEngagementWeights,
   calculateSourceStats,
   calculateChannelStats,
@@ -176,9 +177,9 @@ async function _calculateScores(pool: Pool): Promise<number> {
         ? getNewsHalfLifeFrom(weights, row.source_key)  // 뉴스: 소스별 차등 반감기
         : getHalfLifeFrom(weights, channel);
 
-    // 채널별 분기: velocity 보너스
+    // 채널별 분기: velocity 보너스 (커뮤니티: 좋아요 미수집 소스 보정)
     const velBonus = isCommunity
-      ? communityVelocityToBonus(velocityMap.get(row.id))
+      ? communityVelocityToBonus(velocityMap.get(row.id), sourceHasLikeData(sourceStatsMap, row.source_key))
       : velocityToBonus(velocityMap.get(row.id));
 
     // 뉴스: subcategoryNorm 대체 categoryWeight / 커뮤니티: categoryWeight 제거 (1.0)

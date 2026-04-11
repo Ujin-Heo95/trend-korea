@@ -87,11 +87,19 @@ export function computeScoreLegacy(
 
 // ─── Community Velocity (댓글·좋아요 가중 강화) ───
 
-export function communityVelocityToBonus(velocity: VelocityData | undefined): number {
+export function communityVelocityToBonus(velocity: VelocityData | undefined, hasLikeData: boolean = true): number {
   if (!velocity) return 1.0;
-  const score = Math.log1p(velocity.viewVelocity)
-    + Math.log1p(velocity.commentVelocity) * 3.0
-    + Math.log1p(velocity.likeVelocity) * 3.0;
+  let score: number;
+  if (hasLikeData) {
+    score = Math.log1p(velocity.viewVelocity)
+      + Math.log1p(velocity.commentVelocity) * 3.0
+      + Math.log1p(velocity.likeVelocity) * 3.0;
+  } else {
+    // 좋아요 미수집: view(1)+comment(3) 예산을 7.0 총합으로 비례 확대 (scale=7/4=1.75)
+    const scale = 1.75;
+    score = Math.log1p(velocity.viewVelocity) * scale
+      + Math.log1p(velocity.commentVelocity) * 3.0 * scale;
+  }
   return 1.0 + Math.min(score / 8.0, 0.6); // [1.0, 1.6]
 }
 
@@ -343,7 +351,14 @@ export async function preloadEngagementWeights(): Promise<EngagementWeights> {
   };
 }
 
-/** Z-Score 정규화된 engagement 계산 (채널 인식) */
+/** 소스가 좋아요 데이터를 실질적으로 수집하는지 판별 (meanLogLikes ≈ 0 && 분산 없음 → 미수집) */
+export function sourceHasLikeData(sourceStatsMap: Map<string, SourceStats>, sourceKey: string): boolean {
+  const stats = sourceStatsMap.get(sourceKey);
+  if (!stats) return true; // 통계 없으면 기본적으로 있다고 가정
+  return stats.meanLogLikes >= 0.1 || stats.stddevLogLikes > 0.1;
+}
+
+/** Z-Score 정규화된 engagement 계산 (채널 인식, 메트릭 완전성 보정) */
 export function normalizeEngagement(
   viewCount: number,
   commentCount: number,
@@ -380,8 +395,26 @@ export function normalizeEngagement(
   const zViews = safeDiv(Math.log1p(viewCount) - stats.meanLogViews, stats.stddevLogViews);
   const zComments = safeDiv(Math.log1p(commentCount) - stats.meanLogComments, stats.stddevLogComments);
   const zLikes = safeDiv(Math.log1p(likeCount) - stats.meanLogLikes, stats.stddevLogLikes);
+
+  // 메트릭 완전성 보정: 좋아요 미수집 소스의 가중치를 조회수/댓글수에 비례 재분배
+  // 총 가중 예산(1.0 + commentWeight + likeWeight)은 동일하게 유지
+  const hasLikes = sourceHasLikeData(sourceStatsMap, sourceKey);
+  let adjViewW: number, adjCommentW: number, adjLikeW: number;
+  if (hasLikes) {
+    adjViewW = 1.0;
+    adjCommentW = commentWeight;
+    adjLikeW = likeWeight;
+  } else {
+    const totalBudget = 1.0 + commentWeight + likeWeight;
+    const baseBudget = 1.0 + commentWeight;
+    const scale = totalBudget / baseBudget;
+    adjViewW = 1.0 * scale;
+    adjCommentW = commentWeight * scale;
+    adjLikeW = 0; // 좋아요 미수집 → 가중치 0
+  }
+
   // z-score를 양수 범위로 시프트: 평균 = 2.0, 1시그마 위 = 3.0, 상한 20.0
-  const raw = 2.0 + zViews + zComments * commentWeight + zLikes * likeWeight;
+  const raw = 2.0 + zViews * adjViewW + zComments * adjCommentW + zLikes * adjLikeW;
   return Math.max(Math.min(raw, 20.0), 0.5);
 }
 

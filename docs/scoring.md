@@ -61,13 +61,23 @@ score = signalScore × decay × sourceWeight × subcategoryNorm
 Z-Score 정규화. 소스별 또는 채널별 통계(24시간 평균/표준편차) 기반.
 
 ```
-result = max(2.0 + zViews + zComments × commentWeight + zLikes × likeWeight, 0.5)
+result = max(2.0 + zViews × adjViewW + zComments × adjCommentW + zLikes × adjLikeW, 0.5)
 ```
 
 - 최소 샘플 수: 뉴스 5건, 기타 10건 (미달 시 채널 통계로 폴백)
 - 기본 참여도(zero-engagement 시): 2.0
 - 뉴스 zero-engagement 보정: ×1.2 (참여 데이터 부재가 일반적)
 - 하한: 0.5
+
+**메트릭 완전성 보정 (v7)**:
+좋아요를 수집하지 않는 소스(예: theqoo — hot 페이지에 추천수 미노출)를 자동 감지하여, 좋아요 가중치를 조회수/댓글수에 비례 재분배. 총 가중 예산은 동일하게 유지.
+
+- 감지 조건: 소스별 통계에서 `meanLogLikes < 0.1 && stddevLogLikes ≤ 0.1` → 좋아요 미수집
+- 좋아요 수집 소스: `adjViewW=1.0, adjCommentW=commentWeight, adjLikeW=likeWeight` (기존 동일)
+- 좋아요 미수집 소스: `scale = (1 + commentWeight + likeWeight) / (1 + commentWeight)`, 커뮤니티 기준 scale=1.8
+  - `adjViewW=1.8, adjCommentW=2.7, adjLikeW=0` (총 예산 4.5 유지)
+
+동일 보정이 `communityVelocityToBonus`에도 적용: 좋아요 미수집 시 view/comment velocity 가중치를 7.0 총합 기준으로 비례 확대 (scale=1.75).
 
 **채널별 댓글 가중치 (commentWeight):**
 
