@@ -1,4 +1,0 @@
-/api/*  https://api.weeklit.net/api/:splat  200
-/sitemap.xml  https://api.weeklit.net/sitemap.xml  200
-/health  https://api.weeklit.net/health  200
-/*  /index.html  200
