@@ -351,15 +351,6 @@ function buildClusterGroups(posts: readonly ScoredPost[]): ClusterGroup[] {
   return groups;
 }
 
-// ─── Core Noun Extraction (음성 증거용) ───
-
-/** 토큰 세트에서 핵심 명사 추출 — 가장 긴 토큰 상위 3개를 주체(subject) 후보로 반환 */
-export function extractCoreNouns(tokens: Set<string>): Set<string> {
-  // 길이 순 정렬 → 상위 3개 선택 (긴 토큰이 고유명사/핵심어일 확률 높음)
-  const sorted = [...tokens].sort((a, b) => b.length - a.length);
-  return new Set(sorted.slice(0, 3));
-}
-
 // ─── Step 3: Merge Via Trend Keywords ───
 
 async function mergeViaTrendKeywords(
@@ -412,14 +403,12 @@ async function mergeViaTrendKeywords(
 
   const MIN_MERGE_KW_LEN = 3; // 2글자 키워드("이란","미국" 등) 병합 제외
 
-  // P2-2: 범용 키워드 불용어 — 단독으로는 병합 트리거 불가
-  const GENERIC_MERGE_STOPWORDS = new Set([
-    '합의', '발표', '논의', '결정', '관련', '대응', '검토', '추진', '조치', '확인',
-    '보도', '전망', '우려', '지적', '요구', '비판', '입장', '계획', '방안', '대책',
-    '예정', '가능', '상황', '문제', '사건', '사고', '주장', '의혹', '혐의', '논란',
+  // 순수 동작어/접속어 — 주체 정보가 없어 단독으로 이슈를 특정할 수 없는 키워드
+  // 이 키워드만 공유하는 쌍은 병합하지 않음 (다른 키워드와 함께일 때는 참여)
+  const ACTION_ONLY_STOPWORDS = new Set([
+    '관련', '대한', '통해', '위해', '대해', '가능', '예정', '필요',
   ]);
 
-  // ── Pass 1: 키워드 → 그룹 매핑 + 특이성 점수 산출 ──
   const kwToGroups = new Map<string, number[]>();
   for (let i = 0; i < groupsWithKw.length; i++) {
     for (const kw of groupsWithKw[i].keywords) {
@@ -432,72 +421,41 @@ async function mergeViaTrendKeywords(
     }
   }
 
-  // P1-2: 키워드 특이성 = 1/sqrt(매칭 그룹 수). 많은 그룹에 매칭 → 범용 → 병합력 약화
-  const kwSpecificity = new Map<string, number>();
+  // 키워드 공유 → 병합 (기본 원칙 유지)
+  // 단, 공유 키워드가 ACTION_ONLY_STOPWORDS에만 해당하면 병합 스킵
+  // 2개 이상 키워드 공유 시에는 무조건 병합 (복수 키워드 = 강한 신호)
+  const pairSharedKws = new Map<string, Set<string>>();
+
   for (const [kw, indices] of kwToGroups) {
-    kwSpecificity.set(kw, 1.0 / Math.sqrt(indices.length));
-  }
-
-  // P1-1: 대표 제목 토큰 세트 사전 계산 (유사도 게이트용)
-  const repTitleTokens = groupsWithKw.map(g => {
-    const bestPost = g.group.posts.reduce((best, p) =>
-      p.trendScore > best.trendScore ? p : best, g.group.posts[0]);
-    return koreanTokenize(bestPost.title);
-  });
-
-  // ── Pass 2: 후보 쌍별 병합 검증 (유사도 게이트 + 특이성 + 음성 증거) ──
-  // 후보 쌍 수집: 같은 키워드를 공유하는 그룹 쌍
-  const candidatePairs = new Map<string, { sharedKws: string[]; totalSpecificity: number }>();
-  for (const [kw, indices] of kwToGroups) {
-    const rawKw = kw.slice(3);
-    const isGeneric = GENERIC_MERGE_STOPWORDS.has(rawKw);
-    const spec = kwSpecificity.get(kw) ?? 0;
-
     for (let a = 0; a < indices.length; a++) {
       for (let b = a + 1; b < indices.length; b++) {
-        const pairKey = `${indices[a]}:${indices[b]}`;
-        const existing = candidatePairs.get(pairKey);
+        const pairKey = indices[a] < indices[b]
+          ? `${indices[a]}:${indices[b]}` : `${indices[b]}:${indices[a]}`;
+        const existing = pairSharedKws.get(pairKey);
         if (existing) {
-          existing.sharedKws.push(rawKw);
-          // 범용 키워드는 특이성에 기여하지 않음
-          if (!isGeneric) existing.totalSpecificity += spec;
+          existing.add(kw.slice(3));
         } else {
-          candidatePairs.set(pairKey, {
-            sharedKws: [rawKw],
-            totalSpecificity: isGeneric ? 0 : spec,
-          });
+          pairSharedKws.set(pairKey, new Set([kw.slice(3)]));
         }
       }
     }
   }
 
-  // 각 후보 쌍에 대해 병합 여부 결정
-  const MIN_SPECIFICITY_FOR_SINGLE_KW = 0.5; // 4그룹 이하 매칭 키워드만 단독 병합 허용
-  const MIN_TITLE_SIM = 0.15;                 // 최소 제목 유사도 (완전 무관한 쌍 차단)
-
-  for (const [pairKey, { sharedKws, totalSpecificity }] of candidatePairs) {
+  for (const [pairKey, sharedKws] of pairSharedKws) {
     const [aStr, bStr] = pairKey.split(':');
     const a = Number(aStr);
     const b = Number(bStr);
     if (find(a) === find(b)) continue;
 
-    // P1-2: 단일 키워드이고 특이성 부족하면 병합 거부
-    const nonGenericCount = sharedKws.filter(kw => !GENERIC_MERGE_STOPWORDS.has(kw)).length;
-    if (nonGenericCount <= 1 && totalSpecificity < MIN_SPECIFICITY_FOR_SINGLE_KW) continue;
-
-    // P1-1: 대표 제목 유사도 게이트
-    const titleSim = wordJaccardSimilarity(repTitleTokens[a], repTitleTokens[b]);
-    if (titleSim < MIN_TITLE_SIM) {
-      // P2-1: 음성 증거 — 핵심명사 겹침도 확인, 없으면 확실히 거부
-      // 제목 앞 3어절의 핵심 토큰(주체)을 비교
-      const coreA = extractCoreNouns(repTitleTokens[a]);
-      const coreB = extractCoreNouns(repTitleTokens[b]);
-      let coreOverlap = 0;
-      for (const n of coreA) {
-        if (coreB.has(n)) coreOverlap++;
-      }
-      if (coreOverlap === 0) continue; // 핵심명사 겹침 0 → 병합 거부
+    // 2개 이상 키워드 공유 → 무조건 병합
+    if (sharedKws.size >= 2) {
+      union(a, b);
+      continue;
     }
+
+    // 단일 키워드: 접속어/동작어만이면 스킵
+    const theKw = [...sharedKws][0];
+    if (ACTION_ONLY_STOPWORDS.has(theKw)) continue;
 
     union(a, b);
   }
@@ -634,8 +592,8 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
   }
 
   const HIGH_CONFIDENCE_THRESHOLD = 0.60;
-  const WORD_HIGH_CONF = 0.50;  // word-level: 핵심 키워드 3/6 공유 시 병합
-  const EMB_HIGH_CONF = 0.80;   // 임베딩: 한국어 정치 뉴스 도메인 유사도 감안 상향
+  const WORD_HIGH_CONF = 0.45;  // word-level: IDF 가중 기준 45% 이상이면 같은 이슈
+  const EMB_HIGH_CONF = 0.75;   // 임베딩: 의미적 유사도 75% 이상
   const SNIPPET_WEIGHT = 0.3;   // 스니펫 블렌딩 비율
 
   // 경계 케이스 수집 (bestSim 0.25-0.55, 기존 규칙으로 병합되지 않은 쌍)
@@ -702,12 +660,13 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
       const wordHighConf = titleWordSim >= WORD_HIGH_CONF;       // word 의미적 확실
       const embHighConf = embSim >= EMB_HIGH_CONF;                 // 임베딩 의미적 확실
       const medConf = bestSim >= threshold && sharedKw >= 1;     // 유사 + 키워드 보강
-      const kwOnly = sharedKw >= 3;                              // 키워드 3개↑ 공유
-      const contained = containment >= containmentThreshold && bestSim >= 0.35; // 포함도 높음 + 최소 유사도
+      const kwBoosted = sharedKw >= 1 && bestSim >= 0.30;       // 키워드 공유 시 낮은 유사도도 허용
+      const kwOnly = sharedKw >= 2;                              // 키워드 2개↑ 공유
+      const contained = containment >= containmentThreshold && bestSim >= 0.30; // 포함도 높음 + 최소 유사도
 
-      if (highConf || wordHighConf || embHighConf || medConf || kwOnly || contained) {
+      if (highConf || wordHighConf || embHighConf || medConf || kwBoosted || kwOnly || contained) {
         union(i, j);
-      } else if (bestSim >= 0.25 && bestSim < threshold && repPosts[i] && repPosts[j]) {
+      } else if (bestSim >= 0.20 && bestSim < threshold && repPosts[i] && repPosts[j]) {
         // 경계 케이스: 유사하지만 확실하지 않은 쌍 → Gemini에 판단 위임
         borderlinePairs.push({
           i, j,

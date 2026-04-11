@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeTitle, titleHash, bigrams, jaccardSimilarity, koreanTokenize, wordJaccardSimilarity } from '../../src/services/dedup.js';
-import { extractCoreNouns } from '../../src/services/issueAggregator.js';
 
 describe('normalizeTitle', () => {
   it('removes bracket expressions', () => {
@@ -189,82 +188,31 @@ describe('wordJaccardSimilarity', () => {
 
 // ─── 이슈 클러스터링 품질 테스트 ───
 
-describe('extractCoreNouns', () => {
-  it('returns top 3 longest tokens as core nouns', () => {
-    const tokens = koreanTokenize('김진 논설위원 별세 소식 전해져');
-    const core = extractCoreNouns(tokens);
-    expect(core.size).toBeLessThanOrEqual(3);
-    expect(core.has('논설위원')).toBe(true); // 4글자 — 가장 긴 토큰
-  });
-
-  it('handles small token sets', () => {
-    const tokens = new Set(['김진', '별세']);
-    const core = extractCoreNouns(tokens);
-    expect(core.size).toBe(2);
-    expect(core.has('김진')).toBe(true);
-    expect(core.has('별세')).toBe(true);
-  });
-
-  it('returns empty set for empty input', () => {
-    expect(extractCoreNouns(new Set()).size).toBe(0);
-  });
-});
-
-describe('clustering quality — false merge prevention', () => {
-  it('unrelated issues have zero core noun overlap', () => {
-    const tokensA = koreanTokenize('김진 논설위원 별세');
-    const tokensB = koreanTokenize('이란 동경자산 해제 합의');
-    const coreA = extractCoreNouns(tokensA);
-    const coreB = extractCoreNouns(tokensB);
-
-    let overlap = 0;
-    for (const n of coreA) {
-      if (coreB.has(n)) overlap++;
-    }
-    expect(overlap).toBe(0);
-  });
-
+describe('clustering quality — similarity thresholds', () => {
   it('unrelated issues have very low word similarity', () => {
     const tokensA = koreanTokenize('김진 논설위원 별세');
     const tokensB = koreanTokenize('이란 동경자산 해제 합의');
     const sim = wordJaccardSimilarity(tokensA, tokensB);
-    expect(sim).toBeLessThan(0.15); // 유사도 게이트 미달
+    expect(sim).toBeLessThan(0.15);
   });
 
-  it('related issues with different wording still merge', () => {
+  it('related issues with different wording have some similarity', () => {
     const tokensA = koreanTokenize('이란 동결자산 해제 협상 타결');
     const tokensB = koreanTokenize('이란 자산 해제 합의 발표');
     const sim = wordJaccardSimilarity(tokensA, tokensB);
-    expect(sim).toBeGreaterThanOrEqual(0.15); // 유사도 게이트 통과
+    expect(sim).toBeGreaterThan(0); // 이란, 해제 공유
   });
 
-  it('related issues share core nouns', () => {
-    const tokensA = koreanTokenize('이란 동결자산 해제 협상 타결');
-    const tokensB = koreanTokenize('이란 자산 해제 합의 발표');
-    const coreA = extractCoreNouns(tokensA);
-    const coreB = extractCoreNouns(tokensB);
-
-    let overlap = 0;
-    for (const n of coreA) {
-      if (coreB.has(n)) overlap++;
-    }
-    expect(overlap).toBeGreaterThan(0); // 핵심명사 겹침 존재
-  });
-
-  it('different political events with shared generic words do not merge', () => {
-    // 두 이슈 모두 "발표"를 포함하지만 주체가 다름
-    const tokensA = koreanTokenize('대통령 국정연설 발표');
-    const tokensB = koreanTokenize('삼성전자 실적 발표');
-    const coreA = extractCoreNouns(tokensA);
-    const coreB = extractCoreNouns(tokensB);
-
-    let overlap = 0;
-    for (const n of coreA) {
-      if (coreB.has(n)) overlap++;
-    }
-    // "발표"가 겹칠 수 있지만 핵심 주체 ("대통령"/"국정연설" vs "삼성전자"/"실적")는 다름
-    // extractCoreNouns가 가장 긴 토큰 3개를 선택하므로 주체 위주
+  it('same-topic titles with different verbs still have word overlap', () => {
+    const tokensA = koreanTokenize('트럼프 호르무즈 해협 기뢰 제거 발표');
+    const tokensB = koreanTokenize('미국 호르무즈 해협 기뢰 작전 시작');
     const sim = wordJaccardSimilarity(tokensA, tokensB);
-    expect(sim).toBeLessThan(0.3);
+    expect(sim).toBeGreaterThan(0.2); // 호르무즈, 해협, 기뢰 공유
+  });
+
+  it('completely different topics score near zero', () => {
+    const tokensA = koreanTokenize('삼성전자 반도체 실적 발표');
+    const tokensB = koreanTokenize('서울 날씨 비 예보 안내');
+    expect(wordJaccardSimilarity(tokensA, tokensB)).toBeLessThan(0.1);
   });
 });
