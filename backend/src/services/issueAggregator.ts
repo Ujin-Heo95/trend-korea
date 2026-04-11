@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
 import { createHash } from 'crypto';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from '../utils/logger.js';
 import { notifyPipelineWarning } from './discord.js';
 import { buildKeywordIndex, matchPostToKeywords, computeTrendSignalBonus } from './trendSignals.js';
@@ -7,6 +8,8 @@ import { getChannel, SCORED_CATEGORIES_SQL } from './scoring-weights.js';
 import { bigrams, jaccardSimilarity, koreanTokenize, wordJaccardSimilarity } from './dedup.js';
 import { cosineSimilarity as embeddingCosine } from './embedding.js';
 import { getScoringConfig } from './scoringConfig.js';
+import { config } from '../config/index.js';
+import { checkQuota, incrementQuota } from './apiQuota.js';
 
 // ─── Types ───
 
@@ -214,10 +217,53 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
   const mergedGroups = await mergeViaTrendKeywords(pool, clusterGroups);
 
   // Step 3.5: Deduplicate issues by title similarity
-  const dedupedGroups = deduplicateIssuesByTitle(mergedGroups, cfg.issueDedupThreshold, cfg.containmentThreshold);
+  const { groups: dedupedGroups, borderlinePairs } = deduplicateIssuesByTitle(mergedGroups, cfg.issueDedupThreshold, cfg.containmentThreshold);
+
+  // Step 3.6: AI-assisted borderline dedup (Gemini Flash)
+  let finalGroups = dedupedGroups;
+  if (borderlinePairs.length > 0) {
+    const aiMerges = await geminiDeduplicateBorderline(borderlinePairs);
+    if (aiMerges.size > 0) {
+      // AI가 병합 판단한 쌍을 추가 적용 (단순 재병합)
+      const parent2 = Array.from({ length: finalGroups.length }, (_, i) => i);
+      const find2 = (x: number): number => {
+        while (parent2[x] !== x) { parent2[x] = parent2[parent2[x]]; x = parent2[x]; }
+        return x;
+      };
+      for (const key of aiMerges) {
+        const [iStr, jStr] = key.split(':');
+        const a = parseInt(iStr, 10);
+        const b = parseInt(jStr, 10);
+        if (a < finalGroups.length && b < finalGroups.length) {
+          const ra = find2(a);
+          const rb = find2(b);
+          if (ra !== rb) parent2[ra] = rb;
+        }
+      }
+      const merged2 = new Map<number, IssueGroup>();
+      for (let i = 0; i < finalGroups.length; i++) {
+        const root = find2(i);
+        const existing = merged2.get(root);
+        if (!existing) {
+          merged2.set(root, finalGroups[i]);
+        } else {
+          merged2.set(root, {
+            clusterIds: new Set([...existing.clusterIds, ...finalGroups[i].clusterIds]),
+            standalonePostIds: new Set([...existing.standalonePostIds, ...finalGroups[i].standalonePostIds]),
+            newsPosts: [...existing.newsPosts, ...finalGroups[i].newsPosts],
+            communityPosts: [...existing.communityPosts, ...finalGroups[i].communityPosts],
+            videoPosts: [...existing.videoPosts, ...finalGroups[i].videoPosts],
+            matchedKeywords: [...new Set([...existing.matchedKeywords, ...finalGroups[i].matchedKeywords])],
+            trendSignalScore: Math.max(existing.trendSignalScore, finalGroups[i].trendSignalScore),
+          });
+        }
+      }
+      finalGroups = [...merged2.values()];
+    }
+  }
 
   // Step 4: Filter and score (includes video)
-  const scoredIssues = scoreAndFilter(dedupedGroups, cfg);
+  const scoredIssues = scoreAndFilter(finalGroups, cfg);
 
   // Step 5: Take top N
   const topIssues = scoredIssues.slice(0, cfg.maxIssues);
@@ -434,8 +480,13 @@ async function mergeViaTrendKeywords(
 
 // ─── Step 3.5: Deduplicate Issues by Title Similarity ───
 
-function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: number, containmentThreshold: number = 0.60): IssueGroup[] {
-  if (groups.length <= 1) return [...groups];
+interface DedupResult {
+  readonly groups: IssueGroup[];
+  readonly borderlinePairs: readonly { i: number; j: number; titleA: string; titleB: string }[];
+}
+
+function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: number, containmentThreshold: number = 0.60): DedupResult {
+  if (groups.length <= 1) return { groups: [...groups], borderlinePairs: [] };
 
   // 대표 포스트 추출
   const repPosts = groups.map(g =>
@@ -506,12 +557,30 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
   const EMB_HIGH_CONF = 0.72;   // 임베딩: 동일 주제 허용 범위 확대
   const SNIPPET_WEIGHT = 0.3;   // 스니펫 블렌딩 비율
 
+  // 경계 케이스 수집 (bestSim 0.25-0.55, 기존 규칙으로 병합되지 않은 쌍)
+  const borderlinePairs: { i: number; j: number; titleA: string; titleB: string }[] = [];
+
   for (let i = 0; i < groups.length; i++) {
     for (let j = i + 1; j < groups.length; j++) {
       if (find(i) === find(j)) continue;
 
-      // 1) Bigram 유사도 (기존)
+      // Early-exit: bigram 교집합 0이고, word 교집합도 0이면 관련 없는 이슈
       const bigramSim = jaccardSimilarity(bigramSets[i], bigramSets[j]);
+      if (bigramSim === 0 && wordSets[i].size > 0 && wordSets[j].size > 0) {
+        let hasWordOverlap = false;
+        for (const w of wordSets[i]) {
+          if (wordSets[j].has(w)) { hasWordOverlap = true; break; }
+        }
+        if (!hasWordOverlap) {
+          // 키워드 공유 여부도 빠르게 확인
+          const kwA = new Set(groups[i].matchedKeywords);
+          let hasKwOverlap = false;
+          for (const kw of groups[j].matchedKeywords) {
+            if (kwA.has(kw)) { hasKwOverlap = true; break; }
+          }
+          if (!hasKwOverlap) continue;
+        }
+      }
 
       // 2) IDF 가중 word 유사도 (신규)
       let titleWordSim = weightedJaccard(wordSets[i], wordSets[j]);
@@ -557,6 +626,13 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
 
       if (highConf || wordHighConf || embHighConf || medConf || kwOnly || contained) {
         union(i, j);
+      } else if (bestSim >= 0.25 && bestSim < threshold && repPosts[i] && repPosts[j]) {
+        // 경계 케이스: 유사하지만 확실하지 않은 쌍 → Gemini에 판단 위임
+        borderlinePairs.push({
+          i, j,
+          titleA: repPosts[i]!.title,
+          titleB: repPosts[j]!.title,
+        });
       }
     }
   }
@@ -580,7 +656,71 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
     }
   }
 
-  return [...merged.values()];
+  return { groups: [...merged.values()], borderlinePairs };
+}
+
+// ─── Gemini Borderline Dedup (경계 케이스 AI 판단) ───
+
+const GEMINI_DEDUP_QUOTA = 1500; // 일일 쿼터 (summarize와 공유)
+
+let geminiDedupClient: GoogleGenerativeAI | null = null;
+
+function getGeminiDedupClient(): GoogleGenerativeAI | null {
+  if (!config.geminiApiKey) return null;
+  if (!geminiDedupClient) geminiDedupClient = new GoogleGenerativeAI(config.geminiApiKey);
+  return geminiDedupClient;
+}
+
+/** Gemini Flash로 경계 유사도 쌍의 동일 이슈 여부 판단 */
+async function geminiDeduplicateBorderline(
+  pairs: readonly { i: number; j: number; titleA: string; titleB: string }[],
+): Promise<Set<string>> {
+  const mergeSet = new Set<string>(); // "i:j" 형식으로 병합할 쌍
+  if (pairs.length === 0) return mergeSet;
+
+  const client = getGeminiDedupClient();
+  if (!client) return mergeSet;
+  if (!checkQuota('gemini', GEMINI_DEDUP_QUOTA)) return mergeSet;
+
+  // 최대 30쌍씩 배치 (토큰 절약)
+  const batch = pairs.slice(0, 30);
+  incrementQuota('gemini');
+
+  const pairsText = batch.map((p, idx) =>
+    `${idx + 1}. A: "${p.titleA}" / B: "${p.titleB}"`,
+  ).join('\n');
+
+  const prompt = `다음 뉴스 제목 쌍들이 같은 이슈(사건/사안)에 대한 것인지 판단하세요.
+같은 이슈면 "Y", 다른 이슈면 "N"으로 답하세요.
+
+${pairsText}
+
+JSON 배열만 출력: ["Y", "N", ...]`;
+
+  try {
+    const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 200,
+        responseMimeType: 'application/json',
+      },
+    });
+
+    const text = result.response.text();
+    const answers = JSON.parse(text) as string[];
+    for (let k = 0; k < Math.min(answers.length, batch.length); k++) {
+      if (answers[k]?.toUpperCase() === 'Y') {
+        mergeSet.add(`${batch[k].i}:${batch[k].j}`);
+      }
+    }
+    logger.info(`[geminiDedup] ${mergeSet.size}/${batch.length} pairs merged by AI`);
+  } catch (err) {
+    logger.warn({ err }, '[geminiDedup] Gemini call failed, skipping AI dedup');
+  }
+
+  return mergeSet;
 }
 
 // ─── Step 4: Score and Filter (Fix 1~6 적용) ───
@@ -836,74 +976,109 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
   try {
     await client.query('BEGIN');
 
-    // Carry forward: 기존 요약을 stable_id 기준으로 보존
-    const { rows: existingSummaries } = await client.query<{
+    // Carry forward: 기존 요약 + 순위 + AI 필드를 보존 (rank_change 사전계산용)
+    const { rows: existingRows } = await client.query<{
       stable_id: string; title: string; summary: string; category_label: string;
+      quality_score: number | null; ai_keywords: string[]; sentiment: string | null;
+      rank_position: number; cluster_ids: number[]; standalone_post_ids: number[];
     }>(
-      `SELECT stable_id, title, summary, category_label
+      `SELECT stable_id, title, summary, category_label,
+              quality_score, ai_keywords, sentiment,
+              ROW_NUMBER() OVER (ORDER BY issue_score DESC)::int AS rank_position,
+              cluster_ids, standalone_post_ids
        FROM issue_rankings
-       WHERE summary IS NOT NULL AND stable_id IS NOT NULL`,
+       WHERE expires_at > NOW()`,
     );
     const summaryMap = new Map(
-      existingSummaries.map(r => [r.stable_id, {
+      existingRows.filter(r => r.summary != null && r.stable_id != null).map(r => [r.stable_id, {
         title: r.title, summary: r.summary, categoryLabel: r.category_label,
+        qualityScore: r.quality_score, aiKeywords: r.ai_keywords ?? [], sentiment: r.sentiment,
       }]),
     );
 
-    await client.query('TRUNCATE issue_rankings');
+    // rank_change 사전계산: stable_id → 이전 순위, fallback으로 50% overlap 매칭
+    const computeRankChange = (stableId: string, currentRank: number, clusterIds: readonly number[], standaloneIds: readonly number[]): number | null => {
+      if (existingRows.length === 0) return null;
+      const byStableId = existingRows.find(r => r.stable_id && r.stable_id === stableId);
+      if (byStableId) return byStableId.rank_position - currentRank;
+      const currIds = [...clusterIds, ...standaloneIds];
+      for (const prev of existingRows) {
+        const prevIds = new Set([...prev.cluster_ids, ...prev.standalone_post_ids]);
+        if (prevIds.size === 0 && currIds.length === 0) continue;
+        const overlap = currIds.filter(id => prevIds.has(id)).length;
+        const maxSize = Math.max(prevIds.size, currIds.length);
+        if (maxSize > 0 && overlap / maxSize >= 0.5) {
+          return prev.rank_position - currentRank;
+        }
+      }
+      return null;
+    };
 
-    const values: string[] = [];
-    const params: unknown[] = [];
+    // 점진적 업데이트: 새 배치에 없는 기존 이슈는 삭제, 나머지는 UPSERT
+    const newStableIds = issues.map(i => i.stableId);
+    await client.query(
+      `DELETE FROM issue_rankings WHERE stable_id IS NULL OR NOT (stable_id = ANY($1::text[]))`,
+      [newStableIds],
+    );
+
+    let inserted = 0;
+    let rankIdx = 0;
     for (const issue of issues) {
-      // 동적 TTL: momentum 낮은 이슈(≤0.7)는 2시간, 나머지는 기본 6시간
+      rankIdx++;
       const isStale = issue.momentumScore <= 0.7;
       const ttlMs = kstHour >= 1 && kstHour < 6
         ? quietTtlMs
         : isStale ? 2 * 60 * 60 * 1000 : baseTtlMs;
 
-      const i = params.length;
-      values.push(
-        `($${i+1},$${i+2},$${i+3},$${i+4},$${i+5},$${i+6},$${i+7},$${i+8},$${i+9},$${i+10},$${i+11},$${i+12},$${i+13},$${i+14},$${i+15},$${i+16},$${i+17},$${i+18},NOW(),NOW()+$${i+19}::interval)`,
+      const rankChange = computeRankChange(issue.stableId, rankIdx, issue.clusterIds, issue.standalonePostIds);
+
+      // 기존 행이 있으면 스코어 + 메타데이터 업데이트, 없으면 INSERT
+      const upsertResult = await client.query(
+        `INSERT INTO issue_rankings
+          (title, summary, category_label, issue_score, news_score, community_score,
+           trend_signal_score, video_score, momentum_score, news_post_count, community_post_count,
+           video_post_count, representative_thumbnail, cluster_ids, standalone_post_ids,
+           matched_trend_keywords, rank_change, stable_id, calculated_at, expires_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW(),NOW()+$19::interval)
+         ON CONFLICT (stable_id) DO UPDATE SET
+           issue_score = EXCLUDED.issue_score,
+           news_score = EXCLUDED.news_score,
+           community_score = EXCLUDED.community_score,
+           trend_signal_score = EXCLUDED.trend_signal_score,
+           video_score = EXCLUDED.video_score,
+           momentum_score = EXCLUDED.momentum_score,
+           news_post_count = EXCLUDED.news_post_count,
+           community_post_count = EXCLUDED.community_post_count,
+           video_post_count = EXCLUDED.video_post_count,
+           representative_thumbnail = EXCLUDED.representative_thumbnail,
+           cluster_ids = EXCLUDED.cluster_ids,
+           standalone_post_ids = EXCLUDED.standalone_post_ids,
+           matched_trend_keywords = EXCLUDED.matched_trend_keywords,
+           rank_change = EXCLUDED.rank_change,
+           calculated_at = NOW(),
+           expires_at = NOW() + EXCLUDED.expires_at - EXCLUDED.calculated_at`,
+        [
+          issue.title, issue.summary, issue.categoryLabel,
+          issue.issueScore, issue.newsScore, issue.communityScore,
+          issue.trendSignalScore, issue.videoScore, issue.momentumScore,
+          issue.newsPostCount, issue.communityPostCount, issue.videoPostCount,
+          issue.representativeThumbnail, issue.clusterIds, issue.standalonePostIds,
+          issue.matchedTrendKeywords, rankChange, issue.stableId,
+          `${ttlMs} milliseconds`,
+        ],
       );
-      params.push(
-        issue.title,                    // 1
-        issue.summary,                  // 2
-        issue.categoryLabel,            // 3
-        issue.issueScore,               // 4
-        issue.newsScore,                // 5
-        issue.communityScore,           // 6
-        issue.trendSignalScore,         // 7
-        issue.videoScore,               // 8
-        issue.momentumScore,            // 9
-        issue.newsPostCount,            // 10
-        issue.communityPostCount,       // 11
-        issue.videoPostCount,           // 12
-        issue.representativeThumbnail,  // 13
-        issue.clusterIds,               // 14
-        issue.standalonePostIds,        // 15
-        issue.matchedTrendKeywords,     // 16
-        null,                           // 17  rank_change (computed at API time)
-        issue.stableId,                 // 18
-        `${ttlMs} milliseconds`,        // 19
-      );
+      inserted += upsertResult.rowCount ?? 0;
     }
 
-    const result = await client.query(
-      `INSERT INTO issue_rankings
-        (title, summary, category_label, issue_score, news_score, community_score,
-         trend_signal_score, video_score, momentum_score, news_post_count, community_post_count,
-         video_post_count, representative_thumbnail, cluster_ids, standalone_post_ids,
-         matched_trend_keywords, rank_change, stable_id, calculated_at, expires_at)
-       VALUES ${values.join(',')}`,
-      params,
-    );
-
-    // Carry forward: 기존 요약 복원 (stable_id 일치 시)
+    // Carry forward: 기존 요약 + AI 필드 복원 (stable_id 일치 시)
     if (summaryMap.size > 0) {
       const sids: string[] = [];
       const titles: string[] = [];
       const summaries: string[] = [];
       const categories: string[] = [];
+      const qualityScores: (number | null)[] = [];
+      const aiKeywordsArr: string[][] = [];
+      const sentiments: (string | null)[] = [];
       for (const issue of issues) {
         const prev = summaryMap.get(issue.stableId);
         if (prev) {
@@ -911,24 +1086,27 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
           titles.push(prev.title);
           summaries.push(prev.summary);
           categories.push(prev.categoryLabel);
+          qualityScores.push(prev.qualityScore);
+          aiKeywordsArr.push(prev.aiKeywords);
+          sentiments.push(prev.sentiment);
         }
       }
       if (sids.length > 0) {
         await client.query(
           `UPDATE issue_rankings ir
-           SET title = v.title, summary = v.summary, category_label = v.cat
-           FROM unnest($1::text[], $2::text[], $3::text[], $4::text[])
-             AS v(sid, title, summary, cat)
+           SET title = v.title, summary = v.summary, category_label = v.cat,
+               quality_score = v.qs, ai_keywords = v.kw, sentiment = v.sent
+           FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::smallint[], $6::text[][], $7::text[])
+             AS v(sid, title, summary, cat, qs, kw, sent)
            WHERE ir.stable_id = v.sid AND ir.summary IS NULL`,
-          [sids, titles, summaries, categories],
+          [sids, titles, summaries, categories, qualityScores, aiKeywordsArr, sentiments],
         );
         console.log(`[issueAggregator] restored ${sids.length} summaries via carry-forward`);
       }
     }
 
     await client.query('COMMIT');
-    const inserted = result.rowCount ?? 0;
-    console.log(`[issueAggregator] ${inserted} issues ranked`);
+    console.log(`[issueAggregator] ${inserted} issues ranked (incremental)`);
     return inserted;
   } catch (err) {
     await client.query('ROLLBACK');
@@ -967,4 +1145,152 @@ export async function cleanExpiredIssueRankings(pool: Pool): Promise<number> {
   const deleted = result.rowCount ?? 0;
   if (deleted > 0) console.log(`[issueAggregator] cleaned ${deleted} expired issue rankings`);
   return deleted;
+}
+
+// ─── Materialized API Response ───
+
+/**
+ * 이슈 API 응답을 사전 계산하여 DB에 저장.
+ * summarizeAndUpdateIssues 완료 후 호출. API에서는 이 테이블에서 단순 SELECT.
+ */
+export async function materializeIssueResponse(pool: Pool): Promise<void> {
+  const { rows: issues } = await pool.query<{
+    id: number; title: string; summary: string | null; category_label: string | null;
+    issue_score: number; momentum_score: number; representative_thumbnail: string | null;
+    stable_id: string | null; rank_change: number | null;
+    quality_score: number | null; ai_keywords: string[]; sentiment: string | null;
+    cluster_ids: number[]; standalone_post_ids: number[];
+    matched_trend_keywords: string[]; cross_validation_sources: string[];
+    news_post_count: number; community_post_count: number; video_post_count: number;
+    calculated_at: string;
+  }>(
+    `SELECT * FROM issue_rankings
+     WHERE expires_at > NOW() AND summary IS NOT NULL
+     ORDER BY issue_score DESC`,
+  );
+
+  if (issues.length === 0) return;
+
+  // Collect all post IDs
+  const allClusterIds = new Set<number>();
+  const allStandaloneIds = new Set<number>();
+  for (const issue of issues) {
+    for (const cid of issue.cluster_ids) allClusterIds.add(cid);
+    for (const pid of issue.standalone_post_ids) allStandaloneIds.add(pid);
+  }
+
+  // Fetch cluster members
+  const clusterPostMap = new Map<number, number[]>();
+  if (allClusterIds.size > 0) {
+    const { rows: cm } = await pool.query<{ cluster_id: number; post_id: number }>(
+      `SELECT cluster_id, post_id FROM post_cluster_members WHERE cluster_id = ANY($1::int[])`,
+      [[...allClusterIds]],
+    );
+    for (const r of cm) {
+      const arr = clusterPostMap.get(r.cluster_id) ?? [];
+      arr.push(r.post_id);
+      clusterPostMap.set(r.cluster_id, arr);
+    }
+  }
+
+  // Gather all post IDs
+  const allPostIds = new Set<number>();
+  for (const issue of issues) {
+    for (const cid of issue.cluster_ids) {
+      for (const pid of clusterPostMap.get(cid) ?? []) allPostIds.add(pid);
+    }
+    for (const pid of issue.standalone_post_ids) allPostIds.add(pid);
+  }
+
+  // Fetch all posts
+  const postsMap = new Map<number, { id: number; source_name: string; source_key: string; title: string; url: string; thumbnail: string | null; view_count: number; comment_count: number; category: string | null }>();
+  if (allPostIds.size > 0) {
+    const { rows: posts } = await pool.query<{
+      id: number; source_name: string; source_key: string; title: string; url: string;
+      thumbnail: string | null; view_count: number; comment_count: number; category: string | null;
+    }>(
+      `SELECT id, source_name, source_key, title, url, thumbnail, view_count, comment_count, category
+       FROM posts WHERE id = ANY($1::int[])`,
+      [[...allPostIds]],
+    );
+    for (const p of posts) postsMap.set(p.id, p);
+  }
+
+  // Build response per page
+  const PAGE_SIZE = 20;
+  const totalPages = Math.ceil(issues.length / PAGE_SIZE);
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM issue_rankings_materialized');
+
+    for (let page = 1; page <= totalPages; page++) {
+      const pageIssues = issues.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+      const responseIssues = pageIssues.map((issue, idx) => {
+        const issuePostIds = new Set<number>();
+        for (const cid of issue.cluster_ids) {
+          for (const pid of clusterPostMap.get(cid) ?? []) issuePostIds.add(pid);
+        }
+        for (const pid of issue.standalone_post_ids) issuePostIds.add(pid);
+
+        const newsPosts: unknown[] = [];
+        const communityPosts: unknown[] = [];
+        const videoPosts: unknown[] = [];
+        for (const pid of issuePostIds) {
+          const post = postsMap.get(pid);
+          if (!post) continue;
+          const { category, ...rest } = post;
+          if (category === 'news' || category === 'portal') newsPosts.push(rest);
+          else if (category === 'video') videoPosts.push(rest);
+          else communityPosts.push(rest);
+        }
+
+        const currentRank = (page - 1) * PAGE_SIZE + idx + 1;
+        return {
+          id: issue.id,
+          rank: currentRank,
+          title: issue.title,
+          summary: issue.summary,
+          category_label: issue.category_label,
+          issue_score: issue.issue_score,
+          momentum_score: issue.momentum_score ?? 1.0,
+          thumbnail: issue.representative_thumbnail,
+          stable_id: issue.stable_id,
+          rank_change: issue.rank_change,
+          quality_score: issue.quality_score,
+          ai_keywords: issue.ai_keywords ?? [],
+          sentiment: issue.sentiment,
+          news_posts: newsPosts.slice(0, 10),
+          community_posts: communityPosts.slice(0, 10),
+          video_posts: videoPosts.slice(0, 10),
+          matched_keywords: issue.matched_trend_keywords,
+          news_post_count: issue.news_post_count,
+          community_post_count: issue.community_post_count,
+          video_post_count: issue.video_post_count,
+        };
+      });
+
+      const responseJson = {
+        issues: responseIssues,
+        total: issues.length,
+        calculated_at: issues[0]?.calculated_at ?? null,
+      };
+
+      await client.query(
+        `INSERT INTO issue_rankings_materialized (page, page_size, total, response_json, calculated_at)
+         VALUES ($1, $2, $3, $4, NOW())`,
+        [page, PAGE_SIZE, issues.length, JSON.stringify(responseJson)],
+      );
+    }
+
+    await client.query('COMMIT');
+    logger.info(`[materialize] ${totalPages} pages materialized`);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    logger.warn({ err }, '[materialize] failed to materialize issue response');
+  } finally {
+    client.release();
+  }
 }

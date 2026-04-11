@@ -3,6 +3,7 @@ import { config } from './config/index.js';
 import { batchPool, validateConnection, gracefulShutdown } from './db/client.js';
 import { startScheduler } from './scheduler/index.js';
 import { awaitRunningScrapers } from './scrapers/index.js';
+import { initScoringConfig } from './services/scoringConfig.js';
 
 // ── Sentry ──────────────────────────────────────────────
 if (config.sentryDsn) {
@@ -44,6 +45,7 @@ console.log('[worker] started — scheduler only, no HTTP');
 
 validateConnection()
   .then(() => {
+    try { initScoringConfig(batchPool); } catch (err) { console.error('[worker] initScoringConfig failed:', err); }
     startScheduler();
   })
   .catch((err) => {

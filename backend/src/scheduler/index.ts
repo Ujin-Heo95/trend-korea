@@ -5,14 +5,14 @@ import { loadCircuitStates } from '../scrapers/base.js';
 import { cleanOldPosts, cleanOldScraperRuns, cleanOldEngagementSnapshots, cleanNumericTitlePosts } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
 import { cleanExpiredTrendKeywords } from '../services/trendSignals.js';
-import { aggregateIssues, snapshotRankings, cleanExpiredIssueRankings } from '../services/issueAggregator.js';
+import { aggregateIssues, snapshotRankings, cleanExpiredIssueRankings, materializeIssueResponse } from '../services/issueAggregator.js';
 import { summarizeAndUpdateIssues } from '../services/geminiSummarizer.js';
 import { crossValidateIssues } from '../services/crossValidator.js';
 import { checkDbSize } from '../services/dbMonitor.js';
 import { clearIssuesCache } from '../routes/issues.js';
 import { performDatabaseBackup } from '../services/backup.js';
 import { notifyBackupResult } from '../services/discord.js';
-import { generateEmbeddingsForRecentPosts } from '../services/embedding.js';
+import { generateEmbeddingsForRecentPosts, loadEmbeddingsFromDb } from '../services/embedding.js';
 import { batchPool, logPoolStats } from '../db/client.js';
 import { runPipeline } from './pipeline.js';
 import { loadFeatureFlags } from '../services/featureFlags.js';
@@ -43,6 +43,7 @@ export function startScheduler(delayMs = 60_000): void {
   console.log(`[scheduler] waiting ${delayMs / 1000}s before initial scraper run...`);
   setTimeout(async () => {
     await loadCircuitStates(batchPool).catch(captureError);
+    await loadEmbeddingsFromDb(batchPool).catch(captureError);
     runAllScrapers()
       .catch(captureError)
       .finally(() => {
@@ -77,6 +78,7 @@ function startCronJobs(): void {
       ...(flags.gemini_summary_enabled
         ? [{ name: 'summarizeIssues', run: () => summarizeAndUpdateIssues(batchPool) }]
         : []),
+      { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
     ]);
     clearIssuesCache();
     logPoolStats('pipeline-end');

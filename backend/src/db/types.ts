@@ -120,6 +120,9 @@ export interface IssueRankingRow {
   cross_validation_sources: string[];
   rank_change: number | null;
   stable_id: string | null;
+  quality_score: number | null;
+  ai_keywords: string[];
+  sentiment: string | null;
   calculated_at: string;
   expires_at: string;
 }

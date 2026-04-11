@@ -126,9 +126,72 @@ export function clearEmbeddingCache(): void {
   embeddingCache.clear();
 }
 
-// ─── Scheduler Integration ───
+// ─── DB Persistence ───
 
 import type { Pool } from 'pg';
+
+/** 서버 시작 시 DB에서 최근 임베딩 로드 (cold start 방지) */
+export async function loadEmbeddingsFromDb(pool: Pool): Promise<number> {
+  try {
+    const { rows } = await pool.query<{
+      post_id: number;
+      embedding: number[];
+    }>(
+      `SELECT post_id, embedding FROM post_embeddings
+       WHERE created_at > NOW() - INTERVAL '6 hours'
+       ORDER BY created_at DESC
+       LIMIT $1`,
+      [CACHE_MAX_SIZE],
+    );
+
+    let loaded = 0;
+    for (const r of rows) {
+      if (!embeddingCache.get(String(r.post_id)) && Array.isArray(r.embedding)) {
+        embeddingCache.set(String(r.post_id), new Float32Array(r.embedding));
+        loaded++;
+      }
+    }
+    if (loaded > 0) {
+      logger.info({ loaded, total: embeddingCache.size }, '[embedding] loaded from DB');
+    }
+    return loaded;
+  } catch (err) {
+    logger.warn({ err }, '[embedding] failed to load from DB — starting with empty cache');
+    return 0;
+  }
+}
+
+/** 임베딩을 DB에 영속화 (write-through) */
+async function persistEmbeddingsToDb(
+  pool: Pool,
+  posts: readonly { id: number; embedding: Float32Array }[],
+): Promise<void> {
+  if (posts.length === 0) return;
+
+  // 100개씩 배치 UPSERT
+  for (let i = 0; i < posts.length; i += 100) {
+    const batch = posts.slice(i, i + 100);
+    const values: string[] = [];
+    const params: unknown[] = [];
+    for (const p of batch) {
+      const idx = params.length;
+      values.push(`($${idx + 1},$${idx + 2}::float4[])`);
+      params.push(p.id, Array.from(p.embedding));
+    }
+    try {
+      await pool.query(
+        `INSERT INTO post_embeddings (post_id, embedding)
+         VALUES ${values.join(',')}
+         ON CONFLICT (post_id) DO NOTHING`,
+        params,
+      );
+    } catch (err) {
+      logger.warn({ err, batchSize: batch.length }, '[embedding] DB persist failed');
+    }
+  }
+}
+
+// ─── Scheduler Integration ───
 
 let isGeneratingEmbeddings = false;
 let embeddingStartedAt = 0;
@@ -161,9 +224,15 @@ export async function generateEmbeddingsForRecentPosts(pool: Pool): Promise<void
 
     if (rows.length === 0) return;
 
-    const count = await generateEmbeddings(rows.map(r => ({ id: r.id, title: r.title })));
+    const postInputs = rows.map(r => ({ id: r.id, title: r.title }));
+    const count = await generateEmbeddings(postInputs);
     if (count > 0) {
-      logger.info({ generated: count, cached: embeddingCache.size }, '[embedding] batch complete');
+      // Write-through: 새로 생성된 임베딩을 DB에 영속화
+      const newEmbeddings = postInputs
+        .map(p => ({ id: p.id, embedding: embeddingCache.get(String(p.id)) }))
+        .filter((p): p is { id: number; embedding: Float32Array } => p.embedding != null);
+      await persistEmbeddingsToDb(pool, newEmbeddings);
+      logger.info({ generated: count, persisted: newEmbeddings.length, cached: embeddingCache.size }, '[embedding] batch complete');
     }
   } finally {
     isGeneratingEmbeddings = false;

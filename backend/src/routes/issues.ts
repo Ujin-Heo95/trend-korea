@@ -33,7 +33,7 @@ const SNS_SOURCES = new Set([
 ]);
 
 export async function issueRoutes(app: FastifyInstance): Promise<void> {
-  app.get<{ Querystring: { page?: number; limit?: number } }>(
+  app.get<{ Querystring: { page?: number; limit?: number; cursor_score?: number; cursor_id?: number } }>(
     '/api/issues',
     {
       schema: {
@@ -42,6 +42,8 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
           properties: {
             page: { type: 'integer', minimum: 1, default: 1 },
             limit: { type: 'integer', minimum: 1, maximum: 50, default: 20 },
+            cursor_score: { type: 'number' },
+            cursor_id: { type: 'integer' },
           },
         },
       },
@@ -49,21 +51,47 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
     async (req) => {
       const limit = req.query.limit ?? 20;
       const page = req.query.page ?? 1;
+      const cursorScore = req.query.cursor_score;
+      const cursorId = req.query.cursor_id;
       const offset = (page - 1) * limit;
 
       const cacheKey = `issues:${page}:${limit}`;
       const cached = issuesCache.get(cacheKey);
       if (cached) return cached;
 
-      // Fetch ranked issues
+      // Try materialized response first (pre-computed, fastest path)
+      if (limit === 20) {
+        const { rows: matRows } = await app.pg.query<{ response_json: unknown }>(
+          `SELECT response_json FROM issue_rankings_materialized WHERE page = $1 AND page_size = $2`,
+          [page, 20],
+        );
+        if (matRows.length > 0 && matRows[0].response_json) {
+          const result = matRows[0].response_json;
+          issuesCache.set(cacheKey, result);
+          return result;
+        }
+      }
+
+      // Fallback: compute from issue_rankings (non-standard page sizes or empty materialized)
+      // Cursor-based pagination when cursor_score + cursor_id provided
+      const useCursor = cursorScore != null && cursorId != null;
       const [issueResult, countResult] = await Promise.all([
-        app.pg.query<IssueRankingRow>(
-          `SELECT * FROM issue_rankings
-           WHERE expires_at > NOW() AND summary IS NOT NULL
-           ORDER BY issue_score DESC
-           LIMIT $1 OFFSET $2`,
-          [limit, offset],
-        ),
+        useCursor
+          ? app.pg.query<IssueRankingRow>(
+              `SELECT * FROM issue_rankings
+               WHERE expires_at > NOW() AND summary IS NOT NULL
+                 AND (issue_score, id) < ($2, $3)
+               ORDER BY issue_score DESC, id DESC
+               LIMIT $1`,
+              [limit, cursorScore, cursorId],
+            )
+          : app.pg.query<IssueRankingRow>(
+              `SELECT * FROM issue_rankings
+               WHERE expires_at > NOW() AND summary IS NOT NULL
+               ORDER BY issue_score DESC
+               LIMIT $1 OFFSET $2`,
+              [limit, offset],
+            ),
         app.pg.query<{ total: number }>(
           `SELECT COUNT(*)::int AS total FROM issue_rankings WHERE expires_at > NOW() AND summary IS NOT NULL`,
         ),
@@ -75,41 +103,6 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         issuesCache.set(cacheKey, empty);
         return empty;
       }
-
-      // ─── Dynamic rank_change: compare current rank against latest history snapshot ───
-      const { rows: prevRows } = await app.pg.query<{
-        rank_position: number;
-        stable_id: string | null;
-        cluster_ids: number[];
-        standalone_post_ids: number[];
-      }>(`
-        SELECT rank_position, stable_id, cluster_ids, standalone_post_ids
-        FROM issue_rankings_history
-        WHERE batch_id = (SELECT MAX(batch_id) FROM issue_rankings_history)
-        ORDER BY rank_position ASC
-      `);
-
-      const computeRankChange = (issue: IssueRankingRow, currentRank: number): number | null => {
-        if (prevRows.length === 0) return null;
-
-        // Match by stable_id first
-        const byStableId = prevRows.find(r => r.stable_id && r.stable_id === issue.stable_id);
-        if (byStableId) return byStableId.rank_position - currentRank;
-
-        // Fallback: 50%+ cluster/standalone overlap
-        const currIds = [...issue.cluster_ids, ...issue.standalone_post_ids];
-        for (const prev of prevRows) {
-          const prevIds = new Set([...prev.cluster_ids, ...prev.standalone_post_ids]);
-          if (prevIds.size === 0 && currIds.length === 0) continue;
-          const overlap = currIds.filter(id => prevIds.has(id)).length;
-          const maxSize = Math.max(prevIds.size, currIds.length);
-          if (maxSize > 0 && overlap / maxSize >= 0.5) {
-            return prev.rank_position - currentRank;
-          }
-        }
-
-        return null; // NEW issue
-      };
 
       // Collect all post IDs to fetch in one query
       const allClusterIds = new Set<number>();
@@ -217,7 +210,11 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
           momentum_score: issue.momentum_score ?? 1.0,
           thumbnail: issue.representative_thumbnail,
           stable_id: issue.stable_id,
-          rank_change: computeRankChange(issue, currentRank),
+          rank_change: issue.rank_change,
+          // AI quality signals
+          quality_score: issue.quality_score ?? null,
+          ai_keywords: issue.ai_keywords ?? [],
+          sentiment: issue.sentiment ?? null,
           // Posts by channel
           news_posts: newsPosts.slice(0, 10),
           community_posts: communityPosts.slice(0, 10),
@@ -235,10 +232,17 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         };
       });
 
+      // next_cursor for keyset pagination
+      const lastIssue = issues[issues.length - 1];
+      const nextCursor = lastIssue && responseIssues.length === limit
+        ? { cursor_score: lastIssue.issue_score, cursor_id: lastIssue.id }
+        : null;
+
       const result = {
         issues: responseIssues,
         total: countResult.rows[0].total,
         calculated_at: issues[0]?.calculated_at ?? null,
+        next_cursor: nextCursor,
       };
       issuesCache.set(cacheKey, result);
       return result;

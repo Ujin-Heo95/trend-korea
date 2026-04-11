@@ -12,6 +12,9 @@ export interface IssueSummary {
   readonly title: string;
   readonly category: string;
   readonly summary: string;
+  readonly qualityScore: number | null;
+  readonly keywords: readonly string[];
+  readonly sentiment: string | null;
 }
 
 interface PostForSummary {
@@ -69,8 +72,15 @@ const SYSTEM_PROMPT = `당신은 한국 뉴스/커뮤니티/영상 트렌드를 
    - 구체적 수치/인명/기관명 포함
    - 반드시 제공된 내용만 근거로 작성. 추측·의견·분석 금지.
    예시: "메타가 인스타그램 유료 구독 서비스를 시범 운영하고 있어요. 다른 사람의 스토리를 몰래 볼 수 있는 기능에 이목이 쏠리고 있는데요. 구독료는 월 1~2달러 수준이라고."
+4. quality_score: 뉴스 가치 평가 (1-10 정수). 사회적 파급력, 시의성, 공익성, 영향 범위를 종합 판단.
+   - 10: 국가적 사건 (대형 재난, 정권 교체)
+   - 7-9: 주요 이슈 (정책 변경, 대형 사건사고)
+   - 4-6: 일반 이슈 (연예, 스포츠 결과, 기업 뉴스)
+   - 1-3: 가벼운 화제 (바이럴, 밈, 가십)
+5. keywords: 이 이슈의 핵심 검색 키워드 3-5개 (한국어, 명사 위주). SEO·검색용.
+6. sentiment: 이슈의 전반적 감성. "positive", "negative", "neutral" 중 1개.
 
-JSON만 출력: {"title": "...", "category": "...", "summary": "..."}`;
+JSON만 출력: {"title": "...", "category": "...", "summary": "...", "quality_score": 7, "keywords": ["키워드1", "키워드2"], "sentiment": "neutral"}`;
 
 // ─── Fallback Category ───
 
@@ -148,14 +158,22 @@ export async function summarizeIssue(
       });
 
       const text = result.response.text();
-      const parsed = JSON.parse(text) as { title?: string; category?: string; summary?: string };
+      const parsed = JSON.parse(text) as {
+        title?: string; category?: string; summary?: string;
+        quality_score?: number; keywords?: string[]; sentiment?: string;
+      };
 
       if (!parsed.title || !parsed.category || !parsed.summary) return null;
 
+      const validSentiments = new Set(['positive', 'negative', 'neutral']);
       const summary: IssueSummary = {
         title: parsed.title,
         category: parsed.category,
         summary: parsed.summary,
+        qualityScore: typeof parsed.quality_score === 'number'
+          ? Math.max(1, Math.min(10, Math.round(parsed.quality_score))) : null,
+        keywords: Array.isArray(parsed.keywords) ? parsed.keywords.slice(0, 5) : [],
+        sentiment: validSentiments.has(parsed.sentiment ?? '') ? parsed.sentiment! : null,
       };
 
       evictOldestIfFull();
@@ -203,8 +221,11 @@ export async function summarizeAndUpdateIssues(
       ?? (stableCacheKey ? summaryCache.get(legacyCacheKey) : undefined);
     if (prev && Date.now() - prev.cachedAt < CACHE_TTL_MS) {
       await pool.query(
-        `UPDATE issue_rankings SET title = $1, summary = $2, category_label = $3 WHERE id = $4`,
-        [prev.summary.title, prev.summary.summary, prev.summary.category, row.id],
+        `UPDATE issue_rankings SET title = $1, summary = $2, category_label = $3,
+                quality_score = $5, ai_keywords = $6, sentiment = $7
+         WHERE id = $4`,
+        [prev.summary.title, prev.summary.summary, prev.summary.category, row.id,
+         prev.summary.qualityScore, prev.summary.keywords, prev.summary.sentiment],
       );
       updated++;
       return;
@@ -252,13 +273,19 @@ export async function summarizeAndUpdateIssues(
         title: firstTitle.length > 25 ? firstTitle.slice(0, 25) : firstTitle,
         category: fallbackCategory(firstTitle),
         summary: `관련 기사 ${posts.length}건`,
+        qualityScore: null,
+        keywords: [],
+        sentiment: null,
       };
       console.warn(`[geminiSummarizer] fallback used for issue ${row.id} — Gemini unavailable`);
     }
 
     await pool.query(
-      `UPDATE issue_rankings SET title = $1, summary = $2, category_label = $3 WHERE id = $4`,
-      [summary.title, summary.summary, summary.category, row.id],
+      `UPDATE issue_rankings SET title = $1, summary = $2, category_label = $3,
+              quality_score = $5, ai_keywords = $6, sentiment = $7
+       WHERE id = $4`,
+      [summary.title, summary.summary, summary.category, row.id,
+       summary.qualityScore, summary.keywords, summary.sentiment],
     );
 
     // Cache with stable_id key (and legacy key for backward compat)

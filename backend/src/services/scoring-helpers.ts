@@ -4,6 +4,24 @@ import { CHANNEL_HALF_LIFE_MINUTES, DEFAULT_HALF_LIFE_MINUTES } from './scoring-
 
 const LN2 = Math.LN2;
 
+// ─── Stats Cache (1-hour TTL) ───
+
+const STATS_CACHE_TTL_MS = 60 * 60 * 1000; // 1시간
+
+interface StatsCache<K, V> {
+  data: Map<K, V>;
+  fetchedAt: number;
+}
+
+let sourceStatsCache: StatsCache<string, SourceStats> | null = null;
+let channelStatsCache: StatsCache<Channel, SourceStats> | null = null;
+
+/** 테스트용: 캐시 초기화 */
+export function clearStatsCache(): void {
+  sourceStatsCache = null;
+  channelStatsCache = null;
+}
+
 // ─── Score Component Types ───
 
 export interface ScoreFactors {
@@ -161,8 +179,13 @@ export async function detectBreakingNews(pool: Pool): Promise<Map<number, number
 
 // ─── Sub-calculations ───
 
-/** 소스별 Z-Score 정규화용 통계 계산 + DB 캐싱 */
+/** 소스별 Z-Score 정규화용 통계 계산 + DB 캐싱 (1시간 인메모리 캐시) */
 export async function calculateSourceStats(pool: Pool): Promise<Map<string, SourceStats>> {
+  const now = Date.now();
+  if (sourceStatsCache && (now - sourceStatsCache.fetchedAt) < STATS_CACHE_TTL_MS) {
+    return sourceStatsCache.data;
+  }
+
   const { rows } = await pool.query<{
     source_key: string;
     mean_log_views: number;
@@ -226,11 +249,16 @@ export async function calculateSourceStats(pool: Pool): Promise<Map<string, Sour
     );
   }
 
+  sourceStatsCache = { data: map, fetchedAt: Date.now() };
   return map;
 }
 
-/** 채널별 통계 계산 (소스 샘플 부족 시 fallback) */
+/** 채널별 통계 계산 (소스 샘플 부족 시 fallback, 1시간 인메모리 캐시) */
 export async function calculateChannelStats(pool: Pool): Promise<Map<Channel, SourceStats>> {
+  const now = Date.now();
+  if (channelStatsCache && (now - channelStatsCache.fetchedAt) < STATS_CACHE_TTL_MS) {
+    return channelStatsCache.data;
+  }
   const { rows } = await pool.query<{
     channel: string;
     mean_log_views: number;
@@ -273,6 +301,7 @@ export async function calculateChannelStats(pool: Pool): Promise<Map<Channel, So
       sampleCount: r.sample_count,
     });
   }
+  channelStatsCache = { data: map, fetchedAt: Date.now() };
   return map;
 }
 
