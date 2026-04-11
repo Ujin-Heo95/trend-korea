@@ -66,7 +66,7 @@ export class KworbYoutubeKrScraper extends BaseScraper {
       const videoId = videoLink.match(/\/([^/]+)\.html$/)?.[1] ?? '';
       const url = videoId
         ? `https://www.youtube.com/watch?v=${videoId}`
-        : 'https://kworb.net/youtube/insights/kr_daily.html';
+        : `https://kworb.net/youtube/insights/kr_daily.html#rank-${rank}`;
 
       posts.push({
         sourceKey: 'kworb_youtube_kr',

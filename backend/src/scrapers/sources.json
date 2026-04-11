@@ -152,7 +152,7 @@
       "module": "./ppomppu-best.js",
       "className": "PpomppuBestScraper",
       "priority": "high",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "arcalive",
@@ -162,7 +162,7 @@
       "module": "./arcalive.js",
       "className": "ArcaliveScraper",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "yna",
