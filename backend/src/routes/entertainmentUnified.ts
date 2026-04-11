@@ -285,13 +285,18 @@ export async function entertainmentUnifiedRoutes(app: FastifyInstance): Promise<
       const cached = unifiedCache.get('unified');
       if (cached) return reply.send(cached);
 
+      // 각 source_key별 최신 스크래핑 배치만 조회 (과거 순위 혼입 방지)
       const { rows } = await app.pg.query<RawPost>(
         `SELECT p.source_key, p.title, p.url, p.thumbnail, p.metadata, p.scraped_at
          FROM posts p
          WHERE p.category IN ('movie', 'performance', 'music', 'books', 'ott', 'webtoon')
            AND p.metadata IS NOT NULL
            AND (p.metadata->>'rank') IS NOT NULL
-           AND p.scraped_at > NOW() - INTERVAL '48 hours'
+           AND p.scraped_at >= (
+             SELECT MAX(sr.finished_at) - INTERVAL '2 hours'
+             FROM scraper_runs sr
+             WHERE sr.source_key = p.source_key AND sr.error_message IS NULL
+           )
          ORDER BY p.source_key, COALESCE((p.metadata->>'rank')::int, 999) ASC`,
       );
 

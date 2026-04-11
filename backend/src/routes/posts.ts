@@ -68,14 +68,25 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
         conditions.push(`p.scraped_at > NOW() - INTERVAL '48 hours'`);
       }
 
+      const RANKED_CATEGORIES = ['movie', 'performance', 'music', 'books', 'ott', 'webtoon', 'portal'];
+      const isRankedCategory = category && category.split(',').every(c => RANKED_CATEGORIES.includes(c.trim()));
+
+      // 순위 카테고리: 각 source_key별 최신 스크래핑 배치만 조회 (과거 순위 혼입 방지)
+      if (isRankedCategory && !isTrending) {
+        conditions.push(
+          `p.scraped_at >= (
+            SELECT MAX(sr.finished_at) - INTERVAL '2 hours'
+            FROM scraper_runs sr
+            WHERE sr.source_key = p.source_key AND sr.error_message IS NULL
+          )`
+        );
+      }
+
       const whereParamCount = params.length;
       const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       // Over-fetch to compensate for cluster dedup filtering
       const fetchLimit = Math.ceil(limit * 1.5);
-
-      const RANKED_CATEGORIES = ['movie', 'performance', 'music', 'books', 'ott', 'webtoon', 'portal'];
-      const isRankedCategory = category && category.split(',').every(c => RANKED_CATEGORIES.includes(c.trim()));
 
       const scoreJoin = isTrending ? 'LEFT JOIN post_scores ps ON ps.post_id = p.id' : '';
       const orderBy = isTrending

@@ -15,35 +15,36 @@ export class AladinBestsellerScraper extends BaseScraper {
 
   async fetch(): Promise<ScrapedPost[]> {
     const { data } = await axios.get(
-      'https://www.aladin.co.kr/shop/common/wbest.aspx?BestType=Bestseller&BranchType=1&CID=0&page=1&cnt=1000&SortOrder=1',
+      'https://www.aladin.co.kr/shop/common/wbest.aspx?BestType=Bestseller&BranchType=1&CID=0&page=1&cnt=100&SortOrder=1',
       { headers: HEADERS, timeout: 15_000 },
     );
 
     const $ = cheerio.load(data);
     const posts: ScrapedPost[] = [];
 
-    // Aladin uses numbered items in a list
-    $('a[href*="wproduct.aspx?ItemId="]').each((i, el) => {
+    // .ss_book_box is the actual book item container
+    $('.ss_book_box').each((i, el) => {
+      const box = $(el);
 
-      const href = $(el).attr('href') ?? '';
+      // Title from .bo3
+      const title = box.find('.bo3').text().trim();
+      if (!title) return;
+
+      // URL from first product link
+      const href = box.find('a[href*="wproduct.aspx?ItemId="]').first().attr('href') ?? '';
       const itemId = href.match(/ItemId=(\d+)/)?.[1];
       if (!itemId) return;
 
-      // Skip non-title links (author/publisher links also contain ItemId sometimes)
-      const text = $(el).text().trim();
-      if (!text || text.length < 2) return;
-      if (text === '보러가기') return;
+      const author = box.find('a[href*="AuthorSearch"]').first().text().trim();
+      const publisher = box.find('a[href*="PublisherSearch"]').first().text().trim();
 
-      // Find the parent container
-      const container = $(el).closest('li, tr, .ss_book_box, div[itemscope]');
+      // Cover image: prefer cover200 over SpineShelf
+      const coverImg = box.find('img[src*="cover200"], img[data-original*="cover200"]').first();
+      const imageUrl = coverImg.attr('data-original') || coverImg.attr('src')
+        || box.find('img[src*="image.aladin.co.kr"]').first().attr('src')
+        || undefined;
 
       const rank = posts.length + 1;
-      const title = text;
-      const author = container.find('a[href*="AuthorSearch="]').first().text().trim();
-      const publisher = container.find('a[href*="PublisherSearch="]').first().text().trim();
-      const priceEl = container.find('em, .ss_p2, b.bo3').first().text().trim();
-      const price = priceEl.replace(/[^0-9]/g, '') || undefined;
-      const imageUrl = container.find('img[src*="image.aladin.co.kr"]').attr('src') || undefined;
       const url = `https://www.aladin.co.kr/shop/wproduct.aspx?ItemId=${itemId}`;
 
       // Deduplicate by URL
@@ -57,7 +58,7 @@ export class AladinBestsellerScraper extends BaseScraper {
         thumbnail: imageUrl,
         author,
         category: 'books',
-        metadata: { rank, title, author, publisher, price, imageUrl },
+        metadata: { rank, title, author, publisher, imageUrl },
       });
     });
 
