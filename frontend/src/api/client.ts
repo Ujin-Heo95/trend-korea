@@ -49,7 +49,7 @@ export const fetchCities = () =>
 export const fetchIssueDetail = (postId: number) =>
   api.get<IssueDetailResponse>(`/posts/${postId}`).then(r => r.data);
 
-export const fetchIssueRankings = (params?: { page?: number; limit?: number }) =>
+export const fetchIssueRankings = (params?: { page?: number; limit?: number; window?: string }) =>
   api.get<IssueRankingResponse>('/issues', { params }).then(r => r.data);
 
 export const fetchIssueVersion = () =>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useIssueRankings } from '../hooks/useIssueRankings';
+import { useIssueRankings, type TimeWindow } from '../hooks/useIssueRankings';
 import { optimizedImage } from '../utils/imageProxy';
 import type { IssueRanking } from '../types';
 
@@ -19,8 +19,8 @@ const CATEGORY_BADGE: Record<string, string> = {
 
 // ─── Main Component ───
 
-export const IssueRankingList: React.FC = () => {
-  const { data, isLoading, isError } = useIssueRankings();
+export const IssueRankingList: React.FC<{ window?: TimeWindow }> = ({ window = '12h' }) => {
+  const { data, isLoading, isError } = useIssueRankings(window);
 
   if (isLoading) return <IssueRankingSkeleton />;
   if (isError || !data) {

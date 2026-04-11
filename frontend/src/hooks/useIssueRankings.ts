@@ -6,7 +6,9 @@ import type { IssueRankingResponse } from '../types';
 
 const VERSION_POLL_MS = 30_000; // 30초마다 버전 체크
 
-export const useIssueRankings = () => {
+export type TimeWindow = '6h' | '12h' | '24h';
+
+export const useIssueRankings = (window: TimeWindow = '12h') => {
   const queryClient = useQueryClient();
   const lastVersionRef = useRef<string | null>(null);
 
@@ -28,11 +30,14 @@ export const useIssueRankings = () => {
   }, [versionData?.calculated_at, queryClient]);
 
   return useQuery<IssueRankingResponse>({
-    queryKey: ['issue-rankings'],
+    queryKey: ['issue-rankings', window],
     queryFn: async () => {
-      const prefetched = await consumePrefetch<IssueRankingResponse>('issueRankings');
-      if (prefetched) return prefetched;
-      return fetchIssueRankings({ limit: 30 });
+      // prefetch는 기본 윈도우(12h)에서만 사용
+      if (window === '12h') {
+        const prefetched = await consumePrefetch<IssueRankingResponse>('issueRankings');
+        if (prefetched) return prefetched;
+      }
+      return fetchIssueRankings({ limit: 30, window });
     },
     staleTime: 60_000, // 1분 — 탭 전환 시에도 빠른 반영
   });

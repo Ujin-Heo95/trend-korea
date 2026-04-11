@@ -139,13 +139,30 @@ function computeStableId(clusterIds: readonly number[], standalonePostIds: reado
   return createHash('md5').update(key).digest('hex').slice(0, 12);
 }
 
+// ─── Window Configuration ───
+
+const ISSUE_WINDOWS = [6, 12, 24] as const;
+type IssueWindow = (typeof ISSUE_WINDOWS)[number];
+
+const WINDOW_TTL_MS: Record<IssueWindow, number> = {
+  6: 2 * 60 * 60 * 1000,   // 2h — 빠른 회전
+  12: 6 * 60 * 60 * 1000,  // 6h — 기존 기본값
+  24: 6 * 60 * 60 * 1000,  // 6h
+};
+
 // ─── Main Entry Point ───
 
 let isAggregating = false;
 let aggregationStartedAt = 0;
-const AGGREGATION_TIMEOUT_MS = 5 * 60_000; // 5분 타임아웃
+const AGGREGATION_TIMEOUT_MS = 8 * 60_000; // 8분 타임아웃 (3개 윈도우)
 
+/** 단일 윈도우 집계 (하위 호환) */
 export async function aggregateIssues(pool: Pool): Promise<number> {
+  return aggregateAllWindows(pool);
+}
+
+/** 모든 윈도우(6h/12h/24h) 순차 집계 */
+export async function aggregateAllWindows(pool: Pool): Promise<number> {
   if (isAggregating) {
     const elapsed = Date.now() - aggregationStartedAt;
     if (elapsed < AGGREGATION_TIMEOUT_MS) {
@@ -161,9 +178,9 @@ export async function aggregateIssues(pool: Pool): Promise<number> {
   aggregationStartedAt = Date.now();
   try {
     return await Promise.race([
-      _aggregateIssues(pool),
+      _aggregateAllWindows(pool),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('[issueAggregator] pipeline timeout after 4min')), 4 * 60_000),
+        setTimeout(() => reject(new Error('[issueAggregator] pipeline timeout after 7min')), 7 * 60_000),
       ),
     ]);
   } finally {
@@ -171,7 +188,22 @@ export async function aggregateIssues(pool: Pool): Promise<number> {
   }
 }
 
-async function _aggregateIssues(pool: Pool): Promise<number> {
+async function _aggregateAllWindows(pool: Pool): Promise<number> {
+  let total = 0;
+  for (const windowHours of ISSUE_WINDOWS) {
+    try {
+      const count = await _aggregateIssues(pool, windowHours);
+      total += count;
+      logger.info(`[issueAggregator] window=${windowHours}h → ${count} issues`);
+    } catch (err) {
+      logger.error({ err, windowHours }, `[issueAggregator] window=${windowHours}h failed`);
+      notifyPipelineWarning('issueAggregator', `window=${windowHours}h failed: ${err}`).catch(() => {});
+    }
+  }
+  return total;
+}
+
+async function _aggregateIssues(pool: Pool, windowHours: IssueWindow = 12): Promise<number> {
   const cfg = await loadIssueConfig().catch((): IssueConfig => ({
     issueWindowHours: DEFAULT_ISSUE_WINDOW_HOURS,
     maxIssues: DEFAULT_MAX_ISSUES,
@@ -193,21 +225,24 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
     breakingKwMaxBoost: DEFAULT_BREAKING_KW_MAX_BOOST,
   }));
 
-  // Step 0.5: Adaptive window — 볼륨 기반 동적 조정 (네이버 36h 적응형 윈도우 응용)
-  const { rows: [{ cnt }] } = await pool.query<{ cnt: string }>(
-    `SELECT COUNT(*) AS cnt FROM posts
-     WHERE scraped_at > NOW() - INTERVAL '3 hours'
-       AND COALESCE(category, '') IN ${SCORED_CATEGORIES_SQL}`,
-  );
-  const recentVolume = parseInt(cnt, 10);
-  const adaptiveWindow = recentVolume > 200
-    ? Math.max(8, cfg.issueWindowHours - 4)   // 고볼륨: 집중 윈도우
-    : recentVolume < 50
-      ? Math.min(18, cfg.issueWindowHours + 6) // 저볼륨(주말/야간): 확장
-      : cfg.issueWindowHours;                  // 평상: 기본값(12h)
+  // Step 0.5: Adaptive window — 12h 윈도우만 적응형, 6h/24h는 고정
+  let effectiveWindow: number = windowHours;
+  if (windowHours === 12) {
+    const { rows: [{ cnt }] } = await pool.query<{ cnt: string }>(
+      `SELECT COUNT(*) AS cnt FROM posts
+       WHERE scraped_at > NOW() - INTERVAL '3 hours'
+         AND COALESCE(category, '') IN ${SCORED_CATEGORIES_SQL}`,
+    );
+    const recentVolume = parseInt(cnt, 10);
+    effectiveWindow = recentVolume > 200
+      ? Math.max(8, cfg.issueWindowHours - 4)   // 고볼륨: 집중 윈도우
+      : recentVolume < 50
+        ? Math.min(18, cfg.issueWindowHours + 6) // 저볼륨(주말/야간): 확장
+        : cfg.issueWindowHours;                  // 평상: 기본값(12h)
+  }
 
   // Step 1: Fetch scored posts (now includes video)
-  const posts = await fetchScoredPosts(pool, adaptiveWindow);
+  const posts = await fetchScoredPosts(pool, effectiveWindow);
   if (posts.length === 0) return 0;
 
   // Step 2: Build cluster-based groups
@@ -224,8 +259,12 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
   if (borderlinePairs.length > 0) {
     const aiMerges = await geminiDeduplicateBorderline(borderlinePairs);
     if (aiMerges.size > 0) {
-      // AI가 병합 판단한 쌍을 추가 적용 (단순 재병합)
+      // AI가 병합 판단한 쌍을 추가 적용 (크기 제한 포함)
+      const MAX_AI_MERGE = 50;
       const parent2 = Array.from({ length: finalGroups.length }, (_, i) => i);
+      const size2 = finalGroups.map(g =>
+        g.newsPosts.length + g.communityPosts.length + g.videoPosts.length,
+      );
       const find2 = (x: number): number => {
         while (parent2[x] !== x) { parent2[x] = parent2[parent2[x]]; x = parent2[x]; }
         return x;
@@ -237,7 +276,10 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
         if (a < finalGroups.length && b < finalGroups.length) {
           const ra = find2(a);
           const rb = find2(b);
-          if (ra !== rb) parent2[ra] = rb;
+          if (ra !== rb && size2[ra] + size2[rb] <= MAX_AI_MERGE) {
+            parent2[ra] = rb;
+            size2[rb] += size2[ra];
+          }
         }
       }
       const merged2 = new Map<number, IssueGroup>();
@@ -272,8 +314,7 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
   const issueRows = topIssues.map(si => buildIssueRow(si, cfg));
 
   // Step 7: Write to DB (delete old → insert new, atomic)
-  // rank_change is now computed dynamically at API time (issues.ts / issueRankingDetail.ts)
-  return await writeIssueRankings(pool, issueRows);
+  return await writeIssueRankings(pool, issueRows, windowHours);
 }
 
 // ─── Step 1: Fetch Posts (now includes video) ───
@@ -407,6 +448,9 @@ async function mergeViaTrendKeywords(
   // 이 키워드만 공유하는 쌍은 병합하지 않음 (다른 키워드와 함께일 때는 참여)
   const ACTION_ONLY_STOPWORDS = new Set([
     '관련', '대한', '통해', '위해', '대해', '가능', '예정', '필요',
+    '발표', '논의', '결정', '보도', '전망', '우려', '지적', '요구',
+    '비판', '입장', '계획', '방안', '대책', '사건', '사고', '주장',
+    '의혹', '혐의', '논란', '합의',
   ]);
 
   const kwToGroups = new Map<string, number[]>();
@@ -575,7 +619,11 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
   // 기존 bigram도 유지 (하위 호환)
   const bigramSets = repPosts.map(p => p ? bigrams(p.title) : new Set<string>());
 
+  const MAX_POSTS_PER_DEDUP_GROUP = 50; // Step 3.5에서도 그룹 크기 제한
   const parent = Array.from({ length: groups.length }, (_, i) => i);
+  const groupPostCount = groups.map(g =>
+    g.newsPosts.length + g.communityPosts.length + g.videoPosts.length,
+  );
 
   function find(x: number): number {
     while (parent[x] !== x) {
@@ -585,15 +633,19 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
     return x;
   }
 
-  function union(a: number, b: number): void {
+  function union(a: number, b: number): boolean {
     const ra = find(a);
     const rb = find(b);
-    if (ra !== rb) parent[ra] = rb;
+    if (ra === rb) return false;
+    if (groupPostCount[ra] + groupPostCount[rb] > MAX_POSTS_PER_DEDUP_GROUP) return false;
+    parent[ra] = rb;
+    groupPostCount[rb] += groupPostCount[ra];
+    return true;
   }
 
   const HIGH_CONFIDENCE_THRESHOLD = 0.60;
-  const WORD_HIGH_CONF = 0.45;  // word-level: IDF 가중 기준 45% 이상이면 같은 이슈
-  const EMB_HIGH_CONF = 0.75;   // 임베딩: 의미적 유사도 75% 이상
+  const WORD_HIGH_CONF = 0.48;  // word-level: IDF 가중 기준 48% 이상이면 같은 이슈
+  const EMB_HIGH_CONF = 0.78;   // 임베딩: 의미적 유사도 78% 이상
   const SNIPPET_WEIGHT = 0.3;   // 스니펫 블렌딩 비율
 
   // 경계 케이스 수집 (bestSim 0.25-0.55, 기존 규칙으로 병합되지 않은 쌍)
@@ -660,9 +712,9 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
       const wordHighConf = titleWordSim >= WORD_HIGH_CONF;       // word 의미적 확실
       const embHighConf = embSim >= EMB_HIGH_CONF;                 // 임베딩 의미적 확실
       const medConf = bestSim >= threshold && sharedKw >= 1;     // 유사 + 키워드 보강
-      const kwBoosted = sharedKw >= 1 && bestSim >= 0.30;       // 키워드 공유 시 낮은 유사도도 허용
-      const kwOnly = sharedKw >= 2;                              // 키워드 2개↑ 공유
-      const contained = containment >= containmentThreshold && bestSim >= 0.30; // 포함도 높음 + 최소 유사도
+      const kwBoosted = sharedKw >= 2 && bestSim >= 0.40;       // 키워드 2개↑ 공유 + 유사도 40% 이상
+      const kwOnly = sharedKw >= 3;                              // 키워드 3개↑ 공유 시 무조건
+      const contained = containment >= containmentThreshold && bestSim >= 0.35; // 포함도 높음 + 최소 유사도
 
       if (highConf || wordHighConf || embHighConf || medConf || kwBoosted || kwOnly || contained) {
         union(i, j);
@@ -996,12 +1048,12 @@ function deriveCategoryLabel(title: string): string {
 
 // ─── Step 7: Write to DB ───
 
-async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Promise<number> {
+async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[], windowHours: IssueWindow = 12): Promise<number> {
   if (issues.length === 0) return 0;
 
   // Quiet hours: extend expires_at if next batch would be in quiet hours
   const kstHour = (new Date().getUTCHours() + 9) % 24;
-  const baseTtlMs = 6 * 60 * 60 * 1000; // default 6h
+  const baseTtlMs = WINDOW_TTL_MS[windowHours];
   let quietTtlMs = baseTtlMs;
   if (kstHour >= 1 && kstHour < 6) {
     // Extend to cover quiet hours until 07:00 KST
@@ -1017,18 +1069,21 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
     await client.query('BEGIN');
 
     // Carry forward: 기존 요약 + 순위 + AI 필드를 보존 (rank_change 사전계산용)
+    // rank_change는 같은 윈도우 내에서만 비교, 요약은 모든 윈도우에서 검색
     const { rows: existingRows } = await client.query<{
       stable_id: string; title: string; summary: string; category_label: string;
       quality_score: number | null; ai_keywords: string[]; sentiment: string | null;
       rank_position: number; cluster_ids: number[]; standalone_post_ids: number[];
+      window_hours: number;
     }>(
       `SELECT stable_id, title, summary, category_label,
               quality_score, ai_keywords, sentiment,
-              ROW_NUMBER() OVER (ORDER BY issue_score DESC)::int AS rank_position,
-              cluster_ids, standalone_post_ids
+              ROW_NUMBER() OVER (PARTITION BY window_hours ORDER BY issue_score DESC)::int AS rank_position,
+              cluster_ids, standalone_post_ids, window_hours
        FROM issue_rankings
        WHERE expires_at > NOW()`,
     );
+    // 요약은 모든 윈도우에서 가져옴 (cross-window carry-forward)
     const summaryMap = new Map(
       existingRows.filter(r => r.summary != null && r.stable_id != null && !r.summary.startsWith('관련 기사')).map(r => [r.stable_id, {
         title: r.title, summary: r.summary, categoryLabel: r.category_label,
@@ -1036,13 +1091,14 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
       }]),
     );
 
-    // rank_change 사전계산: stable_id → 이전 순위, fallback으로 50% overlap 매칭
+    // rank_change는 같은 윈도우 내에서만 비교
+    const sameWindowRows = existingRows.filter(r => r.window_hours === windowHours);
     const computeRankChange = (stableId: string, currentRank: number, clusterIds: readonly number[], standaloneIds: readonly number[]): number | null => {
-      if (existingRows.length === 0) return null;
-      const byStableId = existingRows.find(r => r.stable_id && r.stable_id === stableId);
+      if (sameWindowRows.length === 0) return null;
+      const byStableId = sameWindowRows.find(r => r.stable_id && r.stable_id === stableId);
       if (byStableId) return byStableId.rank_position - currentRank;
       const currIds = [...clusterIds, ...standaloneIds];
-      for (const prev of existingRows) {
+      for (const prev of sameWindowRows) {
         const prevIds = new Set([...prev.cluster_ids, ...prev.standalone_post_ids]);
         if (prevIds.size === 0 && currIds.length === 0) continue;
         const overlap = currIds.filter(id => prevIds.has(id)).length;
@@ -1054,11 +1110,13 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
       return null;
     };
 
-    // 점진적 업데이트: 새 배치에 없는 기존 이슈는 삭제, 나머지는 UPSERT
+    // 점진적 업데이트: 해당 윈도우에서 새 배치에 없는 기존 이슈만 삭제
     const newStableIds = issues.map(i => i.stableId);
     await client.query(
-      `DELETE FROM issue_rankings WHERE stable_id IS NULL OR NOT (stable_id = ANY($1::text[]))`,
-      [newStableIds],
+      `DELETE FROM issue_rankings
+       WHERE window_hours = $2
+         AND (stable_id IS NULL OR NOT (stable_id = ANY($1::text[])))`,
+      [newStableIds, windowHours],
     );
 
     let inserted = 0;
@@ -1078,9 +1136,9 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
           (title, summary, category_label, issue_score, news_score, community_score,
            trend_signal_score, video_score, momentum_score, news_post_count, community_post_count,
            video_post_count, representative_thumbnail, cluster_ids, standalone_post_ids,
-           matched_trend_keywords, rank_change, stable_id, calculated_at, expires_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW(),NOW()+$19::interval)
-         ON CONFLICT (stable_id) WHERE stable_id IS NOT NULL DO UPDATE SET
+           matched_trend_keywords, rank_change, stable_id, window_hours, calculated_at, expires_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$20,NOW(),NOW()+$19::interval)
+         ON CONFLICT (stable_id, window_hours) WHERE stable_id IS NOT NULL DO UPDATE SET
            issue_score = EXCLUDED.issue_score,
            news_score = EXCLUDED.news_score,
            community_score = EXCLUDED.community_score,
@@ -1104,7 +1162,7 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
           issue.newsPostCount, issue.communityPostCount, issue.videoPostCount,
           issue.representativeThumbnail, issue.clusterIds, issue.standalonePostIds,
           issue.matchedTrendKeywords, rankChange, issue.stableId,
-          `${ttlMs} milliseconds`,
+          `${ttlMs} milliseconds`, windowHours,
         ],
       );
       inserted += upsertResult.rowCount ?? 0;
@@ -1137,8 +1195,8 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
             `UPDATE issue_rankings
              SET title = $1, summary = $2, category_label = $3,
                  quality_score = $4, ai_keywords = $5, sentiment = $6
-             WHERE stable_id = $7 AND summary IS NULL`,
-            [titles[k], summaries[k], categories[k], qualityScores[k], aiKeywordsArr[k], sentiments[k], sids[k]],
+             WHERE stable_id = $7 AND window_hours = $8 AND summary IS NULL`,
+            [titles[k], summaries[k], categories[k], qualityScores[k], aiKeywordsArr[k], sentiments[k], sids[k], windowHours],
           );
         }
         console.log(`[issueAggregator] restored ${sids.length} summaries via carry-forward`);
@@ -1161,11 +1219,11 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
 export async function snapshotRankings(pool: Pool): Promise<void> {
   const batchId = new Date().toISOString();
 
-  // Snapshot current rankings into history
+  // Snapshot current rankings into history (12h 기본 윈도우만)
   const { rowCount } = await pool.query(
     `INSERT INTO issue_rankings_history (batch_id, rank_position, title, issue_score, momentum_score, stable_id, cluster_ids, standalone_post_ids)
      SELECT $1, ROW_NUMBER() OVER (ORDER BY issue_score DESC), title, issue_score, COALESCE(momentum_score, 1.0), stable_id, cluster_ids, standalone_post_ids
-     FROM issue_rankings WHERE expires_at > NOW()`,
+     FROM issue_rankings WHERE expires_at > NOW() AND window_hours = 12`,
     [batchId],
   );
   if (rowCount && rowCount > 0) {
@@ -1194,7 +1252,8 @@ export async function cleanExpiredIssueRankings(pool: Pool): Promise<number> {
  * summarizeAndUpdateIssues 완료 후 호출. API에서는 이 테이블에서 단순 SELECT.
  */
 export async function materializeIssueResponse(pool: Pool): Promise<void> {
-  const { rows: issues } = await pool.query<{
+  // 모든 윈도우 (6h/12h/24h)에 대해 materialized 응답 생성
+  const { rows: allIssues } = await pool.query<{
     id: number; title: string; summary: string | null; category_label: string | null;
     issue_score: number; momentum_score: number; representative_thumbnail: string | null;
     stable_id: string | null; rank_change: number | null;
@@ -1202,19 +1261,27 @@ export async function materializeIssueResponse(pool: Pool): Promise<void> {
     cluster_ids: number[]; standalone_post_ids: number[];
     matched_trend_keywords: string[]; cross_validation_sources: string[];
     news_post_count: number; community_post_count: number; video_post_count: number;
-    calculated_at: string;
+    calculated_at: string; window_hours: number;
   }>(
     `SELECT * FROM issue_rankings
      WHERE expires_at > NOW() AND summary IS NOT NULL
-     ORDER BY issue_score DESC`,
+     ORDER BY window_hours, issue_score DESC`,
   );
 
-  if (issues.length === 0) return;
+  if (allIssues.length === 0) return;
 
-  // Collect all post IDs
+  // Group by window_hours
+  const issuesByWindow = new Map<number, typeof allIssues>();
+  for (const issue of allIssues) {
+    const arr = issuesByWindow.get(issue.window_hours) ?? [];
+    arr.push(issue);
+    issuesByWindow.set(issue.window_hours, arr);
+  }
+
+  // Collect all post IDs across all windows
   const allClusterIds = new Set<number>();
   const allStandaloneIds = new Set<number>();
-  for (const issue of issues) {
+  for (const issue of allIssues) {
     for (const cid of issue.cluster_ids) allClusterIds.add(cid);
     for (const pid of issue.standalone_post_ids) allStandaloneIds.add(pid);
   }
@@ -1235,7 +1302,7 @@ export async function materializeIssueResponse(pool: Pool): Promise<void> {
 
   // Gather all post IDs
   const allPostIds = new Set<number>();
-  for (const issue of issues) {
+  for (const issue of allIssues) {
     for (const cid of issue.cluster_ids) {
       for (const pid of clusterPostMap.get(cid) ?? []) allPostIds.add(pid);
     }
@@ -1256,77 +1323,79 @@ export async function materializeIssueResponse(pool: Pool): Promise<void> {
     for (const p of posts) postsMap.set(p.id, p);
   }
 
-  // Build response per page
   const PAGE_SIZE = 20;
-  const totalPages = Math.ceil(issues.length / PAGE_SIZE);
-
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query('DELETE FROM issue_rankings_materialized');
 
-    for (let page = 1; page <= totalPages; page++) {
-      const pageIssues = issues.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    for (const [windowHours, issues] of issuesByWindow) {
+      const totalPages = Math.ceil(issues.length / PAGE_SIZE);
 
-      const responseIssues = pageIssues.map((issue, idx) => {
-        const issuePostIds = new Set<number>();
-        for (const cid of issue.cluster_ids) {
-          for (const pid of clusterPostMap.get(cid) ?? []) issuePostIds.add(pid);
-        }
-        for (const pid of issue.standalone_post_ids) issuePostIds.add(pid);
+      for (let page = 1; page <= totalPages; page++) {
+        const pageIssues = issues.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-        const newsPosts: unknown[] = [];
-        const communityPosts: unknown[] = [];
-        const videoPosts: unknown[] = [];
-        for (const pid of issuePostIds) {
-          const post = postsMap.get(pid);
-          if (!post) continue;
-          const { category, ...rest } = post;
-          if (category === 'news' || category === 'portal') newsPosts.push(rest);
-          else if (category === 'video') videoPosts.push(rest);
-          else communityPosts.push(rest);
-        }
+        const responseIssues = pageIssues.map((issue, idx) => {
+          const issuePostIds = new Set<number>();
+          for (const cid of issue.cluster_ids) {
+            for (const pid of clusterPostMap.get(cid) ?? []) issuePostIds.add(pid);
+          }
+          for (const pid of issue.standalone_post_ids) issuePostIds.add(pid);
 
-        const currentRank = (page - 1) * PAGE_SIZE + idx + 1;
-        return {
-          id: issue.id,
-          rank: currentRank,
-          title: issue.title,
-          summary: issue.summary,
-          category_label: issue.category_label,
-          issue_score: issue.issue_score,
-          momentum_score: issue.momentum_score ?? 1.0,
-          thumbnail: issue.representative_thumbnail,
-          stable_id: issue.stable_id,
-          rank_change: issue.rank_change,
-          quality_score: issue.quality_score,
-          ai_keywords: issue.ai_keywords ?? [],
-          sentiment: issue.sentiment,
-          news_posts: newsPosts.slice(0, 10),
-          community_posts: communityPosts.slice(0, 10),
-          video_posts: videoPosts.slice(0, 10),
-          matched_keywords: issue.matched_trend_keywords,
-          news_post_count: issue.news_post_count,
-          community_post_count: issue.community_post_count,
-          video_post_count: issue.video_post_count,
+          const newsPosts: unknown[] = [];
+          const communityPosts: unknown[] = [];
+          const videoPosts: unknown[] = [];
+          for (const pid of issuePostIds) {
+            const post = postsMap.get(pid);
+            if (!post) continue;
+            const { category, ...rest } = post;
+            if (category === 'news' || category === 'portal') newsPosts.push(rest);
+            else if (category === 'video') videoPosts.push(rest);
+            else communityPosts.push(rest);
+          }
+
+          const currentRank = (page - 1) * PAGE_SIZE + idx + 1;
+          return {
+            id: issue.id,
+            rank: currentRank,
+            title: issue.title,
+            summary: issue.summary,
+            category_label: issue.category_label,
+            issue_score: issue.issue_score,
+            momentum_score: issue.momentum_score ?? 1.0,
+            thumbnail: issue.representative_thumbnail,
+            stable_id: issue.stable_id,
+            rank_change: issue.rank_change,
+            quality_score: issue.quality_score,
+            ai_keywords: issue.ai_keywords ?? [],
+            sentiment: issue.sentiment,
+            news_posts: newsPosts.slice(0, 10),
+            community_posts: communityPosts.slice(0, 10),
+            video_posts: videoPosts.slice(0, 10),
+            matched_keywords: issue.matched_trend_keywords,
+            news_post_count: issue.news_post_count,
+            community_post_count: issue.community_post_count,
+            video_post_count: issue.video_post_count,
+          };
+        });
+
+        const responseJson = {
+          issues: responseIssues,
+          total: issues.length,
+          calculated_at: issues[0]?.calculated_at ?? null,
         };
-      });
 
-      const responseJson = {
-        issues: responseIssues,
-        total: issues.length,
-        calculated_at: issues[0]?.calculated_at ?? null,
-      };
-
-      await client.query(
-        `INSERT INTO issue_rankings_materialized (page, page_size, total, response_json, calculated_at)
-         VALUES ($1, $2, $3, $4, NOW())`,
-        [page, PAGE_SIZE, issues.length, JSON.stringify(responseJson)],
-      );
+        await client.query(
+          `INSERT INTO issue_rankings_materialized (page, page_size, total, response_json, calculated_at, window_hours)
+           VALUES ($1, $2, $3, $4, NOW(), $5)`,
+          [page, PAGE_SIZE, issues.length, JSON.stringify(responseJson), windowHours],
+        );
+      }
     }
 
     await client.query('COMMIT');
-    logger.info(`[materialize] ${totalPages} pages materialized`);
+    const windowKeys = [...issuesByWindow.keys()].join(',');
+    logger.info(`[materialize] materialized for windows: ${windowKeys}h`);
   } catch (err) {
     await client.query('ROLLBACK');
     logger.warn({ err }, '[materialize] failed to materialize issue response');

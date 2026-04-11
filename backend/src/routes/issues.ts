@@ -47,7 +47,9 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
     return result;
   });
 
-  app.get<{ Querystring: { page?: number; limit?: number; cursor_score?: number; cursor_id?: number } }>(
+  const WINDOW_MAP: Record<string, number> = { '6h': 6, '12h': 12, '24h': 24 };
+
+  app.get<{ Querystring: { page?: number; limit?: number; cursor_score?: number; cursor_id?: number; window?: string } }>(
     '/api/issues',
     {
       schema: {
@@ -58,6 +60,7 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
             limit: { type: 'integer', minimum: 1, maximum: 50, default: 20 },
             cursor_score: { type: 'number' },
             cursor_id: { type: 'integer' },
+            window: { type: 'string', enum: ['6h', '12h', '24h'], default: '12h' },
           },
         },
       },
@@ -67,17 +70,19 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
       const page = req.query.page ?? 1;
       const cursorScore = req.query.cursor_score;
       const cursorId = req.query.cursor_id;
+      const windowParam = req.query.window ?? '12h';
+      const windowHours = WINDOW_MAP[windowParam] ?? 12;
       const offset = (page - 1) * limit;
 
-      const cacheKey = `issues:${page}:${limit}`;
+      const cacheKey = `issues:${windowParam}:${page}:${limit}`;
       const cached = issuesCache.get(cacheKey);
       if (cached) return cached;
 
       // Try materialized response first (pre-computed, fastest path)
       if (limit === 20) {
         const { rows: matRows } = await app.pg.query<{ response_json: unknown }>(
-          `SELECT response_json FROM issue_rankings_materialized WHERE page = $1 AND page_size = $2`,
-          [page, 20],
+          `SELECT response_json FROM issue_rankings_materialized WHERE page = $1 AND page_size = $2 AND window_hours = $3`,
+          [page, 20, windowHours],
         );
         if (matRows.length > 0 && matRows[0].response_json) {
           const result = matRows[0].response_json;
@@ -93,21 +98,22 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         useCursor
           ? app.pg.query<IssueRankingRow>(
               `SELECT * FROM issue_rankings
-               WHERE expires_at > NOW() AND summary IS NOT NULL
+               WHERE expires_at > NOW() AND summary IS NOT NULL AND window_hours = $4
                  AND (issue_score, id) < ($2, $3)
                ORDER BY issue_score DESC, id DESC
                LIMIT $1`,
-              [limit, cursorScore, cursorId],
+              [limit, cursorScore, cursorId, windowHours],
             )
           : app.pg.query<IssueRankingRow>(
               `SELECT * FROM issue_rankings
-               WHERE expires_at > NOW() AND summary IS NOT NULL
+               WHERE expires_at > NOW() AND summary IS NOT NULL AND window_hours = $3
                ORDER BY issue_score DESC
                LIMIT $1 OFFSET $2`,
-              [limit, offset],
+              [limit, offset, windowHours],
             ),
         app.pg.query<{ total: number }>(
-          `SELECT COUNT(*)::int AS total FROM issue_rankings WHERE expires_at > NOW() AND summary IS NOT NULL`,
+          `SELECT COUNT(*)::int AS total FROM issue_rankings WHERE expires_at > NOW() AND summary IS NOT NULL AND window_hours = $1`,
+          [windowHours],
         ),
       ]);
 
