@@ -3,6 +3,9 @@ import type { ScrapedPost } from './types.js';
 import { clusterPosts } from '../services/dedup.js';
 import { logger } from '../utils/logger.js';
 
+/** Set by loadCircuitStates() at startup — avoids top-level DB import (breaks tests) */
+let circuitPool: Pool | null = null;
+
 const MAX_TITLE_LEN = 300;
 const MAX_AUTHOR_LEN = 100;
 const MAX_URL_LEN = 2048;
@@ -27,6 +30,45 @@ function getCircuitState(sourceKey: string): CircuitState {
     circuitStates.set(sourceKey, state);
   }
   return state;
+}
+
+/** Load circuit breaker states from DB into in-memory Map (call once at startup) */
+export async function loadCircuitStates(dbPool: Pool): Promise<void> {
+  circuitPool = dbPool;
+  const p = dbPool;
+  try {
+    const { rows } = await p.query<{
+      source_key: string;
+      consecutive_failures: number;
+      opened_at: Date | null;
+    }>('SELECT source_key, consecutive_failures, opened_at FROM scraper_circuit_breakers');
+    for (const row of rows) {
+      circuitStates.set(row.source_key, {
+        failures: row.consecutive_failures,
+        openedAt: row.opened_at ? row.opened_at.getTime() : null,
+      });
+    }
+    logger.info({ count: rows.length }, '[circuit-breaker] loaded states from DB');
+  } catch (err) {
+    logger.warn({ err }, '[circuit-breaker] failed to load states from DB — starting fresh');
+  }
+}
+
+/** Persist a single circuit breaker state to DB (fire-and-forget) */
+function persistCircuitState(sourceKey: string, state: CircuitState): void {
+  if (!circuitPool) return; // Not initialized yet (e.g., in tests)
+  const openedAt = state.openedAt ? new Date(state.openedAt).toISOString() : null;
+  circuitPool.query(
+    `INSERT INTO scraper_circuit_breakers (source_key, consecutive_failures, opened_at, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (source_key) DO UPDATE SET
+       consecutive_failures = $2,
+       opened_at = $3,
+       updated_at = NOW()`,
+    [sourceKey, state.failures, openedAt],
+  ).catch(err => {
+    logger.warn({ err, sourceKey }, '[circuit-breaker] failed to persist state to DB');
+  });
 }
 
 /** Exported for testing — reset all circuit breaker states */
@@ -176,6 +218,7 @@ export abstract class BaseScraper {
       logger.info({ sourceKey: this.getSourceKey() }, '[scraper] circuit breaker closed, resuming');
       cbState.openedAt = null;
       cbState.failures = 0;
+      persistCircuitState(this.getSourceKey(), cbState);
     }
 
     const MAX_RETRIES = 2;
@@ -192,7 +235,10 @@ export abstract class BaseScraper {
           await clusterPosts(this.pool, posts);
         }
         // Success — reset circuit breaker
-        cbState.failures = 0;
+        if (cbState.failures > 0) {
+          cbState.failures = 0;
+          persistCircuitState(this.getSourceKey(), cbState);
+        }
         return { count };
       } catch (err) {
         if (attempt < MAX_RETRIES) {
@@ -207,6 +253,7 @@ export abstract class BaseScraper {
           cbState.openedAt = Date.now();
           logger.error({ sourceKey: this.getSourceKey(), failures: cbState.failures }, '[scraper] circuit breaker OPEN — skipping for 1 hour');
         }
+        persistCircuitState(this.getSourceKey(), cbState);
         return { count: 0, error: String(err) };
       }
     }

@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import * as Sentry from '@sentry/node';
 import { runAllScrapers, runScrapersByPriority, runApifyScrapers } from '../scrapers/index.js';
+import { loadCircuitStates } from '../scrapers/base.js';
 import { cleanOldPosts, cleanOldScraperRuns, cleanOldEngagementSnapshots, cleanNumericTitlePosts } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
 import { cleanExpiredTrendKeywords } from '../services/trendSignals.js';
@@ -12,7 +13,8 @@ import { clearIssuesCache } from '../routes/issues.js';
 import { performDatabaseBackup } from '../services/backup.js';
 import { notifyBackupResult } from '../services/discord.js';
 import { generateEmbeddingsForRecentPosts } from '../services/embedding.js';
-import { pool, logPoolStats } from '../db/client.js';
+import { batchPool, logPoolStats } from '../db/client.js';
+import { runPipeline } from './pipeline.js';
 
 function captureError(err: unknown): void {
   console.error(err);
@@ -38,7 +40,8 @@ export function startScheduler(delayMs = 60_000): void {
 
   // 배포 직후 DB 커넥션 경쟁 방지: 서버 listen 후 일정 시간 대기
   console.log(`[scheduler] waiting ${delayMs / 1000}s before initial scraper run...`);
-  setTimeout(() => {
+  setTimeout(async () => {
+    await loadCircuitStates(batchPool).catch(captureError);
     runAllScrapers()
       .catch(captureError)
       .finally(() => {
@@ -63,10 +66,12 @@ function startCronJobs(): void {
       return;
     }
     logPoolStats('pipeline-start');
-    await calculateScores(pool).catch(captureError);
-    await generateEmbeddingsForRecentPosts(pool).catch(captureError);
-    await aggregateIssues(pool).catch(captureError);
-    await summarizeAndUpdateIssues(pool).catch(captureError);
+    await runPipeline('issue-pipeline', [
+      { name: 'calculateScores', run: () => calculateScores(batchPool), critical: true },
+      { name: 'generateEmbeddings', run: () => generateEmbeddingsForRecentPosts(batchPool) },
+      { name: 'aggregateIssues', run: () => aggregateIssues(batchPool), critical: true },
+      { name: 'summarizeIssues', run: () => summarizeAndUpdateIssues(batchPool) },
+    ]);
     clearIssuesCache();
     logPoolStats('pipeline-end');
   });
@@ -74,14 +79,14 @@ function startCronJobs(): void {
   // 교차검증: 15분 주기 (quiet hours 제외)
   cron.schedule('3,18,33,48 * * * *', async () => {
     if (isQuietHours()) return;
-    await crossValidateIssues(pool).catch(captureError);
+    await crossValidateIssues(batchPool).catch(captureError);
   });
   console.log('[scheduler] cross-validation: every 15 min (offset +3)');
 
   // 순위 스냅샷: 1시간 주기 (정시, quiet hours 제외)
   cron.schedule('0 * * * *', async () => {
     if (isQuietHours()) return;
-    await snapshotRankings(pool).catch(captureError);
+    await snapshotRankings(batchPool).catch(captureError);
   });
   console.log('[scheduler] rank snapshot: hourly');
 
@@ -109,9 +114,9 @@ function startCronJobs(): void {
       await cleanNumericTitlePosts();
       await cleanOldScraperRuns();
       await cleanOldEngagementSnapshots();
-      await cleanExpiredTrendKeywords(pool);
-      await cleanExpiredIssueRankings(pool);
-      await checkDbSize(pool);
+      await cleanExpiredTrendKeywords(batchPool);
+      await cleanExpiredIssueRankings(batchPool);
+      await checkDbSize(batchPool);
     } catch (err) {
       captureError(err);
     }

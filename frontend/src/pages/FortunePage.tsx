@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { MetaHead } from '../components/shared/MetaHead';
 import fortuneData from '../data/fortune-templates.json';
 import tarotCards from '../data/tarot-cards-ko.json';
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -342,6 +343,7 @@ export function FortunePage() {
 
   return (
     <div className="max-w-lg mx-auto">
+      <MetaHead title="오늘의 운세" />
       {/* Tab bar */}
       <div className="flex gap-2 mb-6">
         {tabs.map(({ key, label, icon }) => (

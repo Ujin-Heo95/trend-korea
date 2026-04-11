@@ -2,7 +2,8 @@ import React, { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useIssueRankingDetail } from '../hooks/usePosts';
 import { trackEvent } from '../lib/analytics';
-import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { MetaHead } from '../components/shared/MetaHead';
+import { ArticleJsonLd, BreadcrumbJsonLd } from '../components/shared/JsonLd';
 import { getSourceColor } from '../constants/sourceColors';
 import { ErrorRetry } from '../components/shared/ErrorRetry';
 import { AdSlot } from '../components/shared/AdSlot';
@@ -15,8 +16,6 @@ export const IssueDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const issueId = parseInt(postId ?? '0');
   const { data, isLoading, isError, refetch } = useIssueRankingDetail(issueId);
-
-  useDocumentTitle(data?.issue.title ?? '이슈 상세');
 
   useEffect(() => {
     if (data?.issue) trackEvent('issue_detail_view', { issueId, title: data.issue.title.slice(0, 50) });
@@ -47,6 +46,27 @@ export const IssueDetailPage: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 pb-20 sm:pb-6">
+      <MetaHead
+        title={issue.title}
+        description={issue.summary || undefined}
+        ogImage={issue.thumbnail || undefined}
+        url={`https://weeklit.net/issue/${issue.id}`}
+        type="article"
+      />
+      <ArticleJsonLd
+        headline={issue.title}
+        datePublished={issue.calculated_at}
+        description={issue.summary || undefined}
+        image={issue.thumbnail || undefined}
+        url={`https://weeklit.net/issue/${issue.id}`}
+      />
+      <BreadcrumbJsonLd
+        items={[
+          { label: '홈', href: '/' },
+          ...(issue.category_label ? [{ label: issue.category_label }] : []),
+          { label: issue.title },
+        ]}
+      />
       {/* Back navigation */}
       <button
         onClick={handleBack}

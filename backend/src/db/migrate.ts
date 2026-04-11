@@ -53,6 +53,8 @@ const migrations = [
   '044_momentum_score.sql',
   '045_event_date.sql',
   '046_trend_keywords_rank.sql',
+  '047_perf_indexes_v2.sql',
+  '048_scraper_circuit_breakers.sql',
 ];
 
 try {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { MetaHead } from '../components/shared/MetaHead';
 import { useQuery } from '@tanstack/react-query';
 import { fetchWeather } from '../api/client';
 import { CitySelector } from '../components/weather/CitySelector';
@@ -34,6 +35,7 @@ export const WeatherPage: React.FC = () => {
 
   return (
     <div>
+      <MetaHead title="날씨" />
       <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-4">날씨 예보</h1>
 
       <CitySelector selected={cityCode} onChange={handleCityChange} />

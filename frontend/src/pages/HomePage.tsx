@@ -21,7 +21,9 @@ import { TravelPhotoGallery } from '../components/TravelPhotoGallery';
 import { CommunityRankingList } from '../components/CommunityRankingList';
 import { PortalRankingView } from '../components/PortalRankingView';
 import { IssueRankingList } from '../components/IssueRankingList';
-import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { MetaHead } from '../components/shared/MetaHead';
+import { WebSiteJsonLd } from '../components/shared/JsonLd';
+import { Breadcrumb } from '../components/shared/Breadcrumb';
 import { useReadPosts } from '../hooks/useReadPosts';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { findCategoryComponent } from './categoryRegistry';
@@ -35,6 +37,31 @@ const CATEGORY_TITLES: Record<string, string> = {
   deals: '핫딜',
   entertainment: '엔터테인먼트',
   travel: '여행',
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  community: '커뮤니티',
+  'news,newsletter,tech': '뉴스',
+  portal: '포털',
+  video: '영상',
+  deals: '핫딜',
+  entertainment: '엔터테인먼트',
+  travel: '여행',
+};
+
+const ENTERTAINMENT_SUB_LABELS: Record<string, string> = {
+  books: '도서',
+  ott: 'OTT',
+  music: '음악',
+  movie: '영화',
+  performance: '공연',
+};
+
+const TRAVEL_SUB_LABELS: Record<string, string> = {
+  hotplace: '핫플레이스',
+  festival: '축제/행사',
+  photo: '관광사진',
+  news: '여행뉴스',
 };
 
 const ENTERTAINMENT_CATEGORY_MAP: Record<EntertainmentSub, string> = {
@@ -61,7 +88,7 @@ interface Props {
 }
 
 export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQuery }) => {
-  useDocumentTitle(category ? CATEGORY_TITLES[category] : undefined);
+  const pageTitle = category ? CATEGORY_TITLES[category] ?? '실시간 트렌드' : '실시간 트렌드';
   const { isRead, markAsRead } = useReadPosts();
   const mainRef = useRef<HTMLDivElement>(null);
   usePullToRefresh(mainRef);
@@ -143,11 +170,41 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   }, [dataUpdatedAt ?? data?.pages?.length]);
   const total = data?.pages[0]?.total ?? 0;
 
+  const breadcrumbItems = useMemo(() => {
+    if (!category) return null;
+    const items: { label: string; href?: string }[] = [{ label: '홈', href: '/' }];
+    const categoryLabel = CATEGORY_LABELS[category];
+    if (!categoryLabel) return null;
+
+    if (isEntertainmentTab && entertainmentSub !== 'all') {
+      const subLabel = ENTERTAINMENT_SUB_LABELS[entertainmentSub];
+      items.push({ label: categoryLabel, href: '/?category=entertainment' });
+      if (subLabel) items.push({ label: subLabel });
+      else items.push({ label: categoryLabel });
+    } else if (isTravelTab && travelSub !== 'all') {
+      const subLabel = TRAVEL_SUB_LABELS[travelSub];
+      items.push({ label: categoryLabel, href: '/?category=travel' });
+      if (subLabel) items.push({ label: subLabel });
+      else items.push({ label: categoryLabel });
+    } else if (isNewsTab && newsSubcategory) {
+      items.push({ label: categoryLabel, href: '/?category=news,newsletter,tech' });
+      items.push({ label: newsSubcategory });
+    } else {
+      items.push({ label: categoryLabel });
+    }
+
+    return items;
+  }, [category, isEntertainmentTab, entertainmentSub, isTravelTab, travelSub, isNewsTab, newsSubcategory]);
+
   return (
     <div ref={mainRef} style={{ overscrollBehaviorY: 'contain' }}>
+      <MetaHead title={pageTitle} />
+      {isAllTab && <WebSiteJsonLd />}
       <div className="flex items-center justify-between mb-3">
         <CategoryTabs selected={category} onChange={handleCategoryChange} />
       </div>
+
+      {breadcrumbItems && <Breadcrumb items={breadcrumbItems} />}
 
       {isNewsTab && (
         <NewsSubcategoryTabs selected={newsSubcategory} onChange={setNewsSubcategory} />

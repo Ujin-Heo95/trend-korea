@@ -1,11 +1,10 @@
 import React from 'react';
-import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { MetaHead } from '../components/shared/MetaHead';
 
 export const AboutPage: React.FC = () => {
-  useDocumentTitle('서비스 소개');
-
   return (
     <div className="max-w-3xl mx-auto">
+      <MetaHead title="서비스 소개" />
       <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">서비스 소개</h1>
 
       <section className="space-y-6 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">

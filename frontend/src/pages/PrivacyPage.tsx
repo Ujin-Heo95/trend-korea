@@ -1,11 +1,10 @@
 import React from 'react';
-import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { MetaHead } from '../components/shared/MetaHead';
 
 export const PrivacyPage: React.FC = () => {
-  useDocumentTitle('개인정보처리방침');
-
   return (
     <div className="max-w-3xl mx-auto">
+      <MetaHead title="개인정보처리방침" />
       <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">개인정보처리방침</h1>
 
       <div className="space-y-6 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
