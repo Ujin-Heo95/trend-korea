@@ -4,6 +4,7 @@ import {
   getCommunitySourceWeight, getCommunityHalfLife,
   getHalfLife, volumeDampeningFactor, type ScoreFactors,
 } from '../../src/services/scoring.js';
+import { normalizeTrendSignal } from '../../src/services/scoring-helpers.js';
 
 const LN2 = Math.LN2;
 
@@ -356,19 +357,90 @@ describe('new scoring factors', () => {
   });
 });
 
-describe('newsSignal saturation', () => {
-  it('single T1 news gives ~0.36 signal', () => {
-    const signal = Math.min(2.5 / 7.0, 1.0);
-    expect(signal).toBeCloseTo(0.357, 2);
+describe('normalizeTrendSignal', () => {
+  it('raw 1.0 → 0 (no trend match)', () => {
+    expect(normalizeTrendSignal(1.0)).toBe(0);
   });
 
-  it('3 T1 sources saturate to 1.0', () => {
-    const signal = Math.min(7.5 / 7.0, 1.0);
-    expect(signal).toBe(1.0);
+  it('raw 1.8 → 10 (max trend match)', () => {
+    expect(normalizeTrendSignal(1.8)).toBeCloseTo(10, 5);
   });
 
-  it('2 T2 sources give ~0.63 signal', () => {
-    const signal = Math.min(4.4 / 7.0, 1.0);
-    expect(signal).toBeCloseTo(0.629, 2);
+  it('raw 1.4 → 5 (mid-range)', () => {
+    expect(normalizeTrendSignal(1.4)).toBeCloseTo(5, 5);
+  });
+
+  it('below 1.0 clamps to 0', () => {
+    expect(normalizeTrendSignal(0.5)).toBe(0);
+  });
+
+  it('above 1.8 clamps to 10', () => {
+    expect(normalizeTrendSignal(2.5)).toBe(10);
+  });
+});
+
+describe('news signalScore (additive blend)', () => {
+  const portalW = 0.4;
+  const clusterW = 0.35;
+  const trendW = 0.25;
+
+  function calcSignalScore(portal: number, cluster: number, trendRaw: number): number {
+    return Math.max(
+      portal * portalW + cluster * clusterW + normalizeTrendSignal(trendRaw) * trendW,
+      1.0,
+    );
+  }
+
+  it('all zeros → minimum signalScore 1.0', () => {
+    expect(calcSignalScore(0, 0, 1.0)).toBe(1.0);
+  });
+
+  it('portal rank 1 alone → significant score', () => {
+    const score = calcSignalScore(10, 0, 1.0);
+    expect(score).toBeCloseTo(4.0, 5); // 10*0.4 = 4.0
+  });
+
+  it('cluster 4 sources alone → moderate score', () => {
+    // 4 sources → mediaScore = 3*log2(4) = 6
+    const score = calcSignalScore(0, 6, 1.0);
+    expect(score).toBeCloseTo(2.1, 5); // 6*0.35 = 2.1
+  });
+
+  it('trend match alone → moderate score', () => {
+    const score = calcSignalScore(0, 0, 1.8);
+    expect(score).toBeCloseTo(2.5, 5); // 10*0.25 = 2.5
+  });
+
+  it('all signals max → high combined score', () => {
+    const score = calcSignalScore(10, 10, 1.8);
+    // 10*0.4 + 10*0.35 + 10*0.25 = 10.0
+    expect(score).toBeCloseTo(10.0, 5);
+  });
+
+  it('partial signals still contribute (additive not multiplicative)', () => {
+    // portal raw: 10*0.4 = 4.0, cluster raw: 6*0.35 = 2.1
+    // combined raw = 4.0 + 2.1 = 6.1 (additive)
+    // Each alone: max(raw, 1.0) → 4.0, 2.1
+    // Combined: max(6.1, 1.0) = 6.1
+    const combined = calcSignalScore(10, 6, 1.0);
+    expect(combined).toBeCloseTo(10 * portalW + 6 * clusterW, 5);
+    expect(combined).toBeCloseTo(6.1, 5);
+  });
+
+  it('signalScore replaces engagement in news scoring', () => {
+    const signalScore = calcSignalScore(8, 6, 1.4);
+    // Used as normalizedEngagement, multiplied by other factors
+    const factors = makeFactors({
+      normalizedEngagement: signalScore,
+      sourceWeight: 2.2,
+      decay: 0.8,
+      velocityBonus: 1.0,      // 뉴스는 1.0 고정
+      clusterBonus: 1.0,       // signalScore에 통합
+      trendSignalBonus: 1.0,   // signalScore에 통합
+      breakingBoost: 1.0,
+    });
+    const score = computeScore(factors);
+    expect(score).toBeCloseTo(signalScore * 2.2 * 0.8, 2);
+    expect(score).toBeGreaterThan(0);
   });
 });

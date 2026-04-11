@@ -201,7 +201,19 @@ export const CONFIG_GROUPS: readonly ConfigGroup[] = [
     ],
   },
 
-  // ─── 8. 트렌드 신호 ───
+  // ─── 8. 뉴스 시그널 가중치 ───
+  {
+    groupName: 'news_signal_weights',
+    label: '뉴스 시그널 가중치',
+    description: '뉴스 탭 인기순 정렬에 사용되는 가산 혼합 가중치 (portalRank × W1 + clusterImportance × W2 + trendAlignment × W3)',
+    fields: [
+      { key: 'portal_weight', defaultValue: 0.4, min: 0.0, max: 1.0, step: 0.05, label: '포털 랭킹 비중', description: '네이버 뉴스 랭킹 순위의 비중', type: 'number' },
+      { key: 'cluster_weight', defaultValue: 0.35, min: 0.0, max: 1.0, step: 0.05, label: '클러스터 중요도 비중', description: '복수 매체 보도(매체 수+티어 다양성)의 비중', type: 'number' },
+      { key: 'trend_weight', defaultValue: 0.25, min: 0.0, max: 1.0, step: 0.05, label: '트렌드 매칭 비중', description: '외부 트렌드 키워드 매칭 강도의 비중', type: 'number' },
+    ],
+  },
+
+  // ─── 9. 트렌드 신호 ───
   {
     groupName: 'trend_signal',
     label: '트렌드 신호',

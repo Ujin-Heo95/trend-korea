@@ -31,6 +31,9 @@ import {
   calculateCategoryBaselines,
   calculateSubcategoryPercentiles,
   detectBreakingNews,
+  calculatePortalRankMap,
+  calculateClusterImportanceMap,
+  normalizeTrendSignal,
   velocityToBonus,
   communityVelocityToBonus,
 } from './scoring-helpers.js';
@@ -115,12 +118,22 @@ async function _calculateScores(pool: Pool): Promise<number> {
   const rows = postsResult.rows;
   if (rows.length === 0) return 0;
 
-  // Step 1.5: 채널별 추가 계산 (2개 병렬 + 1개 순차)
+  // Step 1.5: 채널별 추가 계산 (2개 병렬 + 순차)
   const [trendSignalMap, subcategoryPercentiles] = await Promise.all([
     calculateTrendSignalMap(pool, rows.map(r => ({ id: r.id, title: r.title }))).catch(() => new Map<number, number>()),
     calculateSubcategoryPercentiles(pool).catch(() => new Map<number, number>()),
   ]);
-  const breakingNewsMap = await detectBreakingNews(pool).catch(() => new Map<number, number>());
+  const [breakingNewsMap, portalRankMap, clusterImportanceMap] = await Promise.all([
+    detectBreakingNews(pool).catch(() => new Map<number, number>()),
+    calculatePortalRankMap(pool).catch(() => new Map<number, number>()),
+    calculateClusterImportanceMap(pool).catch(() => new Map<number, number>()),
+  ]);
+
+  // 뉴스 signalScore 가중치 (DB 오버라이드 가능)
+  const scoringConfig = (await import('./scoringConfig.js')).getScoringConfig();
+  const newsPortalW = await scoringConfig.getNumber('news_signal_weights', 'portal_weight', 0.4).catch(() => 0.4);
+  const newsClusterW = await scoringConfig.getNumber('news_signal_weights', 'cluster_weight', 0.35).catch(() => 0.35);
+  const newsTrendW = await scoringConfig.getNumber('news_signal_weights', 'trend_weight', 0.25).catch(() => 0.25);
 
   const now = Date.now();
   const globalBaseline = 2.0;
@@ -167,18 +180,30 @@ async function _calculateScores(pool: Pool): Promise<number> {
         ? 1.0                               // 커뮤니티는 categoryWeight 불필요
         : getCategoryWeightFrom(weights, row.category);
 
+    // 뉴스 채널: 가산 혼합 signalScore (engagement/velocity/cluster/trend 대체)
+    const newsSignalScore = isNews
+      ? Math.max(
+          (portalRankMap.get(row.id) ?? 0) * newsPortalW
+          + (clusterImportanceMap.get(row.id) ?? 0) * newsClusterW
+          + normalizeTrendSignal(trendSignalMap.get(row.id) ?? 1.0) * newsTrendW,
+          1.0,
+        )
+      : undefined;
+
     const factors: ScoreFactors = {
-      normalizedEngagement: normalizeEngagement(
-        row.view_count, row.comment_count, row.like_count,
-        row.source_key, sourceStatsMap, channelStatsMap, channel,
-        catBaseline * credibilityFactor, engWeights,
-      ),
+      normalizedEngagement: isNews
+        ? newsSignalScore!               // 뉴스: signalScore가 engagement 자리를 대체
+        : normalizeEngagement(
+            row.view_count, row.comment_count, row.like_count,
+            row.source_key, sourceStatsMap, channelStatsMap, channel,
+            catBaseline * credibilityFactor, engWeights,
+          ),
       decay: Math.exp(-LN2 * ageMinutes / halfLife),
       sourceWeight: srcW,
       categoryWeight: catW,
-      velocityBonus: velBonus,
-      clusterBonus: clusterBonusMap.get(row.id) ?? 1.0,
-      trendSignalBonus: trendSignalMap.get(row.id) ?? 1.0,
+      velocityBonus: isNews ? 1.0 : velBonus,           // 뉴스: velocity 무의미 (데이터 없음)
+      clusterBonus: isNews ? 1.0 : (clusterBonusMap.get(row.id) ?? 1.0),  // 뉴스: signalScore에 통합
+      trendSignalBonus: isNews ? 1.0 : (trendSignalMap.get(row.id) ?? 1.0), // 뉴스: signalScore에 통합
       subcategoryNorm: 1.0,    // 이미 catW에 반영됨 (뉴스용)
       breakingBoost: isNews ? (breakingNewsMap.get(row.id) ?? 1.0) : 1.0,
     };
@@ -245,6 +270,16 @@ async function _calculateScores(pool: Pool): Promise<number> {
     console.log(
       `[scoring] ${finalScores.length} posts scored (raw). p25=${p(25)} p50=${p(50)} p75=${p(75)} p90=${p(90)} max=${p(100)} | top3: ${top3}`
     );
+
+    // 뉴스 signalScore 분포 로깅
+    const newsSignals = rawScoreEntries.filter(e => portalRankMap.has(e.postId) || clusterImportanceMap.has(e.postId));
+    if (newsSignals.length > 0) {
+      const portalHits = rawScoreEntries.filter(e => portalRankMap.has(e.postId)).length;
+      const clusterHits = rawScoreEntries.filter(e => clusterImportanceMap.has(e.postId)).length;
+      console.log(
+        `[scoring:news] signalScore active: portalRank=${portalHits} clusterImportance=${clusterHits} posts`
+      );
+    }
   }
 
   return updated;

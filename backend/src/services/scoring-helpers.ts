@@ -407,6 +407,125 @@ export async function calculateClusterBonusMap(pool: Pool): Promise<Map<number, 
   return map;
 }
 
+// ─── News: Portal Rank Map (naver_news_ranking → cluster propagation) ───
+
+const PORTAL_RANK_MAX = 30;
+const PORTAL_RANK_DECAY_HOURS = 6;
+
+/** 네이버 뉴스 랭킹 순위 → 같은 클러스터 뉴스에 [0, 10] 점수 전파 */
+export async function calculatePortalRankMap(pool: Pool): Promise<Map<number, number>> {
+  // 1) naver_news_ranking 포스트에서 rank 추출
+  const { rows: portalRows } = await pool.query<{
+    id: number;
+    rank: number;
+    scraped_at: Date;
+  }>(`
+    SELECT p.id,
+           (p.metadata->>'rank')::int AS rank,
+           p.scraped_at
+    FROM posts p
+    WHERE p.source_key = 'naver_news_ranking'
+      AND p.scraped_at > NOW() - INTERVAL '24 hours'
+      AND p.metadata->>'rank' IS NOT NULL
+  `);
+
+  if (portalRows.length === 0) return new Map();
+
+  const now = Date.now();
+  const portalScoreById = new Map<number, number>();
+
+  for (const r of portalRows) {
+    const rank = Math.min(Math.max(r.rank, 1), PORTAL_RANK_MAX);
+    // rank 1 → 10, rank 30 → ~0.69 (선형 보간)
+    const rawScore = 10.0 * (1.0 - (rank - 1) / PORTAL_RANK_MAX);
+    // 수집 시점으로부터 시간감쇠
+    const hoursAge = (now - new Date(r.scraped_at).getTime()) / 3_600_000;
+    const decayed = rawScore * Math.exp(-LN2 * hoursAge / PORTAL_RANK_DECAY_HOURS);
+    portalScoreById.set(r.id, decayed);
+  }
+
+  // 2) 클러스터를 통해 같은 이슈의 다른 뉴스에 전파
+  const portalIds = [...portalScoreById.keys()];
+  if (portalIds.length === 0) return portalScoreById;
+
+  const { rows: clusterRows } = await pool.query<{
+    portal_post_id: number;
+    member_post_id: number;
+  }>(`
+    SELECT pcm_portal.post_id AS portal_post_id,
+           pcm_sibling.post_id AS member_post_id
+    FROM post_cluster_members pcm_portal
+    JOIN post_cluster_members pcm_sibling ON pcm_sibling.cluster_id = pcm_portal.cluster_id
+    JOIN posts p ON p.id = pcm_sibling.post_id
+    WHERE pcm_portal.post_id = ANY($1)
+      AND pcm_sibling.post_id != pcm_portal.post_id
+      AND p.category IN ('news', 'newsletter', 'portal')
+  `, [portalIds]);
+
+  const result = new Map(portalScoreById);
+  for (const r of clusterRows) {
+    const portalScore = portalScoreById.get(r.portal_post_id) ?? 0;
+    // 클러스터 멤버에게는 포털 점수의 80% 전파 (원본보다 약간 낮게)
+    const propagated = portalScore * 0.8;
+    const existing = result.get(r.member_post_id) ?? 0;
+    result.set(r.member_post_id, Math.max(existing, propagated));
+  }
+
+  return result;
+}
+
+// ─── News: Cluster Importance Map (매체 수 + 티어 다양성) ───
+
+/** 소스 키 → 티어 번호 매핑 (클러스터 중요도 다양성 계산용) */
+const SOURCE_TIER: Record<string, number> = {
+  yna: 1, naver_news_ranking: 1, bigkinds_issues: 1,
+  sbs: 2, kbs: 2, mbc: 2, jtbc: 2, chosun: 2, joins: 2,
+  khan: 3, mk: 3, hani: 3, donga: 3, hankyung: 3, ytn: 3, etnews: 3,
+  daum_news: 4, newsis: 4, nate_news: 4, zum_news: 4, google_news_kr: 4,
+};
+
+/** 클러스터 내 뉴스 매체 수 + 티어 다양성 → [0, 10] 중요도 */
+export async function calculateClusterImportanceMap(pool: Pool): Promise<Map<number, number>> {
+  const { rows } = await pool.query<{
+    member_post_id: number;
+    source_keys: string[];
+    news_source_count: number;
+  }>(`
+    SELECT pcm.post_id AS member_post_id,
+           ARRAY_AGG(DISTINCT p2.source_key) AS source_keys,
+           COUNT(DISTINCT CASE WHEN p2.category IN ('news','newsletter','portal') THEN p2.source_key END)::int AS news_source_count
+    FROM post_cluster_members pcm
+    JOIN post_cluster_members pcm2 ON pcm2.cluster_id = pcm.cluster_id
+    JOIN posts p2 ON p2.id = pcm2.post_id
+    JOIN post_clusters pc ON pc.id = pcm.cluster_id
+    WHERE pc.cluster_created_at > NOW() - INTERVAL '24 hours'
+    GROUP BY pcm.post_id
+  `);
+
+  const map = new Map<number, number>();
+  for (const r of rows) {
+    if (r.news_source_count <= 1) continue;
+
+    // 로그 스케일: 2개=3, 4개=6, 8개+=10
+    const mediaScore = Math.min(10.0, 3.0 * Math.log2(r.news_source_count));
+
+    // 티어 다양성 보너스: 서로 다른 티어가 많을수록 중요도 상승
+    const tiers = new Set(r.source_keys.map(sk => SOURCE_TIER[sk] ?? 5));
+    const tierBonus = 1.0 + 0.1 * Math.min(tiers.size - 1, 3);
+
+    map.set(r.member_post_id, Math.min(mediaScore * tierBonus, 10.0));
+  }
+  return map;
+}
+
+// ─── News: Trend Signal Normalization ───
+
+/** 기존 trendSignalBonus [1.0, 1.8] → [0, 10] 정규화 */
+export function normalizeTrendSignal(raw: number): number {
+  // raw 1.0 → 0, raw 1.8 → 10 (선형)
+  return Math.min(Math.max((raw - 1.0) / 0.08, 0), 10);
+}
+
 /** 카테고리별 engagement baseline 계산 (zero-engagement fallback) */
 export async function calculateCategoryBaselines(pool: Pool): Promise<Map<string, number>> {
   const { rows } = await pool.query<{

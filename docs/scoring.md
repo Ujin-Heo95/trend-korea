@@ -1,6 +1,6 @@
 # 콘텐츠 랭킹 시스템
 
-> 2026-04-07 v4 — 모멘텀·동적TTL·Gemini병렬화·보안 반영. 코드 기준 동기화.
+> 2026-04-11 v5 — 뉴스 탭 가산 혼합 signalScore 재설계. v4 대비 engagement/velocity 제거, portalRank+clusterImportance+trendAlignment 가산 혼합으로 대체.
 
 ---
 
@@ -21,19 +21,35 @@ score = normalizedEngagement × adaptiveDecay × communitySourceWeight
       × volumeDampening
 ```
 
-### 뉴스 탭
+### 뉴스 탭 (v5 — 가산 혼합 signalScore)
 
 ```
-score = normalizedEngagement × decay × sourceWeight × subcategoryNorm
-      × velocityBonus × clusterBonus × trendSignalBonus × breakingBoost
-      × volumeDampening
+signalScore = max(
+  portalRank × 0.4 + clusterImportance × 0.35 + trendAlignment × 0.25,
+  1.0
+)
+
+score = signalScore × decay × sourceWeight × subcategoryNorm
+      × breakingBoost × volumeDampening
 ```
+
+**설계 배경**: RSS 뉴스의 90%+가 engagement=0이므로, 곱셈 기반 normalizedEngagement/velocityBonus/clusterBonus/trendSignalBonus를 제거하고 3개 프록시 신호를 **가산 혼합**으로 대체. 가산 혼합은 하나의 신호만 있어도 점수에 독립 기여.
+
+| 컴포넌트 | 범위 | 비중 | 산출 |
+|----------|------|------|------|
+| portalRank | [0, 10] | 40% | naver_news_ranking 순위. rank 1=10, 30≈0.69. 클러스터 전파 (×0.8). 6h 시간감쇠 |
+| clusterImportance | [0, 10] | 35% | 뉴스 매체 수 (log₂ 스케일) × 티어 다양성 보너스 |
+| trendAlignment | [0, 10] | 25% | trendSignalBonus [1.0,1.8] → [0,10] 선형 정규화 |
+
+가중치 `0.4/0.35/0.25`는 DB `scoring_config` 테이블의 `news_signal_weights` 그룹에서 런타임 오버라이드 가능.
 
 ---
 
 ## 3. 각 팩터 상세
 
-### 3.1 정규화 참여도 (normalizedEngagement)
+### 3.1 정규화 참여도 (normalizedEngagement) — 커뮤니티/기타 전용
+
+> **뉴스 탭에서는 사용하지 않음.** signalScore가 이 자리를 대체 (§2 참조).
 
 Z-Score 정규화. 소스별 또는 채널별 통계(24시간 평균/표준편차) 기반.
 
@@ -137,7 +153,9 @@ result = max(2.0 + zViews + zComments × commentWeight + zLikes × likeWeight, 0
 - 효과: 정치 1위 기사와 연예 1위 기사가 동등하게 경쟁
 - 커뮤니티 탭에서는 categoryWeight를 1.0으로 무시
 
-### 3.5 속도 보너스 (velocityBonus)
+### 3.5 속도 보너스 (velocityBonus) — 커뮤니티/기타 전용
+
+> **뉴스 탭에서는 1.0 고정.** engagement 데이터 부재로 velocity 계산 불가.
 
 `engagement_snapshots` 테이블에서 2시간 윈도우, 최소 10분 간격으로 계산.
 
@@ -153,7 +171,9 @@ score = log(1 + viewVelocity) + log(1 + commentVelocity) × 3.0 + log(1 + likeVe
 bonus = 1.0 + min(score / 8.0, 0.6)
 ```
 
-### 3.6 클러스터 보너스 (clusterBonus) [1.0, 3.0]
+### 3.6 클러스터 보너스 (clusterBonus) [1.0, 3.0] — 커뮤니티/기타 전용
+
+> **뉴스 탭에서는 1.0 고정.** signalScore의 clusterImportance로 가산 혼합에 통합됨.
 
 동일 이슈가 여러 소스에서 보도될 때 부여.
 
