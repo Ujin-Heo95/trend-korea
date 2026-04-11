@@ -54,6 +54,7 @@ export async function buildKeywordIndex(pool: Pool): Promise<TrendKeywordEntry[]
     FROM trend_keywords
     WHERE expires_at > NOW()
     ORDER BY signal_strength DESC
+    LIMIT 500
   `);
 
   return rows.map(r => ({

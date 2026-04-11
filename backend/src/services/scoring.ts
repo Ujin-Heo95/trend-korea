@@ -68,8 +68,8 @@ export async function calculateScores(pool: Pool): Promise<number> {
 }
 
 async function _calculateScores(pool: Pool): Promise<number> {
-  // Step 0: DB에서 설정 한 번 로드 (Pre-fetch 패턴)
-  const [weights, engWeights] = await Promise.all([
+  // Round 1: 독립적인 쿼리 8개를 한 번에 병렬 실행 (풀 max=15, 안전 범위)
+  const [weights, engWeights, sourceStatsMap, channelStatsMap, velocityMap, clusterBonusMap, categoryBaselines, postsResult] = await Promise.all([
     preloadWeights().catch((): PreloadedWeights => ({
       sourceWeights: {}, defaultSourceWeight: 0.8,
       categoryWeights: {}, defaultCategoryWeight: 1.0,
@@ -81,49 +81,39 @@ async function _calculateScores(pool: Pool): Promise<number> {
       commentWeights: { community: 1.5, news: 0.5, video: 1.0, sns: 1.0, specialized: 1.0 },
       likeWeights: { community: 2.0, sns: 1.5, video: 1.2, specialized: 0.8, news: 0.3 },
     })),
-  ]);
-
-  // Step 1a: 통계 계산 (최대 2개 병렬 — 풀 고갈 방지)
-  const [sourceStatsMap, channelStatsMap] = await Promise.all([
     calculateSourceStats(pool),
     calculateChannelStats(pool),
-  ]);
-  const velocityMap = await calculateVelocityMap(pool).catch(() => new Map<number, VelocityData>());
-
-  // Step 1b: 나머지 계산 (2개 병렬 + 1개 순차)
-  const [clusterBonusMap, categoryBaselines] = await Promise.all([
+    calculateVelocityMap(pool).catch(() => new Map<number, VelocityData>()),
     calculateClusterBonusMap(pool).catch(() => new Map<number, number>()),
     calculateCategoryBaselines(pool),
+    pool.query<{
+      id: number;
+      source_key: string;
+      category: string | null;
+      title: string;
+      view_count: number;
+      comment_count: number;
+      like_count: number;
+      published_at: Date | null;
+      first_scraped_at: Date;
+      scraped_at: Date;
+    }>(`
+      SELECT p.id, p.source_key, p.category, p.title, p.view_count, p.comment_count, p.like_count,
+             p.published_at, p.first_scraped_at, p.scraped_at
+      FROM posts p
+      WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
+        AND COALESCE(p.category, '') IN ${SCORED_CATEGORIES_SQL}
+        AND p.title NOT LIKE '[사진]%'
+    `),
   ]);
-  const postsResult = await pool.query<{
-    id: number;
-    source_key: string;
-    category: string | null;
-    title: string;
-    view_count: number;
-    comment_count: number;
-    like_count: number;
-    published_at: Date | null;
-    first_scraped_at: Date;
-    scraped_at: Date;
-  }>(`
-    SELECT p.id, p.source_key, p.category, p.title, p.view_count, p.comment_count, p.like_count,
-           p.published_at, p.first_scraped_at, p.scraped_at
-    FROM posts p
-    WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
-      AND COALESCE(p.category, '') IN ${SCORED_CATEGORIES_SQL}
-      AND p.title NOT LIKE '[사진]%'
-  `);
 
   const rows = postsResult.rows;
   if (rows.length === 0) return 0;
 
-  // Step 1.5: 채널별 추가 계산 (2개 병렬 + 순차)
-  const [trendSignalMap, subcategoryPercentiles] = await Promise.all([
+  // Round 2: trendSignalMap은 rows에 의존, 나머지는 독립적
+  const [trendSignalMap, subcategoryPercentiles, breakingNewsMap, portalRankMap, clusterImportanceMap] = await Promise.all([
     calculateTrendSignalMap(pool, rows.map(r => ({ id: r.id, title: r.title }))).catch(() => new Map<number, number>()),
     calculateSubcategoryPercentiles(pool).catch(() => new Map<number, number>()),
-  ]);
-  const [breakingNewsMap, portalRankMap, clusterImportanceMap] = await Promise.all([
     detectBreakingNews(pool).catch(() => new Map<number, number>()),
     calculatePortalRankMap(pool).catch(() => new Map<number, number>()),
     calculateClusterImportanceMap(pool).catch(() => new Map<number, number>()),

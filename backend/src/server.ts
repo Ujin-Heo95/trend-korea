@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import compress from '@fastify/compress';
 import fastifyStatic from '@fastify/static';
 import * as Sentry from '@sentry/node';
 import { Pool } from 'pg';
@@ -103,10 +104,34 @@ export async function buildApp() {
     },
     crossOriginEmbedderPolicy: false,
   });
+  await app.register(compress, { global: true });
   await app.register(rateLimit, {
     max: 200,
     timeWindow: '1 minute',
     allowList: (req) => req.url === '/health',
+  });
+
+  // ── Cache-Control 헤더: 라우트별 CDN/브라우저 캐시 정책 ──
+  app.addHook('onSend', (_req, reply, payload, done) => {
+    if (reply.hasHeader('cache-control')) { done(null, payload); return; }
+    const url = _req.url;
+    const method = _req.method;
+    if (method !== 'GET' && method !== 'HEAD') {
+      reply.header('cache-control', 'no-cache, no-store');
+    } else if (url === '/health') {
+      reply.header('cache-control', 'no-cache');
+    } else if (url.startsWith('/api/sources')) {
+      reply.header('cache-control', 'public, max-age=300, s-maxage=600');
+    } else if (url.startsWith('/api/issues')) {
+      reply.header('cache-control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=60');
+    } else if (url.startsWith('/api/posts')) {
+      reply.header('cache-control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=30');
+    } else if (url.startsWith('/api/og/') || url.startsWith('/api/sitemap')) {
+      reply.header('cache-control', 'public, max-age=3600');
+    } else if (url.startsWith('/api/')) {
+      reply.header('cache-control', 'public, max-age=60, s-maxage=120');
+    }
+    done(null, payload);
   });
   await app.register(postsRoutes);
   await app.register(sourcesRoutes);

@@ -241,6 +241,7 @@ async function fetchScoredPosts(pool: Pool, windowHours: number): Promise<Scored
     WHERE p.scraped_at > NOW() - make_interval(hours => $1)
       AND COALESCE(p.category, '') IN ${SCORED_CATEGORIES_SQL}
     ORDER BY COALESCE(ps.trend_score, 0) DESC
+    LIMIT 500
   `, [windowHours]);
 
   return rows.map(r => ({

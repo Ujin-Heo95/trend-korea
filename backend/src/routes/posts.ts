@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { LRUCache } from '../cache/lru.js';
 import type { PostRow, PostRowWithCluster } from '../db/types.js';
 
-const postsCache = new LRUCache<unknown>(200, 60_000);
+const postsCache = new LRUCache<unknown>(200, 120_000);
 
 export async function postsRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: { source?: string; category?: string; subcategory?: string; q?: string; page?: number; limit?: number; sort?: string } }>(

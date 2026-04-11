@@ -20,22 +20,23 @@ export const useInfinitePosts = (filter: PostsFilter) =>
       const nextPage = last.page + 1;
       return nextPage <= Math.ceil(last.total / last.limit) ? nextPage : undefined;
     },
-    refetchInterval: 60_000,
-    staleTime: 55_000,
+    refetchInterval: 120_000,
+    staleTime: 90_000,
   });
 
 export const useTrending = () =>
   useQuery({
     queryKey: ['trending'],
     queryFn: fetchTrending,
-    refetchInterval: 60_000,
+    refetchInterval: 180_000,
+    staleTime: 120_000,
   });
 
 export const useSources = () =>
   useQuery({
     queryKey: ['sources'],
     queryFn: fetchSources,
-    staleTime: 60_000,
+    staleTime: 300_000,
   });
 
 export const useIssueDetail = (postId: number) =>
