@@ -1056,7 +1056,7 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
            matched_trend_keywords = EXCLUDED.matched_trend_keywords,
            rank_change = EXCLUDED.rank_change,
            calculated_at = NOW(),
-           expires_at = NOW() + EXCLUDED.expires_at - EXCLUDED.calculated_at`,
+           expires_at = NOW() + (EXCLUDED.expires_at - EXCLUDED.calculated_at)`,
         [
           issue.title, issue.summary, issue.categoryLabel,
           issue.issueScore, issue.newsScore, issue.communityScore,

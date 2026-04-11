@@ -61,8 +61,8 @@ function startCronJobs(): void {
     });
   }
 
-  // 트렌드 스코어 갱신 + 이슈 집계 + Gemini 요약: 10분 주기, +2분 오프셋 (스크래퍼와 시차)
-  cron.schedule('2,12,22,32,42,52 * * * *', async () => {
+  // 트렌드 스코어 갱신 + 이슈 집계 + Gemini 요약: 정시 10분 주기 (:00, :10, :20, …)
+  cron.schedule('*/10 * * * *', async () => {
     if (isQuietHours()) {
       console.log('[scheduler] quiet hours (02-06 KST) — skipping issue pipeline');
       return;
