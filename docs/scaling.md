@@ -1,193 +1,145 @@
 # 인프라 스케일링 경로
 
-> 2026-03-29 인프라 에이전트 + 개발팀 아키텍트 분석 종합.
+> 2026-04-11 현행화. Fly.io 도쿄 + Supabase Pro 서울 기준.
 
 ---
 
 ## 1. 현재 상태
 
-| 구성요소 | 현재 | 제약 |
+| 구성요소 | 현재 | 비용 |
 |----------|------|------|
-| 백엔드 | Railway (US-West) | 한국 사용자 150-200ms RTT |
-| DB | **PostgreSQL 17.6 on Supabase (서울)** | 500MB 한도 (free tier) |
-| 프론트엔드 | Railway 정적 빌드 | CDN 없음 |
-| 캐싱 | LRU 캐시 (60초 TTL, 200엔트리) | 서버 재시작 시 소실 |
-| 모니터링 | `/health` + Discord 알림 + DB 용량 모니터링 | Sentry 미설정 |
-| CI/CD | GitHub Actions + Railway auto-deploy | 린트 + 테스트 게이트 |
+| 백엔드 | Fly.io 도쿄 (nrt), shared-cpu-1x 512MB | ~$5/월 |
+| DB | **PostgreSQL 17.6 on Supabase Pro (서울, 8GB)** | $25/월 |
+| 프론트엔드 | Cloudflare Pages (글로벌 CDN) | $0 |
+| 캐싱 | LRU 인메모리 캐시 (라우트별 TTL) + Cache-Control 헤더 | $0 |
+| 모니터링 | Sentry (에러) + Discord 웹훅 (알림) + `/health` | $0 |
+| 분석 | Umami (self-hosted) | $0 |
+| CI/CD | GitHub Actions + Fly.io deploy + Cloudflare Git 연결 | $0 |
+| 도메인 | weeklit.net (GoDaddy, Cloudflare DNS) | ~$1/월 |
 
 ---
 
 ## 2. DB 스케일링
 
-### 2.1 성장 예측
+### 2.1 현재 용량
 
-| TTL | 일일 성장 | 정상 상태 | 100MB 내 유지? |
-|-----|-----------|-----------|----------------|
-| 7일 | ~20-36MB | 140-250MB | **초과** |
-| 3일 | ~20-36MB | 60-108MB | 위험 |
-| 2일 | ~20-36MB | 40-72MB | 안전 |
+- Supabase Pro 8GB, 서울 리전
+- TTL: posts 7일, 공연 7일, scraper_runs 30일, engagement_snapshots 6시간
+- 자동 정리: 매일 00:00/12:00 UTC
+- 모니터링: 400MB 경고, 475MB 위험 (Discord 알림)
 
-### 2.2 단계별 전략
+### 2.2 인덱스 (구현 완료)
 
-| 단계 | DAU | 솔루션 | 비용 |
-|------|-----|--------|------|
-| 즉시 | <500 | TTL 7일 + Railway 무료 100MB | $0 |
-| 500+ | 500-2K | **Supabase 무료** (500MB, 서울 리전) | $0 |
-| 2K+ | 2K-10K | Supabase Pro (8GB, 자동 백업) | $25/월 |
-| 10K+ | 10K+ | Supabase Pro + 읽기 복제본 | $50-80/월 |
-
-### 2.3 인덱스 전략
-
-현재 인덱스:
 ```sql
-idx_posts_source_key      -- 소스 필터
-idx_posts_scraped_at DESC -- 시간 정렬 (핵심)
-idx_posts_view_count DESC -- 트렌딩 쿼리
-idx_posts_category        -- 카테고리 필터
+idx_posts_source_key           -- 소스 필터
+idx_posts_scraped_at DESC      -- 시간 정렬
+idx_posts_view_count DESC      -- 트렌딩 쿼리
+idx_posts_category             -- 카테고리 필터
+idx_posts_category_scraped_at  -- 카테고리+시간 복합
+idx_posts_title_hash           -- 중복제거
 ```
 
-**추가 필요 (즉시)**:
-```sql
--- 카테고리 + 시간 복합 인덱스 (가장 빈번한 쿼리 패턴)
-CREATE INDEX CONCURRENTLY idx_posts_category_scraped_at
-  ON posts(category, scraped_at DESC);
+### 2.3 미래 스케일링
 
--- 중복제거용 타이틀 해시 (Phase 2)
-ALTER TABLE posts ADD COLUMN title_hash VARCHAR(64)
-  GENERATED ALWAYS AS (md5(lower(trim(title)))) STORED;
-CREATE INDEX idx_posts_title_hash ON posts(title_hash);
-```
+| DAU | 솔루션 | 비용 |
+|-----|--------|------|
+| <2K | 현재 구성 유지 | $30/월 |
+| 2K-10K | Supabase Pro + pg_trgm 검색 인덱스 | $30/월 |
+| 10K+ | Supabase Pro + 읽기 복제본 | $50-80/월 |
 
-### 2.4 전문 검색 (Full-Text Search)
+### 2.4 전문 검색
 
-| 방법 | 비용 | 지연 | 적용 시점 |
-|------|------|------|----------|
-| ILIKE (현재) | $0 | 느림 (full scan) | ~10K rows까지 |
-| pg_trgm GIN 인덱스 | $0 | ~30ms | 10K-100K rows |
-| Meilisearch | $5-40/월 | ~20ms | 100K+ rows |
-
-**권장**: 10K rows까지는 현재 ILIKE 유지. 이후 pg_trgm.
+| 방법 | 비용 | 적용 시점 |
+|------|------|----------|
+| ILIKE (현재) | $0 | ~10K rows |
+| pg_trgm GIN 인덱스 | $0 | 10K-100K rows |
+| Meilisearch | $5-40/월 | 100K+ rows |
 
 ---
 
-## 3. 호스팅 위치
+## 3. 캐싱 전략
 
-### 3.1 지연시간 비교
+### 3.1 구현 완료
 
-| 구성 | 지연 (RTT) | 비용 |
-|------|-----------|------|
-| Railway US (현재) | 150-200ms | $0 |
-| Railway + Cloudflare CDN | 정적 ~20ms, API 150ms | $0 |
-| Fly.io Tokyo + Supabase Singapore | 30-50ms | $5-30/월 |
-| Oracle Cloud Japan (무료) + Supabase | 20-30ms | $0 |
+**Cache-Control 헤더 (라우트별):**
+- `/api/posts` → 30s (stale 1m)
+- `/api/sources` → 5m (stale 10m)
+- `/api/issues` → 1m (stale 5m)
 
-### 3.2 권장 마이그레이션 경로
-
-1. **즉시**: Railway 리전 Asia 가능 여부 확인. 불가능 시 Cloudflare DNS/CDN 추가 ($0)
-2. **Phase 4** (11주+): 프론트 → Cloudflare Pages, 백엔드 → Fly.io Tokyo
-3. **Phase 5+**: 멀티리전 (필요 시에만)
-
----
-
-## 4. 캐싱 전략
-
-### 4.1 단계별 구현
-
-**Phase 1: Cache-Control 헤더 (즉시, $0)**
-```
-/api/posts      → Cache-Control: public, max-age=60
-/api/sources    → Cache-Control: public, max-age=300
-/api/posts/trending → Cache-Control: public, max-age=30, stale-while-revalidate=300
-```
-
-**Phase 2: 인메모리 LRU 캐시 (즉시, $0, ~30줄 코드)**
-- Map + TTL 기반. 60초 TTL for posts, 300초 for sources.
+**인메모리 LRU 캐시:**
+- 라우트별 TTL (30s~5m), 최대 200 엔트리
 - 스크래퍼 완료 시 캐시 무효화
-- DB 쿼리 95%+ 감소
 
-**Phase 3: Cloudflare 엣지 캐시 (도메인 확보 후, $0)**
-- 정적 자산 1개월 캐시
-- API는 Cache-Control 헤더 기반
+### 3.2 미래 단계
 
-**Phase 4: Redis (수평 스케일링 시에만, $5-20/월)**
-- 멀티프로세스에서 공유 캐시 필요 시
-- Upstash ($5/월) 또는 Railway Redis
+| 단계 | 조건 | 솔루션 |
+|------|------|--------|
+| 현재 | 단일 프로세스 | LRU 캐시 (충분) |
+| 수평 스케일링 시 | 멀티 인스턴스 | Redis — Upstash ($5/월) |
 
-### 4.2 개발팀 판정
-
-> Redis는 현재 과잉. 인메모리 LRU로 단일 프로세스 10K DAU까지 충분. 멀티프로세스 시에만 도입.
+> Redis는 현재 과잉. 인메모리 LRU로 단일 프로세스 10K DAU까지 충분.
 
 ---
 
-## 5. 스크래퍼 아키텍처
+## 4. 스크래퍼 아키텍처
 
-### 5.1 현재 한계
+### 4.1 현재 구현
 
-- node-cron 인프로세스 → 단일 장애점
-- p-limit(4) 동시성 → 단일 실행 내에서만 제한
-- 크론 중복 실행 가드 없음
-- 매 실행마다 buildScrapers() 재호출 (인스턴스 재생성)
+- node-cron 우선순위 스케줄러 (high 10분 / medium 15분 / low 30분)
+- p-limit(4) 동시성 제한
+- mutex flag + 5분 타임아웃 (중복 실행 방지)
+- retry 2회 (2s→8s backoff), 30초 타임아웃
+- Discord 웹훅 에러 배치 알림
 
-### 5.2 단계별 개선
+### 4.2 미래 단계
 
-| 단계 | 조치 | 공수 |
-|------|------|------|
-| Phase 0 | mutex flag + 30초 타임아웃 | 30분 |
-| Phase 2 | Discord 웹훅 에러 알림 | 1시간 |
-| Phase 2 | Sentry 통합 | 1시간 |
-| Phase 5+ | 별도 worker 프로세스 분리 | 반나절 |
-| 50K+ DAU | BullMQ + Redis 잡 큐 | 2-3일 |
-
-### 5.3 개발팀 판정
-
-> BullMQ는 현재 과잉. 단순 mutex로 충분. worker 분리는 `startScheduler()`를 별도 entry point로 추출하는 10줄 변경. 50K+ DAU에서만 잡 큐 도입.
+| 조건 | 솔루션 |
+|------|--------|
+| 현재 | mutex + p-limit (충분) |
+| 멀티 인스턴스 | worker 프로세스 분리 (~10줄 변경) |
+| 50K+ DAU | BullMQ + Redis 잡 큐 |
 
 ---
 
-## 6. 모니터링 & 알림
+## 5. 모니터링 & 알림
 
-### 6.1 현재 → 목표
+### 5.1 현재 구현
 
-| 영역 | 현재 | Phase 1 | Phase 2 |
-|------|------|---------|---------|
-| 가동시간 | 없음 | UptimeRobot (무료) | 유지 |
-| 에러 추적 | console.log (유실) | Sentry 무료 (5K/월) | Sentry Pro |
-| 알림 | 없음 | Discord 웹훅 | + Sentry 알림 |
-| 메트릭 | `/health` | 유지 + DB 사이즈 경고 | Datadog lite |
-| 로깅 | console | pino (Fastify 내장) | pino + transport |
+| 영역 | 도구 |
+|------|------|
+| 에러 추적 | Sentry (무료) |
+| 알림 | Discord 웹훅 (스크래퍼 에러, API 키 실패, DB 용량) |
+| 가동시간 | `/health` 엔드포인트 (Fly.io 자동 헬스체크 30s) |
+| 로깅 | pino (Fastify 내장) — 구조화 JSON |
+| 분석 | Umami |
 
-### 6.2 핵심 알림 임계값
+### 5.2 핵심 알림 임계값
 
 | 메트릭 | 임계값 | 액션 |
 |--------|--------|------|
-| db_size_mb > 75 | 경고 | TTL 축소 또는 업그레이드 계획 |
+| db_size_mb > 400 | 경고 | TTL 축소 검토 |
+| db_size_mb > 475 | 위험 | 즉시 대응 |
 | scraper_success_rate < 80% | 위험 | 소스별 진단 |
-| api_response_time_p95 > 1000ms | 경고 | 슬로우 쿼리 확인 |
 | 연속 3회 scraper 실패 | 위험 | Discord 알림 |
 
 ---
 
-## 7. SSR 전략 (개발팀 최종 판정)
+## 6. SSR 전략
 
-### 7.1 기각: Next.js 마이그레이션
+### 채택: 경량 접근
 
-- 라우팅, 데이터 페칭, 빌드/배포 파이프라인 전면 재작성 필요
-- Fastify 백엔드 포기 또는 별도 백엔드 운영
-- 현재 단일 페이지 앱에 과잉
-
-### 7.2 채택: 경량 3단계 접근
-
-1. **Phase 1** (3시간): Fastify에서 `index.html` 서빙 시 라우트 기반 동적 meta/OG 태그 주입
-2. **Phase 1** (4시간): `sitemap.xml` 자동 생성 (카테고리 페이지 기반)
+1. **봇 프리렌더** (구현 완료): Fastify 미들웨어에서 봇 UA 감지 → 동적 meta/OG/canonical 주입
+2. **sitemap.xml** (구현 완료): 동적 생성 (이슈 500개 + 리포트 30일)
 3. **필요 시**: `vite-plugin-ssr` (vike) 추가 — 기존 코드 유지하며 SSR
+
+> Next.js 마이그레이션은 기각됨 — 라우팅/빌드 전면 재작성 필요, 현재 단일 페이지 앱에 과잉.
 
 ---
 
-## 8. 비용 예측 (상세는 business/financials.md)
+## 7. 비용 예측 (상세: business/financials.md)
 
 | DAU | 인프라 비용 | 주요 구성 |
 |-----|-----------|-----------|
-| <500 | $0 | Railway 무료 + Supabase 무료 |
-| 500-2K | $20-70 | Railway + Supabase + Sentry |
-| 2K-10K | $100-185 | + Fly.io Tokyo + Redis |
-| 10K+ | $200-305 | + 읽기 복제본 + Datadog |
+| <2K | ~$30 | Fly.io + Supabase Pro + 도메인 |
+| 2K-10K | $50-100 | + Sentry Pro + 필요 시 Redis |
+| 10K+ | $150-250 | + 읽기 복제본 + Datadog lite |

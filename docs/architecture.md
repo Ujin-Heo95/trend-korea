@@ -1,6 +1,6 @@
 # Architecture
 
-> 2026-04-07 소스 품질 검사 반영. 123개 등록/85개 활성.
+> 2026-04-11 현행화. 120개 등록/82개 활성.
 
 ## System Overview
 
@@ -36,7 +36,7 @@
 ## Backend Data Flow
 
 ```
-sources.json (123개 소스 레지스트리, 85개 활성)
+sources.json (120개 소스 레지스트리, 82개 활성)
 └── registry.ts (로더: RSS 자동생성, HTML/API 동적 import)
 
 node-cron 우선순위 스케줄러 (8개 크론 잡)
@@ -83,12 +83,13 @@ BaseScraper (base.ts)
 └── run()               — fetch + saveToDb + clusterPosts + retry 2회
 
 소스 유형별 (sources.json 레지스트리):
-├── HTML/Cheerio (28개 활성): dcinside, bobaedream, ruliweb, theqoo, instiz,
+├── HTML/Cheerio (27개 활성): dcinside, bobaedream, ruliweb, theqoo, instiz,
 │     natepann, todayhumor, clien, fmkorea, mlbpark, cook82,
 │     inven, humoruniv, ygosu, slrclub, etoland, dogdrip, geeknews,
 │     naver_news_ranking, melon_chart, bugs_chart, genie_chart,
 │     kworb_spotify_kr, kworb_youtube_kr, yes24, aladin, flixpatrol,
 │     nate_news, zum_news, clien_jirum, quasarzone_deal
+│     (disabled: arcalive, ppomppu_best)
 ├── RSS (37개 활성): ddanzi, yna, hani, sbs, donga, khan, hankyung, mk, kmib,
 │     yozm, google_trends, newsis, chosun, jtbc, etnews, newswire,
 │     ppomppu_hot, investing_kr, sedaily, moneytoday, edaily, bizwatch,
@@ -100,7 +101,7 @@ BaseScraper (base.ts)
 │     seoul_cultural_event, kcisa_cca_performance, kcisa_cca_exhibition
 └── Apify (3개 비활성): instagram, x, tiktok (SNS 플랫폼 제약)
 
-총계: 121개 등록, 84개 활성
+총계: 120개 등록, 82개 활성
 ```
 
 ## Database Schema
@@ -238,7 +239,7 @@ Apify actor별 비용 추적. 월간 예산 게이트 (기본 $20).
 | GET | `/api/weather/:cityCode` | - | - | 날씨 데이터 |
 | GET | `/health` | ADMIN(상세) | - | 공개: status. 인증: DB/스크래퍼/API 상세 |
 
-Rate limit: 100 req/min (global). CORS: `weeklit.net` (프로덕션).
+Rate limit: 200 req/min (global). CORS: `weeklit.net` (프로덕션).
 
 ---
 
@@ -322,13 +323,13 @@ App (ErrorBoundary + QueryClientProvider + BrowserRouter)
 | DATABASE_URL | postgresql://localhost:6543/trend_korea | PG 연결 문자열 (Transaction pooler) |
 | PORT | 4000 | 서버 포트 (1-65535) |
 | CRAWL_INTERVAL_MINUTES | 10 | 스크래핑 주기 |
-| POST_TTL_DAYS | 3 | 게시글 보존 기간 (공연 7일) |
+| POST_TTL_DAYS | 7 | 게시글 보존 기간 (공연 7일) |
 | SCRAPER_RUNS_TTL_DAYS | 30 | 실행 로그 보존 |
 | CORS_ORIGIN | https://weeklit.net | CORS 허용 origin |
 | ADMIN_TOKEN | (none) | 어드민 엔드포인트 인증 |
-| DB_POOL_MAX | 10 | 최대 DB 연결 (1-50) |
-| DB_IDLE_TIMEOUT_MS | 30000 | idle 연결 타임아웃 |
-| DB_CONNECTION_TIMEOUT_MS | 5000 | 연결 획득 타임아웃 |
+| DB_POOL_MAX | 15 | 최대 DB 연결 (1-50) |
+| DB_IDLE_TIMEOUT_MS | 20000 | idle 연결 타임아웃 |
+| DB_CONNECTION_TIMEOUT_MS | 10000 | 연결 획득 타임아웃 |
 | YOUTUBE_API_KEY | (none) | YouTube 인기/검색 |
 | GEMINI_API_KEY | (none) | Gemini Flash (키워드, 리포트) |
 | KOBIS_API_KEY | (none) | KOBIS 박스오피스 |
@@ -348,12 +349,11 @@ App (ErrorBoundary + QueryClientProvider + BrowserRouter)
 
 ## 테스트
 
-| 영역 | 프레임워크 | 현재 | 목표 |
-|------|-----------|------|------|
-| 백엔드 단위 | Vitest + nock | 181 tests, ~60% | 80% |
-| 백엔드 통합 | 미구축 | 0% | 핵심 경로 |
-| 프론트엔드 | 미구축 | 0% | 40% |
-| E2E | 미구축 | 0% | Happy path |
+| 영역 | 프레임워크 | 현재 |
+|------|-----------|------|
+| 백엔드 단위 | Vitest + nock | 286 tests (40 files) |
+| 프론트엔드 | Vitest + @testing-library/react + jsdom | 40 tests (4 files) |
+| E2E | Playwright | 5 tests (happy path) |
 
 ## CI/CD
 

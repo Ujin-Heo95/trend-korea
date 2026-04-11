@@ -1,6 +1,6 @@
 # 배포 가이드
 
-> 2026-04-11 기준. Railway → Fly.io + Cloudflare Pages 이전 완료.
+> 2026-04-11 현행. Fly.io 도쿄 (백엔드) + Cloudflare Pages (프론트엔드).
 
 ---
 
