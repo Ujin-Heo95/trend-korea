@@ -52,9 +52,9 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Fly.io 도쿄 + Cloudfla
 ## Current Phase
 
 v0.13.0 — 품질·SEO·확장성 대규모 개선 완료.
-소스 120개 등록 (93개 활성, 3개 트렌드→trend_keywords 직접 기록) + 413 tests (백엔드 334 + 프론트 79) + Supabase Pro 8GB 서울.
+소스 120개 등록 (91개 활성, 4개 트렌드→trend_keywords 직접 기록) + 438 tests (백엔드 356 + 프론트 79 + 통합 25) + Supabase Pro 8GB 서울.
 채널별 분기 스코어링 — 커뮤니티(소스차등+적응감쇠+트렌드신호) / 뉴스(4항 가산혼합 signalScore+소스별 decay+속보감지+freshnessBonus). 비스코어링 탭은 최신순만.
-포털 소스(nate_news/zum_news)는 인기기사를 posts에 수집하며 portalRank 신호에도 통합, 트렌드 소스(google_trends/wikipedia_ko/bigkinds_issues)는 trend_keywords에 직접 UPSERT.
+포털 소스(nate_news/zum_news)는 인기기사를 posts에 수집하며 portalRank 신호에도 통합, 트렌드 소스(google_trends/wikipedia_ko/bigkinds_issues/namuwiki)는 trend_keywords에 직접 UPSERT.
 
 **아키텍처 변경 (2026-04-11)**:
 - API/Batch DB 풀 분리 (apiPool 40% + batchPool 60%)
@@ -66,5 +66,5 @@ v0.13.0 — 품질·SEO·확장성 대규모 개선 완료.
 - react-helmet-async 동적 메타 + JSON-LD(WebSite/Article/BreadcrumbList) + 브레드크럼
 
 **완료**: P0 도메인+Umami+URL (2026-04-03) + P1 SEO파이프라인+Security Headers (2026-04-04) + P2 보안·품질·기술부채 전면 해소 (2026-04-04) + 종합 개선 31건 (2026-04-11)
-**다음**: P0 사업자·모니터링 (사용자 개입) → P1 런칭·마케팅 → 미완료 항목(FE-8 프리렌더링, BE-13 통합 테스트) → P4 스케일.
+**다음**: P0 사업자·모니터링 (사용자 개입) → P1 런칭·마케팅 → P4 스케일.
 상세: `docs/roadmap.md` 참조.

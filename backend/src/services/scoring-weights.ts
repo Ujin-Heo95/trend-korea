@@ -58,8 +58,8 @@ const SOURCE_WEIGHTS: Record<string, number> = {
   // 커뮤니티
   dcinside: 1.0, bobaedream: 1.0, ruliweb: 1.0, theqoo: 1.0,
   instiz: 1.0, natepann: 1.0,
-  // 기타
-  ppomppu: 1.0,
+  // 핫딜
+  ppomppu_best: 0.9, ppomppu_hot: 0.9,
   kopis_boxoffice: 1.2,
   sports_donga: 1.2,
   ruliweb_hot: 0.9, clien_jirum: 0.9,
@@ -110,19 +110,19 @@ const COMMUNITY_SOURCE_WEIGHTS: Record<string, number> = {
   // Tier A: 바이럴 허브 (자체 필터링된 인기글)
   theqoo: 1.4, instiz: 1.35, natepann: 1.3,
   // Tier B: 고볼륨·고참여
-  clien: 1.2, dcinside: 1.15, fmkorea: 1.15, todayhumor: 1.1,
+  clien: 1.2, dcinside: 1.15, todayhumor: 1.1,
   // Tier C: 니치
-  ppomppu: 1.0, bobaedream: 1.0, mlbpark: 1.0, cook82: 1.0, dogdrip: 1.0,
+  bobaedream: 1.0, mlbpark: 1.0, cook82: 1.0, dogdrip: 1.0,
   // Tier D: 소규모/하락세
   inven: 0.9, humoruniv: 0.85, ygosu: 0.85, slrclub: 0.8, etoland: 0.8,
 };
 const DEFAULT_COMMUNITY_SOURCE_WEIGHT = 1.0;
 
 const COMMUNITY_DECAY_HALF_LIFE: Record<string, number> = {
-  dcinside: 120, fmkorea: 120, dogdrip: 120,
+  dcinside: 120, dogdrip: 120,
   theqoo: 150, instiz: 150, natepann: 150, todayhumor: 150, cook82: 150,
   clien: 200, bobaedream: 200,
-  ppomppu: 180, mlbpark: 180, inven: 180,
+  mlbpark: 180, inven: 180,
 };
 const DEFAULT_COMMUNITY_DECAY = 150;
 

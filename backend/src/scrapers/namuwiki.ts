@@ -1,6 +1,6 @@
 import type { Pool } from 'pg';
-import { BaseScraper } from './base.js';
-import type { ScrapedPost } from './types.js';
+import { TrendSignalScraper } from './trend-base.js';
+import type { TrendKeywordInput } from './types.js';
 
 interface SidebarEntry {
   readonly document: string;
@@ -8,10 +8,12 @@ interface SidebarEntry {
   readonly date: number;
 }
 
-export class NamuwikiScraper extends BaseScraper {
+export class NamuwikiScraper extends TrendSignalScraper {
   constructor(pool: Pool) { super(pool); }
 
-  async fetch(): Promise<ScrapedPost[]> {
+  protected override getSourceKey(): string { return 'namuwiki'; }
+
+  async fetchTrendKeywords(): Promise<TrendKeywordInput[]> {
     const res = await fetch('https://namu.wiki/sidebar.json', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
@@ -26,13 +28,12 @@ export class NamuwikiScraper extends BaseScraper {
 
     return entries
       .filter(e => e.status === 'normal' && e.document.length >= 2)
-      .map(e => ({
+      .slice(0, 30)
+      .map((e, idx) => ({
+        keyword: e.document,
         sourceKey: 'namuwiki',
-        sourceName: '나무위키',
-        title: `${e.document} (최근 편집)`,
-        url: `https://namu.wiki/w/${encodeURIComponent(e.document)}`,
-        publishedAt: new Date(e.date * 1000),
-      }))
-      .slice(0, 30);
+        signalStrength: Math.max(0.1, 1.0 - idx * 0.03),
+        rankPosition: idx + 1,
+      }));
   }
 }

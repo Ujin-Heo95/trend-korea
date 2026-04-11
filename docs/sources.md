@@ -59,17 +59,17 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ---
 
-## 2. 현재 소스 현황 (120개 등록, 93개 활성)
+## 2. 현재 소스 현황 (120개 등록, 91개 활성)
 
 | 카테고리 | 소스 | 수집방식 | 우선순위 | 상태 |
 |----------|------|----------|----------|------|
 | community | dcinside, bobaedream, theqoo, instiz, natepann, todayhumor | HTML | high | 안정 |
 | community | clien, mlbpark, cook82, inven, humoruniv, ygosu, slrclub, etoland | HTML | high/medium | 안정 |
-| community | fmkorea | HTML | medium | 봇 차단 대응 (관찰 중) |
+| community | fmkorea | HTML | medium | **disabled** (WASM 안티봇 완전 차단) |
 | community | ruliweb, dogdrip | HTML | high/medium | 안정 |
 | community | arcalive | HTML | medium | 안정 |
-| community | ppomppu | RSS | high | 안정 |
-| community | namuwiki | API | medium | 안정 (sidebar.json 최근편집) |
+| community | ppomppu | RSS | high | **disabled** (핫딜 통합 → ppomppu_best/ppomppu_hot) |
+| trend | namuwiki | API | medium | TrendSignalScraper 전환 (trend_keywords 기록, UI 미노출) |
 | news | ddanzi, chosun, jtbc | RSS | high | 안정 |
 | news | yna, hani, sbs, donga, khan, hankyung, mk, kmib | RSS | medium | 안정 |
 | news | ohmynews, nocutnews, asiae, segye, bbc_korean, mbn | RSS | medium | 안정 |

@@ -142,7 +142,7 @@
       "type": "rss",
       "feedUrl": "https://www.ppomppu.co.kr/rss.php?id=ppomppu",
       "priority": "high",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "ppomppu_best",
@@ -167,7 +167,7 @@
     {
       "key": "namuwiki",
       "name": "나무위키",
-      "category": "community",
+      "category": "trend",
       "type": "api",
       "module": "./namuwiki.js",
       "className": "NamuwikiScraper",
@@ -533,7 +533,7 @@
       "module": "./fmkorea.js",
       "className": "FmkoreaScraper",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "mlbpark",
