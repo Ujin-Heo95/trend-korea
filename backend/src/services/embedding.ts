@@ -1,6 +1,6 @@
 /**
  * Gemini Embedding Service — 제목 임베딩 생성 + 인메모리 캐시 + 코사인 유사도.
- * 네이버의 TF-IDF + 코사인 유사도를 Gemini text-embedding-004로 대체.
+ * 네이버의 TF-IDF + 코사인 유사도를 Gemini gemini-embedding-001로 대체.
  * 비용: ~$0.06/월 (324K 토큰/일 × $0.00625/1M)
  */
 import { GoogleGenerativeAI, TaskType } from '@google/generative-ai';
@@ -9,7 +9,7 @@ import { logger } from '../utils/logger.js';
 import { LRUCache } from '../cache/lru.js';
 import { SCORED_CATEGORIES_SQL } from './scoring-weights.js';
 
-const EMBEDDING_MODEL = 'text-embedding-004';
+const EMBEDDING_MODEL = 'gemini-embedding-001';
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6시간
 const CACHE_MAX_SIZE = 5000; // ~15MB at 768 dims × 4B × 5000
 const BATCH_SIZE = 100; // batchEmbedContents 최대 요청 수
@@ -62,6 +62,7 @@ export async function generateEmbeddings(posts: readonly PostForEmbedding[]): Pr
         requests: batch.map(p => ({
           content: { role: 'user', parts: [{ text: p.title }] },
           taskType: TaskType.CLUSTERING,
+          outputDimensionality: 768,
         })),
       });
 
