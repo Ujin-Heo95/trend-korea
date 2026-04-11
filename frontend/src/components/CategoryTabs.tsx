@@ -19,15 +19,13 @@ interface Props {
 }
 
 export const CategoryTabs: React.FC<Props> = ({ selected, onChange }) => (
-  <HorizontalScrollRow role="tablist" ariaLabel="카테고리" className="gap-2 pb-2 mb-4">
+  <HorizontalScrollRow role="navigation" ariaLabel="카테고리 필터" className="gap-2 pb-2 mb-4">
     {CATEGORIES.map(({ key, label, icon }) => {
       const isSelected = selected === key;
       return (
         <button
           key={label}
-          role="tab"
-          aria-selected={isSelected}
-          aria-controls="posts-panel"
+          aria-pressed={isSelected}
           onClick={() => { trackEvent('category_switch', { category: label }); onChange(key); }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
             isSelected

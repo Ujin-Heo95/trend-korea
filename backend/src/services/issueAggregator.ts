@@ -157,7 +157,12 @@ export async function aggregateIssues(pool: Pool): Promise<number> {
   isAggregating = true;
   aggregationStartedAt = Date.now();
   try {
-    return await _aggregateIssues(pool);
+    return await Promise.race([
+      _aggregateIssues(pool),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('[issueAggregator] pipeline timeout after 4min')), 4 * 60_000),
+      ),
+    ]);
   } finally {
     isAggregating = false;
   }

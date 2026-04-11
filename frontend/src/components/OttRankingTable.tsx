@@ -71,7 +71,7 @@ export const OttRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
         </thead>
         <tbody>
           {items.map(({ post, meta }) => (
-            <tr key={post.id} className="border-b border-slate-50 dark:border-slate-700 hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-colors">
+            <tr key={post.id} className="border-b border-slate-50 dark:border-slate-700 hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-colors min-h-[44px]">
               <td className="py-3 px-3 text-center"><RankBadge rank={meta.rank} /></td>
               <td className="py-3 px-3">
                 <a href={post.url} target="_blank" rel="noopener noreferrer"
@@ -98,7 +98,7 @@ export const OttRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
       <div className="sm:hidden divide-y divide-slate-50 dark:divide-slate-700">
         {items.map(({ post, meta }) => (
           <a key={post.id} href={post.url} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-3 px-4 py-3 hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-colors">
+            className="flex items-center gap-3 px-4 py-3 min-h-[44px] hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-colors">
             <RankBadge rank={meta.rank} />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-slate-800 dark:text-slate-100 line-clamp-1">{meta.title}</p>

@@ -24,7 +24,7 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
   return (
     <div
       className={`border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors animate-card-enter ${
-        isRead ? 'opacity-60' : ''
+        isRead ? 'opacity-80 border-l-2 border-l-slate-300 dark:border-l-slate-600' : ''
       }`}
       style={style}
     >

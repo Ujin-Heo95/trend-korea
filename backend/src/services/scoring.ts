@@ -71,7 +71,14 @@ export async function calculateScores(pool: Pool): Promise<number> {
   }
   isScoring = true;
   scoringStartedAt = Date.now();
-  try { return await _calculateScores(pool); } finally { isScoring = false; }
+  try {
+    return await Promise.race([
+      _calculateScores(pool),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('[scoring] pipeline timeout after 4min')), 4 * 60_000),
+      ),
+    ]);
+  } finally { isScoring = false; }
 }
 
 async function _calculateScores(pool: Pool): Promise<number> {

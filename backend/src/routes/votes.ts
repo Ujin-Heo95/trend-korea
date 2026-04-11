@@ -28,35 +28,28 @@ export async function votesRoutes(app: FastifyInstance): Promise<void> {
 
       const ipHash = hashIp(req.ip);
 
-      // Atomic: insert vote if not duplicate, then conditionally increment
-      const result = await app.pg.query<{ inserted: boolean }>(
+      // Single atomic CTE: insert vote → conditionally increment → return count
+      const { rows } = await app.pg.query<{ vote_count: number; is_new_vote: boolean }>(
         `WITH ins AS (
            INSERT INTO post_votes (post_id, ip_hash)
            VALUES ($1, $2)
            ON CONFLICT (post_id, ip_hash) DO NOTHING
            RETURNING 1
+         ),
+         upd AS (
+           UPDATE posts SET vote_count = vote_count + (SELECT COUNT(*)::int FROM ins)
+           WHERE id = $1
+           RETURNING vote_count
          )
-         SELECT EXISTS(SELECT 1 FROM ins) AS inserted`,
+         SELECT
+           COALESCE((SELECT vote_count FROM upd), (SELECT vote_count FROM posts WHERE id = $1)) AS vote_count,
+           EXISTS(SELECT 1 FROM ins) AS is_new_vote`,
         [postId, ipHash]
       );
 
-      const inserted = result.rows[0]?.inserted ?? false;
-
-      if (inserted) {
-        await app.pg.query(
-          `UPDATE posts SET vote_count = vote_count + 1 WHERE id = $1`,
-          [postId]
-        );
-      }
-
-      const countResult = await app.pg.query<{ vote_count: number }>(
-        `SELECT vote_count FROM posts WHERE id = $1`,
-        [postId]
-      );
-
       return {
-        vote_count: countResult.rows[0]?.vote_count ?? 0,
-        is_new_vote: inserted,
+        vote_count: rows[0]?.vote_count ?? 0,
+        is_new_vote: rows[0]?.is_new_vote ?? false,
       };
     }
   );

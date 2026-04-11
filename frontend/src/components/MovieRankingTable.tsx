@@ -156,7 +156,7 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
           {movies.map(({ post, meta }, idx) => {
             const displayRank = sortMode === 'accumulated' ? idx + 1 : meta.rank;
             return (
-            <tr key={post.id} className="border-b border-slate-50 dark:border-slate-700 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors">
+            <tr key={post.id} className="border-b border-slate-50 dark:border-slate-700 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors min-h-[44px]">
               <td className="py-3 px-3 text-center">
                 <RankBadge rank={displayRank} />
               </td>
@@ -227,7 +227,7 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
         {movies.map(({ post, meta }, idx) => {
           const displayRank = sortMode === 'accumulated' ? idx + 1 : meta.rank;
           return (
-          <div key={post.id} className="flex items-start gap-3 px-4 py-3">
+          <div key={post.id} className="flex items-start gap-3 px-4 py-3 min-h-[44px]">
             <RankBadge rank={displayRank} />
             <PosterImage
               src={meta.posterUrl || post.thumbnail}

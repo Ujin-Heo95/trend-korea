@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { trackEvent } from '../lib/analytics';
 
 interface Props {
@@ -8,15 +8,20 @@ interface Props {
 
 export const SearchBar: React.FC<Props> = ({ value, onChange }) => {
   const [input, setInput] = useState(value);
+  const valueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
 
+  useEffect(() => { valueRef.current = value; }, [value]);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { setInput(value); }, [value]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (input !== value) { if (input) trackEvent('search', { query: input.slice(0, 50) }); onChange(input); }
+      if (input !== valueRef.current) { if (input) trackEvent('search', { query: input.slice(0, 50) }); onChangeRef.current(input); }
     }, 400);
     return () => clearTimeout(timer);
-  }, [input, value, onChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input]);
 
   return (
     <div className="relative">

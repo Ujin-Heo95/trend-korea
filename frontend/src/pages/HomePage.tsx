@@ -24,6 +24,8 @@ import { IssueRankingList } from '../components/IssueRankingList';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useReadPosts } from '../hooks/useReadPosts';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { findCategoryComponent } from './categoryRegistry';
+import type { CategoryContext } from './categoryRegistry';
 
 const CATEGORY_TITLES: Record<string, string> = {
   community: '커뮤니티',
@@ -102,6 +104,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
 
   const {
     data,
+    dataUpdatedAt,
     isLoading,
     isFetchingNextPage,
     hasNextPage,
@@ -136,7 +139,8 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       seen.add(p.id);
       return true;
     });
-  }, [data?.pages]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataUpdatedAt ?? data?.pages?.length]);
   const total = data?.pages[0]?.total ?? 0;
 
   return (
@@ -211,46 +215,38 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           <p className="text-sm">다른 키워드로 검색해 보세요</p>
         </div>
       ) : (
-        isEntertainmentTab && entertainmentSub === 'movie' ? (
-          <MovieRankingTable posts={allPosts} />
-        ) : isEntertainmentTab && entertainmentSub === 'music' ? (
-          <MusicRankingTable posts={allPosts} />
-        ) : isEntertainmentTab && entertainmentSub === 'performance' ? (
-          <PerformanceRankingTable posts={allPosts} />
-        ) : isEntertainmentTab && entertainmentSub === 'books' ? (
-          <BookRankingTable posts={allPosts} />
-        ) : isEntertainmentTab && entertainmentSub === 'ott' ? (
-          <OttRankingTable posts={allPosts} />
-        ) : isEntertainmentTab && entertainmentSub === 'all' ? (
-          <EntertainmentAllView posts={allPosts} onSubTabChange={setEntertainmentSub} />
-        ) : isTravelTab && travelSub === 'hotplace' ? (
-          <TravelHotplaceView posts={allPosts} />
-        ) : isTravelTab && travelSub === 'festival' ? (
-          <TravelFestivalCard posts={allPosts} />
-        ) : isTravelTab && travelSub === 'photo' ? (
-          <TravelPhotoGallery posts={allPosts} />
-        ) : isTravelTab && travelSub === 'all' ? (
-          <TravelAllView posts={allPosts} />
-        ) : isPortalTab && selectedSources.length === 0 ? (
-          <PortalRankingView posts={allPosts} isRead={isRead} onRead={markAsRead} onSourceFilter={setSelectedSources} />
-        ) : category === 'community' && selectedSources.length === 0 && sortMode === 'trending' ? (
-          <CommunityRankingList posts={allPosts} isRead={isRead} onRead={markAsRead} />
-        ) : (
-          <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
-            {allPosts.map((post, i) => (
-              <React.Fragment key={post.id}>
-                <PostCard
-                  post={post}
-                  rank={(category === 'community' || isNewsTab) && sortMode === 'trending' ? i + 1 : undefined}
-                  isRead={isRead(post.url)}
-                  onRead={markAsRead}
-                  style={i < 15 ? { '--enter-delay': `${i * 40}ms` } as React.CSSProperties : undefined}
-                />
-                {(i + 1) % 5 === 0 && <AdSlot slotId="home-infeed" format="native" className="my-1" />}
-              </React.Fragment>
-            ))}
-          </div>
-        )
+        (() => {
+          const ctx: CategoryContext = { category, isEntertainmentTab, isTravelTab, isPortalTab, entertainmentSub, travelSub, selectedSources, sortMode };
+          const matched = findCategoryComponent(ctx);
+          if (matched === 'MovieRankingTable') return <MovieRankingTable posts={allPosts} />;
+          if (matched === 'MusicRankingTable') return <MusicRankingTable posts={allPosts} />;
+          if (matched === 'PerformanceRankingTable') return <PerformanceRankingTable posts={allPosts} />;
+          if (matched === 'BookRankingTable') return <BookRankingTable posts={allPosts} />;
+          if (matched === 'OttRankingTable') return <OttRankingTable posts={allPosts} />;
+          if (matched === 'EntertainmentAllView') return <EntertainmentAllView posts={allPosts} onSubTabChange={setEntertainmentSub} />;
+          if (matched === 'TravelHotplaceView') return <TravelHotplaceView posts={allPosts} />;
+          if (matched === 'TravelFestivalCard') return <TravelFestivalCard posts={allPosts} />;
+          if (matched === 'TravelPhotoGallery') return <TravelPhotoGallery posts={allPosts} />;
+          if (matched === 'TravelAllView') return <TravelAllView posts={allPosts} />;
+          if (matched === 'PortalRankingView') return <PortalRankingView posts={allPosts} isRead={isRead} onRead={markAsRead} onSourceFilter={setSelectedSources} />;
+          if (matched === 'CommunityRankingList') return <CommunityRankingList posts={allPosts} isRead={isRead} onRead={markAsRead} />;
+          return (
+            <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
+              {allPosts.map((post, i) => (
+                <React.Fragment key={post.id}>
+                  <PostCard
+                    post={post}
+                    rank={(category === 'community' || isNewsTab) && sortMode === 'trending' ? i + 1 : undefined}
+                    isRead={isRead(post.url)}
+                    onRead={markAsRead}
+                    style={i < 15 ? { '--enter-delay': `${i * 40}ms` } as React.CSSProperties : undefined}
+                  />
+                  {(i + 1) % 5 === 0 && <AdSlot slotId="home-infeed" format="native" className="my-1" />}
+                </React.Fragment>
+              ))}
+            </div>
+          );
+        })()
       )}
 
       {!isAllTab && <div ref={sentinelRef} className="h-10" />}

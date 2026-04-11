@@ -2,6 +2,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { checkApiKeys } from '../services/apiKeyHealth.js';
 import { getQuotaStatus } from '../services/apiQuota.js';
 import { isAdminRequest } from '../middleware/adminAuth.js';
+import { pool } from '../db/client.js';
+import { getEmbeddingCacheSize } from '../services/embedding.js';
 
 interface ScraperRunRow {
   source_key: string;
@@ -85,6 +87,22 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
       },
       api_keys: apiKeys,
       api_quota: getQuotaStatus(),
+      pool: {
+        total: pool.totalCount,
+        idle: pool.idleCount,
+        waiting: pool.waitingCount,
+        max: pool.options.max ?? 20,
+      },
+      memory: (() => {
+        const mem = process.memoryUsage();
+        return {
+          rss_mb: Math.round(mem.rss / 1048576),
+          heap_used_mb: Math.round(mem.heapUsed / 1048576),
+          heap_total_mb: Math.round(mem.heapTotal / 1048576),
+        };
+      })(),
+      embedding_cache_size: getEmbeddingCacheSize(),
+      uptime_seconds: Math.round(process.uptime()),
     });
   };
   app.get('/health', handler);

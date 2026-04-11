@@ -104,7 +104,7 @@ function GenreSection({ genre, items }: { genre: string; items: { post: Post; me
         </thead>
         <tbody>
           {sorted.map(({ post, meta }) => (
-            <tr key={post.id} className="border-b border-slate-50 dark:border-slate-700 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors">
+            <tr key={post.id} className="border-b border-slate-50 dark:border-slate-700 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors min-h-[44px]">
               <td className="py-3 px-3 text-center">
                 <RankBadge rank={meta.rank} />
               </td>
@@ -154,7 +154,7 @@ function GenreSection({ genre, items }: { genre: string; items: { post: Post; me
       {/* Mobile list */}
       <div className="sm:hidden divide-y divide-slate-50 dark:divide-slate-700">
         {sorted.map(({ post, meta }) => (
-          <div key={post.id} className="flex items-start gap-3 px-4 py-3">
+          <div key={post.id} className="flex items-start gap-3 px-4 py-3 min-h-[44px]">
             <RankBadge rank={meta.rank} />
             <PosterImage
               src={meta.posterUrl || post.thumbnail}
@@ -216,7 +216,7 @@ function KcisaSection({ label, icon, posts }: { label: string; icon: string; pos
               href={post.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-start gap-3 px-4 py-3 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors"
+              className="flex items-start gap-3 px-4 py-3 min-h-[44px] hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors"
             >
               {post.thumbnail && (
                 <PosterImage src={post.thumbnail} alt={name} width={36} height={50} fallbackIcon={icon} />

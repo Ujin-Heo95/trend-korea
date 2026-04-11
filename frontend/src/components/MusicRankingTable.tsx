@@ -115,7 +115,7 @@ export const MusicRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
         </thead>
         <tbody>
           {songs.map(({ post, meta }) => (
-            <tr key={post.id} className="border-b border-slate-50 dark:border-slate-700 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 transition-colors">
+            <tr key={post.id} className="border-b border-slate-50 dark:border-slate-700 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 transition-colors min-h-[44px]">
               <td className="py-3 px-3 text-center">
                 <RankBadge rank={meta.rank} />
               </td>
@@ -163,7 +163,7 @@ export const MusicRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
             href={post.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 px-4 py-3 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 transition-colors"
+            className="flex items-center gap-3 px-4 py-3 min-h-[44px] hover:bg-teal-50/50 dark:hover:bg-teal-900/20 transition-colors"
           >
             <RankBadge rank={meta.rank} />
             <PosterImage
