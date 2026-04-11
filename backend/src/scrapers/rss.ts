@@ -44,11 +44,54 @@ const youtubeParser = new Parser({
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- RSS parser returns dynamic XML-parsed fields
 type RssExt = Record<string, any>;
 
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as const;
+
+/**
+ * 비표준 RSS pubDate를 new Date()가 정확히 파싱할 수 있는 형태로 정규화.
+ * 정규화 파이프라인 — 각 단계는 독립적이고, 해당 패턴이 아니면 skip.
+ */
+function normalizeDate(raw: string): string {
+  let s = raw.trim();
+
+  // 1) 숫자 월 → 영문 약어 (nocutnews: "Sat, 11 04 2026 ..." → "Sat, 11 Apr 2026 ...")
+  const numMonth = s.match(/^(\w{3},\s*\d{1,2})\s+(\d{2})\s+(\d{4}\s+.*)$/);
+  if (numMonth) {
+    const idx = parseInt(numMonth[2], 10);
+    if (idx >= 1 && idx <= 12) {
+      s = `${numMonth[1]} ${MONTH_NAMES[idx - 1]} ${numMonth[3]}`;
+    }
+  }
+
+  // 2) TZ 없는 ISO-like 날짜 → KST 부여 (investing_kr/traveltimes: "2026-04-11 05:57:47")
+  if (/^\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}$/.test(s)) {
+    s = `${s}+09:00`;
+  }
+
+  // 3) 한국어 날짜 (jtbc: "2024.10.29" 또는 "2024년 10월 29일 ...")
+  const dotDate = s.match(/^(\d{4})\.(\d{2})\.(\d{2})$/);
+  if (dotDate) {
+    s = `${dotDate[1]}-${dotDate[2]}-${dotDate[3]}T00:00:00+09:00`;
+  }
+  const korDate = s.match(/^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
+  if (korDate) {
+    const timePart = s.match(/(\d{1,2}):(\d{2}):(\d{2})/);
+    const isPm = s.includes('오후');
+    let h = timePart ? parseInt(timePart[1], 10) : 0;
+    if (isPm && h < 12) h += 12;
+    if (!isPm && s.includes('오전') && h === 12) h = 0;
+    const mm = timePart ? timePart[2] : '00';
+    const ss = timePart ? timePart[3] : '00';
+    s = `${korDate[1]}-${korDate[2].padStart(2, '0')}-${korDate[3].padStart(2, '0')}T${String(h).padStart(2, '0')}:${mm}:${ss}+09:00`;
+  }
+
+  return s;
+}
+
 function safeDate(value: string | undefined): Date | undefined {
   if (!value) return undefined;
-  const d = new Date(value);
+  const d = new Date(normalizeDate(value));
   if (isNaN(d.getTime())) return undefined;
-  // 미래일자 방어: 1시간 이상 미래면 파싱 오류로 간주 (nocutnews 비표준 날짜 등)
+  // 미래일자 방어: 1시간 이상 미래면 파싱 오류로 간주
   if (d.getTime() > Date.now() + 3_600_000) return undefined;
   return d;
 }

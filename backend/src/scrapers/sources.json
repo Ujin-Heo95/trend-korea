@@ -687,7 +687,8 @@
         "생활": "https://fs.jtbc.co.kr/RSS/culture.xml"
       },
       "priority": "high",
-      "enabled": true
+      "enabled": false,
+      "disabledReason": "RSS 피드 2024-10-29 이후 갱신 중단 (dead feed)"
     },
     {
       "key": "ytn",
