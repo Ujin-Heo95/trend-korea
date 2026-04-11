@@ -33,7 +33,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
        FROM posts p
        LEFT JOIN post_scores ps ON ps.post_id = p.id
        WHERE p.scraped_at > NOW() - INTERVAL '3 days'
-       ORDER BY COALESCE(ps.score, 0) DESC, p.scraped_at DESC
+       ORDER BY COALESCE(ps.trend_score, 0) DESC, p.scraped_at DESC
        LIMIT 50`,
     );
 
