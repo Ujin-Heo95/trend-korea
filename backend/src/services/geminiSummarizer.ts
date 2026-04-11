@@ -159,7 +159,7 @@ export async function summarizeIssue(
         contents: [{ role: 'user', parts: [{ text: `${SYSTEM_PROMPT}\n\n게시글:\n${postsText}` }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 700,
+          maxOutputTokens: 1200,
           responseMimeType: 'application/json',
         },
       });
