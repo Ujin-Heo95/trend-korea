@@ -1,4 +1,5 @@
-const CACHE_NAME = 'weeklit-v2';
+const CACHE_NAME = 'weeklit-v3';
+const API_CACHE = 'weeklit-api-v1';
 const SHELL_ASSETS = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
@@ -9,9 +10,10 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
+  const KEEP = [CACHE_NAME, API_CACHE];
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => !KEEP.includes(k)).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -21,11 +23,25 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // API calls: network-first
-  if (url.pathname.startsWith('/api/')) {
+  // API GET: stale-while-revalidate (캐시 즉시 반환 + 백그라운드 갱신)
+  if (url.pathname.startsWith('/api/') && request.method === 'GET') {
     event.respondWith(
-      fetch(request).catch(() => caches.match(request))
+      caches.open(API_CACHE).then((cache) =>
+        cache.match(request).then((cached) => {
+          const fresh = fetch(request).then((res) => {
+            if (res.ok) cache.put(request, res.clone());
+            return res;
+          });
+          return cached || fresh;
+        })
+      )
     );
+    return;
+  }
+
+  // API non-GET (POST, etc.): network-only
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(request));
     return;
   }
 

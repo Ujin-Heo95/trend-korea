@@ -17,11 +17,28 @@
   <link rel="canonical" href="https://weeklit.net/" />
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#2563eb" />
-  <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" fetchpriority="high" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" /></noscript>
   <script>
     // 다크모드 FOUC 방지: CSS 파싱 전 즉시 클래스 적용
     if (localStorage.theme === 'dark' || (!('theme' in localStorage) && matchMedia('(prefers-color-scheme: dark)').matches))
       document.documentElement.classList.add('dark');
+  </script>
+  <script>
+    // API 프리페치: React 마운트 전에 랜딩 API 호출 시작
+    (function() {
+      var base = '%%VITE_API_BASE_URL%%';
+      var W = window.__PREFETCH__ = {};
+      var s = location.search;
+      if (!s || s.indexOf('category') === -1) {
+        W.issueRankings = fetch(base + '/issues?limit=30')
+          .then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+          .catch(function() { return null; });
+      }
+    })();
   </script>
   <script defer src="https://cloud.umami.is/script.js" data-website-id="59b461c4-475e-407b-bddc-236879eed54b"></script>
 </head>
