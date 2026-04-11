@@ -33,6 +33,7 @@ export class AladinBestsellerScraper extends BaseScraper {
       // Skip non-title links (author/publisher links also contain ItemId sometimes)
       const text = $(el).text().trim();
       if (!text || text.length < 2) return;
+      if (text === '보러가기') return;
 
       // Find the parent container
       const container = $(el).closest('li, tr, .ss_book_box, div[itemscope]');

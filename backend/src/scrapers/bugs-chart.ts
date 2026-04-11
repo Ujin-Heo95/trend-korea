@@ -24,8 +24,6 @@ export class BugsChartScraper extends BaseScraper {
     const posts: ScrapedPost[] = [];
 
     $('table.list.trackList.byChart tbody tr').each((i, el) => {
-      if (i >= 30) return;
-
       const trackId = $(el).attr('trackid') ?? '';
       const title = $(el).find('th p.title a').attr('title')?.trim()
         || $(el).find('th p.title a').text().trim();

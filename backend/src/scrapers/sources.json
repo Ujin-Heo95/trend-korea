@@ -874,7 +874,7 @@
     {
       "key": "kcisa_cca_performance",
       "name": "공연정보(통합)",
-      "category": "performance",
+      "category": "travel",
       "type": "api",
       "module": "./kcisa-cca-performance.js",
       "className": "KcisaCcaPerformanceScraper",
@@ -884,7 +884,7 @@
     {
       "key": "kcisa_cca_exhibition",
       "name": "전시정보(통합)",
-      "category": "performance",
+      "category": "travel",
       "type": "api",
       "module": "./kcisa-cca-exhibition.js",
       "className": "KcisaCcaExhibitionScraper",

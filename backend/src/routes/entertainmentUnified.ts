@@ -49,7 +49,7 @@ const BOOK_THUMB_PRIORITY = ['yes24_bestseller', 'aladin_bestseller'];
 const BOOK_SINGLE_SOURCE_PENALTY = 5;
 
 const TOP_N = 5;
-const MAX_RANK = 30;
+const MAX_RANK = 200;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 
 // ── Helpers ──────────────────────────────────────────
@@ -323,6 +323,11 @@ export async function entertainmentUnifiedRoutes(app: FastifyInstance): Promise<
           return daily;
         },
       );
+
+      // Movie URLs → Naver search for better UX
+      for (const item of movieItems) {
+        item.url = `https://search.naver.com/search.naver?where=nexearch&query=${encodeURIComponent(item.title + ' 영화')}`;
+      }
 
       // ── Performance ──
       const perfPosts = bySource.get('kopis_boxoffice') ?? [];

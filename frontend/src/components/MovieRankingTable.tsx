@@ -124,7 +124,7 @@ export const MovieRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
                 : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-blue-200 dark:hover:border-blue-500'
             }`}
           >
-            관객순
+            일 관객순
           </button>
           <button
             onClick={() => setSortMode('accumulated')}

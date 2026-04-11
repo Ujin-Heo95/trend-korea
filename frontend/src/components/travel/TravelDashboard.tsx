@@ -19,6 +19,8 @@ export const TravelDashboard: React.FC<{ posts: Post[] }> = ({ posts }) => {
   const festivalPosts = [
     ...(grouped['tour_festival'] ?? []),
     ...(grouped['seoul_cultural_event'] ?? []),
+    ...(grouped['kcisa_cca_performance'] ?? []),
+    ...(grouped['kcisa_cca_exhibition'] ?? []),
   ];
   const visitorPosts = grouped['tour_visitor'] ?? [];
   const newsPosts = grouped['traveltimes'] ?? [];

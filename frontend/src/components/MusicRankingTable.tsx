@@ -80,7 +80,7 @@ export const MusicRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
       {/* 헤더 + 소스 필터 */}
       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
         <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{activeSourceLabel} 실시간 차트</h2>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{activeSourceLabel} TOP 30</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{activeSourceLabel} TOP {songs.length}</p>
         {availableSources.length > 1 && (
           <div className="flex gap-1.5 mt-2">
             {availableSources.map(([key, label]) => (

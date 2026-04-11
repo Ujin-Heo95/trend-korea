@@ -18,8 +18,6 @@ export class KworbSpotifyKrScraper extends BaseScraper {
     const posts: ScrapedPost[] = [];
 
     $('table#spotifydaily tbody tr').each((i, el) => {
-      if (i >= 30) return;
-
       const cells = $(el).find('td');
       const rankText = cells.eq(0).text().trim();
       const rank = parseInt(rankText, 10) || i + 1;

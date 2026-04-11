@@ -24,8 +24,6 @@ export class MelonChartScraper extends BaseScraper {
     const posts: ScrapedPost[] = [];
 
     $('tr[data-song-no]').each((i, el) => {
-      if (i >= 30) return;
-
       const songNo = $(el).attr('data-song-no') ?? '';
       const title = $(el).find('div.ellipsis.rank01 span').text().trim();
       const artist = $(el).find('div.ellipsis.rank02 span').first().text().trim();

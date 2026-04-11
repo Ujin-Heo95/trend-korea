@@ -23,8 +23,6 @@ export class GenieChartScraper extends BaseScraper {
     const posts: ScrapedPost[] = [];
 
     $('table.list-wrap tbody tr.list').each((i, el) => {
-      if (i >= 30) return;
-
       const songId = $(el).attr('songid') ?? '';
       const title = $(el).find('td.info a.title').text().trim();
       const artist = $(el).find('td.info a.artist').text().trim();

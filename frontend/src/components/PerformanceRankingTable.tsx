@@ -23,15 +23,6 @@ interface PerformanceMeta {
   dataWeekEnd?: string;
 }
 
-interface KcisaMeta {
-  genre?: string;
-  venue?: string;
-  charge?: string;
-  audience?: string;
-  period?: string;
-  eventPeriod?: string;
-}
-
 function isKopisPost(post: Post): boolean {
   return post.source_key === 'kopis_boxoffice';
 }
@@ -45,7 +36,7 @@ function parsePerformanceMeta(post: Post): PerformanceMeta | null {
   if (!match) return null;
 
   return {
-    rank: 0, // 실제 rank는 배열 인덱스 기반으로 외부에서 재할당
+    rank: 0,
     genre: match[1],
     performanceName: match[2],
     venue: match[3],
@@ -192,79 +183,17 @@ function GenreSection({ genre, items }: { genre: string; items: { post: Post; me
   );
 }
 
-// ── KCISA 기타 공연/전시 섹션 ──
-
-function KcisaSection({ label, icon, posts }: { label: string; icon: string; posts: Post[] }) {
-  if (posts.length === 0) return null;
-
-  return (
-    <div className="mb-2 last:mb-0">
-      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 px-4 py-2 bg-slate-50/70 dark:bg-slate-900/70 border-b border-slate-100 dark:border-slate-700">
-        {icon} {label}
-      </h3>
-      <div className="divide-y divide-slate-50 dark:divide-slate-700">
-        {posts.map(post => {
-          const m = post.metadata as KcisaMeta | undefined;
-          // Parse title: "[genre] name — venue" or "[전시] name — venue"
-          const titleMatch = post.title.match(/^\[(.+?)\]\s+(.+?)(?:\s+—\s+(.+))?$/);
-          const name = titleMatch ? titleMatch[2] : post.title;
-          const venue = m?.venue || titleMatch?.[3] || '';
-
-          return (
-            <a
-              key={post.id}
-              href={post.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-start gap-3 px-4 py-3 min-h-[44px] hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors"
-            >
-              {post.thumbnail && (
-                <PosterImage src={post.thumbnail} alt={name} width={36} height={50} fallbackIcon={icon} />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-100 line-clamp-1">{name}</p>
-                {venue && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{venue}</p>}
-                {m?.period && (
-                  <p className="text-xs text-slate-400 dark:text-slate-500">{m.period}</p>
-                )}
-              </div>
-            </a>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ── 메인 컴포넌트 ──
-
-type ViewMode = 'all' | 'ranking' | 'exhibition' | 'event';
 
 export const PerformanceRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('all');
 
-  // KOPIS 랭킹 데이터
+  // KOPIS 랭킹 데이터만
   const kopisPerformances = useMemo(() =>
     posts
       .filter(isKopisPost)
       .map(p => ({ post: p, meta: parsePerformanceMeta(p) }))
       .filter((m): m is { post: Post; meta: PerformanceMeta } => m.meta !== null),
-    [posts]
-  );
-
-  // KCISA 공연/전시 데이터 (비랭킹)
-  const kcisaExhibitions = useMemo(() =>
-    posts.filter(p => p.source_key === 'kcisa_cca_exhibition'),
-    [posts]
-  );
-
-  const kcisaOtherPerformances = useMemo(() =>
-    posts.filter(p =>
-      !isKopisPost(p)
-      && p.source_key !== 'kcisa_cca_exhibition'
-      && p.category === 'performance'
-    ),
     [posts]
   );
 
@@ -279,7 +208,7 @@ export const PerformanceRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) 
     });
   }, [kopisPerformances]);
 
-  // 장르 목록 (KOPIS)
+  // 장르 목록
   const genres = useMemo(() => {
     const genreSet = new Set(dedupedKopis.map(p => p.meta.genre));
     return [...genreSet].sort((a, b) => {
@@ -293,16 +222,16 @@ export const PerformanceRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) 
     ? genres
     : genres.filter(g => g === selectedGenre);
 
-  if (posts.length === 0) {
+  if (dedupedKopis.length === 0) {
     return (
       <div className="text-center py-16 text-slate-400 dark:text-slate-500">
-        <p className="text-lg mb-1">공연/전시 데이터가 없습니다</p>
+        <p className="text-lg mb-1">공연 데이터가 없습니다</p>
         <p className="text-sm">데이터 수집 후 표시됩니다</p>
       </div>
     );
   }
 
-  // Genre group map (KOPIS)
+  // Genre group map
   const genreMap = new Map<string, { post: Post; meta: PerformanceMeta }[]>();
   for (const item of dedupedKopis) {
     const arr = genreMap.get(item.meta.genre);
@@ -310,108 +239,48 @@ export const PerformanceRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) 
     else genreMap.set(item.meta.genre, [item]);
   }
 
-  const hasKopis = dedupedKopis.length > 0;
-  const hasExhibition = kcisaExhibitions.length > 0;
-  const hasOther = kcisaOtherPerformances.length > 0;
-
   return (
     <div className="bg-white dark:bg-slate-800 overflow-hidden">
       {/* 헤더 */}
       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">공연·전시</h2>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">KOPIS 예매순위 + 문화정보</p>
+            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">공연 예매순위</h2>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">KOPIS 예매순위</p>
           </div>
           <DataFreshnessLabel label="이번 주 기준 (주간)" />
         </div>
 
-        {/* 뷰 모드 토글 */}
-        {(hasExhibition || hasOther) && (
-          <div className="flex gap-1.5 mt-2">
+        {/* 장르 필터 */}
+        <div className="flex gap-1.5 mt-2 overflow-x-auto scrollbar-hide pb-0.5">
+          <button
+            onClick={() => setSelectedGenre('all')}
+            className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
+              selectedGenre === 'all' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+            }`}
+          >
+            전체 장르
+          </button>
+          {genres.map(genre => (
             <button
-              onClick={() => setViewMode('all')}
+              key={genre}
+              onClick={() => setSelectedGenre(genre)}
               className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
-                viewMode === 'all' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                selectedGenre === genre ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
               }`}
             >
-              전체
+              {genreIcon(genre)} {genre}
             </button>
-            {hasKopis && (
-              <button
-                onClick={() => setViewMode('ranking')}
-                className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
-                  viewMode === 'ranking' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                }`}
-              >
-                🎭 예매순위
-              </button>
-            )}
-            {hasExhibition && (
-              <button
-                onClick={() => setViewMode('exhibition')}
-                className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
-                  viewMode === 'exhibition' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                }`}
-              >
-                🖼️ 전시
-              </button>
-            )}
-            {hasOther && (
-              <button
-                onClick={() => setViewMode('event')}
-                className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
-                  viewMode === 'event' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                }`}
-              >
-                🎪 공연·행사
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* KOPIS 장르 필터 (예매순위 모드에서만) */}
-        {(viewMode === 'all' || viewMode === 'ranking') && hasKopis && (
-          <div className="flex gap-1.5 mt-2 overflow-x-auto scrollbar-hide pb-0.5">
-            <button
-              onClick={() => setSelectedGenre('all')}
-              className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
-                selectedGenre === 'all' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-              }`}
-            >
-              전체 장르
-            </button>
-            {genres.map(genre => (
-              <button
-                key={genre}
-                onClick={() => setSelectedGenre(genre)}
-                className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
-                  selectedGenre === genre ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                }`}
-              >
-                {genreIcon(genre)} {genre}
-              </button>
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
       </div>
 
       {/* KOPIS 예매순위 */}
-      {(viewMode === 'all' || viewMode === 'ranking') && filteredGenres.map(genre => {
+      {filteredGenres.map(genre => {
         const items = genreMap.get(genre);
         if (!items) return null;
         return <GenreSection key={genre} genre={genre} items={items} />;
       })}
-
-      {/* KCISA 전시 */}
-      {(viewMode === 'all' || viewMode === 'exhibition') && (
-        <KcisaSection label="전시" icon="🖼️" posts={kcisaExhibitions} />
-      )}
-
-      {/* KCISA 기타 공연/행사 */}
-      {(viewMode === 'all' || viewMode === 'event') && (
-        <KcisaSection label="공연·행사" icon="🎪" posts={kcisaOtherPerformances} />
-      )}
     </div>
   );
 };
