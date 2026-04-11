@@ -184,7 +184,9 @@ newsOutletDiv = newsOutletCount ≥ 3 ? 1.0 + 0.15 × min(newsOutletCount - 2, 5
 result = min(rawCluster × categoryDiv × newsOutletDiv, 3.0)
 ```
 
-### 3.7 트렌드 신호 보너스 (trendSignalBonus) [1.0, 1.8]
+### 3.7 트렌드 신호 보너스 (trendSignalBonus) [1.0, 1.8] — 커뮤니티/기타 전용
+
+> **뉴스 탭에서는 1.0 고정.** signalScore의 trendAlignment로 가산 혼합에 통합됨.
 
 외부 트렌드 소스(Google Trends, Naver DataLab, BigKinds, 네이트 실검, ZUM 실검, 위키백과)와 포스트 제목을 매칭.
 
@@ -376,6 +378,7 @@ momentumScore = clamp(1.0 + MOMENTUM_WEIGHT × ln(acceleration), [MOMENTUM_PENAL
 | `community_source_weights` | A(1.3~1.4)~D(0.8~0.9) |
 | `community_decay_half_lives` | 120~200분 소스별 |
 | `engagement_weights` | 채널별 comment/like 가중치 |
+| `news_signal_weights` | portal_weight(0.4), cluster_weight(0.35), trend_weight(0.25) |
 | `trend_signal` | CAP(1.8), 키워드 길이, 시간 감쇠 |
 | `breaking_news` | 감지 윈도우(2h), 최소 소스(3), 부스트 상한(3.0) |
 
@@ -387,7 +390,7 @@ momentumScore = clamp(1.0 + MOMENTUM_WEIGHT × ln(acceleration), [MOMENTUM_PENAL
 |------|------|
 | `scoring.ts` | 배치 계산 오케스트레이션 (5분 주기) |
 | `scoring-weights.ts` | 소스/카테고리/커뮤니티 가중치 + 감쇠 상수 |
-| `scoring-helpers.ts` | computeScore, normalizeEngagement, velocity, cluster, breaking |
+| `scoring-helpers.ts` | computeScore, normalizeEngagement, velocity, cluster, breaking, portalRank, clusterImportance |
 | `trendSignals.ts` | 외부 키워드 추출·매칭·보너스 계산 |
 | `issueAggregator.ts` | 이슈 집계 + 채널별 순위 + 중복제거 + 모멘텀 + 동적 TTL |
 | `geminiSummarizer.ts` | Gemini 이슈 요약 (pLimit(3) 병렬, fallback, stable_id 캐시) |
