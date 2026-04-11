@@ -144,9 +144,9 @@ export async function summarizeIssue(
   }
 
   const client = getClient();
-  if (!client) return null;
+  if (!client) { console.warn('[geminiSummarizer] no API key — skipping'); return null; }
 
-  if (!checkQuota('gemini', GEMINI_DAILY_QUOTA)) return null;
+  if (!checkQuota('gemini', GEMINI_DAILY_QUOTA)) { console.warn('[geminiSummarizer] quota exhausted — skipping'); return null; }
   incrementQuota('gemini');
 
   const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
@@ -171,7 +171,10 @@ export async function summarizeIssue(
         quality_score?: number; keywords?: string[]; sentiment?: string;
       };
 
-      if (!parsed.title || !parsed.category || !parsed.summary) return null;
+      if (!parsed.title || !parsed.category || !parsed.summary) {
+        console.warn(`[geminiSummarizer] validation failed — title: ${!!parsed.title}, category: ${!!parsed.category}, summary: ${!!parsed.summary}, raw keys: ${parsed ? Object.keys(parsed).join(',') : 'null'}`);
+        return null;
+      }
 
       const validSentiments = new Set(['positive', 'negative', 'neutral']);
       const qualityScore = typeof parsed.quality_score === 'number'
