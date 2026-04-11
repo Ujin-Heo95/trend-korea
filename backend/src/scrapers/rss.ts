@@ -6,6 +6,18 @@ import type { ScrapedPost } from './types.js';
 import { logger } from '../utils/logger.js';
 import { classifyNewsSubcategory } from './news-classifier.js';
 
+/** CDATA 내부의 HTML 엔티티를 디코딩 (rss-parser가 처리하지 않는 케이스) */
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&#039;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
 interface RssScraperConfig {
   sourceKey: string;
   sourceName: string;
@@ -127,7 +139,7 @@ export class RssScraper extends BaseScraper {
     if (this.category === 'news') {
       for (const post of posts) {
         if (!post.subcategory) {
-          post.subcategory = classifyNewsSubcategory(post.url, this.cfg.sourceKey) ?? undefined;
+          post.subcategory = classifyNewsSubcategory(post.url, this.cfg.sourceKey, post.title) ?? undefined;
         }
       }
     }
@@ -205,7 +217,7 @@ export class RssScraper extends BaseScraper {
     return {
       sourceKey: this.cfg.sourceKey,
       sourceName: this.cfg.sourceName,
-      title: item.title?.trim() ?? '(제목 없음)',
+      title: decodeHtmlEntities(item.title?.trim() ?? '(제목 없음)'),
       url: (item.link ?? item.guid ?? '').trim(),
       thumbnail,
       author: item.creator ?? ext['dc:creator'] ?? undefined,
@@ -231,7 +243,7 @@ export class RssScraper extends BaseScraper {
     return {
       sourceKey: this.cfg.sourceKey,
       sourceName: this.cfg.sourceName,
-      title: item.title?.trim() ?? '(제목 없음)',
+      title: decodeHtmlEntities(item.title?.trim() ?? '(제목 없음)'),
       url: (item.link ?? item.guid ?? '').trim(),
       thumbnail,
       contentSnippet,

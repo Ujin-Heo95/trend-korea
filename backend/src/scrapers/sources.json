@@ -850,7 +850,6 @@
       "key": "moneytoday",
       "name": "머니투데이",
       "category": "news",
-      "subcategory": "경제",
       "type": "rss",
       "feedUrl": "https://rss.mt.co.kr/mt_news.xml",
       "priority": "medium",
