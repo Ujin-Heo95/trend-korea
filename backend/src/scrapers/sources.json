@@ -142,7 +142,7 @@
       "type": "rss",
       "feedUrl": "https://www.ppomppu.co.kr/rss.php?id=ppomppu",
       "priority": "high",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "ppomppu_best",
@@ -152,7 +152,7 @@
       "module": "./ppomppu-best.js",
       "className": "PpomppuBestScraper",
       "priority": "high",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "arcalive",
@@ -162,7 +162,17 @@
       "module": "./arcalive.js",
       "className": "ArcaliveScraper",
       "priority": "medium",
-      "enabled": false
+      "enabled": true
+    },
+    {
+      "key": "namuwiki",
+      "name": "나무위키",
+      "category": "community",
+      "type": "api",
+      "module": "./namuwiki.js",
+      "className": "NamuwikiScraper",
+      "priority": "medium",
+      "enabled": true
     },
     {
       "key": "yna",
@@ -309,21 +319,32 @@
       "enabled": true
     },
     {
-      "key": "kma",
-      "name": "기상청 특보",
-      "category": "alert",
-      "type": "rss",
-      "feedUrl": "https://www.weather.go.kr/w/rss/rss.xml",
-      "priority": "low",
-      "enabled": false
-    },
-    {
       "key": "airkorea",
       "name": "에어코리아",
       "category": "alert",
       "type": "api",
       "module": "./airkorea.js",
       "className": "AirKoreaScraper",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "korea_kr_press",
+      "name": "정책브리핑 보도자료",
+      "category": "news",
+      "subcategory": "정책",
+      "type": "rss",
+      "feedUrl": "https://www.korea.kr/rss/pressrelease.xml",
+      "priority": "low",
+      "enabled": true
+    },
+    {
+      "key": "korea_kr_policy",
+      "name": "정책브리핑 정책뉴스",
+      "category": "news",
+      "subcategory": "정책",
+      "type": "rss",
+      "feedUrl": "https://www.korea.kr/rss/policy.xml",
       "priority": "low",
       "enabled": true
     },
@@ -343,7 +364,7 @@
       "type": "rss",
       "feedUrl": "https://bbs.ruliweb.com/market/board/1020/rss",
       "priority": "medium",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "clien_jirum",
@@ -366,24 +387,14 @@
       "enabled": true
     },
     {
-      "key": "dcinside_hotdeal",
-      "name": "DC 핫딜갤러리",
+      "key": "eomisae",
+      "name": "어미새",
       "category": "deals",
       "type": "html",
-      "module": "./dcinside-hotdeal.js",
-      "className": "DcinsideHotdealScraper",
+      "module": "./eomisae.js",
+      "className": "EomisaeScraper",
       "priority": "medium",
-      "enabled": false
-    },
-    {
-      "key": "krx",
-      "name": "KRX 시장",
-      "category": "news",
-      "type": "api",
-      "module": "./krx.js",
-      "className": "KrxScraper",
-      "priority": "low",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "investing_kr",
@@ -798,7 +809,7 @@
       "module": "./tour-festival.js",
       "className": "TourFestivalScraper",
       "priority": "low",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "tour_visitor",
@@ -808,7 +819,7 @@
       "module": "./tour-visitor.js",
       "className": "TourVisitorScraper",
       "priority": "low",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "kcisa_performance",
@@ -819,16 +830,6 @@
       "className": "KcisaPerformanceScraper",
       "priority": "low",
       "enabled": false
-    },
-    {
-      "key": "tour_photo",
-      "name": "관광사진",
-      "category": "travel",
-      "type": "api",
-      "module": "./tour-photo.js",
-      "className": "TourPhotoScraper",
-      "priority": "low",
-      "enabled": true
     },
     {
       "key": "traveltimes",
@@ -956,14 +957,14 @@
       "enabled": false
     },
     {
-      "key": "upbit",
-      "name": "업비트 시세",
-      "category": "news",
+      "key": "naver_webtoon",
+      "name": "네이버 웹툰 랭킹",
+      "category": "entertainment",
       "type": "api",
-      "module": "./upbit.js",
-      "className": "UpbitScraper",
+      "module": "./naver-webtoon.js",
+      "className": "NaverWebtoonScraper",
       "priority": "low",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "melon_chart",
@@ -1194,7 +1195,7 @@
       "module": "./seoul-citydata.js",
       "className": "SeoulCitydataScraper",
       "priority": "medium",
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "seoul_cultural_event",

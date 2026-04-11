@@ -1,6 +1,7 @@
 # 소스 가이드 & 카탈로그
 
 > 2026-04-11 현행화. 스크래퍼 추가 방법 + 현재 소스 현황 + 확장 후보
+> 소스 정상화 업데이트 (arcalive, ppomppu 등 re-enable + eomisae/naver_webtoon/namuwiki 신규)
 
 ---
 
@@ -58,7 +59,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ---
 
-## 2. 현재 소스 현황 (120개 등록, 82개 활성)
+## 2. 현재 소스 현황 (120개 등록, 93개 활성)
 
 | 카테고리 | 소스 | 수집방식 | 우선순위 | 상태 |
 |----------|------|----------|----------|------|
@@ -66,7 +67,9 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | community | clien, mlbpark, cook82, inven, humoruniv, ygosu, slrclub, etoland | HTML | high/medium | 안정 |
 | community | fmkorea | HTML | medium | 봇 차단 대응 (관찰 중) |
 | community | ruliweb, dogdrip | HTML | high/medium | 안정 |
-| community | arcalive, ppomppu | — | — | **disabled** |
+| community | arcalive | HTML | medium | 안정 |
+| community | ppomppu | RSS | high | 안정 |
+| community | namuwiki | API | medium | 안정 (sidebar.json 최근편집) |
 | news | ddanzi, chosun, jtbc | RSS | high | 안정 |
 | news | yna, hani, sbs, donga, khan, hankyung, mk, kmib | RSS | medium | 안정 |
 | news | ohmynews, nocutnews, asiae, segye, bbc_korean, mbn | RSS | medium | 안정 |
@@ -81,26 +84,28 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | video | youtube_sbs/ytn/mbc/kbs/jtbc_news | RSS | low | 안정 |
 | video | youtube, youtube_search | API | low | **disabled** (할당량 초과) |
 | finance | investing_kr, sedaily, moneytoday, edaily, bizwatch | RSS | medium | 안정 |
-| finance | upbit, krx | API | low | **disabled** |
 | music | melon_chart, bugs_chart, genie_chart, kworb_spotify_kr, kworb_youtube_kr | HTML | low | 안정 |
 | books | yes24_bestseller, aladin_bestseller | HTML | low | 안정 |
 | ott | flixpatrol | HTML | low | 안정 |
 | trend | google_trends | RSS→trend_keywords | medium | 안정 |
 | trend | wikipedia_ko | API→trend_keywords | low | 안정 |
 | trend | naver_datalab | API | medium | **disabled** |
+| entertainment | naver_webtoon | API | low | 안정 (starScore 기준 랭킹) |
 | government | korea_press, korea_policy, korea_briefing | RSS | low | 안정 |
+| government | korea_kr_press, korea_kr_policy | RSS | low | 안정 (정책브리핑) |
 | performance | kopis_boxoffice, kcisa_cca_performance, kcisa_cca_exhibition, seoul_cultural_event | API | low | 안정 |
 | movie | kobis_boxoffice | API | low | 안정 |
-| travel | tour_photo, traveltimes | API/RSS | low | 안정 |
-| travel | tour_visitor, tour_festival, seoul_citydata | API | low | **disabled** |
+| travel | traveltimes | RSS | low | 안정 |
+| travel | tour_visitor, tour_festival, seoul_citydata | API | low | 안정 |
 | press | newswire | RSS | medium | 안정 |
 | newsletter | uppity | RSS | low | 안정 |
 | deals | ppomppu_hot | RSS | medium | 안정 |
 | deals | clien_jirum, quasarzone_deal | HTML | medium | 안정 |
-| deals | ppomppu_best, ruliweb_hot, dcinside_hotdeal | — | — | **disabled** |
+| deals | ppomppu_best | HTML | high | 안정 |
+| deals | ruliweb_hot | RSS | medium | 안정 |
+| deals | eomisae | HTML | medium | 안정 (어미새 인기정보) |
 | sns | apify_instagram, apify_x, apify_tiktok | Apify | medium | **disabled** |
 | alert | airkorea | API | low | 안정 (sr≈0.79) |
-| alert | kma | RSS | low | **disabled** |
 
 ---
 
@@ -139,7 +144,8 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 |------|:-----:|:---:|:---------:|:------:|:---------:|:------------:|:---------:|:-----------:|
 | clien_jirum | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | ✗ |
 | quasarzone_deal | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ |
-| dcinside_hotdeal | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ |
+| ppomppu_best | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| eomisae | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ |
 
 ### API 스크래퍼
 
@@ -155,7 +161,9 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | google_trends | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
 | tour_festival | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ |
 | tour_visitor | ✓ | ✓ | ✗ | ✗ | ✓* | ✓* | ✗ | ✓ | ✓ |
-| upbit | ✓ | ✓ | ✗ | ✗ | ✓* | ✗ | ✗ | ✗ | ✓ |
+| naver_webtoon | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓* | ✗ | ✓ |
+| namuwiki | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
+| seoul_citydata | ✓ | ✓ | ✗ | ✗ | ✓* | ✗ | ✗ | ✗ | ✓ |
 | bigkinds | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ |
 | airkorea | ✓ | ✓ | ✗ | ✗ | ✓* | ✗ | ✗ | ✗ | ✓ |
 
@@ -184,7 +192,9 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | 사유 | 소스 |
 |------|------|
 | RSS 서비스 종료/404 | 중앙일보, KBS, MBC, YTN, 다음뉴스, 서울신문, 이데일리, 파이낸셜뉴스, 헤럴드경제, 블로터, IT조선, 디지털데일리, 바이라인네트워크, 쿨엔조이, 우아한형제들 |
-| ToS/접근 차단 | 블라인드, FM Korea, Signal.bz |
+| ToS/접근 차단 | 블라인드, Signal.bz |
+| 갤러리 폐쇄 | DC인사이드 핫딜갤러리 (매니저 요청으로 영구 폐쇄) |
+| 서비스 종료 | 업비트 시세, KRX 시장 (활용도 낮음), 관광사진 (tour_photo), 기상청 RSS (kma) |
 | API 폐지/중단 | Naver DataLab 실검, KakaoView, KCISA 3개 (업데이트 중단) |
 | 전환 완료 | Clien RSS→HTML, GeekNews RSS→HTML, Google Trends JSON→RSS |
 
@@ -195,7 +205,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | 난이도 | 소스 |
 |--------|------|
 | API 키 필요 | 빗썸, 한국은행 ECOS, DART |
-| HTML (헤드리스 필요) | 어미새, 네이버 웹툰 랭킹, 나무위키 |
+| API/RSS (정부) | 긴급재난문자 API (data.go.kr), 기상청 API허브 (apihub.kma.go.kr) |
 | 고급/유료 | X/Twitter, 쿠팡, 무신사, Netflix Korea, CGV |
 
 ---

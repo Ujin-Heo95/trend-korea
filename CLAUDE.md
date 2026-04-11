@@ -52,7 +52,7 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Fly.io 도쿄 + Cloudfla
 ## Current Phase
 
 v0.12.0 — 신규 로드맵 P0 진행중.
-소스 120개 등록 (82개 활성, 3개 트렌드→trend_keywords 직접 기록) + 338 tests (백엔드 298 + 프론트 40) + Supabase Pro 8GB 서울.
+소스 120개 등록 (93개 활성, 3개 트렌드→trend_keywords 직접 기록) + 338 tests (백엔드 298 + 프론트 40) + Supabase Pro 8GB 서울.
 채널별 분기 스코어링 — 커뮤니티(소스차등+적응감쇠+트렌드신호) / 뉴스(4항 가산혼합 signalScore+소스별 decay+속보감지+freshnessBonus). 비스코어링 탭은 최신순만.
 포털 소스(nate_news/zum_news)는 인기기사를 posts에 수집하며 portalRank 신호에도 통합, 트렌드 소스(google_trends/wikipedia_ko/bigkinds_issues)는 trend_keywords에 직접 UPSERT.
 
