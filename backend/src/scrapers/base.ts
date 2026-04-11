@@ -131,11 +131,19 @@ export abstract class BaseScraper {
     });
 
     const category = posts[0].category ?? this.category ?? null;
-    const isRankedCategory = ['movie', 'performance', 'music', 'books', 'ott'].includes(category ?? '');
+    const sourceKey = posts[0].sourceKey ?? null;
+    const isRankedCategory = ['movie', 'performance', 'music', 'books', 'ott', 'webtoon'].includes(category ?? '');
 
-    // 랭킹 데이터는 UPSERT로 관객수/메타데이터 갱신
+    // 랭킹 카테고리: 기존 데이터 전량 삭제 후 새 배치 INSERT (과거 순위 혼입 원천 차단)
     // 일반 데이터는 engagement GREATEST + scraped_at 갱신
     // scraped_at 갱신 필수: TTL cleanup이 scraped_at 기준이므로 갱신 안 하면 활발히 수집되는 포스트도 삭제됨
+    if (isRankedCategory && sourceKey) {
+      await this.pool.query(
+        `DELETE FROM posts WHERE source_key = $1`,
+        [sourceKey]
+      );
+    }
+
     const conflictClause = isRankedCategory
       ? `ON CONFLICT (url) DO UPDATE SET
            title = EXCLUDED.title,

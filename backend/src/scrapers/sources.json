@@ -766,7 +766,7 @@
       "module": "./tour-visitor.js",
       "className": "TourVisitorScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kcisa_performance",
@@ -785,7 +785,7 @@
       "type": "rss",
       "feedUrl": "https://www.traveltimes.co.kr/rss/allArticle.xml",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kcisa_travel",
@@ -825,7 +825,7 @@
       "module": "./kcisa-cca-performance.js",
       "className": "KcisaCcaPerformanceScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kcisa_cca_exhibition",
@@ -835,7 +835,7 @@
       "module": "./kcisa-cca-exhibition.js",
       "className": "KcisaCcaExhibitionScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "ohmynews",
@@ -1113,7 +1113,7 @@
       "module": "./seoul-citydata.js",
       "className": "SeoulCitydataScraper",
       "priority": "medium",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "seoul_cultural_event",
@@ -1123,7 +1123,7 @@
       "module": "./seoul-cultural-event.js",
       "className": "SeoulCulturalEventScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     }
   ]
 }

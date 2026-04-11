@@ -16,7 +16,6 @@ import { WebtoonRankingTable } from '../components/WebtoonRankingTable';
 import { EntertainmentSubTabs, type EntertainmentSub } from '../components/EntertainmentSubTabs';
 import { EntertainmentCompactSection } from '../components/EntertainmentCompactSection';
 import { EntertainmentUnifiedView } from '../components/EntertainmentUnifiedView';
-import { TravelDashboard } from '../components/travel/TravelDashboard';
 import { CommunityRankingList } from '../components/CommunityRankingList';
 import { IssueRankingList } from '../components/IssueRankingList';
 import { MetaHead } from '../components/shared/MetaHead';
@@ -34,7 +33,6 @@ const CATEGORY_TITLES: Record<string, string> = {
   video: 'YouTube',
   deals: '핫딜',
   entertainment: '엔터테인먼트',
-  travel: '여행',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -44,7 +42,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   video: '영상',
   deals: '핫딜',
   entertainment: '엔터테인먼트',
-  travel: '여행',
 };
 
 const ENTERTAINMENT_SUB_LABELS: Record<string, string> = {
@@ -85,7 +82,6 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const isNewsTab = category === 'news,newsletter,tech';
   const isPortalTab = category === 'portal';
   const isEntertainmentTab = category === 'entertainment';
-  const isTravelTab = category === 'travel';
   const isVideoTab = category === 'video';
   const isDealsTab = category === 'deals';
   const isAllTab = !category && !searchQuery;
@@ -172,7 +168,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     }
 
     return items;
-  }, [category, isEntertainmentTab, entertainmentSub, isTravelTab, isNewsTab, newsSubcategory]);
+  }, [category, isEntertainmentTab, entertainmentSub, isNewsTab, newsSubcategory]);
 
   return (
     <div ref={mainRef} style={{ overscrollBehaviorY: 'contain' }}>
@@ -259,7 +255,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         </div>
       ) : (
         (() => {
-          const ctx: CategoryContext = { category, isEntertainmentTab, isTravelTab, isPortalTab, entertainmentSub, travelSub: 'all', selectedSources, sortMode };
+          const ctx: CategoryContext = { category, isEntertainmentTab, isPortalTab, entertainmentSub, selectedSources, sortMode };
           const matched = findCategoryComponent(ctx);
           if (matched === 'MovieRankingTable') return <MovieRankingTable posts={allPosts} />;
           if (matched === 'MusicRankingTable') return <MusicRankingTable posts={allPosts} />;
@@ -268,7 +264,6 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           if (matched === 'OttRankingTable') return <OttRankingTable posts={allPosts} />;
           if (matched === 'WebtoonRankingTable') return <WebtoonRankingTable posts={allPosts} />;
           if (matched === 'EntertainmentAllView') return <EntertainmentUnifiedView onSubTabChange={setEntertainmentSub} />;
-          if (matched === 'TravelDashboard') return <TravelDashboard posts={allPosts} />;
           if (matched === 'CommunityRankingList') return <CommunityRankingList posts={allPosts} isRead={isRead} onRead={markAsRead} />;
           return (
             <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">

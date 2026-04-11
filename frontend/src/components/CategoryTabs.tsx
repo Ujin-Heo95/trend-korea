@@ -10,7 +10,6 @@ const CATEGORIES: { key: string | undefined; label: string; icon: string }[] = [
   { key: 'portal',                                                label: '포털',        icon: '🌐' },
   { key: 'deals',                                                 label: '핫딜',        icon: '🔥' },
   { key: 'entertainment',                                         label: '엔터테인먼트', icon: '🎭' },
-  { key: 'travel',                                                label: '여행',        icon: '✈️' },
 ];
 
 interface Props {

@@ -3,10 +3,8 @@ import type { EntertainmentSub } from '../components/EntertainmentSubTabs';
 export interface CategoryContext {
   category: string | undefined;
   isEntertainmentTab: boolean;
-  isTravelTab: boolean;
   isPortalTab: boolean;
   entertainmentSub: EntertainmentSub;
-  travelSub: string;
   selectedSources: string[];
   sortMode: 'trending' | 'latest';
 }
@@ -28,7 +26,6 @@ export const categoryRegistry: CategoryEntry[] = [
   { match: (ctx) => ctx.isEntertainmentTab && ctx.entertainmentSub === 'ott', component: 'OttRankingTable' },
   { match: (ctx) => ctx.isEntertainmentTab && ctx.entertainmentSub === 'webtoon', component: 'WebtoonRankingTable' },
   { match: (ctx) => ctx.isEntertainmentTab && ctx.entertainmentSub === 'all', component: 'EntertainmentAllView' },
-  { match: (ctx) => ctx.isTravelTab, component: 'TravelDashboard' },
   { match: (ctx) => ctx.category === 'community' && ctx.selectedSources.length === 0 && ctx.sortMode === 'trending', component: 'CommunityRankingList' },
 ];
 
