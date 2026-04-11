@@ -1040,7 +1040,7 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
            video_post_count, representative_thumbnail, cluster_ids, standalone_post_ids,
            matched_trend_keywords, rank_change, stable_id, calculated_at, expires_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW(),NOW()+$19::interval)
-         ON CONFLICT (stable_id) DO UPDATE SET
+         ON CONFLICT (stable_id) WHERE stable_id IS NOT NULL DO UPDATE SET
            issue_score = EXCLUDED.issue_score,
            news_score = EXCLUDED.news_score,
            community_score = EXCLUDED.community_score,
