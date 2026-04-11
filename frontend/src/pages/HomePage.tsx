@@ -14,6 +14,7 @@ import { BookRankingTable } from '../components/BookRankingTable';
 import { OttRankingTable } from '../components/OttRankingTable';
 import { EntertainmentSubTabs, type EntertainmentSub } from '../components/EntertainmentSubTabs';
 import { EntertainmentCompactSection } from '../components/EntertainmentCompactSection';
+import { EntertainmentUnifiedView } from '../components/EntertainmentUnifiedView';
 import { TravelSubTabs, type TravelSub } from '../components/TravelSubTabs';
 import { TravelHotplaceView } from '../components/TravelHotplaceView';
 import { TravelFestivalCard } from '../components/TravelFestivalCard';
@@ -292,7 +293,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           if (matched === 'PerformanceRankingTable') return <PerformanceRankingTable posts={allPosts} />;
           if (matched === 'BookRankingTable') return <BookRankingTable posts={allPosts} />;
           if (matched === 'OttRankingTable') return <OttRankingTable posts={allPosts} />;
-          if (matched === 'EntertainmentAllView') return <EntertainmentAllView posts={allPosts} onSubTabChange={setEntertainmentSub} />;
+          if (matched === 'EntertainmentAllView') return <EntertainmentUnifiedView onSubTabChange={setEntertainmentSub} />;
           if (matched === 'TravelHotplaceView') return <TravelHotplaceView posts={allPosts} />;
           if (matched === 'TravelFestivalCard') return <TravelFestivalCard posts={allPosts} />;
           if (matched === 'TravelPhotoGallery') return <TravelPhotoGallery posts={allPosts} />;
