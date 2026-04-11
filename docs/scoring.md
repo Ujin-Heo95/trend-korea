@@ -1,6 +1,6 @@
 # 콘텐츠 랭킹 시스템
 
-> 2026-04-11 v6 — 뉴스 스코어링 정교화. v5 대비 4항 가산 혼합(+engagementSignal), 소스별 뉴스 decay, 포털 랭킹 확장(nate/zum), T1 단독 속보 감지, freshnessBonus 추가.
+> 2026-04-11 현행. 뉴스 탭은 4항 가산 혼합 signalScore, 커뮤니티 탭은 곱셈 기반.
 
 ---
 

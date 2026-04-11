@@ -46,15 +46,15 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Fly.io 도쿄 + Cloudfla
 | 기술 의사결정 | `docs/decisions/` (TD-기술, BD-경영) |
 | 미해결 기술부채 | `docs/tech-debt.md` |
 | 전체 로드맵 | `docs/roadmap.md` |
-| 과거 변경 이력 | `git log` 또는 `docs/archive/changelog.md` |
+| 과거 변경 이력 | `git log` |
 | 문서 경로 매핑 | `docs/README.md` (구→신 경로) |
 
 ## Current Phase
 
 v0.12.0 — 신규 로드맵 P0 진행중.
-소스 120개 등록 (82개 활성, 3개 트렌드→trend_keywords 직접 기록) + 339 tests (백엔드 299 + 프론트 40) + Supabase Pro 8GB 서울.
-채널별 분기 스코어링 — 커뮤니티(소스차등+적응감쇠+트렌드신호) / 뉴스(서브카테고리정규화+속보감지+트렌드신호). 비스코어링 탭은 최신순만.
-포털 소스(nate_news/zum_news)는 인기기사를 posts에 수집, 트렌드 소스(google_trends/wikipedia_ko/bigkinds_issues)는 trend_keywords에 직접 UPSERT.
+소스 120개 등록 (82개 활성, 3개 트렌드→trend_keywords 직접 기록) + 338 tests (백엔드 298 + 프론트 40) + Supabase Pro 8GB 서울.
+채널별 분기 스코어링 — 커뮤니티(소스차등+적응감쇠+트렌드신호) / 뉴스(4항 가산혼합 signalScore+소스별 decay+속보감지+freshnessBonus). 비스코어링 탭은 최신순만.
+포털 소스(nate_news/zum_news)는 인기기사를 posts에 수집하며 portalRank 신호에도 통합, 트렌드 소스(google_trends/wikipedia_ko/bigkinds_issues)는 trend_keywords에 직접 UPSERT.
 
 **완료**: P0 도메인+Umami+URL (2026-04-03) + P1 SEO파이프라인+Security Headers (2026-04-04) + P2 보안·품질·기술부채 전면 해소 (2026-04-04)
 **다음**: P0 사업자·모니터링 (사용자 개입) → P1 런칭·마케팅 → P3 리텐션 → P4 스케일.

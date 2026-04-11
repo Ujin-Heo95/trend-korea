@@ -1,6 +1,6 @@
 # 이슈 랭킹 파이프라인 (전체 탭)
 
-> 마지막 업데이트: 2026-04-06
+> 마지막 업데이트: 2026-04-11
 > 관련 파일: `scoring.md` (개별 포스트 스코어링), 본 문서 (이슈 집계 및 순위 결정)
 
 ## 1. 개요
@@ -152,24 +152,31 @@ issueScore = rawScore × momentumBonus × diversityBonus × breakingKeywordBoost
 이슈 점수의 입력값인 개별 포스트 `trend_score`는 다음과 같이 산출:
 
 ```
-trend_score = normalizedEngagement × decay × sourceWeight × categoryWeight
-            × velocityBonus × clusterBonus × trendSignalBonus
-            × subcategoryNorm × breakingBoost
+# 뉴스 채널 (4항 가산 혼합)
+signalScore = max(portalRank×0.35 + clusterImportance×0.30
+              + trendAlignment×0.20 + engagementSignal×0.15, 1.0)
+trend_score = signalScore × decay × sourceWeight × subcategoryNorm
+            × breakingBoost × freshnessBonus × volumeDampening
+
+# 커뮤니티 채널 (곱셈 기반)
+trend_score = normalizedEngagement × decay × communitySourceWeight
+            × velocityBonus × clusterBonus × trendSignalBonus × volumeDampening
 ```
 
-**파일**: `scoring-helpers.ts:39-49`, `scoring.ts:125-184`
+**파일**: `scoring-helpers.ts:39-50`, `scoring.ts:125-207`
 
 ### 주요 팩터
 
-| 팩터 | 범위 | 설명 |
-|------|------|------|
-| `decay` | [0, 1.0] | `e^(-ln(2) × ageMinutes / halfLife)` |
-| `sourceWeight` | [0.8, 2.5] | 소스 신뢰도 (T1=2.5 ~ default=0.8) |
-| `categoryWeight` | [0.8, 1.4] | 뉴스: subcategoryNorm, 커뮤니티: 1.0 |
-| `velocityBonus` | [1.0, 1.6] | 최근 2시간 참여 변화율 |
-| `clusterBonus` | [1.0, 3.0] | 중복 포스트 수 + 카테고리/매체 다양성 |
-| `trendSignalBonus` | [1.0, 1.8] | 외부 트렌드 키워드 매칭 |
-| `breakingBoost` | [1.0, 3.0] | 속보 감지 (뉴스 전용, 30분 반감기) |
+| 팩터 | 범위 | 뉴스 | 커뮤니티 | 설명 |
+|------|------|------|----------|------|
+| `signalScore` | [1.0, 10.0] | ✓ | — | 4항 가산 혼합 (portal+cluster+trend+engagement) |
+| `decay` | [0, 1.0] | ✓ (소스별) | ✓ (소스별) | 지수 감쇠 |
+| `sourceWeight` | [0.8, 2.5] | ✓ | ✓ | 소스 신뢰도 |
+| `freshnessBonus` | [1.0, 1.3] | ✓ | — | 발행 30분 이내 1.3x |
+| `breakingBoost` | [1.0, 3.0] | ✓ | — | 속보 감지 (다중소스 3.0, T1 단독 2.0) |
+| `velocityBonus` | [1.0, 1.6] | — | ✓ | 최근 2시간 참여 변화율 |
+| `clusterBonus` | [1.0, 3.0] | — | ✓ | 중복 포스트 수 + 다양성 |
+| `trendSignalBonus` | [1.0, 1.8] | — | ✓ | 외부 트렌드 키워드 매칭 |
 
 ### 채널별 Decay 반감기
 
@@ -177,7 +184,7 @@ trend_score = normalizedEngagement × decay × sourceWeight × categoryWeight
 |------|--------|--------------|
 | SNS | 120분 | 0.002% |
 | 커뮤니티 | 120-200분 (소스별) | 0.002%-0.3% |
-| 뉴스 | 240분 | 1.56% |
+| 뉴스 | 180-320분 (소스별) | 0.5%-4% |
 | 전문 | 300분 | 0.46% |
 | 영상 | 360분 | 6.25% |
 
@@ -238,11 +245,6 @@ LIMIT $1 OFFSET $2
 - `momentum_score ≤ 0.7`: TTL 2시간으로 단축 (비활성 이슈 빠른 퇴출)
 - 기본 TTL: 6시간, 야간(KST 01-06): 07:00 KST까지 연장
 
-### 5-3. 보안: SQL 인젝션 수정
-
-- `fetchScoredPosts`: 문자열 보간 `'${windowHours} hours'` → `make_interval(hours => $1)` 파라미터화
-- `buildIssueRow`: scoreAndFilter에서 계산된 최종 issueScore를 직접 전달 (DB 점수 = 정렬 점수 일치)
-
 ---
 
 ## 6. DB 스키마
@@ -289,44 +291,7 @@ CREATE INDEX idx_issue_rankings_score ON issue_rankings(issue_score DESC);
 
 ---
 
-## 7. 순위 고착 원인 분석 및 해결 (v2 적용)
-
-> 아래 5개 문제는 v2 스코어링 공식(2026-04-06)으로 해결됨.
-
-### 7-1. ~~SUM 기반 이슈 점수~~ → **Fix 1: 로그 체감 수익**
-
-~~`issueScore`는 구성 포스트 `trend_score`의 단순 합산.~~
-**해결**: `aggregatePostScores()`로 교체. K=0.7 로그 체감 — post1=100%, post2=67%, post10=34%.
-3개 속보(top score 5.0)가 15개 기존 이슈(top score 2.0)를 추월 가능.
-
-### 7-2. ~~이슈 레벨 신선도 부재~~ → **Fix 3: 모멘텀 점수**
-
-~~5시간 전 수집 완료 이슈 vs 지금 기사 쏟아지는 이슈 구분 불가.~~
-**해결**: `issueMomentum()` — 최근 1h vs 이전 2h 가속도 기반 [0.7, 1.8] 승수. 비활성 이슈는 30% 감점.
-
-### 7-3. ~~클러스터 보너스 3중 보상~~ → **Fix 2: clusterBonus 제거 + Fix 5: 이슈 레벨 다양성**
-
-~~개별 포스트 clusterBonus(3.0x) + SUM = 실질 30x 가중.~~
-**해결**: 이슈 집계 시 `trendScore / clusterBonus`로 기본 점수 사용. 대신 `sourceDiversityBonus()`로 이슈 레벨에서 1회만 적용.
-
-### 7-4. ~~뉴스 지배~~ → **Fix 4: 커뮤니티 동적 가중치**
-
-~~`NEWS_WEIGHT=1.0` vs `COMMUNITY_WEIGHT=0.3`.~~
-**해결**: `COMMUNITY_WEIGHT` 기본 0.6으로 상향 + 바이럴 시 최대 0.9 동적 조정.
-
-### 7-5. ~~포스트 수 한계효용 없음~~ → **Fix 1과 동일**
-
-~~10번째 기사 = 1번째와 동일한 기여.~~
-**해결**: 로그 체감으로 10번째 기사는 34%만 기여.
-
-### 7-6. 속보 키워드 즉시 반영 (신규 — Fix 6)
-
-제목에 "속보/긴급" 키워드 포함 시 이슈 레벨 최대 3.0x 부스트 (30분 반감기).
-기존 `detectBreakingNews`(구조적 조건)와 독립 작동, 상호 보완.
-
----
-
-## 8. 파일 인덱스
+## 7. 파일 인덱스
 
 | 역할 | 경로 |
 |------|------|
