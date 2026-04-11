@@ -33,6 +33,20 @@ const SNS_SOURCES = new Set([
 ]);
 
 export async function issueRoutes(app: FastifyInstance): Promise<void> {
+  // 경량 버전 체크 — 프론트엔드가 30초마다 폴링하여 갱신 감지
+  app.get('/api/issues/version', async () => {
+    const cacheKey = 'issues-version';
+    const cached = issuesCache.get(cacheKey);
+    if (cached) return cached;
+
+    const { rows } = await app.pg.query<{ calculated_at: string | null }>(
+      `SELECT MAX(calculated_at)::text AS calculated_at FROM issue_rankings WHERE expires_at > NOW()`,
+    );
+    const result = { calculated_at: rows[0]?.calculated_at ?? null };
+    issuesCache.set(cacheKey, result);
+    return result;
+  });
+
   app.get<{ Querystring: { page?: number; limit?: number; cursor_score?: number; cursor_id?: number } }>(
     '/api/issues',
     {

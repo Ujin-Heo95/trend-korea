@@ -52,6 +52,9 @@ export const fetchIssueDetail = (postId: number) =>
 export const fetchIssueRankings = (params?: { page?: number; limit?: number }) =>
   api.get<IssueRankingResponse>('/issues', { params }).then(r => r.data);
 
+export const fetchIssueVersion = () =>
+  api.get<{ calculated_at: string | null }>('/issues/version').then(r => r.data);
+
 export const fetchIssueRankingDetail = (issueId: number) =>
   api.get<IssueRankingDetailResponse>(`/issues/${issueId}`).then(r => r.data);
 
