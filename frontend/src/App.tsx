@@ -11,6 +11,12 @@ const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(m => ({ defaul
 const IssueDetailPage = lazy(() => import('./pages/IssueDetailPage').then(m => ({ default: m.IssueDetailPage })));
 const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
 const FortunePage = lazy(() => import('./pages/FortunePage').then(m => ({ default: m.FortunePage })));
+const GamesHubPage = lazy(() => import('./pages/GamesHubPage').then(m => ({ default: m.GamesHubPage })));
+const Game2048Page = lazy(() => import('./pages/Game2048Page').then(m => ({ default: m.Game2048Page })));
+const MinesweeperPage = lazy(() => import('./pages/MinesweeperPage').then(m => ({ default: m.MinesweeperPage })));
+const SnakePage = lazy(() => import('./pages/SnakePage').then(m => ({ default: m.SnakePage })));
+const SudokuPage = lazy(() => import('./pages/SudokuPage').then(m => ({ default: m.SudokuPage })));
+const TowerDefensePage = lazy(() => import('./pages/TowerDefensePage').then(m => ({ default: m.TowerDefensePage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +71,12 @@ function MainRoutes() {
           <Route path="/weather" element={<WeatherPage />} />
           <Route path="/issue/:postId" element={<IssueDetailPage />} />
           <Route path="/fortune" element={<FortunePage />} />
+          <Route path="/games" element={<GamesHubPage />} />
+          <Route path="/games/2048" element={<Game2048Page />} />
+          <Route path="/games/minesweeper" element={<MinesweeperPage />} />
+          <Route path="/games/snake" element={<SnakePage />} />
+          <Route path="/games/sudoku" element={<SudokuPage />} />
+          <Route path="/games/tower-defense" element={<TowerDefensePage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
         </Routes>

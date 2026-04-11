@@ -45,6 +45,12 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
           >
             운세
           </Link>
+          <Link
+            to="/games"
+            className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors hidden sm:inline-block"
+          >
+            게임
+          </Link>
         </div>
 
         {/* Right: Search + Theme */}
