@@ -180,7 +180,7 @@ export async function buildApp() {
 
 const isMain = process.argv[1]?.endsWith('server.ts') || process.argv[1]?.endsWith('server.js');
 if (isMain) {
-  // Listen FIRST so Railway healthcheck gets 200 immediately
+  // Listen FIRST so healthcheck gets 200 immediately
   const app = await buildApp();
   await app.listen({ port: config.port, host: '0.0.0.0' });
 

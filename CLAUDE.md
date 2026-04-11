@@ -14,13 +14,13 @@ cd backend && npm run migrate  # DB 마이그레이션
 
 ## Tech Stack
 
-npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포 + Supabase DB (서울, Session pooler IPv4).
+npm workspaces 모노레포 (`backend/` + `frontend/`), Fly.io 도쿄 + Cloudflare Pages 배포 + Supabase DB (서울, Transaction pooler IPv4).
 
 - **Backend**: Fastify 5, TypeScript, node-cron, cheerio, rss-parser, p-limit — 상세 컨벤션 → `backend/CLAUDE.md`
 - **Frontend**: React 18, Vite 5, Tailwind v4, React Query v5 — 상세 컨벤션 → `frontend/CLAUDE.md`
 - **DB**: PostgreSQL 17.6 (Supabase Pro 8GB 서울)
 - **Testing**: Vitest + axios mock + fixture HTML
-- **Deploy**: Railway Railpack 단일 서비스 (백+프론트 SPA) — 상세 → `docs/railway.md`
+- **Deploy**: Fly.io 도쿄 (백엔드) + Cloudflare Pages (프론트엔드) — 상세 → `docs/deploy.md`
 
 ## Conventions
 
@@ -38,7 +38,7 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Railway 배포 + Supabas
 | 스크래퍼 추가/수정 | `docs/sources.md` |
 | 스코어링/중복제거 | `docs/scoring.md` |
 | 이슈 랭킹 파이프라인 | `docs/issue_ranking.md` |
-| Railway 배포/설정 | `docs/railway.md` |
+| 배포/설정 | `docs/deploy.md` |
 | 인프라/비용 결정 | `docs/scaling.md` |
 | 비즈니스/수익 분석 | `docs/business/financials.md` |
 | 마케팅/SEO | `docs/business/marketing.md` |

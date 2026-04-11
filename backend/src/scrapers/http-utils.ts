@@ -62,7 +62,7 @@ export async function fetchHtml(
   return cheerio.load(decoded);
 }
 
-// 한국 커뮤니티 시각은 KST(UTC+9). 서버(Railway)는 UTC이므로 보정 필요.
+// 한국 커뮤니티 시각은 KST(UTC+9). 서버(Fly.io)는 UTC이므로 보정 필요.
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 /** KST 시각 요소를 UTC Date로 변환 */

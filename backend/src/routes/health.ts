@@ -14,7 +14,7 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
   const handler = async (req: FastifyRequest, reply: FastifyReply) => {
     const isAdmin = isAdminRequest(req);
 
-    // 1. DB 연결 확인 — 비관리자 요청은 DB 없이도 200 반환 (Railway healthcheck 통과용)
+    // 1. DB 연결 확인 — 비관리자 요청은 DB 없이도 200 반환 (healthcheck 통과용)
     let dbConnected = true;
     try {
       await app.pg.query('SELECT 1');

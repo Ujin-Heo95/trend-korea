@@ -5,22 +5,19 @@
 ## System Overview
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                        Railway (Cloud)                         │
-│                                                                │
-│  ┌─────────────────┐          ┌─────────────────────────────┐  │
-│  │  Frontend        │          │  Backend                     │  │
-│  │  React 18+Vite 5 │──proxy──>│  Fastify 5 (Node.js 20)     │  │
-│  │  :5173 (dev)     │          │  :4000                       │  │
-│  │  정적 빌드 (prod)│          │  + node-cron 스케줄러        │  │
-│  └─────────────────┘          └──────────────┬──────────────┘  │
-│                                              │                  │
-└──────────────────────────────────────────────│──────────────────┘
+┌─────────────────┐          ┌──────────────────────────────────┐
+│  Frontend        │          │  Backend                          │
+│  Cloudflare Pages│───API───>│  Fly.io 도쿄 (nrt)               │
+│  React 18+Vite 5 │          │  Fastify 5 (Node.js 20)          │
+│  www.weeklit.net │          │  api.weeklit.net (:8080)          │
+│                  │          │  + node-cron 스케줄러             │
+└─────────────────┘          └──────────────┬───────────────────┘
+                                            │
                                                │
                               ┌─────────────────▼────────────────┐
                               │  PostgreSQL 17.6                  │
                               │  Supabase Pro (서울, 8GB)      │
-                              │  Session pooler (IPv4), SSL       │
+                              │  Transaction pooler (IPv4), SSL   │
                               └──────────────────────────────────┘
 
 외부 API:
@@ -322,7 +319,7 @@ App (ErrorBoundary + QueryClientProvider + BrowserRouter)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| DATABASE_URL | postgresql://localhost:5432/trend_korea | PG 연결 문자열 |
+| DATABASE_URL | postgresql://localhost:6543/trend_korea | PG 연결 문자열 (Transaction pooler) |
 | PORT | 4000 | 서버 포트 (1-65535) |
 | CRAWL_INTERVAL_MINUTES | 10 | 스크래핑 주기 |
 | POST_TTL_DAYS | 3 | 게시글 보존 기간 (공연 7일) |
@@ -361,4 +358,4 @@ App (ErrorBoundary + QueryClientProvider + BrowserRouter)
 ## CI/CD
 
 - **GitHub Actions**: lint (ESLint flat config) → typecheck (tsc --noEmit) → test (vitest) → build
-- **배포**: Railway auto-detect (push to master)
+- **배포**: Fly.io (백엔드, GitHub Actions) + Cloudflare Pages (프론트엔드, Git 연결)
