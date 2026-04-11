@@ -90,6 +90,7 @@ interface IssueConfig {
   readonly videoGeneralWeight: number;
   readonly trendSignalWeight: number;
   readonly issueDedupThreshold: number;
+  readonly containmentThreshold: number;
   readonly diminishingK: number;
   readonly momentumWeight: number;
   readonly momentumPenaltyMin: number;
@@ -113,6 +114,7 @@ async function loadIssueConfig(): Promise<IssueConfig> {
     videoGeneralWeight: (group['VIDEO_GENERAL_WEIGHT'] as number) ?? DEFAULT_VIDEO_GENERAL_WEIGHT,
     trendSignalWeight: (group['TREND_SIGNAL_WEIGHT'] as number) ?? DEFAULT_TREND_SIGNAL_WEIGHT,
     issueDedupThreshold: (group['ISSUE_DEDUP_THRESHOLD'] as number) ?? 0.55,
+    containmentThreshold: (group['CONTAINMENT_THRESHOLD'] as number) ?? 0.60,
     diminishingK: (group['DIMINISHING_K'] as number) ?? DEFAULT_DIMINISHING_K,
     momentumWeight: (group['MOMENTUM_WEIGHT'] as number) ?? DEFAULT_MOMENTUM_WEIGHT,
     momentumPenaltyMin: (group['MOMENTUM_PENALTY_MIN'] as number) ?? DEFAULT_MOMENTUM_PENALTY_MIN,
@@ -167,6 +169,7 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
     videoGeneralWeight: DEFAULT_VIDEO_GENERAL_WEIGHT,
     trendSignalWeight: DEFAULT_TREND_SIGNAL_WEIGHT,
     issueDedupThreshold: 0.55,
+    containmentThreshold: 0.60,
     diminishingK: DEFAULT_DIMINISHING_K,
     momentumWeight: DEFAULT_MOMENTUM_WEIGHT,
     momentumPenaltyMin: DEFAULT_MOMENTUM_PENALTY_MIN,
@@ -202,7 +205,7 @@ async function _aggregateIssues(pool: Pool): Promise<number> {
   const mergedGroups = await mergeViaTrendKeywords(pool, clusterGroups);
 
   // Step 3.5: Deduplicate issues by title similarity
-  const dedupedGroups = deduplicateIssuesByTitle(mergedGroups, cfg.issueDedupThreshold);
+  const dedupedGroups = deduplicateIssuesByTitle(mergedGroups, cfg.issueDedupThreshold, cfg.containmentThreshold);
 
   // Step 4: Filter and score (includes video)
   const scoredIssues = scoreAndFilter(dedupedGroups, cfg);
@@ -421,7 +424,7 @@ async function mergeViaTrendKeywords(
 
 // ─── Step 3.5: Deduplicate Issues by Title Similarity ───
 
-function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: number): IssueGroup[] {
+function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: number, containmentThreshold: number = 0.60): IssueGroup[] {
   if (groups.length <= 1) return [...groups];
 
   // 대표 포스트 추출
@@ -524,14 +527,25 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
         if (kwA.has(kw)) sharedKw++;
       }
 
-      // 5단계 신뢰도 기반 병합
+      // 6) Token containment ratio — 짧은 제목 토큰의 N%가 긴 제목에 포함되는지
+      const minSize = Math.min(wordSets[i].size, wordSets[j].size);
+      let wordIntersection = 0;
+      const [smaller, larger] = wordSets[i].size <= wordSets[j].size
+        ? [wordSets[i], wordSets[j]] : [wordSets[j], wordSets[i]];
+      for (const w of smaller) {
+        if (larger.has(w)) wordIntersection++;
+      }
+      const containment = minSize > 0 ? wordIntersection / minSize : 0;
+
+      // 6단계 신뢰도 기반 병합
       const highConf = bigramSim >= HIGH_CONFIDENCE_THRESHOLD;   // bigram 확실
       const wordHighConf = titleWordSim >= WORD_HIGH_CONF;       // word 의미적 확실
       const embHighConf = embSim >= EMB_HIGH_CONF;                 // 임베딩 의미적 확실
       const medConf = bestSim >= threshold && sharedKw >= 1;     // 유사 + 키워드 보강
       const kwOnly = sharedKw >= 3;                              // 키워드 3개↑ 공유
+      const contained = containment >= containmentThreshold && bestSim >= 0.35; // 포함도 높음 + 최소 유사도
 
-      if (highConf || wordHighConf || embHighConf || medConf || kwOnly) {
+      if (highConf || wordHighConf || embHighConf || medConf || kwOnly || contained) {
         union(i, j);
       }
     }

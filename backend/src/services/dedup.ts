@@ -43,11 +43,18 @@ export function koreanTokenize(text: string): Set<string> {
 
     let stem = word;
     // 가장 긴 매칭 파티클부터 제거 (1회만)
+    let stripped = false;
     for (const p of PARTICLES) {
       if (stem.length > p.length && stem.endsWith(p)) {
         stem = stem.slice(0, -p.length);
+        stripped = true;
         break;
       }
+    }
+
+    // 조사 제거로 1글자 됐으면 원본 복원 ("통과"→"통" 방지)
+    if (stem.length <= 1 && stripped) {
+      stem = word;
     }
 
     // 1글자 토큰, 불용어, 순수 숫자 제거

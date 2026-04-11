@@ -35,6 +35,7 @@ export const CONFIG_GROUPS: readonly ConfigGroup[] = [
       { key: 'COMMUNITY_WEIGHT', defaultValue: 0.6, min: 0.0, max: 5.0, step: 0.1, label: '커뮤니티 기본 가중치', description: '이슈 점수에서 커뮤니티 점수 기본 비중 (동적 조정 기준)', type: 'number' },
       { key: 'TREND_SIGNAL_WEIGHT', defaultValue: 0.4, min: 0.0, max: 5.0, step: 0.1, label: '트렌드 신호 가중치', description: '이슈 점수에서 트렌드 신호 비중', type: 'number' },
       { key: 'ISSUE_DEDUP_THRESHOLD', defaultValue: 0.55, min: 0.1, max: 1.0, step: 0.05, label: '이슈 중복제거 임계값', description: 'Jaccard 유사도 이상이면 같은 이슈로 병합', type: 'number' },
+      { key: 'CONTAINMENT_THRESHOLD', defaultValue: 0.60, min: 0.3, max: 0.9, step: 0.05, label: '토큰 포함도 임계값', description: '짧은 제목 토큰의 N% 이상이 긴 제목에 포함되면 병합 후보', type: 'number' },
       { key: 'DIMINISHING_K', defaultValue: 0.7, min: 0.1, max: 2.0, step: 0.1, label: '포스트 수 체감 기울기', description: '로그 체감 수익 K값. 클수록 추가 포스트 기여 감소', type: 'number' },
       { key: 'MOMENTUM_WEIGHT', defaultValue: 0.4, min: 0.0, max: 1.0, step: 0.05, label: '모멘텀 ln 계수', description: '이슈 활성도(가속도) 반영 강도', type: 'number' },
       { key: 'MOMENTUM_PENALTY_MIN', defaultValue: 0.7, min: 0.5, max: 1.0, step: 0.05, label: '비활성 이슈 최소 승수', description: '포스트 유입이 멈춘 이슈의 최소 점수 비율', type: 'number' },
