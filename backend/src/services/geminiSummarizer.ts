@@ -63,15 +63,16 @@ const SYSTEM_PROMPT = `당신은 한국 뉴스/커뮤니티/영상 트렌드를 
 제목을 우선적으로 참고하고, 본문 요약은 맥락 보충에 활용하세요.
 
 규칙:
-1. title: 여러 게시글 제목의 공통 핵심을 추출·압축한 구어체 제목 (25자 이내). 제목들의 핵심 키워드·인물·사건을 하나의 짧은 문구로 합침. 이모지 1-2개 포함.
-   예시: "메타, 인스타 유료 구독 시범 운영 🤳💸"
+1. title: 게시글 제목들의 공통 핵심을 추출·압축한 구어체 제목 (25자 이내). 핵심 키워드·인물·사건을 하나의 짧은 문구로 합침.
+   - 일반 주제: 이모지 1-2개 포함. 예: "메타, 인스타 유료 구독 시범 운영 🤳💸"
+   - ⚠️ 민감 주제 (사망·재난·사고·범죄·테러·전쟁·학대): 이모지 절대 금지. 예: "이태원 참사 1주기 추모 행사 열려"
 2. category: 사회/경제/정치/IT과학/연예/스포츠/생활/세계 중 1개
-3. summary: 3-4문장으로 육하원칙(누가/언제/어디서/무엇을/어떻게/왜) 요소를 빠짐없이 포함.
-   - 엄격히 ~요체 구어체 존댓말만 사용 (~요, ~인데요, ~라고, ~거래요, ~이에요)
-   - ~다 체 절대 금지 (~합니다, ~했다, ~이다 등 모두 금지)
-   - 구체적 수치/인명/기관명 포함
-   - 반드시 제공된 내용만 근거로 작성. 추측·의견·분석 금지.
-   예시: "메타가 인스타그램 유료 구독 서비스를 시범 운영하고 있어요. 다른 사람의 스토리를 몰래 볼 수 있는 기능에 이목이 쏠리고 있는데요. 구독료는 월 1~2달러 수준이라고."
+3. summary: 5-7문장으로 육하원칙(누가/언제/어디서/무엇을/어떻게/왜) 요소를 빠짐없이 포함.
+   - 모든 문장을 반드시 짧고 간결한 ~요체로 끝내세요: ~요, ~인데요, ~거래요, ~이에요, ~래요, ~네요, ~죠
+   - ❌ 절대 금지 어미: ~다, ~했다, ~이다, ~합니다, ~됩니다, ~입니다, ~한다, ~된다, ~라고 한다
+   - ❌→✅: "발표했다"→"발표했어요", "예정이다"→"예정이에요", "밝혔습니다"→"밝혔어요"
+   - 구체적 수치/인명/기관명 포함. 추측·의견·분석 금지.
+   예시: "메타가 인스타그램 유료 구독 서비스를 시범 운영하고 있어요. 다른 사람의 스토리를 몰래 볼 수 있는 기능이 화제인데요. 구독료는 월 1~2달러 수준이래요. 미국과 유럽에서 먼저 시작했고, 한국 도입 가능성도 거론되고 있어요. SNS 업계에서 유료 모델 경쟁이 치열해지고 있죠."
 4. quality_score: 뉴스 가치 평가 (1-10 정수). 사회적 파급력, 시의성, 공익성, 영향 범위를 종합 판단.
    - 10: 국가적 사건 (대형 재난, 정권 교체)
    - 7-9: 주요 이슈 (정책 변경, 대형 사건사고)
@@ -80,7 +81,9 @@ const SYSTEM_PROMPT = `당신은 한국 뉴스/커뮤니티/영상 트렌드를 
 5. keywords: 이 이슈의 핵심 검색 키워드 3-5개 (한국어, 명사 위주). SEO·검색용.
 6. sentiment: 이슈의 전반적 감성. "positive", "negative", "neutral" 중 1개.
 
-JSON만 출력: {"title": "...", "category": "...", "summary": "...", "quality_score": 7, "keywords": ["키워드1", "키워드2"], "sentiment": "neutral"}`;
+JSON만 출력: {"title": "...", "category": "...", "summary": "...", "quality_score": 7, "keywords": ["키워드1", "키워드2"], "sentiment": "neutral"}
+
+⚠️ 최종 확인: summary의 모든 문장이 반드시 ~요/~죠/~래요/~네요 등 요체로 끝나야 합니다. ~다/~니다 어미가 하나라도 있으면 실패입니다.`;
 
 // ─── Fallback Category ───
 
@@ -152,7 +155,7 @@ export async function summarizeIssue(
         contents: [{ role: 'user', parts: [{ text: `${SYSTEM_PROMPT}\n\n게시글:\n${postsText}` }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 500,
+          maxOutputTokens: 700,
           responseMimeType: 'application/json',
         },
       });
@@ -166,14 +169,28 @@ export async function summarizeIssue(
       if (!parsed.title || !parsed.category || !parsed.summary) return null;
 
       const validSentiments = new Set(['positive', 'negative', 'neutral']);
+      const qualityScore = typeof parsed.quality_score === 'number'
+        ? Math.max(1, Math.min(10, Math.round(parsed.quality_score))) : null;
+      const sentimentVal = validSentiments.has(parsed.sentiment ?? '') ? parsed.sentiment! : null;
+
+      // Strip emojis from sensitive-topic titles (high severity + negative sentiment)
+      let cleanTitle = parsed.title;
+      if ((qualityScore ?? 0) >= 8 && sentimentVal === 'negative') {
+        cleanTitle = parsed.title.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').trim();
+      }
+
+      // ~다체 drift detection for monitoring
+      if (/[^요죠네래][다니][.\s"}\,]/.test(parsed.summary)) {
+        console.warn(`[geminiSummarizer] ~다체 drift detected in summary`);
+      }
+
       const summary: IssueSummary = {
-        title: parsed.title,
+        title: cleanTitle,
         category: parsed.category,
         summary: parsed.summary,
-        qualityScore: typeof parsed.quality_score === 'number'
-          ? Math.max(1, Math.min(10, Math.round(parsed.quality_score))) : null,
+        qualityScore,
         keywords: Array.isArray(parsed.keywords) ? parsed.keywords.slice(0, 5) : [],
-        sentiment: validSentiments.has(parsed.sentiment ?? '') ? parsed.sentiment! : null,
+        sentiment: sentimentVal,
       };
 
       evictOldestIfFull();
