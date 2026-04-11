@@ -62,6 +62,7 @@ const API_KEY_REQUIREMENTS: Record<string, { key: keyof typeof config; label: st
   kcisa_cca_exhibition:  { key: 'kcisaExhibitionApiKey',  label: 'KCISA_EXHIBITION_API_KEY' },
   seoul_citydata:        { key: 'seoulOpenApiKey',        label: 'SEOUL_OPEN_API_KEY' },
   seoul_cultural_event:  { key: 'seoulOpenApiKey',        label: 'SEOUL_OPEN_API_KEY' },
+  bigkinds_issues:       { key: 'bigkindsApiKey',         label: 'BIGKINDS_API_KEY' },
 };
 
 let cachedScrapers: readonly ResolvedScraper[] | null = null;

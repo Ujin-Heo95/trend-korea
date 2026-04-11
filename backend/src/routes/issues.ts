@@ -24,7 +24,7 @@ type ChannelTag = 'news' | 'community' | 'portal' | 'sns';
 
 // Portal trend source keys (trend_keywords 테이블의 source_key)
 const PORTAL_SOURCES = new Set([
-  'google_trends', 'bigkinds_issues', 'wikipedia_ko',
+  'google_trends', 'wikipedia_ko',
 ]);
 
 // SNS trend source keys

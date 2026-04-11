@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { Pool } from 'pg';
-import { TrendSignalScraper } from './trend-base.js';
-import type { TrendKeywordInput } from './types.js';
+import { BaseScraper } from './base.js';
+import type { ScrapedPost } from './types.js';
 import { config } from '../config/index.js';
 
 const API_URL = 'https://api.odcloud.kr/api/15145668/v1/uddi:e72389aa-4f00-44db-b4c4-d2943131e9ea';
@@ -20,14 +20,12 @@ interface BigKindsResponse {
   readonly data: readonly BigKindsItem[];
 }
 
-export class BigKindsScraper extends TrendSignalScraper {
+export class BigKindsScraper extends BaseScraper {
   constructor(pool: Pool) {
     super(pool);
   }
 
-  protected override getSourceKey(): string { return 'bigkinds_issues'; }
-
-  async fetchTrendKeywords(): Promise<TrendKeywordInput[]> {
+  async fetch(): Promise<ScrapedPost[]> {
     if (!config.bigkindsApiKey) {
       throw new Error('BIGKINDS_API_KEY not configured');
     }
@@ -51,12 +49,15 @@ export class BigKindsScraper extends TrendSignalScraper {
     const items = data?.data ?? [];
     if (items.length === 0) return [];
 
-    return items.slice(0, 10).map((item): TrendKeywordInput => ({
-      keyword: item.제목,
+    return items.slice(0, 10).map((item): ScrapedPost => ({
       sourceKey: 'bigkinds_issues',
-      signalStrength: Math.min(item.건수 / 100, 1.0),
-      rankPosition: item.순위,
+      sourceName: '빅카인즈 오늘의 이슈',
+      title: item.제목,
+      url: `https://www.bigkinds.or.kr/v2/news/search.do?searchWord=${encodeURIComponent(item.제목)}`,
+      category: 'portal',
+      viewCount: item.건수,
       metadata: {
+        rank: item.순위,
         articleCount: item.건수,
         period: item.시기,
         dataDate: item.날짜,
