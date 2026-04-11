@@ -188,23 +188,18 @@ function validateAndBuild(parsed: RawParsed): IssueSummary | null {
   };
 }
 
-// ─── Single Issue API (legacy, used by external callers) ───
+// ─── Single Issue Summarize ───
 
-export async function summarizeIssue(
+async function summarizeSingleIssue(
   posts: readonly PostForSummary[],
-  clusterIds: readonly number[],
-  standalonePostIds: readonly number[],
 ): Promise<IssueSummary | null> {
-  const cacheKey = makeCacheKey(clusterIds, standalonePostIds);
-  const cached = summaryCache.get(cacheKey);
-  if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
-    return cached.summary;
-  }
-
   const client = getClient();
-  if (!client) { console.warn('[geminiSummarizer] no API key — skipping'); return null; }
+  if (!client) return null;
 
-  if (!checkQuota('gemini', GEMINI_DAILY_QUOTA)) { console.warn('[geminiSummarizer] quota exhausted — skipping'); return null; }
+  if (!checkQuota('gemini', GEMINI_DAILY_QUOTA)) {
+    console.warn('[geminiSummarizer] quota exhausted — skipping');
+    return null;
+  }
   incrementQuota('gemini');
 
   const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
@@ -231,8 +226,6 @@ export async function summarizeIssue(
         return null;
       }
 
-      evictOldestIfFull();
-      summaryCache.set(cacheKey, { summary, cachedAt: Date.now() });
       return summary;
     } catch (err) {
       console.warn(`[geminiSummarizer] attempt ${attempt + 1} failed:`, (err as Error).message);
@@ -240,94 +233,6 @@ export async function summarizeIssue(
     }
   }
   return null;
-}
-
-// ─── Batch Prompt ───
-
-const SYSTEM_PROMPT_BATCH = SYSTEM_PROMPT
-  .replace('주어진 게시글 제목과 본문 요약을 분석해서 이 이슈의 핵심을 정리하세요.',
-    '아래에 여러 이슈가 번호로 구분되어 있습니다. 각 이슈를 독립적으로 분석하세요.')
-  .replace(
-    /JSON만 출력:.*$/m,
-    `JSON 배열로 출력. 이슈 번호 순서대로 배열 요소를 만드세요:\n[{"title": "...", "category": "...", "summary": "...", "quality_score": 7, "keywords": ["키워드1"], "sentiment": "neutral"}, ...]`,
-  );
-
-const BATCH_SIZE = 5;
-const BATCH_MAX_OUTPUT_TOKENS = 7000;
-
-function buildBatchPrompt(items: ReadonlyArray<{ posts: readonly PostForSummary[] }>): string {
-  const issueBlocks = items.map((item, i) =>
-    `=== 이슈 ${i + 1} ===\n${formatPostsForPrompt(item.posts)}`,
-  ).join('\n\n');
-
-  return `${SYSTEM_PROMPT_BATCH}\n\n${issueBlocks}`;
-}
-
-function parseBatchResponse(text: string, expectedCount: number): ReadonlyArray<IssueSummary | null> {
-  // Tier 1: parse as JSON array
-  try {
-    const raw = JSON.parse(text);
-    const arr = Array.isArray(raw) ? raw : [raw];
-    return arr.slice(0, expectedCount).map((item: RawParsed) => validateAndBuild(item));
-  } catch { /* fall through */ }
-
-  // Tier 2: extract individual JSON objects via regex
-  try {
-    const objectPattern = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
-    const matches = text.match(objectPattern);
-    if (matches && matches.length > 0) {
-      const results: Array<IssueSummary | null> = [];
-      for (const m of matches.slice(0, expectedCount)) {
-        try {
-          const parsed = JSON.parse(m) as RawParsed;
-          results.push(validateAndBuild(parsed));
-        } catch { results.push(null); }
-      }
-      return results;
-    }
-  } catch { /* fall through */ }
-
-  // Tier 3: complete failure
-  return Array.from({ length: expectedCount }, () => null);
-}
-
-/** Batch summarize multiple issues in a single Gemini call */
-async function summarizeIssueBatch(
-  batchItems: ReadonlyArray<{ posts: readonly PostForSummary[] }>,
-): Promise<ReadonlyArray<IssueSummary | null>> {
-  const client = getClient();
-  if (!client) return batchItems.map(() => null);
-
-  if (!checkQuota('gemini', GEMINI_DAILY_QUOTA)) {
-    console.warn('[geminiSummarizer] quota exhausted — skipping batch');
-    return batchItems.map(() => null);
-  }
-  incrementQuota('gemini');
-
-  const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
-  const prompt = buildBatchPrompt(batchItems);
-
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: BATCH_MAX_OUTPUT_TOKENS,
-          responseMimeType: 'application/json',
-        },
-      });
-
-      const text = result.response.text();
-      const summaries = parseBatchResponse(text, batchItems.length);
-      console.log(`[geminiSummarizer] batch ${batchItems.length} issues → ${summaries.filter(Boolean).length} parsed`);
-      return summaries;
-    } catch (err) {
-      console.warn(`[geminiSummarizer] batch attempt ${attempt + 1} failed:`, (err as Error).message);
-      if (attempt === 0) await new Promise(r => setTimeout(r, 2000));
-    }
-  }
-  return batchItems.map(() => null);
 }
 
 // ─── Row-level helpers ───
@@ -412,17 +317,9 @@ function makeFallbackSummary(posts: readonly PostForSummary[], rowId: number): I
   };
 }
 
-// ─── Batch Pipeline ───
+// ─── Pipeline ───
 
-function chunk<T>(arr: readonly T[], size: number): ReadonlyArray<readonly T[]> {
-  const result: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    result.push(arr.slice(i, i + size));
-  }
-  return result;
-}
-
-/** Batch summarize top issues and update DB */
+/** Summarize top issues individually and update DB */
 export async function summarizeAndUpdateIssues(
   pool: import('pg').Pool,
   maxIssues = 30,
@@ -476,26 +373,19 @@ export async function summarizeAndUpdateIssues(
     return updated;
   }
 
-  // Phase 3: Batch Gemini calls (chunks of BATCH_SIZE, pLimit(2))
-  const batches = chunk(validItems, BATCH_SIZE);
-  const batchLimit = pLimit(2);
+  // Phase 3: Individual Gemini calls (pLimit(3) — 교차 오염 방지)
+  const geminiLimit = pLimit(3);
 
-  await Promise.all(batches.map(batch => batchLimit(async () => {
-    const batchInput = batch.map(item => ({ posts: item.posts }));
-    const summaries = await summarizeIssueBatch(batchInput);
+  await Promise.all(validItems.map(({ row, posts }) => geminiLimit(async () => {
+    const summary = await summarizeSingleIssue(posts) ?? makeFallbackSummary(posts, row.id);
 
-    for (let i = 0; i < batch.length; i++) {
-      const { row, posts } = batch[i];
-      const summary = summaries[i] ?? makeFallbackSummary(posts, row.id);
-
-      await updateIssueInDb(pool, row.id, summary);
-      cacheSummary(row, summary);
-      updated++;
-    }
+    await updateIssueInDb(pool, row.id, summary);
+    cacheSummary(row, summary);
+    updated++;
   })));
 
   if (updated > 0) {
-    console.log(`[geminiSummarizer] updated ${updated} issue summaries (${batches.length} batch calls)`);
+    console.log(`[geminiSummarizer] updated ${updated} issue summaries (individual calls)`);
   }
   return updated;
 }
