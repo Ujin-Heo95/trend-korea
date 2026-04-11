@@ -45,6 +45,8 @@ export const SnsRankingTable: React.FC<Props> = ({ posts }) => {
               <img
                 src={post.thumbnail}
                 alt={post.title}
+                width={64}
+                height={64}
                 className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
                 loading="lazy"
               />

@@ -4,6 +4,7 @@ import { getQuotaStatus } from '../services/apiQuota.js';
 import { isAdminRequest } from '../middleware/adminAuth.js';
 import { pool, batchPool } from '../db/client.js';
 import { getEmbeddingCacheSize } from '../services/embedding.js';
+import { getFeatureFlags } from '../services/featureFlags.js';
 
 interface ScraperRunRow {
   source_key: string;
@@ -100,6 +101,7 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
         };
       })(),
       embedding_cache_size: getEmbeddingCacheSize(),
+      feature_flags: getFeatureFlags(),
       uptime_seconds: Math.round(process.uptime()),
     });
   };

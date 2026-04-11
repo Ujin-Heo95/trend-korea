@@ -143,6 +143,8 @@ const IssueCard: React.FC<{ issue: IssueRanking }> = React.memo(({ issue }) => {
                 <img
                   src={optimizedImage(issue.thumbnail, 192)}
                   alt=""
+                  width={96}
+                  height={96}
                   className="w-full h-full object-cover"
                   loading="lazy"
                 />

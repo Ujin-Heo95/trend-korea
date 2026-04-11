@@ -6,6 +6,10 @@ primary_region = "nrt"
   [build.args]
     BUILD_FRONTEND = "false"
 
+[processes]
+  web = "node dist/server.js"
+  worker = "node dist/worker.js"
+
 [env]
   NODE_ENV = "production"
   SERVE_FRONTEND = "false"
@@ -17,6 +21,7 @@ primary_region = "nrt"
   auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
+  processes = ["web"]
 
 [[http_service.checks]]
   path = "/health"

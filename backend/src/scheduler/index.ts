@@ -15,6 +15,7 @@ import { notifyBackupResult } from '../services/discord.js';
 import { generateEmbeddingsForRecentPosts } from '../services/embedding.js';
 import { batchPool, logPoolStats } from '../db/client.js';
 import { runPipeline } from './pipeline.js';
+import { loadFeatureFlags } from '../services/featureFlags.js';
 
 function captureError(err: unknown): void {
   console.error(err);
@@ -66,11 +67,16 @@ function startCronJobs(): void {
       return;
     }
     logPoolStats('pipeline-start');
+    const flags = await loadFeatureFlags();
     await runPipeline('issue-pipeline', [
       { name: 'calculateScores', run: () => calculateScores(batchPool), critical: true },
-      { name: 'generateEmbeddings', run: () => generateEmbeddingsForRecentPosts(batchPool) },
+      ...(flags.embeddings_enabled
+        ? [{ name: 'generateEmbeddings', run: () => generateEmbeddingsForRecentPosts(batchPool) }]
+        : []),
       { name: 'aggregateIssues', run: () => aggregateIssues(batchPool), critical: true },
-      { name: 'summarizeIssues', run: () => summarizeAndUpdateIssues(batchPool) },
+      ...(flags.gemini_summary_enabled
+        ? [{ name: 'summarizeIssues', run: () => summarizeAndUpdateIssues(batchPool) }]
+        : []),
     ]);
     clearIssuesCache();
     logPoolStats('pipeline-end');
@@ -79,6 +85,8 @@ function startCronJobs(): void {
   // 교차검증: 15분 주기 (quiet hours 제외)
   cron.schedule('3,18,33,48 * * * *', async () => {
     if (isQuietHours()) return;
+    const flags = await loadFeatureFlags();
+    if (!flags.cross_validation_enabled) return;
     await crossValidateIssues(batchPool).catch(captureError);
   });
   console.log('[scheduler] cross-validation: every 15 min (offset +3)');
