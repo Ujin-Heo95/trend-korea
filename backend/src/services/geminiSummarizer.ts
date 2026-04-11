@@ -165,7 +165,8 @@ export async function summarizeIssue(
       });
 
       const text = result.response.text();
-      const parsed = JSON.parse(text) as {
+      const raw = JSON.parse(text);
+      const parsed = (Array.isArray(raw) ? raw[0] : raw) as {
         title?: string; category?: string; summary?: string;
         quality_score?: number; keywords?: string[]; sentiment?: string;
       };
