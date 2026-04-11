@@ -790,7 +790,7 @@ ${pairsText}
 JSON 배열만 출력: ["Y", "N", ...]`;
 
   try {
-    const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+    const model = client.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: {

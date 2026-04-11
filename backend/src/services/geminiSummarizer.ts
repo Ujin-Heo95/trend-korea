@@ -202,7 +202,7 @@ async function summarizeSingleIssue(
   }
   incrementQuota('gemini');
 
-  const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+  const model = client.getGenerativeModel({ model: 'gemini-2.5-flash' });
   const postsText = formatPostsForPrompt(posts);
 
   for (let attempt = 0; attempt < 2; attempt++) {
