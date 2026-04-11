@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:ht="https://trends.google.com/trending/rss">
+  <channel>
+    <title>Trending Searches - South Korea</title>
+    <item>
+      <title>손흥민</title>
+      <ht:approx_traffic>200,000+</ht:approx_traffic>
+      <ht:picture>https://example.com/son.jpg</ht:picture>
+      <ht:news_item>
+        <ht:news_item_title>손흥민, 시즌 15호골 폭발</ht:news_item_title>
+        <ht:news_item_url>https://news.example.com/son</ht:news_item_url>
+        <ht:news_item_source>스포츠조선</ht:news_item_source>
+      </ht:news_item>
+    </item>
+    <item>
+      <title>삼성전자 실적</title>
+      <ht:approx_traffic>100,000+</ht:approx_traffic>
+      <ht:picture>https://example.com/samsung.jpg</ht:picture>
+      <ht:news_item>
+        <ht:news_item_title>삼성전자 1분기 실적 발표</ht:news_item_title>
+        <ht:news_item_url>https://news.example.com/samsung</ht:news_item_url>
+        <ht:news_item_source>한국경제</ht:news_item_source>
+      </ht:news_item>
+    </item>
+  </channel>
+</rss>

@@ -1,11 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import axios from 'axios';
 import { GoogleTrendsScraper } from '../../src/scrapers/google-trends.js';
-import trendsFixture from '../fixtures/google-trends-response.json';
 
 vi.mock('axios');
 
 const mockPool = { query: vi.fn() } as any;
+
+const rssFixture = readFileSync(
+  resolve(__dirname, '../fixtures/google-trends-response.xml'),
+  'utf-8',
+);
 
 describe('GoogleTrendsScraper', () => {
   beforeEach(() => {
@@ -13,7 +19,7 @@ describe('GoogleTrendsScraper', () => {
   });
 
   it('should fetch daily trending searches for Korea as TrendKeywordInput[]', async () => {
-    vi.mocked(axios.get).mockResolvedValueOnce({ data: trendsFixture });
+    vi.mocked(axios.get).mockResolvedValueOnce({ data: rssFixture });
 
     const scraper = new GoogleTrendsScraper(mockPool);
     const keywords = await scraper.fetchTrendKeywords();
@@ -26,7 +32,7 @@ describe('GoogleTrendsScraper', () => {
   });
 
   it('should include signalStrength and rankPosition', async () => {
-    vi.mocked(axios.get).mockResolvedValueOnce({ data: trendsFixture });
+    vi.mocked(axios.get).mockResolvedValueOnce({ data: rssFixture });
 
     const scraper = new GoogleTrendsScraper(mockPool);
     const keywords = await scraper.fetchTrendKeywords();
@@ -39,7 +45,7 @@ describe('GoogleTrendsScraper', () => {
   });
 
   it('should include articles in metadata', async () => {
-    vi.mocked(axios.get).mockResolvedValueOnce({ data: trendsFixture });
+    vi.mocked(axios.get).mockResolvedValueOnce({ data: rssFixture });
 
     const scraper = new GoogleTrendsScraper(mockPool);
     const keywords = await scraper.fetchTrendKeywords();
@@ -52,13 +58,19 @@ describe('GoogleTrendsScraper', () => {
   });
 
   it('should cap at 30 items', async () => {
-    const manyItems = structuredClone(trendsFixture);
-    const template = manyItems.default.trendingSearchesDays[0].trendingSearches[0];
-    manyItems.default.trendingSearchesDays[0].trendingSearches = Array.from(
-      { length: 40 },
-      (_, i) => ({ ...template, title: { query: `trend-${i}` } }),
-    );
-    vi.mocked(axios.get).mockResolvedValueOnce({ data: manyItems });
+    // 40개 <item>을 가진 RSS 생성
+    const items = Array.from({ length: 40 }, (_, i) =>
+      `<item>
+        <title>trend-${i}</title>
+        <ht:approx_traffic>10,000+</ht:approx_traffic>
+      </item>`
+    ).join('\n');
+    const bigRss = `<?xml version="1.0" encoding="UTF-8"?>
+      <rss version="2.0" xmlns:ht="https://trends.google.com/trending/rss">
+        <channel>${items}</channel>
+      </rss>`;
+
+    vi.mocked(axios.get).mockResolvedValueOnce({ data: bigRss });
 
     const scraper = new GoogleTrendsScraper(mockPool);
     const keywords = await scraper.fetchTrendKeywords();
@@ -66,12 +78,10 @@ describe('GoogleTrendsScraper', () => {
     expect(keywords.length).toBe(30);
   });
 
-  it('should return empty array on error', async () => {
+  it('should propagate error on fetch failure', async () => {
     vi.mocked(axios.get).mockRejectedValueOnce(new Error('timeout'));
 
     const scraper = new GoogleTrendsScraper(mockPool);
-    const keywords = await scraper.fetchTrendKeywords();
-
-    expect(keywords).toEqual([]);
+    await expect(scraper.fetchTrendKeywords()).rejects.toThrow('timeout');
   });
 });
