@@ -55,6 +55,11 @@ const migrations = [
   '046_trend_keywords_rank.sql',
   '047_perf_indexes_v2.sql',
   '048_scraper_circuit_breakers.sql',
+  '049_cluster_created_index.sql',
+  '050_issue_ai_fields.sql',
+  '051_post_embeddings.sql',
+  '052_materialized_issues.sql',
+  '053_stable_id_unique.sql',
 ];
 
 try {
