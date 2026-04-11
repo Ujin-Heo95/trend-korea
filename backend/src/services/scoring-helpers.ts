@@ -16,6 +16,7 @@ export interface ScoreFactors {
   trendSignalBonus: number;
   subcategoryNorm: number;
   breakingBoost: number;
+  freshnessBonus: number;
 }
 
 export interface SourceStats {
@@ -45,7 +46,8 @@ export function computeScore(factors: ScoreFactors): number {
     * factors.clusterBonus
     * factors.trendSignalBonus
     * factors.subcategoryNorm
-    * factors.breakingBoost;
+    * factors.breakingBoost
+    * factors.freshnessBonus;
 }
 
 /** Backward-compatible overload for tests / simple usage */
@@ -96,7 +98,13 @@ export async function calculateSubcategoryPercentiles(pool: Pool): Promise<Map<n
 
 // ─── News: Breaking News Detection ───
 
+/** T1 통신사 소스 (단독 속보 감지 대상) */
+const T1_BREAKING_SOURCES = new Set(['yna', 'newsis', 'ytn']);
+/** 속보 키워드 패턴 */
+const BREAKING_TITLE_RE = /속보|긴급|flash|breaking/i;
+
 export async function detectBreakingNews(pool: Pool): Promise<Map<number, number>> {
+  // 경로 1: 기존 다중 소스 속보 감지 (3개+ 소스, 30분 이내)
   const { rows } = await pool.query<{
     canonical_post_id: number;
     first_at: Date;
@@ -121,6 +129,33 @@ export async function detectBreakingNews(pool: Pool): Promise<Map<number, number
     const boost = 1.0 + 2.0 * Math.exp(-LN2 * minutesAge / 30);
     map.set(r.canonical_post_id, Math.min(boost, 3.0));
   }
+
+  // 경로 2: T1 통신사 단독 속보 (제목에 "속보/긴급" 포함)
+  const { rows: t1Rows } = await pool.query<{
+    id: number;
+    source_key: string;
+    title: string;
+    scraped_at: Date;
+  }>(`
+    SELECT p.id, p.source_key, p.title, p.scraped_at
+    FROM posts p
+    WHERE p.source_key = ANY($1)
+      AND p.scraped_at > NOW() - INTERVAL '2 hours'
+      AND p.category IN ('news', 'portal')
+  `, [[...T1_BREAKING_SOURCES]]);
+
+  for (const r of t1Rows) {
+    if (!BREAKING_TITLE_RE.test(r.title)) continue;
+    // 이미 다중 소스 속보로 더 높은 부스트를 받고 있으면 스킵
+    if ((map.get(r.id) ?? 0) >= 2.0) continue;
+
+    const minutesAge = (now - new Date(r.scraped_at).getTime()) / 60_000;
+    // 보수적 부스트: 최대 2.0 (다중 소스 3.0보다 낮음)
+    const boost = 1.0 + 1.0 * Math.exp(-LN2 * minutesAge / 30);
+    const existing = map.get(r.id) ?? 0;
+    map.set(r.id, Math.max(existing, Math.min(boost, 2.0)));
+  }
+
   return map;
 }
 
@@ -412,36 +447,52 @@ export async function calculateClusterBonusMap(pool: Pool): Promise<Map<number, 
 const PORTAL_RANK_MAX = 30;
 const PORTAL_RANK_DECAY_HOURS = 6;
 
-/** 네이버 뉴스 랭킹 순위 → 같은 클러스터 뉴스에 [0, 10] 점수 전파 */
+/** 포털 소스별 점수 승수 및 클러스터 전파율 */
+const PORTAL_SOURCE_CONFIG: Record<string, { scoreMultiplier: number; propagationRate: number }> = {
+  naver_news_ranking: { scoreMultiplier: 1.0, propagationRate: 0.8 },
+  nate_news:          { scoreMultiplier: 0.6, propagationRate: 0.5 },
+  zum_news:           { scoreMultiplier: 0.5, propagationRate: 0.5 },
+};
+const PORTAL_SOURCE_KEYS = Object.keys(PORTAL_SOURCE_CONFIG);
+
+/** 네이버/네이트/ZUM 뉴스 랭킹 순위 → 같은 클러스터 뉴스에 [0, 10] 점수 전파 */
 export async function calculatePortalRankMap(pool: Pool): Promise<Map<number, number>> {
-  // 1) naver_news_ranking 포스트에서 rank 추출
+  // 1) 포털 소스들에서 rank 추출
   const { rows: portalRows } = await pool.query<{
     id: number;
+    source_key: string;
     rank: number;
     scraped_at: Date;
   }>(`
     SELECT p.id,
+           p.source_key,
            (p.metadata->>'rank')::int AS rank,
            p.scraped_at
     FROM posts p
-    WHERE p.source_key = 'naver_news_ranking'
+    WHERE p.source_key = ANY($1)
       AND p.scraped_at > NOW() - INTERVAL '24 hours'
       AND p.metadata->>'rank' IS NOT NULL
-  `);
+  `, [PORTAL_SOURCE_KEYS]);
 
   if (portalRows.length === 0) return new Map();
 
   const now = Date.now();
   const portalScoreById = new Map<number, number>();
+  const portalSourceById = new Map<number, string>();
 
   for (const r of portalRows) {
     const rank = Math.min(Math.max(r.rank, 1), PORTAL_RANK_MAX);
-    // rank 1 → 10, rank 30 → ~0.69 (선형 보간)
     const rawScore = 10.0 * (1.0 - (rank - 1) / PORTAL_RANK_MAX);
-    // 수집 시점으로부터 시간감쇠
     const hoursAge = (now - new Date(r.scraped_at).getTime()) / 3_600_000;
     const decayed = rawScore * Math.exp(-LN2 * hoursAge / PORTAL_RANK_DECAY_HOURS);
-    portalScoreById.set(r.id, decayed);
+    // 소스별 승수 적용 (naver=1.0, nate=0.6, zum=0.5)
+    const multiplier = PORTAL_SOURCE_CONFIG[r.source_key]?.scoreMultiplier ?? 0.5;
+    const score = decayed * multiplier;
+    const existing = portalScoreById.get(r.id) ?? 0;
+    if (score > existing) {
+      portalScoreById.set(r.id, score);
+      portalSourceById.set(r.id, r.source_key);
+    }
   }
 
   // 2) 클러스터를 통해 같은 이슈의 다른 뉴스에 전파
@@ -465,8 +516,10 @@ export async function calculatePortalRankMap(pool: Pool): Promise<Map<number, nu
   const result = new Map(portalScoreById);
   for (const r of clusterRows) {
     const portalScore = portalScoreById.get(r.portal_post_id) ?? 0;
-    // 클러스터 멤버에게는 포털 점수의 80% 전파 (원본보다 약간 낮게)
-    const propagated = portalScore * 0.8;
+    const sourceKey = portalSourceById.get(r.portal_post_id) ?? 'naver_news_ranking';
+    // 소스별 차등 전파율 (naver=0.8, nate/zum=0.5)
+    const propagationRate = PORTAL_SOURCE_CONFIG[sourceKey]?.propagationRate ?? 0.5;
+    const propagated = portalScore * propagationRate;
     const existing = result.get(r.member_post_id) ?? 0;
     result.set(r.member_post_id, Math.max(existing, propagated));
   }
@@ -544,4 +597,57 @@ export async function calculateCategoryBaselines(pool: Pool): Promise<Map<string
     map.set(r.category, r.median_engagement);
   }
   return map;
+}
+
+// ─── News: Engagement Signal Map (참여도 신호) ───
+
+/** 뉴스 채널 중 engagement > 0인 포스트의 정규화 점수를 [0, 10]으로 매핑 */
+export async function calculateNewsEngagementMap(pool: Pool): Promise<Map<number, number>> {
+  // 뉴스 채널의 engagement 통계 (24시간, view_count > 0)
+  const { rows: statsRows } = await pool.query<{
+    mean_log: number;
+    stddev_log: number;
+  }>(`
+    SELECT AVG(ln(1 + view_count + comment_count * 3 + like_count * 2))::float AS mean_log,
+           GREATEST(STDDEV(ln(1 + view_count + comment_count * 3 + like_count * 2)), 0.1)::float AS stddev_log
+    FROM posts
+    WHERE scraped_at > NOW() - INTERVAL '24 hours'
+      AND category IN ('news', 'portal', 'newsletter')
+      AND (view_count > 0 OR comment_count > 0 OR like_count > 0)
+  `);
+
+  if (statsRows.length === 0 || !statsRows[0]) return new Map();
+  const { mean_log, stddev_log } = statsRows[0];
+
+  // engagement > 0인 뉴스 포스트의 z-score → [0, 10] 매핑
+  const { rows } = await pool.query<{
+    id: number;
+    log_eng: number;
+  }>(`
+    SELECT p.id,
+           ln(1 + p.view_count + p.comment_count * 3 + p.like_count * 2)::float AS log_eng
+    FROM posts p
+    WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
+      AND p.category IN ('news', 'portal', 'newsletter')
+      AND (p.view_count > 0 OR p.comment_count > 0 OR p.like_count > 0)
+  `);
+
+  const map = new Map<number, number>();
+  for (const r of rows) {
+    // z-score → [0, 10]: z=0 → 5, z=+2 → 10, z=-2 → 0
+    const zScore = (r.log_eng - mean_log) / stddev_log;
+    const normalized = Math.min(Math.max((zScore + 2) * 2.5, 0), 10);
+    map.set(r.id, normalized);
+  }
+  return map;
+}
+
+// ─── News: Freshness Bonus (신선도 보너스) ───
+
+/** 발행 후 경과 시간에 따른 freshness bonus (뉴스 전용) [1.0, 1.3] */
+export function freshnessBonus(ageMinutes: number): number {
+  if (ageMinutes <= 30) return 1.3;
+  if (ageMinutes <= 60) return 1.15;
+  if (ageMinutes <= 120) return 1.05;
+  return 1.0;
 }

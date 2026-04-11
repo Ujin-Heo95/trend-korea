@@ -83,6 +83,27 @@ export function getCategoryWeight(category: string | null): number {
   return category ? (CATEGORY_WEIGHTS[category] ?? DEFAULT_CATEGORY_WEIGHT) : DEFAULT_CATEGORY_WEIGHT;
 }
 
+// ─── News-Specific Decay ───
+// 소스별 차등 반감기: 통신사(빠름) → 방송(표준) → 일간지(느림) → 경제지(더 느림)
+
+const NEWS_DECAY_HALF_LIFE: Record<string, number> = {
+  // 속보형 통신사 (빠른 순환)
+  yna: 180, newsis: 180, naver_news_ranking: 180, ytn: 200,
+  // 방송사 (표준)
+  sbs: 240, kbs: 240, mbc: 240, jtbc: 240,
+  // 종합일간지 (느린 순환)
+  chosun: 300, joins: 300, donga: 300, khan: 300, hani: 300,
+  // 경제지 (더 긴 수명)
+  mk: 320, hankyung: 320, etnews: 320,
+  // 포털 집계 (빠른 갱신)
+  daum_news: 200, nate_news: 200, zum_news: 200, google_news_kr: 200,
+};
+const DEFAULT_NEWS_DECAY = 240;
+
+export function getNewsHalfLife(sourceKey: string): number {
+  return NEWS_DECAY_HALF_LIFE[sourceKey] ?? DEFAULT_NEWS_DECAY;
+}
+
 // ─── Community-Specific Weights ───
 
 const COMMUNITY_SOURCE_WEIGHTS: Record<string, number> = {
@@ -139,18 +160,21 @@ export interface PreloadedWeights {
   readonly defaultCommunityDecay: number;
   readonly channelHalfLives: Record<string, number>;
   readonly defaultHalfLife: number;
+  readonly newsDecayHalfLives: Record<string, number>;
+  readonly defaultNewsDecay: number;
 }
 
 /** 배치 시작 시 DB에서 설정을 한 번만 로드 (Pre-fetch 패턴) */
 export async function preloadWeights(): Promise<PreloadedWeights> {
   const config = getScoringConfig();
 
-  const [srcRec, catRec, commSrcRec, commDecayRec, chHalfRec] = await Promise.all([
+  const [srcRec, catRec, commSrcRec, commDecayRec, chHalfRec, newsDecayRec] = await Promise.all([
     config.getRecord('source_weights', 'values'),
     config.getRecord('category_weights', 'values'),
     config.getRecord('community_source_weights', 'values'),
     config.getRecord('community_decay_half_lives', 'values'),
     config.getRecord('channel_half_lives', 'values'),
+    config.getRecord('news_decay_half_lives', 'values'),
   ]);
 
   return {
@@ -164,6 +188,8 @@ export async function preloadWeights(): Promise<PreloadedWeights> {
     defaultCommunityDecay: commDecayRec['DEFAULT'] ?? DEFAULT_COMMUNITY_DECAY,
     channelHalfLives: chHalfRec,
     defaultHalfLife: chHalfRec['DEFAULT'] ?? DEFAULT_HALF_LIFE_MINUTES,
+    newsDecayHalfLives: newsDecayRec,
+    defaultNewsDecay: newsDecayRec['DEFAULT'] ?? DEFAULT_NEWS_DECAY,
   };
 }
 
@@ -190,4 +216,9 @@ export function getCommunityHalfLifeFrom(w: PreloadedWeights, sourceKey: string)
 /** Pre-loaded 가중치에서 채널 반감기 조회 */
 export function getHalfLifeFrom(w: PreloadedWeights, channel: Channel): number {
   return w.channelHalfLives[channel] ?? w.defaultHalfLife;
+}
+
+/** Pre-loaded 가중치에서 뉴스 소스별 반감기 조회 */
+export function getNewsHalfLifeFrom(w: PreloadedWeights, sourceKey: string): number {
+  return w.newsDecayHalfLives[sourceKey] ?? w.defaultNewsDecay;
 }

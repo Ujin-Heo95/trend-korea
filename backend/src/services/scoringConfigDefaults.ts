@@ -206,11 +206,35 @@ export const CONFIG_GROUPS: readonly ConfigGroup[] = [
   {
     groupName: 'news_signal_weights',
     label: '뉴스 시그널 가중치',
-    description: '뉴스 탭 인기순 정렬에 사용되는 가산 혼합 가중치 (portalRank × W1 + clusterImportance × W2 + trendAlignment × W3)',
+    description: '뉴스 탭 인기순 정렬에 사용되는 4항 가산 혼합 가중치 (v6)',
     fields: [
-      { key: 'portal_weight', defaultValue: 0.4, min: 0.0, max: 1.0, step: 0.05, label: '포털 랭킹 비중', description: '네이버 뉴스 랭킹 순위의 비중', type: 'number' },
-      { key: 'cluster_weight', defaultValue: 0.35, min: 0.0, max: 1.0, step: 0.05, label: '클러스터 중요도 비중', description: '복수 매체 보도(매체 수+티어 다양성)의 비중', type: 'number' },
-      { key: 'trend_weight', defaultValue: 0.25, min: 0.0, max: 1.0, step: 0.05, label: '트렌드 매칭 비중', description: '외부 트렌드 키워드 매칭 강도의 비중', type: 'number' },
+      { key: 'portal_weight', defaultValue: 0.35, min: 0.0, max: 1.0, step: 0.05, label: '포털 랭킹 비중', description: '네이버/네이트/ZUM 뉴스 랭킹 순위의 비중', type: 'number' },
+      { key: 'cluster_weight', defaultValue: 0.30, min: 0.0, max: 1.0, step: 0.05, label: '클러스터 중요도 비중', description: '복수 매체 보도(매체 수+티어 다양성)의 비중', type: 'number' },
+      { key: 'trend_weight', defaultValue: 0.20, min: 0.0, max: 1.0, step: 0.05, label: '트렌드 매칭 비중', description: '외부 트렌드 키워드 매칭 강도의 비중', type: 'number' },
+      { key: 'engagement_weight', defaultValue: 0.15, min: 0.0, max: 1.0, step: 0.05, label: '참여도 신호 비중', description: '뉴스 소스 중 실제 engagement 데이터가 있는 포스트의 참여도 신호 비중', type: 'number' },
+    ],
+  },
+
+  // ─── 8-1. 뉴스 소스별 반감기 ───
+  {
+    groupName: 'news_decay_half_lives',
+    label: '뉴스 반감기',
+    description: '뉴스 소스별 점수 감쇠 반감기 (분). 통신사(빠름) → 방송(표준) → 일간지/경제지(느림)',
+    fields: [
+      {
+        key: 'values',
+        defaultValue: {
+          yna: 180, newsis: 180, naver_news_ranking: 180, ytn: 200,
+          sbs: 240, kbs: 240, mbc: 240, jtbc: 240,
+          chosun: 300, joins: 300, donga: 300, khan: 300, hani: 300,
+          mk: 320, hankyung: 320, etnews: 320,
+          daum_news: 200, nate_news: 200, zum_news: 200, google_news_kr: 200,
+          DEFAULT: 240,
+        },
+        min: 60, max: 1440, step: 10,
+        label: '뉴스 소스별 반감기 (분)',
+        type: 'record',
+      },
     ],
   },
 

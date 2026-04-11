@@ -1,6 +1,6 @@
 # 콘텐츠 랭킹 시스템
 
-> 2026-04-11 v5 — 뉴스 탭 가산 혼합 signalScore 재설계. v4 대비 engagement/velocity 제거, portalRank+clusterImportance+trendAlignment 가산 혼합으로 대체.
+> 2026-04-11 v6 — 뉴스 스코어링 정교화. v5 대비 4항 가산 혼합(+engagementSignal), 소스별 뉴스 decay, 포털 랭킹 확장(nate/zum), T1 단독 속보 감지, freshnessBonus 추가.
 
 ---
 
@@ -21,27 +21,34 @@ score = normalizedEngagement × adaptiveDecay × communitySourceWeight
       × volumeDampening
 ```
 
-### 뉴스 탭 (v5 — 가산 혼합 signalScore)
+### 뉴스 탭 (v6 — 4항 가산 혼합 signalScore)
 
 ```
 signalScore = max(
-  portalRank × 0.4 + clusterImportance × 0.35 + trendAlignment × 0.25,
+  portalRank × 0.35 + clusterImportance × 0.30
+  + trendAlignment × 0.20 + engagementSignal × 0.15,
   1.0
 )
 
 score = signalScore × decay × sourceWeight × subcategoryNorm
-      × breakingBoost × volumeDampening
+      × breakingBoost × freshnessBonus × volumeDampening
 ```
 
-**설계 배경**: RSS 뉴스의 90%+가 engagement=0이므로, 곱셈 기반 normalizedEngagement/velocityBonus/clusterBonus/trendSignalBonus를 제거하고 3개 프록시 신호를 **가산 혼합**으로 대체. 가산 혼합은 하나의 신호만 있어도 점수에 독립 기여.
+**v6 변경 사항**:
+1. **4번째 신호 추가**: 실제 engagement 데이터가 있는 뉴스 소스(daum_news, nate_news 등)의 참여도를 [0,10]으로 정규화하여 15% 비중 반영
+2. **포털 랭킹 확장**: naver_news_ranking 외에 nate_news(×0.6), zum_news(×0.5) 순위도 portalRank에 통합
+3. **소스별 뉴스 decay**: 통신사 180분, 방송 240분, 일간지 300분, 경제지 320분 차등
+4. **T1 단독 속보**: 제목에 "속보/긴급" 포함 시 다중 소스 대기 없이 즉시 부스트 (최대 2.0)
+5. **freshnessBonus**: 발행 30분 이내 1.3x, 1시간 이내 1.15x, 2시간 이내 1.05x
 
 | 컴포넌트 | 범위 | 비중 | 산출 |
 |----------|------|------|------|
-| portalRank | [0, 10] | 40% | naver_news_ranking 순위. rank 1=10, 30≈0.69. 클러스터 전파 (×0.8). 6h 시간감쇠 |
-| clusterImportance | [0, 10] | 35% | 뉴스 매체 수 (log₂ 스케일) × 티어 다양성 보너스 |
-| trendAlignment | [0, 10] | 25% | trendSignalBonus [1.0,1.8] → [0,10] 선형 정규화 |
+| portalRank | [0, 10] | 35% | naver/nate/zum 뉴스 랭킹 순위 (소스별 차등 승수). 클러스터 전파 (naver ×0.8, nate/zum ×0.5). 6h 시간감쇠 |
+| clusterImportance | [0, 10] | 30% | 뉴스 매체 수 (log₂ 스케일) × 티어 다양성 보너스 |
+| trendAlignment | [0, 10] | 20% | trendSignalBonus [1.0,1.8] → [0,10] 선형 정규화 |
+| engagementSignal | [0, 10] | 15% | 뉴스 소스 중 engagement>0인 포스트의 Z-Score 정규화 (engagement=0이면 0) |
 
-가중치 `0.4/0.35/0.25`는 DB `scoring_config` 테이블의 `news_signal_weights` 그룹에서 런타임 오버라이드 가능.
+가중치 `0.35/0.30/0.20/0.15`는 DB `scoring_config` 테이블의 `news_signal_weights` 그룹에서 런타임 오버라이드 가능.
 
 ---
 
@@ -92,9 +99,20 @@ result = max(2.0 + zViews + zComments × commentWeight + zLikes × likeWeight, 0
 |------|--------|------------|
 | sns | 120분 (2h) | 0.002% |
 | community (기본) | 150분 (2.5h) | 0.06% |
-| news | 240분 (4h) | 1.56% |
+| news (기본) | 240분 (4h) | 1.56% |
 | specialized | 300분 (5h) | 0.46% |
 | video | 360분 (6h) | 6.25% |
+
+**뉴스 소스별 적응적 반감기 (v6):**
+
+| 소스 그룹 | 반감기 | 사유 |
+|-----------|--------|------|
+| yna, newsis, naver_news_ranking | 180분 | 속보형 통신사, 빠른 순환 |
+| ytn | 200분 | 속보+영상 뉴스 |
+| daum_news, nate_news, zum_news, google_news_kr | 200분 | 포털 집계, 빠른 갱신 |
+| sbs, kbs, mbc, jtbc | 240분 | 방송사 표준 |
+| chosun, joins, donga, khan, hani | 300분 | 종합일간지, 느린 순환 |
+| mk, hankyung, etnews | 320분 | 경제지, 긴 수명 |
 
 **커뮤니티 소스별 적응적 감쇠:**
 
@@ -230,20 +248,37 @@ result = max(1.0, min(raw, 1.8))
 
 ### 3.8 속보 감지 (breakingBoost, 뉴스 전용)
 
-**감지 기준:**
+**경로 1: 다중 소스 속보 (기존)**
 - 클러스터 생성 2시간 이내
 - 3개 이상 뉴스 소스 합류
 - 30분 이내 스크래핑
+- 부스트: `1.0 + 2.0 × e^(-ln(2) × minutesAge / 30)`, 상한 3.0
 
-**부스트 공식:** `boost = 1.0 + 2.0 × e^(-ln(2) × minutesAge / 30)`, 상한 3.0
+**경로 2: T1 단독 속보 (v6 신규)**
+- T1 소스(yna, newsis, ytn) 포스트
+- 제목에 "속보" 또는 "긴급" 포함
+- 발행 2시간 이내
+- 부스트: `1.0 + 1.0 × e^(-ln(2) × minutesAge / 30)`, 상한 2.0 (보수적)
+- 다중 소스 속보가 나중에 감지되면 경로 1이 덮어씀
 
-| 시점 | 부스트 |
-|------|--------|
-| 감지 직후 | 3.0 |
-| 30분 후 | 2.0 |
-| 120분+ | ~1.0 |
+| 시점 | 다중 소스 (경로1) | T1 단독 (경로2) |
+|------|------------------|-----------------|
+| 감지 직후 | 3.0 | 2.0 |
+| 30분 후 | 2.0 | 1.5 |
+| 120분+ | ~1.0 | ~1.0 |
 
-### 3.9 볼륨 감쇄 (volumeDampening)
+### 3.9 신선도 보너스 (freshnessBonus, 뉴스 전용, v6 신규)
+
+외부 신호 도착 전 "사각지대" 해소. 갓 발행된 뉴스에 초기 부스트.
+
+| 경과 시간 | 보너스 |
+|-----------|--------|
+| ≤ 30분 | 1.3 |
+| 31~60분 | 1.15 |
+| 61~120분 | 1.05 |
+| > 120분 | 1.0 |
+
+### 3.10 볼륨 감쇄 (volumeDampening)
 
 특정 소스가 과대대표되는 것을 방지.
 
@@ -254,7 +289,7 @@ else: dampening = max(0.7, 1.0 - 0.15 × ln(sourceCount / medianCount))
 
 하한: 0.7 (최대 30% 감쇄)
 
-### 3.10 신뢰도 팩터 (credibilityFactor)
+### 3.11 신뢰도 팩터 (credibilityFactor)
 
 zero-engagement 게시글 보정:
 - 조회/댓글/좋아요 모두 0: `credibilityFactor = 0.8`
@@ -378,7 +413,8 @@ momentumScore = clamp(1.0 + MOMENTUM_WEIGHT × ln(acceleration), [MOMENTUM_PENAL
 | `community_source_weights` | A(1.3~1.4)~D(0.8~0.9) |
 | `community_decay_half_lives` | 120~200분 소스별 |
 | `engagement_weights` | 채널별 comment/like 가중치 |
-| `news_signal_weights` | portal_weight(0.4), cluster_weight(0.35), trend_weight(0.25) |
+| `news_signal_weights` | portal_weight(0.35), cluster_weight(0.30), trend_weight(0.20), engagement_weight(0.15) |
+| `news_decay_half_lives` | 소스별 뉴스 반감기 (yna: 180 ~ mk: 320, 기본 240) |
 | `trend_signal` | CAP(1.8), 키워드 길이, 시간 감쇠 |
 | `breaking_news` | 감지 윈도우(2h), 최소 소스(3), 부스트 상한(3.0) |
 

@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   computeScore, computeScoreLegacy, getSourceWeight, getCategoryWeight,
   getCommunitySourceWeight, getCommunityHalfLife,
-  getHalfLife, volumeDampeningFactor, type ScoreFactors,
+  getHalfLife, getNewsHalfLife, volumeDampeningFactor, type ScoreFactors,
 } from '../../src/services/scoring.js';
-import { normalizeTrendSignal } from '../../src/services/scoring-helpers.js';
+import { normalizeTrendSignal, freshnessBonus } from '../../src/services/scoring-helpers.js';
 
 const LN2 = Math.LN2;
 
@@ -135,6 +135,7 @@ function makeFactors(overrides: Partial<ScoreFactors> = {}): ScoreFactors {
     trendSignalBonus: 1.0,
     subcategoryNorm: 1.0,
     breakingBoost: 1.0,
+    freshnessBonus: 1.0,
     ...overrides,
   };
 }
@@ -379,68 +380,127 @@ describe('normalizeTrendSignal', () => {
   });
 });
 
-describe('news signalScore (additive blend)', () => {
-  const portalW = 0.4;
-  const clusterW = 0.35;
-  const trendW = 0.25;
+describe('news signalScore (4-signal additive blend v6)', () => {
+  const portalW = 0.35;
+  const clusterW = 0.30;
+  const trendW = 0.20;
+  const engagementW = 0.15;
 
-  function calcSignalScore(portal: number, cluster: number, trendRaw: number): number {
+  function calcSignalScore(portal: number, cluster: number, trendRaw: number, engagement: number = 0): number {
     return Math.max(
-      portal * portalW + cluster * clusterW + normalizeTrendSignal(trendRaw) * trendW,
+      portal * portalW + cluster * clusterW + normalizeTrendSignal(trendRaw) * trendW + engagement * engagementW,
       1.0,
     );
   }
 
   it('all zeros → minimum signalScore 1.0', () => {
-    expect(calcSignalScore(0, 0, 1.0)).toBe(1.0);
+    expect(calcSignalScore(0, 0, 1.0, 0)).toBe(1.0);
   });
 
   it('portal rank 1 alone → significant score', () => {
-    const score = calcSignalScore(10, 0, 1.0);
-    expect(score).toBeCloseTo(4.0, 5); // 10*0.4 = 4.0
+    const score = calcSignalScore(10, 0, 1.0, 0);
+    expect(score).toBeCloseTo(3.5, 5); // 10*0.35 = 3.5
   });
 
   it('cluster 4 sources alone → moderate score', () => {
-    // 4 sources → mediaScore = 3*log2(4) = 6
-    const score = calcSignalScore(0, 6, 1.0);
-    expect(score).toBeCloseTo(2.1, 5); // 6*0.35 = 2.1
+    const score = calcSignalScore(0, 6, 1.0, 0);
+    expect(score).toBeCloseTo(1.8, 5); // 6*0.30 = 1.8
   });
 
   it('trend match alone → moderate score', () => {
-    const score = calcSignalScore(0, 0, 1.8);
-    expect(score).toBeCloseTo(2.5, 5); // 10*0.25 = 2.5
+    const score = calcSignalScore(0, 0, 1.8, 0);
+    expect(score).toBeCloseTo(2.0, 5); // 10*0.20 = 2.0
+  });
+
+  it('engagement alone → contributes to score', () => {
+    const score = calcSignalScore(0, 0, 1.0, 8);
+    expect(score).toBeCloseTo(1.2, 5); // 8*0.15 = 1.2
   });
 
   it('all signals max → high combined score', () => {
-    const score = calcSignalScore(10, 10, 1.8);
-    // 10*0.4 + 10*0.35 + 10*0.25 = 10.0
+    const score = calcSignalScore(10, 10, 1.8, 10);
+    // 10*0.35 + 10*0.30 + 10*0.20 + 10*0.15 = 10.0
     expect(score).toBeCloseTo(10.0, 5);
   });
 
   it('partial signals still contribute (additive not multiplicative)', () => {
-    // portal raw: 10*0.4 = 4.0, cluster raw: 6*0.35 = 2.1
-    // combined raw = 4.0 + 2.1 = 6.1 (additive)
-    // Each alone: max(raw, 1.0) → 4.0, 2.1
-    // Combined: max(6.1, 1.0) = 6.1
-    const combined = calcSignalScore(10, 6, 1.0);
-    expect(combined).toBeCloseTo(10 * portalW + 6 * clusterW, 5);
-    expect(combined).toBeCloseTo(6.1, 5);
+    const combined = calcSignalScore(10, 6, 1.0, 5);
+    expect(combined).toBeCloseTo(10 * portalW + 6 * clusterW + 5 * engagementW, 5);
   });
 
   it('signalScore replaces engagement in news scoring', () => {
-    const signalScore = calcSignalScore(8, 6, 1.4);
-    // Used as normalizedEngagement, multiplied by other factors
+    const signalScore = calcSignalScore(8, 6, 1.4, 7);
     const factors = makeFactors({
       normalizedEngagement: signalScore,
       sourceWeight: 2.2,
       decay: 0.8,
-      velocityBonus: 1.0,      // 뉴스는 1.0 고정
-      clusterBonus: 1.0,       // signalScore에 통합
-      trendSignalBonus: 1.0,   // signalScore에 통합
+      velocityBonus: 1.0,
+      clusterBonus: 1.0,
+      trendSignalBonus: 1.0,
       breakingBoost: 1.0,
     });
     const score = computeScore(factors);
     expect(score).toBeCloseTo(signalScore * 2.2 * 0.8, 2);
     expect(score).toBeGreaterThan(0);
+  });
+});
+
+describe('freshnessBonus (news-only)', () => {
+  it('returns 1.3 for posts under 30 minutes', () => {
+    expect(freshnessBonus(0)).toBe(1.3);
+    expect(freshnessBonus(15)).toBe(1.3);
+    expect(freshnessBonus(30)).toBe(1.3);
+  });
+
+  it('returns 1.15 for posts 30-60 minutes', () => {
+    expect(freshnessBonus(31)).toBe(1.15);
+    expect(freshnessBonus(60)).toBe(1.15);
+  });
+
+  it('returns 1.05 for posts 60-120 minutes', () => {
+    expect(freshnessBonus(61)).toBe(1.05);
+    expect(freshnessBonus(120)).toBe(1.05);
+  });
+
+  it('returns 1.0 for posts older than 120 minutes', () => {
+    expect(freshnessBonus(121)).toBe(1.0);
+    expect(freshnessBonus(1000)).toBe(1.0);
+  });
+
+  it('freshnessBonus multiplies into final score', () => {
+    const base = computeScore(makeFactors());
+    const fresh = computeScore(makeFactors({ freshnessBonus: 1.3 }));
+    expect(fresh).toBeCloseTo(base * 1.3, 5);
+  });
+});
+
+describe('news source-specific decay (getNewsHalfLife)', () => {
+  it('wire services decay faster (180min)', () => {
+    expect(getNewsHalfLife('yna')).toBe(180);
+    expect(getNewsHalfLife('newsis')).toBe(180);
+  });
+
+  it('broadcast standard (240min)', () => {
+    expect(getNewsHalfLife('sbs')).toBe(240);
+    expect(getNewsHalfLife('kbs')).toBe(240);
+  });
+
+  it('dailies decay slower (300min)', () => {
+    expect(getNewsHalfLife('chosun')).toBe(300);
+    expect(getNewsHalfLife('khan')).toBe(300);
+  });
+
+  it('business press slowest (320min)', () => {
+    expect(getNewsHalfLife('mk')).toBe(320);
+    expect(getNewsHalfLife('hankyung')).toBe(320);
+  });
+
+  it('portal aggregators fast (200min)', () => {
+    expect(getNewsHalfLife('daum_news')).toBe(200);
+    expect(getNewsHalfLife('nate_news')).toBe(200);
+  });
+
+  it('unknown news source gets default 240min', () => {
+    expect(getNewsHalfLife('unknown_news')).toBe(240);
   });
 });
