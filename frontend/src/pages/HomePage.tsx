@@ -18,6 +18,8 @@ import { EntertainmentCompactSection } from '../components/EntertainmentCompactS
 import { EntertainmentUnifiedView } from '../components/EntertainmentUnifiedView';
 import { CommunityRankingList } from '../components/CommunityRankingList';
 import { IssueRankingList } from '../components/IssueRankingList';
+import { TimeWindowTabs } from '../components/TimeWindowTabs';
+import type { TimeWindow } from '../hooks/useIssueRankings';
 import { MetaHead } from '../components/shared/MetaHead';
 import { WebSiteJsonLd, CollectionPageJsonLd, DatasetJsonLd } from '../components/shared/JsonLd';
 import { Breadcrumb } from '../components/shared/Breadcrumb';
@@ -78,6 +80,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const [sortMode, setSortMode] = useState<'trending' | 'latest'>('trending');
   const [newsSubcategory, setNewsSubcategory] = useState<string | undefined>(undefined);
   const [entertainmentSub, setEntertainmentSub] = useState<EntertainmentSub>('all');
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>('12h');
   const [, startTransition] = useTransition();
   const isNewsTab = category === 'news,newsletter,tech';
   const isPortalTab = category === 'portal';
@@ -241,7 +244,10 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       )}
 
       {isAllTab ? (
-        <IssueRankingList />
+        <>
+          <TimeWindowTabs selected={timeWindow} onChange={setTimeWindow} />
+          <IssueRankingList window={timeWindow} />
+        </>
       ) : isLoading ? (
         <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
           {Array.from({ length: 8 }, (_, i) => (
