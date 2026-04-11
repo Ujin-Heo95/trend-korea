@@ -64,7 +64,7 @@ export const BookRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
     <div className="bg-white dark:bg-slate-800 overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
         <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{activeSourceLabel} 베스트셀러</h2>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{activeSourceLabel} TOP 30</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{activeSourceLabel} TOP {books.length}</p>
         {availableSources.length > 1 && (
           <div className="flex gap-1.5 mt-2">
             {availableSources.map(([key, label]) => (

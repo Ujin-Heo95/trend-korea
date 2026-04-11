@@ -1,7 +1,7 @@
 import React from 'react';
 import { HorizontalScrollRow } from './shared/HorizontalScrollRow';
 
-export type EntertainmentSub = 'all' | 'books' | 'ott' | 'music' | 'movie' | 'performance';
+export type EntertainmentSub = 'all' | 'books' | 'ott' | 'music' | 'movie' | 'performance' | 'webtoon';
 
 const SUBS: { key: EntertainmentSub; label: string }[] = [
   { key: 'all',         label: '전체' },
@@ -10,6 +10,7 @@ const SUBS: { key: EntertainmentSub; label: string }[] = [
   { key: 'music',       label: '음악' },
   { key: 'movie',       label: '영화' },
   { key: 'performance', label: '공연' },
+  { key: 'webtoon',     label: '웹툰' },
 ];
 
 interface Props {

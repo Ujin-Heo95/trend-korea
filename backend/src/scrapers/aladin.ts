@@ -24,7 +24,6 @@ export class AladinBestsellerScraper extends BaseScraper {
 
     // Aladin uses numbered items in a list
     $('a[href*="wproduct.aspx?ItemId="]').each((i, el) => {
-      if (posts.length >= 30) return;
 
       const href = $(el).attr('href') ?? '';
       const itemId = href.match(/ItemId=(\d+)/)?.[1];

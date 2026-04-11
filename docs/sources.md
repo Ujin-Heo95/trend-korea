@@ -90,7 +90,7 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | trend | google_trends | RSS→trend_keywords | medium | 안정 |
 | trend | wikipedia_ko | API→trend_keywords | low | 안정 |
 | trend | naver_datalab | API | medium | **disabled** |
-| entertainment | naver_webtoon | API | low | 안정 (starScore 기준 랭킹) |
+| webtoon | naver_webtoon | API | low | 안정 (starScore 기준 랭킹, 요일별 전체 수집) |
 | government | korea_press, korea_policy, korea_briefing | RSS | low | 안정 |
 | government | korea_kr_press, korea_kr_policy | RSS | low | 안정 (정책브리핑) |
 | performance | kopis_boxoffice, kcisa_cca_performance, kcisa_cca_exhibition, seoul_cultural_event | API | low | 안정 |

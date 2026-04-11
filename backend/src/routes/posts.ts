@@ -50,7 +50,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
           conditions.push(`p.category = ANY($${params.push(cats)}::text[])`);
         }
       } else {
-        conditions.push(`(p.category IS NULL OR p.category NOT IN ('movie', 'performance', 'music', 'travel', 'books', 'ott'))`);
+        conditions.push(`(p.category IS NULL OR p.category NOT IN ('movie', 'performance', 'music', 'travel', 'books', 'ott', 'webtoon'))`);
       }
       if (subcategory) {
         conditions.push(`p.subcategory = $${params.push(subcategory)}`);
@@ -74,7 +74,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       // Over-fetch to compensate for cluster dedup filtering
       const fetchLimit = Math.ceil(limit * 1.5);
 
-      const RANKED_CATEGORIES = ['movie', 'performance', 'music', 'books', 'ott', 'portal'];
+      const RANKED_CATEGORIES = ['movie', 'performance', 'music', 'books', 'ott', 'webtoon', 'portal'];
       const isRankedCategory = category && category.split(',').every(c => RANKED_CATEGORIES.includes(c.trim()));
 
       const scoreJoin = isTrending ? 'LEFT JOIN post_scores ps ON ps.post_id = p.id' : '';

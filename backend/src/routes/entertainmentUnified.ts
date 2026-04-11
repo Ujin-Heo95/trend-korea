@@ -288,7 +288,7 @@ export async function entertainmentUnifiedRoutes(app: FastifyInstance): Promise<
       const { rows } = await app.pg.query<RawPost>(
         `SELECT p.source_key, p.title, p.url, p.thumbnail, p.metadata, p.scraped_at
          FROM posts p
-         WHERE p.category IN ('movie', 'performance', 'music', 'books', 'ott')
+         WHERE p.category IN ('movie', 'performance', 'music', 'books', 'ott', 'webtoon')
            AND p.metadata IS NOT NULL
            AND (p.metadata->>'rank') IS NOT NULL
            AND p.scraped_at > NOW() - INTERVAL '48 hours'
@@ -307,7 +307,7 @@ export async function entertainmentUnifiedRoutes(app: FastifyInstance): Promise<
       const { rows: lastUpdatedRows } = await app.pg.query<{ source_key: string; last: string }>(
         `SELECT source_key, MAX(finished_at)::text AS last
          FROM scraper_runs
-         WHERE source_key IN ('kobis_boxoffice', 'kopis_boxoffice', 'melon_chart', 'yes24_bestseller', 'flixpatrol')
+         WHERE source_key IN ('kobis_boxoffice', 'kopis_boxoffice', 'melon_chart', 'yes24_bestseller', 'flixpatrol', 'naver_webtoon')
            AND error_message IS NULL
          GROUP BY source_key`,
       );
@@ -361,6 +361,17 @@ export async function entertainmentUnifiedRoutes(app: FastifyInstance): Promise<
         m => String(m.platform ?? ''),
       );
 
+      // ── Webtoon ──
+      const webtoonPosts = bySource.get('naver_webtoon') ?? [];
+      const webtoonItems = passThroughRanked(
+        webtoonPosts,
+        m => String(m.title ?? ''),
+        m => {
+          const score = typeof m.starScore === 'number' ? `★ ${m.starScore.toFixed(2)}` : '';
+          return score;
+        },
+      );
+
       const result: UnifiedResponse = {
         categories: {
           movie: { items: movieItems, lastUpdated: lastUpdatedMap.get('kobis_boxoffice') ?? null },
@@ -368,6 +379,7 @@ export async function entertainmentUnifiedRoutes(app: FastifyInstance): Promise<
           performance: { items: perfItems, lastUpdated: lastUpdatedMap.get('kopis_boxoffice') ?? null },
           books: { items: bookItems, lastUpdated: lastUpdatedMap.get('yes24_bestseller') ?? null },
           ott: { items: ottItems, lastUpdated: lastUpdatedMap.get('flixpatrol') ?? null },
+          webtoon: { items: webtoonItems, lastUpdated: lastUpdatedMap.get('naver_webtoon') ?? null },
         },
       };
 

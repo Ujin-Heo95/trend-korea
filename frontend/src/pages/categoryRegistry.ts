@@ -26,6 +26,7 @@ export const categoryRegistry: CategoryEntry[] = [
   { match: (ctx) => ctx.isEntertainmentTab && ctx.entertainmentSub === 'performance', component: 'PerformanceRankingTable' },
   { match: (ctx) => ctx.isEntertainmentTab && ctx.entertainmentSub === 'books', component: 'BookRankingTable' },
   { match: (ctx) => ctx.isEntertainmentTab && ctx.entertainmentSub === 'ott', component: 'OttRankingTable' },
+  { match: (ctx) => ctx.isEntertainmentTab && ctx.entertainmentSub === 'webtoon', component: 'WebtoonRankingTable' },
   { match: (ctx) => ctx.isEntertainmentTab && ctx.entertainmentSub === 'all', component: 'EntertainmentAllView' },
   { match: (ctx) => ctx.isTravelTab, component: 'TravelDashboard' },
   { match: (ctx) => ctx.category === 'community' && ctx.selectedSources.length === 0 && ctx.sortMode === 'trending', component: 'CommunityRankingList' },

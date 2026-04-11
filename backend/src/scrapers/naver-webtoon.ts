@@ -44,7 +44,7 @@ export class NaverWebtoonScraper extends BaseScraper {
       .filter(t => !t.rest && !t.finish)
       .sort((a, b) => b.starScore - a.starScore);
 
-    return sorted.slice(0, 30).map((t, i) => ({
+    return sorted.map((t, i) => ({
       sourceKey: 'naver_webtoon',
       sourceName: '네이버 웹툰',
       title: t.titleName,
@@ -52,6 +52,7 @@ export class NaverWebtoonScraper extends BaseScraper {
       author: t.author,
       thumbnail: t.thumbnailUrl,
       likeCount: Math.round(t.starScore * 100),
+      category: 'webtoon',
       metadata: {
         rank: i + 1,
         starScore: t.starScore,

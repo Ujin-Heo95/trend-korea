@@ -12,6 +12,7 @@ import { MusicRankingTable } from '../components/MusicRankingTable';
 import { PerformanceRankingTable } from '../components/PerformanceRankingTable';
 import { BookRankingTable } from '../components/BookRankingTable';
 import { OttRankingTable } from '../components/OttRankingTable';
+import { WebtoonRankingTable } from '../components/WebtoonRankingTable';
 import { EntertainmentSubTabs, type EntertainmentSub } from '../components/EntertainmentSubTabs';
 import { EntertainmentCompactSection } from '../components/EntertainmentCompactSection';
 import { EntertainmentUnifiedView } from '../components/EntertainmentUnifiedView';
@@ -52,15 +53,17 @@ const ENTERTAINMENT_SUB_LABELS: Record<string, string> = {
   music: '음악',
   movie: '영화',
   performance: '공연',
+  webtoon: '웹툰',
 };
 
 const ENTERTAINMENT_CATEGORY_MAP: Record<EntertainmentSub, string> = {
-  all: 'movie,performance,music,books,ott',
+  all: 'movie,performance,music,books,ott,webtoon',
   books: 'books',
   ott: 'ott',
   music: 'music',
   movie: 'movie',
   performance: 'performance',
+  webtoon: 'webtoon',
 };
 
 interface Props {
@@ -263,6 +266,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           if (matched === 'PerformanceRankingTable') return <PerformanceRankingTable posts={allPosts} />;
           if (matched === 'BookRankingTable') return <BookRankingTable posts={allPosts} />;
           if (matched === 'OttRankingTable') return <OttRankingTable posts={allPosts} />;
+          if (matched === 'WebtoonRankingTable') return <WebtoonRankingTable posts={allPosts} />;
           if (matched === 'EntertainmentAllView') return <EntertainmentUnifiedView onSubTabChange={setEntertainmentSub} />;
           if (matched === 'TravelDashboard') return <TravelDashboard posts={allPosts} />;
           if (matched === 'CommunityRankingList') return <CommunityRankingList posts={allPosts} isRead={isRead} onRead={markAsRead} />;
@@ -302,7 +306,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
 
 // ── 엔터테인먼트 전체 뷰 ──
 
-const ENTERTAINMENT_SECTION_ORDER = ['movie', 'music', 'performance', 'books', 'ott'];
+const ENTERTAINMENT_SECTION_ORDER = ['movie', 'music', 'performance', 'books', 'ott', 'webtoon'];
 
 function EntertainmentAllView({ posts, onSubTabChange }: { posts: Post[]; onSubTabChange: (sub: EntertainmentSub) => void }) {
   const grouped = useMemo(() => {

@@ -13,7 +13,8 @@ const SECTION_ORDER: { key: string; icon: string; label: string; sub: Entertainm
   { key: 'music',       icon: '🎵', label: '음악 통합 차트',   sub: 'music',       fallbackIcon: '🎵' },
   { key: 'performance', icon: '🎭', label: '공연 예매순위',    sub: 'performance', fallbackIcon: '🎭' },
   { key: 'books',       icon: '📚', label: '도서 베스트셀러',  sub: 'books',       fallbackIcon: '📚' },
-  { key: 'ott',         icon: '📺', label: 'OTT TOP 10',     sub: 'ott',         fallbackIcon: '📺' },
+  { key: 'ott',         icon: '📺', label: 'OTT 순위',       sub: 'ott',         fallbackIcon: '📺' },
+  { key: 'webtoon',     icon: '📖', label: '웹툰 인기 랭킹', sub: 'webtoon',     fallbackIcon: '📖' },
 ];
 
 // ── Compact row ──────────────────────────────────────

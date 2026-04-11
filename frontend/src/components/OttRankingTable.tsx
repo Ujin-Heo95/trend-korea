@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { Post } from '../types';
 import { RankBadge } from './shared/RankBadge';
 
@@ -35,7 +35,10 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export const OttRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
-  const items = useMemo(() =>
+  const [platformFilter, setPlatformFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+
+  const allItems = useMemo(() =>
     posts
       .map(p => ({ post: p, meta: parseOttMeta(p) }))
       .filter((o): o is { post: Post; meta: OttMeta } => o.meta !== null)
@@ -43,7 +46,17 @@ export const OttRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
     [posts],
   );
 
-  if (items.length === 0) {
+  const platforms = useMemo(() => [...new Set(allItems.map(i => i.meta.platform))], [allItems]);
+  const types = useMemo(() => [...new Set(allItems.map(i => i.meta.type))].filter(t => t !== 'unknown'), [allItems]);
+
+  const items = useMemo(() =>
+    allItems
+      .filter(i => platformFilter === 'all' || i.meta.platform === platformFilter)
+      .filter(i => typeFilter === 'all' || i.meta.type === typeFilter),
+    [allItems, platformFilter, typeFilter],
+  );
+
+  if (allItems.length === 0) {
     return (
       <div className="text-center py-16 text-slate-400 dark:text-slate-500">
         <p className="text-lg mb-1">OTT 순위 데이터가 없습니다</p>
@@ -55,8 +68,64 @@ export const OttRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
   return (
     <div className="bg-white dark:bg-slate-800 overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-        <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">OTT TOP 10</h2>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Netflix + Disney+ (FlixPatrol)</p>
+        <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">OTT 순위</h2>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Netflix + Disney+ (FlixPatrol) · {items.length}개</p>
+
+        {/* Platform filter */}
+        <div className="flex gap-1.5 mt-2">
+          <button
+            onClick={() => setPlatformFilter('all')}
+            className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+              platformFilter === 'all'
+                ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+            }`}
+          >
+            전체
+          </button>
+          {platforms.map(p => (
+            <button
+              key={p}
+              onClick={() => setPlatformFilter(p)}
+              className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                platformFilter === p
+                  ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+
+        {/* Type filter */}
+        {types.length > 1 && (
+          <div className="flex gap-1.5 mt-1.5">
+            <button
+              onClick={() => setTypeFilter('all')}
+              className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                typeFilter === 'all'
+                  ? 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              전체 유형
+            </button>
+            {types.map(t => (
+              <button
+                key={t}
+                onClick={() => setTypeFilter(t)}
+                className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                  typeFilter === t
+                    ? 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                }`}
+              >
+                {TYPE_LABELS[t] ?? t}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <table className="w-full hidden sm:table">

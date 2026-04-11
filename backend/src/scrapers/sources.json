@@ -895,7 +895,7 @@
     {
       "key": "naver_webtoon",
       "name": "네이버 웹툰 랭킹",
-      "category": "entertainment",
+      "category": "webtoon",
       "type": "api",
       "module": "./naver-webtoon.js",
       "className": "NaverWebtoonScraper",

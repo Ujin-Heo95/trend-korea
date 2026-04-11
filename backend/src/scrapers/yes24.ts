@@ -23,8 +23,6 @@ export class Yes24BestsellerScraper extends BaseScraper {
     const posts: ScrapedPost[] = [];
 
     $('.itemUnit').each((i, el) => {
-      if (i >= 30) return;
-
       const rank = i + 1;
       const linkEl = $(el).find('a.gd_name[href*="/product/goods/"], a.lnk_img[href*="/product/goods/"]').first();
       const href = linkEl.attr('href') ?? '';

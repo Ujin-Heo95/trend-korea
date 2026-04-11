@@ -5,12 +5,12 @@
 ### Scrapers
 - `BaseScraper` 상속, `fetch(): Promise<ScrapedPost[]>` 구현 — 콘텐츠 소스용
 - `TrendSignalScraper` 상속, `fetchTrendKeywords(): Promise<TrendKeywordInput[]>` 구현 — 트렌드 소스용 (posts 대신 trend_keywords 직접 기록)
-- 최대 30개 반환 (`.slice(0, 30)`)
+- 커뮤니티/뉴스 소스: 최대 30개 반환 (`.slice(0, 30)`), 엔터테인먼트 소스(music/movie/books/ott/webtoon/performance): 소스 제공 전체 수집 (제한 없음)
 - **소스 등록:** `scrapers/sources.json`에 JSON 6줄 추가 (RSS는 코드 0줄)
 - `registry.ts`가 JSON → 스크래퍼 인스턴스 자동 생성 (RSS/HTML/API/Apify)
 - `p-limit(4)` 동시성 제어 — 최대 4개 병렬 실행
 - `BaseScraper.run()`에 retry 2회 (2초, 8초 지수 백오프), 서킷 브레이커 (5연속 실패→1시간 쿨다운)
-- `ScrapedPost.category` 필드로 카테고리 분류 (movie/performance 전용 탭 지원)
+- `ScrapedPost.category` 필드로 카테고리 분류 (movie/performance/music/books/ott/webtoon 전용 탭 지원)
 - `ScrapedPost.likeCount` 옵션: 좋아요/추천 수 — DB `like_count` 컬럼, 스코어링에 채널별 가중치 반영
 - `ScrapedPost.metadata` 옵션: API 소스의 구조화 데이터 (JSONB)
 - 우선순위별 스케줄링: high=10분, medium=15분, low=30분

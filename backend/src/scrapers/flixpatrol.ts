@@ -83,7 +83,7 @@ export class FlixPatrolScraper extends BaseScraper {
     // Merge: Netflix first then Disney+, sorted by rank within each platform
     const allItems = [...netflixItems, ...disneyItems];
 
-    return allItems.slice(0, 20).map(item => ({
+    return allItems.map(item => ({
       sourceKey: 'flixpatrol',
       sourceName: 'FlixPatrol',
       title: `${item.platform} ${item.rank}위 ${item.title} (${item.changeLabel})`,
