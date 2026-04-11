@@ -3,13 +3,22 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useIssueRankingDetail } from '../hooks/usePosts';
 import { trackEvent } from '../lib/analytics';
 import { MetaHead } from '../components/shared/MetaHead';
-import { ArticleJsonLd, BreadcrumbJsonLd } from '../components/shared/JsonLd';
+import { ArticleJsonLd } from '../components/shared/JsonLd';
+import { Breadcrumb } from '../components/shared/Breadcrumb';
 import { getSourceColor } from '../constants/sourceColors';
 import { ErrorRetry } from '../components/shared/ErrorRetry';
 import { AdSlot } from '../components/shared/AdSlot';
 import { IssueDetailSkeleton } from '../components/shared/IssueDetailSkeleton';
 import { optimizedImage } from '../utils/imageProxy';
 import type { IssueRelatedPost } from '../types';
+
+const LABEL_TO_CATEGORY: Record<string, string> = {
+  '커뮤니티': 'community', '뉴스': 'news,newsletter,tech', '테크': 'tech',
+  'YouTube': 'video', '포털': 'portal', '핫딜': 'deals', '정부': 'government',
+  '영화': 'entertainment', '음악': 'entertainment', '공연/전시': 'entertainment',
+  '도서': 'entertainment', 'OTT': 'entertainment', '여행': 'travel',
+  '뉴스레터': 'news,newsletter,tech', '스포츠': 'community',
+};
 
 export const IssueDetailPage: React.FC = () => {
   const { postId } = useParams<{ postId: string }>();
@@ -59,12 +68,19 @@ export const IssueDetailPage: React.FC = () => {
         description={issue.summary || undefined}
         image={issue.thumbnail || undefined}
         url={`https://weeklit.net/issue/${issue.id}`}
+        sourceCount={
+          (news_posts.length > 0 ? 1 : 0) +
+          (community_posts.length > 0 ? 1 : 0) +
+          (video_posts.length > 0 ? 1 : 0)
+        }
       />
-      <BreadcrumbJsonLd
+      <Breadcrumb
         items={[
           { label: '홈', href: '/' },
-          ...(issue.category_label ? [{ label: issue.category_label }] : []),
-          { label: issue.title },
+          ...(issue.category_label
+            ? [{ label: issue.category_label, href: `/?category=${LABEL_TO_CATEGORY[issue.category_label] ?? 'community'}` }]
+            : []),
+          { label: issue.title.length > 30 ? `${issue.title.slice(0, 30)}…` : issue.title },
         ]}
       />
       {/* Back navigation */}
@@ -95,7 +111,7 @@ export const IssueDetailPage: React.FC = () => {
         {issue.thumbnail && (
           <img
             src={optimizedImage(issue.thumbnail, 640)}
-            alt={issue.title}
+            alt={`${issue.title} 이슈 이미지`}
             className="w-full max-h-48 sm:max-h-64 object-cover rounded-xl mb-4"
             loading="lazy"
             decoding="async"

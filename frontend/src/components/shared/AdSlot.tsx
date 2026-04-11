@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { trackEvent } from '../../lib/analytics';
 
 type AdFormat = 'banner' | 'rectangle' | 'native';
+type AdProvider = 'adsense' | 'adfit' | 'none';
 
 interface AdSlotProps {
   slotId: string;
@@ -14,21 +16,31 @@ const FORMAT_STYLES: Record<AdFormat, { minHeight: number; label: string }> = {
   native: { minHeight: 120, label: 'Native In-feed' },
 };
 
-const PUB_ID = import.meta.env.VITE_ADSENSE_PUB_ID ?? '';
+const ADSENSE_PUB_ID = import.meta.env.VITE_ADSENSE_PUB_ID ?? '';
+const ADFIT_UNIT_ID = import.meta.env.VITE_ADFIT_UNIT_ID ?? '';
+const AD_PROVIDER: AdProvider = (import.meta.env.VITE_AD_PROVIDER as AdProvider) ?? 'none';
 const IS_DEV = import.meta.env.DEV;
 
+function resolveProvider(): AdProvider {
+  if (AD_PROVIDER !== 'none') return AD_PROVIDER;
+  if (ADSENSE_PUB_ID) return 'adsense';
+  if (ADFIT_UNIT_ID) return 'adfit';
+  return 'none';
+}
+
 /**
- * AdSense 광고 슬롯.
+ * 멀티 네트워크 광고 슬롯.
+ * - VITE_AD_PROVIDER로 adsense | adfit | none 전환
  * - IntersectionObserver로 뷰포트 진입 시에만 광고 로드 (성능)
  * - min-height 예약으로 CLS 방지
  * - 개발환경에서 플레이스홀더 표시
- * - PUB_ID 미설정 시 렌더링하지 않음
  */
 export const AdSlot: React.FC<AdSlotProps> = ({ slotId, format, className = '' }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const pushed = useRef(false);
   const { minHeight, label } = FORMAT_STYLES[format];
+  const provider = resolveProvider();
 
   // 뷰포트 진입 감지
   useEffect(() => {
@@ -47,20 +59,34 @@ export const AdSlot: React.FC<AdSlotProps> = ({ slotId, format, className = '' }
     return () => observer.disconnect();
   }, []);
 
-  // 광고 push
+  // AdSense push
   useEffect(() => {
-    if (!visible || IS_DEV || !PUB_ID || pushed.current) return;
+    if (!visible || IS_DEV || provider !== 'adsense' || !ADSENSE_PUB_ID || pushed.current) return;
     pushed.current = true;
     try {
       const adsByGoogle = (window as unknown as { adsbygoogle?: unknown[] }).adsbygoogle;
       if (adsByGoogle) adsByGoogle.push({});
+      trackEvent('ad_impression', { provider: 'adsense', slotId });
     } catch {
       // AdSense 미로드 시 무시
     }
-  }, [visible]);
+  }, [visible, provider, slotId]);
 
-  // PUB_ID 미설정 + 프로덕션: 렌더링하지 않음
-  if (!PUB_ID && !IS_DEV) return null;
+  // Kakao AdFit push
+  useEffect(() => {
+    if (!visible || IS_DEV || provider !== 'adfit' || !ADFIT_UNIT_ID || pushed.current) return;
+    pushed.current = true;
+    try {
+      const adfit = (window as unknown as { adfit?: { display: (id: string) => void } }).adfit;
+      if (adfit) adfit.display(ADFIT_UNIT_ID);
+      trackEvent('ad_impression', { provider: 'adfit', slotId });
+    } catch {
+      // AdFit 미로드 시 무시
+    }
+  }, [visible, provider, slotId]);
+
+  // 프로덕션에서 provider=none이면 렌더링하지 않음
+  if (provider === 'none' && !IS_DEV) return null;
 
   return (
     <div
@@ -70,17 +96,27 @@ export const AdSlot: React.FC<AdSlotProps> = ({ slotId, format, className = '' }
     >
       {IS_DEV ? (
         <div className="w-full h-full flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs text-slate-400 dark:text-slate-500" style={{ minHeight }}>
-          AD: {label} ({slotId})
+          AD: {label} ({slotId}) [{provider}]
         </div>
       ) : visible ? (
-        <ins
-          className="adsbygoogle"
-          style={{ display: 'block', minHeight }}
-          data-ad-client={`ca-pub-${PUB_ID}`}
-          data-ad-slot={slotId}
-          data-ad-format={format === 'native' ? 'fluid' : 'auto'}
-          data-full-width-responsive="true"
-        />
+        provider === 'adsense' ? (
+          <ins
+            className="adsbygoogle"
+            style={{ display: 'block', minHeight }}
+            data-ad-client={`ca-pub-${ADSENSE_PUB_ID}`}
+            data-ad-slot={slotId}
+            data-ad-format={format === 'native' ? 'fluid' : 'auto'}
+            data-full-width-responsive="true"
+          />
+        ) : provider === 'adfit' ? (
+          <ins
+            className="kakao_ad_area"
+            style={{ display: 'block', minHeight }}
+            data-ad-unit={ADFIT_UNIT_ID}
+            data-ad-width="320"
+            data-ad-height={String(minHeight)}
+          />
+        ) : null
       ) : null}
     </div>
   );

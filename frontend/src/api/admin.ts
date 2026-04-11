@@ -15,6 +15,25 @@ export interface ApiKeyInfo {
   error?: string;
 }
 
+export interface PoolStats {
+  total: number;
+  idle: number;
+  waiting: number;
+}
+
+export interface CircuitBreakerInfo {
+  failures: number;
+  is_open: boolean;
+  cooldown_remaining_ms: number;
+}
+
+export interface FeatureFlagsInfo {
+  embeddings_enabled: boolean;
+  gemini_summary_enabled: boolean;
+  cross_validation_enabled: boolean;
+  apify_scrapers_enabled: boolean;
+}
+
 export interface HealthResponse {
   status: 'ok' | 'degraded';
   db: {
@@ -31,6 +50,12 @@ export interface HealthResponse {
   };
   api_keys: ApiKeyInfo[];
   api_quota?: Record<string, { used: number; resetAt: string }>;
+  pool?: { api: PoolStats; batch: PoolStats };
+  memory?: { rss_mb: number; heap_used_mb: number; heap_total_mb: number };
+  uptime_seconds?: number;
+  embedding_cache_size?: number;
+  feature_flags?: FeatureFlagsInfo;
+  circuit_breakers?: Record<string, CircuitBreakerInfo>;
 }
 
 export interface SourceInfo {

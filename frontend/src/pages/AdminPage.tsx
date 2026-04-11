@@ -1,67 +1,21 @@
-import React, { useState, useMemo } from 'react';
-import { useAdminToken, useAdminHealth, type MergedSource } from '../hooks/useAdminHealth';
+import React, { useState } from 'react';
+import { useAdminToken, useAdminHealth } from '../hooks/useAdminHealth';
+import { useScraperStatus, useToggleSource, useTriggerScraper } from '../hooks/useScraperControl';
 import { ScoringConfigPanel } from '../components/admin/ScoringConfigPanel';
-
-type SortKey = 'name' | 'category' | 'successRate' | 'lastRunAt' | 'postCount' | 'lastPostCount';
-type SortDir = 'asc' | 'desc';
+import { MonitoringTab } from '../components/admin/MonitoringTab';
+import { ServerStatusPanel } from '../components/admin/ServerStatusPanel';
+import { FeatureFlagPanel } from '../components/admin/FeatureFlagPanel';
+import { SourceTable } from '../components/admin/SourceTable';
 
 function formatTime(iso: string | null): string {
   if (!iso) return '-';
-  const d = new Date(iso);
-  const now = Date.now();
-  const diffMin = Math.floor((now - d.getTime()) / 60_000);
+  const diffMin = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
   if (diffMin < 1) return '방금';
   if (diffMin < 60) return `${diffMin}분 전`;
   if (diffMin < 1440) return `${Math.floor(diffMin / 60)}시간 전`;
   return `${Math.floor(diffMin / 1440)}일 전`;
 }
 
-function statusDot(src: MergedSource): string {
-  if (src.lastError) return 'bg-red-500';
-  if (src.successRate === null) return 'bg-slate-400';
-  if (src.successRate >= 0.9) return 'bg-emerald-500';
-  if (src.successRate >= 0.5) return 'bg-amber-500';
-  return 'bg-red-500';
-}
-
-function rateColor(rate: number | null): string {
-  if (rate === null) return 'text-slate-400';
-  if (rate >= 0.9) return 'text-emerald-600 dark:text-emerald-400';
-  if (rate >= 0.5) return 'text-amber-600 dark:text-amber-400';
-  return 'text-red-600 dark:text-red-400';
-}
-
-// ─── Token Input ──────────────────────────────────────────────
-function TokenGate({ onSubmit, error }: { onSubmit: (t: string) => void; error?: boolean }) {
-  const [input, setInput] = useState('');
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
-      <form
-        onSubmit={e => { e.preventDefault(); if (input.trim()) onSubmit(input.trim()); }}
-        className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 w-full max-w-sm space-y-4"
-      >
-        <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">WeekLit Admin</h1>
-        {error && <p className="text-sm text-red-500">인증 실패 — 토큰을 확인하세요</p>}
-        <input
-          type="password"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="ADMIN_TOKEN"
-          className="w-full px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          autoFocus
-        />
-        <button
-          type="submit"
-          className="w-full py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
-        >
-          로그인
-        </button>
-      </form>
-    </div>
-  );
-}
-
-// ─── Stat Card ────────────────────────────────────────────────
 function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
@@ -72,203 +26,23 @@ function StatCard({ label, value, sub, color }: { label: string; value: string |
   );
 }
 
-// ─── Source Table ──────────────────────────────────────────────
-function SourceTable({ sources }: { sources: MergedSource[] }) {
-  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'successRate', dir: 'asc' });
-  const [filter, setFilter] = useState('');
-  const [catFilter, setCatFilter] = useState('');
-
-  const categories = useMemo(() => {
-    const cats = new Set(sources.map(s => s.category));
-    return [...cats].sort();
-  }, [sources]);
-
-  const sorted = useMemo(() => {
-    let list = sources;
-    if (filter) {
-      const q = filter.toLowerCase();
-      list = list.filter(s => s.name.toLowerCase().includes(q) || s.key.toLowerCase().includes(q));
-    }
-    if (catFilter) {
-      list = list.filter(s => s.category === catFilter);
-    }
-    return [...list].sort((a, b) => {
-      const va = a[sort.key];
-      const vb = b[sort.key];
-      if (va === null && vb === null) return 0;
-      if (va === null) return 1;
-      if (vb === null) return -1;
-      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
-      return sort.dir === 'asc' ? cmp : -cmp;
-    });
-  }, [sources, sort, filter, catFilter]);
-
-  const toggleSort = (key: SortKey) => {
-    setSort(prev => prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
-  };
-
-  const arrow = (key: SortKey) => sort.key === key ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '';
-
+function TokenGate({ onSubmit, error }: { onSubmit: (t: string) => void; error?: boolean }) {
+  const [input, setInput] = useState('');
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
-      <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap gap-3">
-        <input
-          value={filter}
-          onChange={e => setFilter(e.target.value)}
-          placeholder="소스 검색..."
-          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-sm text-slate-800 dark:text-slate-100 w-48 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <select
-          value={catFilter}
-          onChange={e => setCatFilter(e.target.value)}
-          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">전체 카테고리</option>
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <span className="text-xs text-slate-400 self-center ml-auto">{sorted.length}개 소스</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 text-xs uppercase">
-            <tr>
-              <th className="w-8 px-3 py-3"></th>
-              <th className="px-3 py-3 text-left cursor-pointer select-none" onClick={() => toggleSort('name')}>소스{arrow('name')}</th>
-              <th className="px-3 py-3 text-left cursor-pointer select-none" onClick={() => toggleSort('category')}>카테고리{arrow('category')}</th>
-              <th className="px-3 py-3 text-right cursor-pointer select-none" onClick={() => toggleSort('successRate')}>성공률{arrow('successRate')}</th>
-              <th className="px-3 py-3 text-right cursor-pointer select-none" onClick={() => toggleSort('lastRunAt')}>마지막 실행{arrow('lastRunAt')}</th>
-              <th className="px-3 py-3 text-right cursor-pointer select-none" onClick={() => toggleSort('lastPostCount')}>저장 건수{arrow('lastPostCount')}</th>
-              <th className="px-3 py-3 text-right cursor-pointer select-none" onClick={() => toggleSort('postCount')}>총 포스트{arrow('postCount')}</th>
-              <th className="px-3 py-3 text-left">에러</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-            {sorted.map(src => (
-              <tr key={src.key} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                <td className="px-3 py-2.5 text-center">
-                  <span className={`inline-block w-2.5 h-2.5 rounded-full ${statusDot(src)}`} />
-                </td>
-                <td className="px-3 py-2.5 font-medium text-slate-700 dark:text-slate-200">
-                  {src.name}
-                  <span className="ml-1.5 text-xs text-slate-400">{src.key}</span>
-                </td>
-                <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400">{src.category}</td>
-                <td className={`px-3 py-2.5 text-right font-mono ${rateColor(src.successRate)}`}>
-                  {src.successRate !== null ? `${Math.round(src.successRate * 100)}%` : '-'}
-                </td>
-                <td className="px-3 py-2.5 text-right text-slate-500 dark:text-slate-400">{formatTime(src.lastRunAt)}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-slate-600 dark:text-slate-300">
-                  {src.lastPostCount ?? '-'}
-                </td>
-                <td className="px-3 py-2.5 text-right font-mono text-slate-600 dark:text-slate-300">
-                  {src.postCount.toLocaleString()}
-                </td>
-                <td className="px-3 py-2.5 max-w-[200px]">
-                  {src.lastError ? (
-                    <span className="text-xs text-red-500 truncate block" title={src.lastError}>
-                      {src.lastError.slice(0, 60)}{src.lastError.length > 60 ? '...' : ''}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-slate-300">-</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
+      <form onSubmit={e => { e.preventDefault(); if (input.trim()) onSubmit(input.trim()); }}
+        className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 w-full max-w-sm space-y-4">
+        <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">WeekLit Admin</h1>
+        {error && <p className="text-sm text-red-500">인증 실패 — 토큰을 확인하세요</p>}
+        <input type="password" value={input} onChange={e => setInput(e.target.value)} placeholder="ADMIN_TOKEN"
+          className="w-full px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          autoFocus />
+        <button type="submit" className="w-full py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors">로그인</button>
+      </form>
     </div>
   );
 }
 
-// ─── Monitoring Tab ──────────────────────────────────────────
-const MONITORING_LINKS: { label: string; url: string; color: string }[] = [
-  { label: 'Umami Analytics', url: 'https://cloud.umami.is', color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300' },
-  { label: 'Sentry', url: 'https://sentry.io', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
-  { label: 'UptimeRobot', url: 'https://uptimerobot.com/dashboard', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
-  { label: 'Google Search Console', url: 'https://search.google.com/search-console', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-  { label: '네이버 서치어드바이저', url: 'https://searchadvisor.naver.com', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
-  { label: 'Fly.io Dashboard', url: 'https://fly.io/dashboard', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' },
-  { label: 'Supabase Dashboard', url: 'https://supabase.com/dashboard', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
-  { label: 'Cloudflare Pages', url: 'https://dash.cloudflare.com', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
-];
-
-function MonitoringTab() {
-  return (
-    <div className="space-y-6">
-      {/* Quick Links */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
-        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-4">외부 서비스 바로가기</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {MONITORING_LINKS.map(link => (
-            <a
-              key={link.label}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-opacity hover:opacity-80 ${link.color}`}
-            >
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-              {link.label}
-            </a>
-          ))}
-        </div>
-      </div>
-
-      {/* Umami Embed */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
-        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-4">방문자 분석 (Umami)</h2>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">
-          Umami Cloud 대시보드에서 Share URL을 활성화하면 아래에 임베드됩니다.
-          활성화 경로: Umami → Settings → Share URL → Enable
-        </p>
-        <div className="aspect-[16/9] bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
-          <a
-            href="https://cloud.umami.is"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-blue-500 hover:text-blue-600 underline"
-          >
-            Umami 대시보드 열기
-          </a>
-        </div>
-      </div>
-
-      {/* Setup Checklist */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
-        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-4">모니터링 체크리스트</h2>
-        <div className="space-y-2 text-sm">
-          {[
-            { label: 'Umami 커스텀 이벤트 8종 삽입', done: true },
-            { label: '프론트엔드 Sentry 통합 (@sentry/react)', done: true },
-            { label: 'Sentry 백엔드 DSN 설정 (fly secrets set SENTRY_DSN=...)', done: false },
-            { label: 'Sentry 프론트엔드 DSN 설정 (Cloudflare Pages VITE_SENTRY_DSN)', done: false },
-            { label: 'UptimeRobot /health 모니터 등록', done: false },
-            { label: 'Google Search Console 등록 + sitemap 제출', done: false },
-            { label: '네이버 서치어드바이저 등록 + sitemap 제출', done: false },
-          ].map(item => (
-            <div key={item.label} className="flex items-center gap-2">
-              <span className={`w-4 h-4 rounded flex items-center justify-center text-xs ${
-                item.done
-                  ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
-                  : 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500'
-              }`}>
-                {item.done ? '✓' : '·'}
-              </span>
-              <span className={item.done ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'}>
-                {item.label}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Admin Page ───────────────────────────────────────────────
 type AdminTab = 'dashboard' | 'monitoring' | 'config';
 
 export function AdminPage() {
@@ -280,20 +54,14 @@ export function AdminPage() {
     return hash === 'config' ? 'config' : hash === 'monitoring' ? 'monitoring' : 'dashboard';
   });
 
-  // URL hash 동기화
-  React.useEffect(() => {
-    window.location.hash = activeTab;
-  }, [activeTab]);
+  const scraperQuery = useScraperStatus(activeTab === 'dashboard' ? token : null);
+  const toggleMutation = useToggleSource(token ?? '');
+  const runMutation = useTriggerScraper(token ?? '');
 
-  // 데이터 갱신 시 타임스탬프 업데이트
-  React.useEffect(() => {
-    if (data) setLastRefresh(Date.now());
-  }, [data]);
+  React.useEffect(() => { window.location.hash = activeTab; }, [activeTab]);
+  React.useEffect(() => { if (data) setLastRefresh(Date.now()); }, [data]);
 
-  // 토큰 없거나 인증 실패
-  if (!token || isAuthed === false) {
-    return <TokenGate onSubmit={setToken} error={isAuthed === false} />;
-  }
+  if (!token || isAuthed === false) return <TokenGate onSubmit={setToken} error={isAuthed === false} />;
 
   if (isLoading && !data) {
     return (
@@ -311,18 +79,8 @@ export function AdminPage() {
           <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">WeekLit Admin</h1>
           <p className="text-sm text-red-500">{msg}</p>
           <div className="flex gap-3 justify-center">
-            <button
-              onClick={() => refetch()}
-              className="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
-            >
-              재시도
-            </button>
-            <button
-              onClick={clearToken}
-              className="px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-            >
-              로그아웃
-            </button>
+            <button onClick={() => refetch()} className="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors">재시도</button>
+            <button onClick={clearToken} className="px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">로그아웃</button>
           </div>
         </div>
       </div>
@@ -334,7 +92,6 @@ export function AdminPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
-      {/* Header */}
       <header className="sticky top-0 z-10 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-4 sm:px-8 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold">WeekLit Admin</h1>
@@ -342,22 +99,14 @@ export function AdminPage() {
             health.status === 'ok'
               ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
               : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-          }`}>
-            {health.status}
-          </span>
+          }`}>{health.status}</span>
           <div className="flex gap-1 ml-4">
             {(['dashboard', 'monitoring', 'config'] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                  activeTab === tab
-                    ? 'bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
-                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-                }`}
-              >
-                {tab === 'dashboard' ? '대시보드' : tab === 'monitoring' ? '모니터링' : '스코어링 설정'}
-              </button>
+              <button key={tab} onClick={() => setActiveTab(tab)} className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                activeTab === tab
+                  ? 'bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+              }`}>{tab === 'dashboard' ? '대시보드' : tab === 'monitoring' ? '모니터링' : '스코어링 설정'}</button>
             ))}
           </div>
         </div>
@@ -373,78 +122,76 @@ export function AdminPage() {
         ) : activeTab === 'monitoring' ? (
           <MonitoringTab />
         ) : (
-        <>
-        {/* System Overview */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatCard label="DB 크기" value={`${health.db.db_size_mb} MB`} sub="Supabase 500MB 한도" />
-          <StatCard label="총 포스트" value={health.db.post_count.toLocaleString()} sub={`최고령 ${health.db.oldest_post_age_days.toFixed(1)}일`} />
-          <StatCard
-            label="활성 스크래퍼"
-            value={health.scrapers.total}
-            sub={`마지막 실행 ${formatTime(health.scrapers.last_run_at)}`}
-          />
-          <StatCard
-            label="실패 스크래퍼"
-            value={health.scrapers.failed_last_run}
-            color={health.scrapers.failed_last_run > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}
-          />
-        </div>
-
-        {/* API Keys */}
-        {health.api_keys.length > 0 && (
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">API 키 상태</h2>
-            <div className="flex flex-wrap gap-2">
-              {health.api_keys.map(k => (
-                <span
-                  key={k.key}
-                  title={k.error ?? (k.valid ? '유효' : '미확인')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
-                    k.valid === true
-                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                      : k.valid === false
-                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                        : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
-                  }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${
-                    k.valid === true ? 'bg-emerald-500' : k.valid === false ? 'bg-red-500' : 'bg-slate-400'
-                  }`} />
-                  {k.key}
-                </span>
-              ))}
+          <>
+            {/* System Overview Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <StatCard label="DB 크기" value={`${health.db.db_size_mb} MB`} sub="Supabase 500MB 한도" />
+              <StatCard label="총 포스트" value={health.db.post_count.toLocaleString()} sub={`최고령 ${health.db.oldest_post_age_days.toFixed(1)}일`} />
+              <StatCard label="활성 스크래퍼" value={health.scrapers.total} sub={`마지막 실행 ${formatTime(health.scrapers.last_run_at)}`} />
+              <StatCard label="실패 스크래퍼" value={health.scrapers.failed_last_run}
+                color={health.scrapers.failed_last_run > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'} />
             </div>
-          </div>
-        )}
 
-        {/* API Quota */}
-        {health.api_quota && Object.keys(health.api_quota).length > 0 && (
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">API 쿼터 (일일)</h2>
-            <div className="space-y-2">
-              {Object.entries(health.api_quota).map(([key, q]) => {
-                const limit = key === 'gemini' ? 500 : key === 'youtube' ? 10000 : 1000;
-                const pct = Math.min(100, Math.round((q.used / limit) * 100));
-                return (
-                  <div key={key} className="flex items-center gap-3">
-                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300 w-16">{key}</span>
-                    <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 w-24 text-right">{q.used} / {limit}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+            {/* Server Status (pool, memory, uptime, cache) */}
+            <ServerStatusPanel health={health} />
 
-        {/* Source Table */}
-        <SourceTable sources={sources} />
-        </>
+            {/* Feature Flags */}
+            {health.feature_flags && token && (
+              <FeatureFlagPanel flags={health.feature_flags} token={token} />
+            )}
+
+            {/* API Keys */}
+            {health.api_keys.length > 0 && (
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
+                <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">API 키 상태</h2>
+                <div className="flex flex-wrap gap-2">
+                  {health.api_keys.map(k => (
+                    <span key={k.key} title={k.error ?? (k.valid ? '유효' : '미확인')}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
+                        k.valid === true ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                          : k.valid === false ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
+                      }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${k.valid === true ? 'bg-emerald-500' : k.valid === false ? 'bg-red-500' : 'bg-slate-400'}`} />
+                      {k.key}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* API Quota */}
+            {health.api_quota && Object.keys(health.api_quota).length > 0 && (
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
+                <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">API 쿼터 (일일)</h2>
+                <div className="space-y-2">
+                  {Object.entries(health.api_quota).map(([key, q]) => {
+                    const limit = key === 'gemini' ? 500 : key === 'youtube' ? 10000 : 1000;
+                    const pct = Math.min(100, Math.round((q.used / limit) * 100));
+                    return (
+                      <div key={key} className="flex items-center gap-3">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300 w-16">{key}</span>
+                        <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 w-24 text-right">{q.used} / {limit}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Source Table */}
+            <SourceTable
+              sources={sources}
+              scraperStatus={scraperQuery.data}
+              onToggle={(key, enabled) => toggleMutation.mutate({ sourceKey: key, enabled })}
+              onRun={(key) => runMutation.mutate(key)}
+              isToggling={toggleMutation.isPending}
+              runningKey={runMutation.isPending ? (runMutation.variables as string) : null}
+            />
+          </>
         )}
       </main>
     </div>

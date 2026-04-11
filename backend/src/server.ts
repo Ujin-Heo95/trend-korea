@@ -18,9 +18,11 @@ import { issueDetailRoutes } from './routes/issueDetail.js';
 import { ogImageRoutes } from './routes/ogImage.js';
 import { votesRoutes } from './routes/votes.js';
 import { sitemapRoutes } from './routes/sitemap.js';
+import { feedRoutes } from './routes/feed.js';
 import { issueRoutes } from './routes/issues.js';
 import { issueRankingDetailRoutes } from './routes/issueRankingDetail.js';
 import { adminConfigRoutes } from './routes/adminConfig.js';
+import { adminScraperRoutes } from './routes/adminScrapers.js';
 import { communityRankingRoutes } from './routes/communityRanking.js';
 import { prerenderRoutes } from './routes/prerender.js';
 import { startScheduler } from './scheduler/index.js';
@@ -94,12 +96,12 @@ export async function buildApp() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://pagead2.googlesyndication.com", "https://www.googletagservices.com", "https://adservice.google.com", "https://cloud.umami.is", "https://t1.kakaocdn.net"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://pagead2.googlesyndication.com", "https://www.googletagservices.com", "https://adservice.google.com", "https://cloud.umami.is", "https://t1.kakaocdn.net", "https://t1.daumcdn.net"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "https://cloud.umami.is", "https://pagead2.googlesyndication.com", "https://www.googletagservices.com", "https://adservice.google.com"],
-        frameSrc: ["https://pagead2.googlesyndication.com", "https://tpc.googlesyndication.com", "https://www.google.com"],
+        connectSrc: ["'self'", "https://cloud.umami.is", "https://pagead2.googlesyndication.com", "https://www.googletagservices.com", "https://adservice.google.com", "https://t1.daumcdn.net"],
+        frameSrc: ["https://pagead2.googlesyndication.com", "https://tpc.googlesyndication.com", "https://www.google.com", "https://ad.kakaocdn.net"],
       },
     },
     crossOriginEmbedderPolicy: false,
@@ -141,9 +143,11 @@ export async function buildApp() {
   await app.register(ogImageRoutes);
   await app.register(votesRoutes);
   await app.register(sitemapRoutes);
+  await app.register(feedRoutes);
   await app.register(issueRoutes);
   await app.register(issueRankingDetailRoutes);
   await app.register(adminConfigRoutes);
+  await app.register(adminScraperRoutes);
   await app.register(communityRankingRoutes);
   await app.register(prerenderRoutes);
 

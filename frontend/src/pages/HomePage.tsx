@@ -22,7 +22,7 @@ import { CommunityRankingList } from '../components/CommunityRankingList';
 import { PortalRankingView } from '../components/PortalRankingView';
 import { IssueRankingList } from '../components/IssueRankingList';
 import { MetaHead } from '../components/shared/MetaHead';
-import { WebSiteJsonLd } from '../components/shared/JsonLd';
+import { WebSiteJsonLd, CollectionPageJsonLd, DatasetJsonLd } from '../components/shared/JsonLd';
 import { Breadcrumb } from '../components/shared/Breadcrumb';
 import { useReadPosts } from '../hooks/useReadPosts';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
@@ -199,7 +199,19 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   return (
     <div ref={mainRef} style={{ overscrollBehaviorY: 'contain' }}>
       <MetaHead title={pageTitle} />
-      {isAllTab && <WebSiteJsonLd />}
+      {isAllTab && (
+        <>
+          <WebSiteJsonLd />
+          <DatasetJsonLd />
+        </>
+      )}
+      {category && CATEGORY_TITLES[category] && (
+        <CollectionPageJsonLd
+          name={`${CATEGORY_TITLES[category]} — 위클릿`}
+          description={`한국 ${CATEGORY_TITLES[category]} 실시간 트렌드`}
+          url={`/?category=${category}`}
+        />
+      )}
       <div className="flex items-center justify-between mb-3">
         <CategoryTabs selected={category} onChange={handleCategoryChange} />
       </div>

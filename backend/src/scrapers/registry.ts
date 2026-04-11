@@ -28,7 +28,7 @@ export interface ResolvedScraper {
   priority: SourcePriority;
 }
 
-function getAllSources(): readonly SourceEntry[] {
+export function getAllSources(): readonly SourceEntry[] {
   return sourcesData.sources as SourceEntry[];
 }
 
@@ -106,7 +106,7 @@ export function resetScraperCache(): void {
   cachedScrapers = null;
 }
 
-async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<BaseScraper | null> {
+export async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<BaseScraper | null> {
   if (source.type === 'rss') {
     if (!source.feedUrl) {
       logger.warn({ sourceKey: source.key }, '[registry] rss type requires feedUrl, skipping');
@@ -145,4 +145,21 @@ async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<BaseScr
     logger.error({ sourceKey: source.key, module: source.module, err }, '[registry] failed to load module');
     return null;
   }
+}
+
+/** Fetch runtime enable/disable overrides from DB */
+export async function getSourceOverrides(dbPool: Pool): Promise<ReadonlyMap<string, boolean>> {
+  const { rows } = await dbPool.query<{ source_key: string; enabled: boolean }>(
+    'SELECT source_key, enabled FROM scraper_source_overrides',
+  );
+  return new Map(rows.map(r => [r.source_key, r.enabled]));
+}
+
+/** Get enabled sources with DB overrides applied (DB override wins over sources.json) */
+export async function getEnabledSourcesWithOverrides(dbPool: Pool): Promise<readonly SourceEntry[]> {
+  const overrides = await getSourceOverrides(dbPool);
+  return getAllSources().filter(s => {
+    const override = overrides.get(s.key);
+    return override !== undefined ? override : s.enabled;
+  });
 }

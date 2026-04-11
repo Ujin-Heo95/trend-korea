@@ -1,0 +1,37 @@
+# WeekLit (위클릿)
+
+> WeekLit is a real-time Korean internet trend aggregator. It collects and ranks trending topics from 90+ sources including major Korean communities (DC Inside, FMKorea, Clien, TheQoo, etc.), news outlets, YouTube, government portals, and entertainment platforms. It provides cross-source trend detection, AI-powered summaries, and issue clustering.
+
+## Main Pages
+
+- [Home — Real-time Trending Issues](https://weeklit.net/)
+- [Community Trends](https://weeklit.net/?category=community)
+- [News Trends](https://weeklit.net/?category=news)
+- [Tech Trends](https://weeklit.net/?category=tech)
+- [YouTube Trends](https://weeklit.net/?category=video)
+- [Portal Search Trends](https://weeklit.net/?category=portal)
+- [Hot Deals](https://weeklit.net/?category=deals)
+- [Movie Rankings](https://weeklit.net/?category=movie)
+- [Music Rankings](https://weeklit.net/?category=music)
+- [Performance/Exhibition Rankings](https://weeklit.net/?category=performance)
+- [Government/Policy News](https://weeklit.net/?category=government)
+- [Weather](https://weeklit.net/weather)
+- [About](https://weeklit.net/about)
+
+## Data
+
+- Aggregates from 90+ Korean sources every 10 minutes
+- Cross-source trend detection: identifies when topics appear across multiple platforms simultaneously
+- AI-powered editorial summaries via Google Gemini
+- Issue clustering groups related posts from different sources
+- Scoring system ranks by engagement velocity, source diversity, and trend signals
+
+## API
+
+- Sitemap: https://weeklit.net/sitemap.xml
+- RSS Feed: https://weeklit.net/api/feed/rss
+
+## Contact
+
+- Website: https://weeklit.net
+- Service: WeekLit (위클릿) — 실시간 트렌드 모아보기

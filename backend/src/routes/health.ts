@@ -5,6 +5,7 @@ import { isAdminRequest } from '../middleware/adminAuth.js';
 import { pool, batchPool } from '../db/client.js';
 import { getEmbeddingCacheSize } from '../services/embedding.js';
 import { getFeatureFlags } from '../services/featureFlags.js';
+import { getCircuitStates, CIRCUIT_BREAKER_COOLDOWN_MS } from '../scrapers/base.js';
 
 interface ScraperRunRow {
   source_key: string;
@@ -100,6 +101,15 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
           heap_total_mb: Math.round(mem.heapTotal / 1048576),
         };
       })(),
+      circuit_breakers: Object.fromEntries(
+        [...getCircuitStates()].map(([k, v]) => [k, {
+          failures: v.failures,
+          is_open: v.openedAt !== null,
+          cooldown_remaining_ms: v.openedAt
+            ? Math.max(0, CIRCUIT_BREAKER_COOLDOWN_MS - (Date.now() - v.openedAt))
+            : 0,
+        }]),
+      ),
       embedding_cache_size: getEmbeddingCacheSize(),
       feature_flags: getFeatureFlags(),
       uptime_seconds: Math.round(process.uptime()),

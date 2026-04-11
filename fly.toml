@@ -7,8 +7,8 @@ primary_region = "nrt"
     BUILD_FRONTEND = "false"
 
 [processes]
-  web = "node dist/server.js"
-  worker = "node dist/worker.js"
+  web = "./start.sh"
+  worker = "node backend/dist/worker.js"
 
 [env]
   NODE_ENV = "production"

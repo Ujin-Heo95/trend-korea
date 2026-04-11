@@ -7,7 +7,7 @@ const BASE_URL = config.baseUrl;
 const SITE_NAME = config.siteName;
 const DEFAULT_DESC = config.siteDescription;
 
-const BOT_UA_PATTERN = /googlebot|yeti|bingbot|duckduckbot|kakaotalk-scrap|facebookexternalhit|twitterbot|slackbot|linkedinbot|telegrambot|whatsapp|line-poker|pinterestbot/i;
+const BOT_UA_PATTERN = /googlebot|yeti|bingbot|duckduckbot|kakaotalk-scrap|facebookexternalhit|twitterbot|slackbot|linkedinbot|telegrambot|whatsapp|line-poker|pinterestbot|gptbot|chatgpt-user|claudebot|perplexitybot|google-extended|applebot|cohere-ai/i;
 
 const GOOGLE_VERIFICATION = config.googleSiteVerification;
 const NAVER_VERIFICATION = config.naverSiteVerification;
@@ -124,18 +124,29 @@ export async function getIssueMeta(pool: Pool, postId: number): Promise<PageMeta
     thumbnail: string | null;
     category: string | null;
     scraped_at: string;
+    updated_at: string | null;
+    cluster_size: string;
   }>(
-    `SELECT title, source_name, thumbnail, category, scraped_at FROM posts WHERE id = $1`,
+    `SELECT p.title, p.source_name, p.thumbnail, p.category, p.scraped_at,
+            p.updated_at,
+            COALESCE((SELECT COUNT(*) FROM post_cluster_members pcm
+                      JOIN post_clusters pc ON pc.id = pcm.cluster_id
+                      WHERE pcm.post_id = p.id), 0) AS cluster_size
+     FROM posts p WHERE p.id = $1`,
     [postId],
   );
   if (!rows[0]) return null;
-  const { title, source_name, thumbnail, category, scraped_at } = rows[0];
-  const desc = `${source_name}${category ? ` · ${category}` : ''} — 위클릿 실시간 이슈`;
+  const { title, source_name, thumbnail, category, scraped_at, updated_at, cluster_size } = rows[0];
+  const clusterCount = Number(cluster_size);
+  const crossSourceNote = clusterCount > 1 ? ` · ${clusterCount}개 소스에서 동시 감지` : '';
+  const desc = `${source_name}${category ? ` · ${category}` : ''}${crossSourceNote} — 위클릿 실시간 이슈`;
   const pageUrl = `${BASE_URL}/issue/${postId}`;
   const categoryLabel = category ? (CATEGORY_LABELS[category] ?? category) : '이슈';
+  // 네이버 모바일 표시 제한 대응: title 40자 이내
+  const truncatedTitle = title.length > 37 ? `${title.slice(0, 37)}…` : title;
 
   return {
-    title: `${title} — 위클릿`,
+    title: `${truncatedTitle} — 위클릿`,
     description: desc,
     url: pageUrl,
     ogImage: thumbnail ?? `${BASE_URL}/api/og-image/${postId}`,
@@ -143,13 +154,18 @@ export async function getIssueMeta(pool: Pool, postId: number): Promise<PageMeta
     jsonLd: [
       {
         '@context': 'https://schema.org',
-        '@type': 'Article',
+        '@type': 'NewsArticle',
         headline: title,
         description: desc,
         url: pageUrl,
         datePublished: scraped_at,
+        ...(updated_at ? { dateModified: updated_at } : {}),
+        inLanguage: 'ko',
         publisher: { '@type': 'Organization', name: '위클릿', url: BASE_URL },
         ...(thumbnail ? { image: thumbnail } : {}),
+        ...(clusterCount > 1
+          ? { speakable: { '@type': 'SpeakableSpecification', cssSelector: ['h1', 'article > p'] } }
+          : {}),
       },
       breadcrumb([
         HOME_CRUMB,

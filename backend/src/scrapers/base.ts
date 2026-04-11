@@ -14,9 +14,9 @@ const MAX_METADATA_BYTES = 8192;
 
 // ── Circuit Breaker ────────────────────────────────────
 const CIRCUIT_BREAKER_THRESHOLD = 5;
-const CIRCUIT_BREAKER_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+export const CIRCUIT_BREAKER_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
 
-interface CircuitState {
+export interface CircuitState {
   failures: number;
   openedAt: number | null;
 }
@@ -74,6 +74,11 @@ function persistCircuitState(sourceKey: string, state: CircuitState): void {
 /** Exported for testing — reset all circuit breaker states */
 export function resetCircuitBreakers(): void {
   circuitStates.clear();
+}
+
+/** Read-only snapshot of all circuit breaker states (for admin dashboard) */
+export function getCircuitStates(): ReadonlyMap<string, Readonly<CircuitState>> {
+  return circuitStates;
 }
 
 export function stripHtml(s: string): string {

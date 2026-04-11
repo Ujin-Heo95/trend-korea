@@ -106,7 +106,7 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
             {/* Thumbnail — square, right-aligned */}
             {post.thumbnail && (
               <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
-                <img src={optimizedImage(post.thumbnail, 96)} alt="" loading="lazy" decoding="async" width={48} height={48} className="w-full h-full object-cover" />
+                <img src={optimizedImage(post.thumbnail, 96)} alt={`${post.title} 썸네일`} loading="lazy" decoding="async" width={48} height={48} className="w-full h-full object-cover" />
               </div>
             )}
           </div>
