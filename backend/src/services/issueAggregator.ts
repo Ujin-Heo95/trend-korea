@@ -990,7 +990,7 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[]): Prom
        WHERE expires_at > NOW()`,
     );
     const summaryMap = new Map(
-      existingRows.filter(r => r.summary != null && r.stable_id != null).map(r => [r.stable_id, {
+      existingRows.filter(r => r.summary != null && r.stable_id != null && !r.summary.startsWith('관련 기사')).map(r => [r.stable_id, {
         title: r.title, summary: r.summary, categoryLabel: r.category_label,
         qualityScore: r.quality_score, aiKeywords: r.ai_keywords ?? [], sentiment: r.sentiment,
       }]),

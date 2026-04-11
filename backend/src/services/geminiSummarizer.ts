@@ -226,7 +226,7 @@ export async function summarizeAndUpdateIssues(
   }>(
     `SELECT id, cluster_ids, standalone_post_ids, summary, stable_id
      FROM issue_rankings
-     WHERE summary IS NULL
+     WHERE summary IS NULL OR summary LIKE '관련 기사%'
      ORDER BY issue_score DESC
      LIMIT $1`,
     [maxIssues],
