@@ -146,10 +146,10 @@ P1-01 → P1-03 (프리렌더에 JSON-LD 삽입)
 | P2-08 | **DB 연결 복구 로직** | 백엔드 | 2-3h | pool error → 재연결 backoff + 스크래퍼 일시정지 + health 503 |
 | P2-09 | **스켈레톤 로딩** | 프론트 | 2-3d | PostCard/IssueDetail/Report 형태별 스켈레톤. CLS 방지 |
 | P2-10 | **Core Web Vitals 개선** | 프론트 | 2d | TrendHero min-height, Inter 자체 호스팅, useTransition, content-visibility |
-| P2-11 | **이미지 최적화** | 프론트 | 2-3d | weserv.nl 프록시 or sharp 엔드포인트 + srcset + fetchpriority="high" |
-| P2-12 | **접근성 개선** | 프론트 | 1d | CategoryTabs role=tab, skip-to-content, aria-live, MobileBottomNav aria-current |
+| ~~P2-11~~ | ~~**이미지 최적화**~~ | 프론트 | — | ✅ **부분 완료** (2026-04-11) CLS용 width/height 추가, wsrv.nl 프록시 기적용 |
+| ~~P2-12~~ | ~~**접근성 개선**~~ | 프론트 | — | ✅ **완료** (2026-04-11) CategoryTabs ARIA, RankBadge aria-label, role="tabpanel" 제거, 터치 타겟 44px |
 | P2-13 | **백엔드 통합 테스트** | 테스트 | 8-12h | vote flow, posts trending+dedup, scoring batch (pg-mem or Docker PG) |
-| P2-14 | **프론트엔드 테스트 시작** | 테스트 | 5-7d | Vitest+RTL: hooks 단위 → PostCard 컴포넌트 → MSW 통합. 목표 40% |
+| ~~P2-14~~ | ~~**프론트엔드 테스트 시작**~~ | 테스트 | — | ✅ **완료** (2026-04-11) 9 test files, 79 tests (useVotes, useBookmarks, SearchBar, client, VoteButton 등) |
 | ~~P2-15~~ | ~~**vote 응답 로직 수정**~~ | 백엔드 | — | ✅ **완료** (2026-04-04) is_new_vote |
 | ~~P2-16~~ | ~~**cleanup.ts 인터벌 표준화**~~ | 백엔드 | — | ✅ **완료** (2026-04-04) |
 
@@ -168,7 +168,7 @@ DAU 유지를 위한 리텐션 채널 3개 확보 + 제품 차별화 강화.
 | P3-05 | **다크 모드** | 프론트 | 3-4d | Tailwind dark: + localStorage 토글 + prefers-color-scheme 기본 |
 | P3-06 | **북마크/즐겨찾기** | 프론트 | 1-2d | localStorage → 추후 서버 동기화. /bookmarks 페이지 |
 | P3-07 | **교차 검증기 재활성화** | 백엔드 | 4-6h | trendCrossValidator.ts 디버그 + API 키 확인 + trend_signals 복구 |
-| P3-08 | **스크래퍼 서킷 브레이커** | 백엔드 | 4-6h | 연속 5회 실패 → 1시간 자동 스킵 + Discord 알림 |
+| ~~P3-08~~ | ~~**스크래퍼 서킷 브레이커**~~ | 백엔드 | — | ✅ **완료** (2026-04-11) DB 영속화 추가, 배포 시 상태 유지 |
 | P3-09 | **구조화 로깅** (pino) | 백엔드 | 4-5h | console.log → fastify.log 통합, request-id 상관관계 |
 | P3-10 | **DB 인덱스 최적화** | 백엔드 | 3-4h | EXPLAIN ANALYZE → 신규 마이그레이션 (post_scores, keywords GIN, engagement captured_at) |
 | P3-11 | **중앙 에러 핸들러** | 백엔드 | 3-4h | setErrorHandler → 일관된 응답 형태 + Sentry 통합 |
@@ -183,10 +183,10 @@ DAU 1000+ 대비 인프라 확장 + 개인화 + 사업 고도화.
 | ID | 작업 | 관점 | 공수 | 상세 |
 |----|------|------|------|------|
 | P4-01 | **SSR 마이그레이션** (Next.js App Router) | 프론트 | 2-3w | 프리렌더 미들웨어 교체, SEO 근본 해결 |
-| P4-02 | **스케줄러 워커 분리** | 백엔드 | 6-8h | web + worker 프로세스 (Railway 별도 서비스) |
+| ~~P4-02~~ | ~~**스케줄러 워커 분리**~~ | 백엔드 | — | ✅ **완료** (2026-04-11) worker.ts + fly.toml 프로세스 그룹. 활성화: `fly scale count worker=1` |
 | P4-03 | **API 버저닝** (/api/v1/) | 백엔드 | 4-6h | 런칭 전 적용 권장, 하위 호환 리다이렉트 |
 | P4-04 | **응답 스키마 검증** | 백엔드 | 5-7h | Fastify response schema → 직렬화 최적화 + 데이터 누출 방지 |
-| P4-05 | ~~**Supavisor 커넥션 풀러**~~ ✅ | 인프라 | — | Transaction pooler 전환 완료 (2026-04-11) |
+| ~~P4-05~~ | ~~**Supavisor 커넥션 풀러**~~ | 인프라 | — | ✅ **완료** (2026-04-11) :6543 자동 감지 + 단일 풀 + keepAlive 비활성. 전환: DATABASE_URL 포트 변경만 필요 |
 | P4-06 | **E2E 테스트** (Playwright) | 테스트 | 10-15h | 핵심 사용자 플로우: 홈→카테고리→이슈상세→투표→리포트 |
 | P4-07 | **경량 유저 계정** (Supabase Auth) | 서비스 | 3-5d | 카카오 로그인 + localStorage 마이그레이션 |
 | P4-08 | **"For You" 개인화 피드** | 서비스 | 3-5d | 읽음/투표 이력 → TF-IDF 관심 벡터 → 피드 재랭킹 |
