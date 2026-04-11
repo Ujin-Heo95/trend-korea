@@ -15,6 +15,9 @@ const CHECKLIST = [
   { label: 'Sentry 백엔드 DSN 설정 (fly secrets)', done: true },
   { label: 'Sentry 프론트엔드 DSN 설정 (CF Pages)', done: true },
   { label: 'UptimeRobot /health 모니터 등록', done: true },
+  { label: 'Fly.io 도쿄 백엔드 배포', done: true },
+  { label: 'Cloudflare Pages 프론트엔드 배포', done: true },
+  { label: 'Supabase Pro 8GB 서울 전환', done: true },
   { label: 'Google Search Console 등록 + sitemap 제출', done: false },
   { label: '네이버 서치어드바이저 등록 + sitemap 제출', done: false },
 ];

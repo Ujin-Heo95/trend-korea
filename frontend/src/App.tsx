@@ -75,7 +75,7 @@ function MainRoutes() {
 
 function AppRoutes() {
   const location = useLocation();
-  if (location.pathname === '/admin') {
+  if (location.pathname === '/admin' || location.pathname === '/admin/') {
     return <Suspense fallback={<PageLoader />}><AdminPage /></Suspense>;
   }
   return <MainRoutes />;

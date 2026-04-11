@@ -125,7 +125,7 @@ export function AdminPage() {
           <>
             {/* System Overview Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <StatCard label="DB 크기" value={`${health.db.db_size_mb} MB`} sub="Supabase 500MB 한도" />
+              <StatCard label="DB 크기" value={`${health.db.db_size_mb} MB`} sub="Supabase Pro 8GB" />
               <StatCard label="총 포스트" value={health.db.post_count.toLocaleString()} sub={`최고령 ${health.db.oldest_post_age_days.toFixed(1)}일`} />
               <StatCard label="활성 스크래퍼" value={health.scrapers.total} sub={`마지막 실행 ${formatTime(health.scrapers.last_run_at)}`} />
               <StatCard label="실패 스크래퍼" value={health.scrapers.failed_last_run}
@@ -179,6 +179,16 @@ export function AdminPage() {
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* Scraper Status Error */}
+            {scraperQuery.isError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center justify-between">
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  스크래퍼 상태 조회 실패: {scraperQuery.error instanceof Error ? scraperQuery.error.message : '알 수 없는 오류'}
+                </p>
+                <button onClick={() => scraperQuery.refetch()} className="px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 text-xs font-medium hover:opacity-80 transition-colors">재시도</button>
               </div>
             )}
 

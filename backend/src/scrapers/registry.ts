@@ -148,10 +148,15 @@ export async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<
 
 /** Fetch runtime enable/disable overrides from DB */
 export async function getSourceOverrides(dbPool: Pool): Promise<ReadonlyMap<string, boolean>> {
-  const { rows } = await dbPool.query<{ source_key: string; enabled: boolean }>(
-    'SELECT source_key, enabled FROM scraper_source_overrides',
-  );
-  return new Map(rows.map(r => [r.source_key, r.enabled]));
+  try {
+    const { rows } = await dbPool.query<{ source_key: string; enabled: boolean }>(
+      'SELECT source_key, enabled FROM scraper_source_overrides',
+    );
+    return new Map(rows.map(r => [r.source_key, r.enabled]));
+  } catch (err) {
+    console.warn('[registry] scraper_source_overrides 테이블 조회 실패, 기본값 사용:', (err as Error).message);
+    return new Map();
+  }
 }
 
 /** Get enabled sources with DB overrides applied (DB override wins over sources.json) */
