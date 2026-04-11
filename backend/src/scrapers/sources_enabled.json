@@ -1,0 +1,757 @@
+{
+  "enabled_sources": [
+    {
+      "key": "dcinside",
+      "name": "DC인사이드",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "bobaedream",
+      "name": "보배드림",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "ruliweb",
+      "name": "루리웹",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "theqoo",
+      "name": "더쿠",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "instiz",
+      "name": "인스티즈",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "natepann",
+      "name": "네이트판",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "todayhumor",
+      "name": "오늘의유머",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "youtube",
+      "name": "YouTube 인기",
+      "category": "video_popular",
+      "type": "api",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "youtube_sbs_news",
+      "name": "SBS 뉴스 YouTube",
+      "category": "video",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "youtube_ytn",
+      "name": "YTN YouTube",
+      "category": "video",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "youtube_mbc_news",
+      "name": "MBC 뉴스 YouTube",
+      "category": "video",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "youtube_kbs_news",
+      "name": "KBS 뉴스 YouTube",
+      "category": "video",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "youtube_jtbc_news",
+      "name": "JTBC 뉴스 YouTube",
+      "category": "video",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "youtube_search",
+      "name": "YouTube 키워드 검색",
+      "category": "video",
+      "type": "api",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "ppomppu",
+      "name": "뽐뿌",
+      "category": "community",
+      "type": "rss",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "yna",
+      "name": "연합뉴스",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "hani",
+      "name": "한겨레",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "sbs",
+      "name": "SBS 뉴스",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "donga",
+      "name": "동아일보",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "khan",
+      "name": "경향신문",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "hankyung",
+      "name": "한국경제",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": "경제"
+    },
+    {
+      "key": "mk",
+      "name": "매일경제",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": "경제"
+    },
+    {
+      "key": "kmib",
+      "name": "국민일보",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "geeknews",
+      "name": "GeekNews",
+      "category": "tech",
+      "type": "html",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "yozm",
+      "name": "요즘IT",
+      "category": "tech",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "airkorea",
+      "name": "에어코리아",
+      "category": "alert",
+      "type": "api",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "ppomppu_hot",
+      "name": "뽐뿌 핫딜",
+      "category": "deals",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "ruliweb_hot",
+      "name": "루리웹 핫딜",
+      "category": "deals",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "clien_jirum",
+      "name": "클리앙 알뜰구매",
+      "category": "deals",
+      "type": "html",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "quasarzone_deal",
+      "name": "퀘사이사존 핫딜",
+      "category": "deals",
+      "type": "html",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "investing_kr",
+      "name": "Investing.com 한국",
+      "category": "finance",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": "경제"
+    },
+    {
+      "key": "sedaily",
+      "name": "서울경제",
+      "category": "finance",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": "경제"
+    },
+    {
+      "key": "google_trends",
+      "name": "Google 트렌드",
+      "category": "trend",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "korea_press",
+      "name": "정책브리핑 보도자료",
+      "category": "government",
+      "type": "rss",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "korea_policy",
+      "name": "정책뉴스",
+      "category": "government",
+      "type": "rss",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "korea_briefing",
+      "name": "부처 브리핑",
+      "category": "government",
+      "type": "rss",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "uppity",
+      "name": "어피티",
+      "category": "newsletter",
+      "type": "rss",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "google_news_kr",
+      "name": "Google 뉴스 한국",
+      "category": "news",
+      "type": "rss",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "koreaherald",
+      "name": "Korea Herald",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "koreatimes",
+      "name": "Korea Times",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "newsis",
+      "name": "뉴시스",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "ddanzi",
+      "name": "딴지일보",
+      "category": "community",
+      "type": "rss",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "clien",
+      "name": "클리앙",
+      "category": "community",
+      "type": "html",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "fmkorea",
+      "name": "에펨코리아",
+      "category": "community",
+      "type": "html",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "mlbpark",
+      "name": "MLB파크",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "cook82",
+      "name": "82쿡",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "inven",
+      "name": "인벤",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "humoruniv",
+      "name": "웃긴대학",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "ygosu",
+      "name": "와이고수",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "slrclub",
+      "name": "SLR클럽",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "etoland",
+      "name": "에토랜드",
+      "category": "community",
+      "type": "html",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "kopis_boxoffice",
+      "name": "KOPIS 예매순위",
+      "category": "performance",
+      "type": "api",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "kobis_boxoffice",
+      "name": "KOBIS 박스오피스",
+      "category": "movie",
+      "type": "api",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "naver_datalab",
+      "name": "네이버 검색 트렌드",
+      "category": "trend",
+      "type": "api",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "chosun",
+      "name": "조선일보",
+      "category": "news",
+      "type": "rss",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "jtbc",
+      "name": "JTBC 뉴스",
+      "category": "news",
+      "type": "rss",
+      "priority": "high",
+      "subcategory": null
+    },
+    {
+      "key": "etnews",
+      "name": "전자신문",
+      "category": "tech",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "newswire",
+      "name": "뉴스와이어",
+      "category": "press",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "daum_cafe",
+      "name": "다음 카페 검색",
+      "category": "community",
+      "type": "api",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "bigkinds_issues",
+      "name": "빅카인즈 오늘의 이슈",
+      "category": "news",
+      "type": "api",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "tour_visitor",
+      "name": "관광 빅데이터 방문객",
+      "category": "travel",
+      "type": "api",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "traveltimes",
+      "name": "여행신문",
+      "category": "travel",
+      "type": "rss",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "kcisa_cca_performance",
+      "name": "공연정보(통합)",
+      "category": "performance",
+      "type": "api",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "kcisa_cca_exhibition",
+      "name": "전시정보(통합)",
+      "category": "performance",
+      "type": "api",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "ohmynews",
+      "name": "오마이뉴스",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "moneytoday",
+      "name": "머니투데이",
+      "category": "finance",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": "경제"
+    },
+    {
+      "key": "boannews",
+      "name": "보안뉴스",
+      "category": "tech",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "dogdrip",
+      "name": "개드립",
+      "category": "community",
+      "type": "html",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "melon_chart",
+      "name": "멜론 차트",
+      "category": "music",
+      "type": "html",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "naver_news_ranking",
+      "name": "네이버 뉴스 랭킹",
+      "category": "news",
+      "type": "html",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "nocutnews",
+      "name": "노컷뉴스",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "asiae",
+      "name": "아시아경제",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "segye",
+      "name": "세계일보",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "edaily",
+      "name": "이데일리",
+      "category": "finance",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": "경제"
+    },
+    {
+      "key": "bizwatch",
+      "name": "비즈워치",
+      "category": "finance",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": "경제"
+    },
+    {
+      "key": "cnn",
+      "name": "CNN",
+      "category": "news",
+      "type": "rss",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "nature",
+      "name": "네이쳐",
+      "category": "tech",
+      "type": "rss",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "bbc_korean",
+      "name": "BBC코리아",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "zdnet_kr",
+      "name": "지디넷코리아",
+      "category": "tech",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "mbn",
+      "name": "MBN",
+      "category": "news",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "itworld_kr",
+      "name": "IT World",
+      "category": "tech",
+      "type": "rss",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "yes24_bestseller",
+      "name": "YES24 베스트셀러",
+      "category": "books",
+      "type": "html",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "aladin_bestseller",
+      "name": "알라딘 베스트셀러",
+      "category": "books",
+      "type": "html",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "bugs_chart",
+      "name": "벅스 차트",
+      "category": "music",
+      "type": "html",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "genie_chart",
+      "name": "지니 차트",
+      "category": "music",
+      "type": "html",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "kworb_spotify_kr",
+      "name": "Spotify 한국",
+      "category": "music",
+      "type": "html",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "kworb_youtube_kr",
+      "name": "YouTube 한국",
+      "category": "music",
+      "type": "html",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "flixpatrol",
+      "name": "FlixPatrol OTT 순위",
+      "category": "ott",
+      "type": "html",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "nate_realtime",
+      "name": "네이트 실시간 검색어",
+      "category": "trend",
+      "type": "html",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "zum_realtime",
+      "name": "ZUM 실시간 검색어",
+      "category": "trend",
+      "type": "html",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "wikipedia_ko",
+      "name": "위키백과 인기 문서",
+      "category": "trend",
+      "type": "api",
+      "priority": "low",
+      "subcategory": null
+    },
+    {
+      "key": "natepann_ranking",
+      "name": "네이트판 명예의 전당",
+      "category": "community",
+      "type": "html",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "seoul_citydata",
+      "name": "서울 실시간 도시데이터",
+      "category": "travel",
+      "type": "api",
+      "priority": "medium",
+      "subcategory": null
+    },
+    {
+      "key": "seoul_cultural_event",
+      "name": "서울문화행사",
+      "category": "travel",
+      "type": "api",
+      "priority": "low",
+      "subcategory": null
+    }
+  ],
+  "total": 95
+}

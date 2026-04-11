@@ -1,0 +1,95 @@
+key,name,category,subcategory,type,priority
+dcinside,DC인사이드,community,,html,high
+bobaedream,보배드림,community,,html,high
+ruliweb,루리웹,community,,html,high
+theqoo,더쿠,community,,html,high
+instiz,인스티즈,community,,html,high
+natepann,네이트판,community,,html,high
+todayhumor,오늘의유머,community,,html,high
+youtube,YouTube 인기,video_popular,,api,low
+youtube_sbs_news,SBS 뉴스 YouTube,video,,rss,medium
+youtube_ytn,YTN YouTube,video,,rss,medium
+youtube_mbc_news,MBC 뉴스 YouTube,video,,rss,medium
+youtube_kbs_news,KBS 뉴스 YouTube,video,,rss,medium
+youtube_jtbc_news,JTBC 뉴스 YouTube,video,,rss,medium
+youtube_search,YouTube 키워드 검색,video,,api,low
+ppomppu,뽐뿌,community,,rss,high
+yna,연합뉴스,news,,rss,medium
+hani,한겨레,news,,rss,medium
+sbs,SBS 뉴스,news,,rss,medium
+donga,동아일보,news,,rss,medium
+khan,경향신문,news,,rss,medium
+hankyung,한국경제,news,경제,rss,medium
+mk,매일경제,news,경제,rss,medium
+kmib,국민일보,news,,rss,medium
+geeknews,GeekNews,tech,,html,medium
+yozm,요즘IT,tech,,rss,medium
+airkorea,에어코리아,alert,,api,low
+ppomppu_hot,뽐뿌 핫딜,deals,,rss,medium
+ruliweb_hot,루리웹 핫딜,deals,,rss,medium
+clien_jirum,클리앙 알뜰구매,deals,,html,medium
+quasarzone_deal,퀘사이사존 핫딜,deals,,html,medium
+investing_kr,Investing.com 한국,finance,경제,rss,medium
+sedaily,서울경제,finance,경제,rss,medium
+google_trends,Google 트렌드,trend,,rss,medium
+korea_press,정책브리핑 보도자료,government,,rss,low
+korea_policy,정책뉴스,government,,rss,low
+korea_briefing,부처 브리핑,government,,rss,low
+uppity,어피티,newsletter,,rss,low
+google_news_kr,Google 뉴스 한국,news,,rss,high
+koreaherald,Korea Herald,news,,rss,medium
+koreatimes,Korea Times,news,,rss,medium
+newsis,뉴시스,news,,rss,medium
+ddanzi,딴지일보,community,,rss,high
+clien,클리앙,community,,html,medium
+fmkorea,에펨코리아,community,,html,medium
+mlbpark,MLB파크,community,,html,high
+cook82,82쿡,community,,html,high
+inven,인벤,community,,html,high
+humoruniv,웃긴대학,community,,html,high
+ygosu,와이고수,community,,html,high
+slrclub,SLR클럽,community,,html,high
+etoland,에토랜드,community,,html,high
+kopis_boxoffice,KOPIS 예매순위,performance,,api,low
+kobis_boxoffice,KOBIS 박스오피스,movie,,api,low
+naver_datalab,네이버 검색 트렌드,trend,,api,medium
+chosun,조선일보,news,,rss,high
+jtbc,JTBC 뉴스,news,,rss,high
+etnews,전자신문,tech,,rss,medium
+newswire,뉴스와이어,press,,rss,medium
+daum_cafe,다음 카페 검색,community,,api,medium
+bigkinds_issues,빅카인즈 오늘의 이슈,news,,api,low
+tour_visitor,관광 빅데이터 방문객,travel,,api,low
+traveltimes,여행신문,travel,,rss,low
+kcisa_cca_performance,공연정보(통합),performance,,api,low
+kcisa_cca_exhibition,전시정보(통합),performance,,api,low
+ohmynews,오마이뉴스,news,,rss,medium
+moneytoday,머니투데이,finance,경제,rss,medium
+boannews,보안뉴스,tech,,rss,medium
+dogdrip,개드립,community,,html,medium
+melon_chart,멜론 차트,music,,html,low
+naver_news_ranking,네이버 뉴스 랭킹,news,,html,medium
+nocutnews,노컷뉴스,news,,rss,medium
+asiae,아시아경제,news,,rss,medium
+segye,세계일보,news,,rss,medium
+edaily,이데일리,finance,경제,rss,medium
+bizwatch,비즈워치,finance,경제,rss,medium
+cnn,CNN,news,,rss,low
+nature,네이쳐,tech,,rss,low
+bbc_korean,BBC코리아,news,,rss,medium
+zdnet_kr,지디넷코리아,tech,,rss,medium
+mbn,MBN,news,,rss,medium
+itworld_kr,IT World,tech,,rss,medium
+yes24_bestseller,YES24 베스트셀러,books,,html,low
+aladin_bestseller,알라딘 베스트셀러,books,,html,low
+bugs_chart,벅스 차트,music,,html,low
+genie_chart,지니 차트,music,,html,low
+kworb_spotify_kr,Spotify 한국,music,,html,low
+kworb_youtube_kr,YouTube 한국,music,,html,low
+flixpatrol,FlixPatrol OTT 순위,ott,,html,low
+nate_realtime,네이트 실시간 검색어,trend,,html,medium
+zum_realtime,ZUM 실시간 검색어,trend,,html,medium
+wikipedia_ko,위키백과 인기 문서,trend,,api,low
+natepann_ranking,네이트판 명예의 전당,community,,html,medium
+seoul_citydata,서울 실시간 도시데이터,travel,,api,medium
+seoul_cultural_event,서울문화행사,travel,,api,low

@@ -1,7 +1,4 @@
-import type React from 'react';
-import type { Post } from '../types';
 import type { EntertainmentSub } from '../components/EntertainmentSubTabs';
-import type { TravelSub } from '../components/TravelSubTabs';
 
 export interface CategoryContext {
   category: string | undefined;
@@ -9,7 +6,7 @@ export interface CategoryContext {
   isTravelTab: boolean;
   isPortalTab: boolean;
   entertainmentSub: EntertainmentSub;
-  travelSub: TravelSub;
+  travelSub: string;
   selectedSources: string[];
   sortMode: 'trending' | 'latest';
 }
@@ -30,10 +27,7 @@ export const categoryRegistry: CategoryEntry[] = [
   { match: (ctx) => ctx.isEntertainmentTab && ctx.entertainmentSub === 'books', component: 'BookRankingTable' },
   { match: (ctx) => ctx.isEntertainmentTab && ctx.entertainmentSub === 'ott', component: 'OttRankingTable' },
   { match: (ctx) => ctx.isEntertainmentTab && ctx.entertainmentSub === 'all', component: 'EntertainmentAllView' },
-  { match: (ctx) => ctx.isTravelTab && ctx.travelSub === 'hotplace', component: 'TravelHotplaceView' },
-  { match: (ctx) => ctx.isTravelTab && ctx.travelSub === 'festival', component: 'TravelFestivalCard' },
-  { match: (ctx) => ctx.isTravelTab && ctx.travelSub === 'photo', component: 'TravelPhotoGallery' },
-  { match: (ctx) => ctx.isTravelTab && ctx.travelSub === 'all', component: 'TravelAllView' },
+  { match: (ctx) => ctx.isTravelTab, component: 'TravelDashboard' },
   { match: (ctx) => ctx.isPortalTab && ctx.selectedSources.length === 0, component: 'PortalRankingView' },
   { match: (ctx) => ctx.category === 'community' && ctx.selectedSources.length === 0 && ctx.sortMode === 'trending', component: 'CommunityRankingList' },
 ];

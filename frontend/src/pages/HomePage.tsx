@@ -15,10 +15,7 @@ import { OttRankingTable } from '../components/OttRankingTable';
 import { EntertainmentSubTabs, type EntertainmentSub } from '../components/EntertainmentSubTabs';
 import { EntertainmentCompactSection } from '../components/EntertainmentCompactSection';
 import { EntertainmentUnifiedView } from '../components/EntertainmentUnifiedView';
-import { TravelSubTabs, type TravelSub } from '../components/TravelSubTabs';
-import { TravelHotplaceView } from '../components/TravelHotplaceView';
-import { TravelFestivalCard } from '../components/TravelFestivalCard';
-import { TravelPhotoGallery } from '../components/TravelPhotoGallery';
+import { TravelDashboard } from '../components/travel/TravelDashboard';
 import { CommunityRankingList } from '../components/CommunityRankingList';
 import { PortalRankingView } from '../components/PortalRankingView';
 import { IssueRankingList } from '../components/IssueRankingList';
@@ -58,13 +55,6 @@ const ENTERTAINMENT_SUB_LABELS: Record<string, string> = {
   performance: '공연',
 };
 
-const TRAVEL_SUB_LABELS: Record<string, string> = {
-  hotplace: '핫플레이스',
-  festival: '축제/행사',
-  photo: '관광사진',
-  news: '여행뉴스',
-};
-
 const ENTERTAINMENT_CATEGORY_MAP: Record<EntertainmentSub, string> = {
   all: 'movie,performance,music,books,ott',
   books: 'books',
@@ -72,14 +62,6 @@ const ENTERTAINMENT_CATEGORY_MAP: Record<EntertainmentSub, string> = {
   music: 'music',
   movie: 'movie',
   performance: 'performance',
-};
-
-const TRAVEL_SOURCE_MAP: Record<TravelSub, string | undefined> = {
-  all: undefined,
-  hotplace: 'tour_visitor,seoul_citydata',
-  festival: 'seoul_cultural_event',
-  photo: 'tour_photo',
-  news: 'traveltimes',
 };
 
 interface Props {
@@ -97,7 +79,6 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const [sortMode, setSortMode] = useState<'trending' | 'latest'>('trending');
   const [newsSubcategory, setNewsSubcategory] = useState<string | undefined>(undefined);
   const [entertainmentSub, setEntertainmentSub] = useState<EntertainmentSub>('all');
-  const [travelSub, setTravelSub] = useState<TravelSub>('all');
   const [, startTransition] = useTransition();
   const isNewsTab = category === 'news,newsletter,tech';
   const isPortalTab = category === 'portal';
@@ -112,7 +93,6 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       setSortMode('trending');
       setNewsSubcategory(undefined);
       setEntertainmentSub('all');
-      setTravelSub('all');
     });
   };
 
@@ -120,13 +100,11 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     ? ENTERTAINMENT_CATEGORY_MAP[entertainmentSub]
     : category;
 
-  const travelSource = isTravelTab && travelSub !== 'all' ? TRAVEL_SOURCE_MAP[travelSub] : undefined;
-
   const filter = {
     ...(resolvedCategory ? { category: resolvedCategory } : {}),
     ...(isNewsTab && newsSubcategory ? { subcategory: newsSubcategory } : {}),
     ...(searchQuery ? { q: searchQuery } : {}),
-    ...(travelSource ? { source: travelSource } : selectedSources.length > 0 ? { source: selectedSources.join(',') } : {}),
+    ...(selectedSources.length > 0 ? { source: selectedSources.join(',') } : {}),
     ...(isAllTab || category === 'community' || isNewsTab ? { sort: sortMode } : {}),
   };
 
@@ -182,11 +160,6 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
       items.push({ label: categoryLabel, href: '/?category=entertainment' });
       if (subLabel) items.push({ label: subLabel });
       else items.push({ label: categoryLabel });
-    } else if (isTravelTab && travelSub !== 'all') {
-      const subLabel = TRAVEL_SUB_LABELS[travelSub];
-      items.push({ label: categoryLabel, href: '/?category=travel' });
-      if (subLabel) items.push({ label: subLabel });
-      else items.push({ label: categoryLabel });
     } else if (isNewsTab && newsSubcategory) {
       items.push({ label: categoryLabel, href: '/?category=news,newsletter,tech' });
       items.push({ label: newsSubcategory });
@@ -195,7 +168,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     }
 
     return items;
-  }, [category, isEntertainmentTab, entertainmentSub, isTravelTab, travelSub, isNewsTab, newsSubcategory]);
+  }, [category, isEntertainmentTab, entertainmentSub, isTravelTab, isNewsTab, newsSubcategory]);
 
   return (
     <div ref={mainRef} style={{ overscrollBehaviorY: 'contain' }}>
@@ -225,10 +198,6 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
 
       {isEntertainmentTab && (
         <EntertainmentSubTabs selected={entertainmentSub} onChange={setEntertainmentSub} />
-      )}
-
-      {isTravelTab && (
-        <TravelSubTabs selected={travelSub} onChange={setTravelSub} />
       )}
 
       {(category === 'community' || isNewsTab || isPortalTab) && (
@@ -286,7 +255,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         </div>
       ) : (
         (() => {
-          const ctx: CategoryContext = { category, isEntertainmentTab, isTravelTab, isPortalTab, entertainmentSub, travelSub, selectedSources, sortMode };
+          const ctx: CategoryContext = { category, isEntertainmentTab, isTravelTab, isPortalTab, entertainmentSub, travelSub: 'all', selectedSources, sortMode };
           const matched = findCategoryComponent(ctx);
           if (matched === 'MovieRankingTable') return <MovieRankingTable posts={allPosts} />;
           if (matched === 'MusicRankingTable') return <MusicRankingTable posts={allPosts} />;
@@ -294,10 +263,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
           if (matched === 'BookRankingTable') return <BookRankingTable posts={allPosts} />;
           if (matched === 'OttRankingTable') return <OttRankingTable posts={allPosts} />;
           if (matched === 'EntertainmentAllView') return <EntertainmentUnifiedView onSubTabChange={setEntertainmentSub} />;
-          if (matched === 'TravelHotplaceView') return <TravelHotplaceView posts={allPosts} />;
-          if (matched === 'TravelFestivalCard') return <TravelFestivalCard posts={allPosts} />;
-          if (matched === 'TravelPhotoGallery') return <TravelPhotoGallery posts={allPosts} />;
-          if (matched === 'TravelAllView') return <TravelAllView posts={allPosts} />;
+          if (matched === 'TravelDashboard') return <TravelDashboard posts={allPosts} />;
           if (matched === 'PortalRankingView') return <PortalRankingView posts={allPosts} isRead={isRead} onRead={markAsRead} onSourceFilter={setSelectedSources} />;
           if (matched === 'CommunityRankingList') return <CommunityRankingList posts={allPosts} isRead={isRead} onRead={markAsRead} />;
           return (
@@ -373,65 +339,4 @@ function EntertainmentAllView({ posts, onSubTabChange }: { posts: Post[]; onSubT
   );
 }
 
-// ── 여행 전체 뷰 ──
-
-function TravelAllView({ posts }: { posts: Post[] }) {
-  const grouped = useMemo(() => {
-    const map: Record<string, Post[]> = {};
-    for (const p of posts) {
-      (map[p.source_key] ??= []).push(p);
-    }
-    return map;
-  }, [posts]);
-
-  const visitorPosts = [...(grouped['tour_visitor'] ?? []), ...(grouped['seoul_citydata'] ?? [])];
-  const festivalPosts = grouped['seoul_cultural_event'] ?? [];
-  const photoPosts = grouped['tour_photo'] ?? [];
-  const newsPosts = grouped['traveltimes'] ?? [];
-
-  const sections: { key: string; label: string; component: React.ReactNode }[] = [
-    visitorPosts.length > 0
-      ? { key: 'hotplace', label: '핫플레이스', component: <TravelHotplaceView posts={visitorPosts} /> }
-      : null,
-    festivalPosts.length > 0
-      ? { key: 'festival', label: '축제/행사', component: <TravelFestivalCard posts={festivalPosts.slice(0, 10)} /> }
-      : null,
-    photoPosts.length > 0
-      ? { key: 'photo', label: '관광사진', component: <TravelPhotoGallery posts={photoPosts.slice(0, 9)} /> }
-      : null,
-    newsPosts.length > 0
-      ? {
-          key: 'news',
-          label: '여행뉴스',
-          component: (
-            <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
-              {newsPosts.slice(0, 5).map(post => (
-                <PostCard key={post.id} post={post} />
-              ))}
-            </div>
-          ),
-        }
-      : null,
-  ].filter((s): s is NonNullable<typeof s> => s !== null);
-
-  if (sections.length === 0) {
-    return (
-      <div className="text-center py-16 text-slate-400 dark:text-slate-500">
-        <p className="text-lg mb-1">여행 데이터가 없습니다</p>
-        <p className="text-sm">데이터 수집 후 표시됩니다</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {sections.map(s => (
-        <div key={s.key}>
-          <h3 className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">{s.label}</h3>
-          {s.component}
-        </div>
-      ))}
-    </div>
-  );
-}
 
