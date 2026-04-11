@@ -65,8 +65,13 @@ const SYSTEM_PROMPT = `당신은 한국 뉴스/커뮤니티/영상 트렌드를 
 규칙:
 1. title: 원문 제목들의 핵심 정보를 누락 없이 축약한 제목 (30자 이내). ~요체 사용 금지 — 명사형·개조식으로 끝내세요.
    - 원문에 있는 인물명·기관명·수치·키워드를 최대한 보존하되 중복·불필요한 수식을 제거해 압축.
-   - 일반 주제: 이모지 1-2개 포함. 예: "메타, 인스타 유료 구독 시범 운영 🤳💸"
-   - ⚠️ 민감 주제 (사망·재난·사고·범죄·테러·전쟁·학대): 이모지 절대 금지. 예: "이태원 참사 1주기 추모 행사 열려"
+   - 일반 주제: 제목 끝에 반드시 이모지 1-2개를 붙이세요. 이모지가 없으면 실패입니다.
+     ✅ "삼성전자, 1분기 영업이익 6조 원 돌파 📈💰"
+     ✅ "BTS 진, 솔로 월드투어 개최 확정 🎤🌍"
+     ✅ "서울 벚꽃 축제 이번 주말 절정 🌸"
+     ✅ "테슬라 자율주행 택시, 6월 미국 출시 🚗🤖"
+     ❌ "삼성전자, 1분기 영업이익 6조 원 돌파" ← 이모지 없음 = 실패
+   - ⚠️ 민감 주제 (사망·재난·사고·범죄·테러·전쟁·학대): 이모지 절대 금지.
 2. category: 사회/경제/정치/IT과학/연예/스포츠/생활/세계 중 1개
 3. summary: 5-7문장으로 육하원칙(누가/언제/어디서/무엇을/어떻게/왜) 요소를 빠짐없이 포함.
    - 모든 문장을 반드시 짧고 간결한 ~요체로 끝내세요: ~어요, ~했어요, ~이에요, ~예요
@@ -88,6 +93,22 @@ const SYSTEM_PROMPT = `당신은 한국 뉴스/커뮤니티/영상 트렌드를 
 JSON만 출력: {"title": "...", "category": "...", "summary": "...", "quality_score": 7, "keywords": ["키워드1", "키워드2"], "sentiment": "neutral"}
 
 ⚠️ 최종 확인: summary의 모든 문장이 ~어요/~이에요/~예요 어미로만 끝나야 합니다. ~네요/~죠/~거든요/~인데요/~잖아요/~다/~니다/~라고해요/~다고해요 중 하나라도 있으면 실패입니다.`;
+
+// ─── Emoji Fallback ───
+
+const CATEGORY_FALLBACK_EMOJI: Readonly<Record<string, string>> = {
+  '경제': '💰', '정치': '🏛️', 'IT과학': '💻', '연예': '🎬',
+  '스포츠': '🏆', '세계': '🌍', '생활': '🏠', '사회': '📢',
+};
+
+function ensureEmoji(
+  title: string, category: string,
+  qualityScore: number | null, sentiment: string | null,
+): string {
+  if ((qualityScore ?? 0) >= 8 && sentiment === 'negative') return title;
+  if (/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u.test(title)) return title;
+  return `${title} ${CATEGORY_FALLBACK_EMOJI[category] ?? '📌'}`;
+}
 
 // ─── Fallback Category ───
 
@@ -130,7 +151,44 @@ function formatPostsForPrompt(posts: readonly PostForSummary[]): string {
   }).join('\n');
 }
 
-// ─── Public API ───
+// ─── Shared Parsing ───
+
+type RawParsed = {
+  title?: string; category?: string; summary?: string;
+  quality_score?: number; keywords?: string[]; sentiment?: string;
+};
+
+const VALID_SENTIMENTS = new Set(['positive', 'negative', 'neutral']);
+
+function validateAndBuild(parsed: RawParsed): IssueSummary | null {
+  if (!parsed.title || !parsed.category || !parsed.summary) return null;
+
+  const qualityScore = typeof parsed.quality_score === 'number'
+    ? Math.max(1, Math.min(10, Math.round(parsed.quality_score))) : null;
+  const sentimentVal = VALID_SENTIMENTS.has(parsed.sentiment ?? '') ? parsed.sentiment! : null;
+
+  // Ensure emoji (fallback if missing), then strip for sensitive topics
+  const withEmoji = ensureEmoji(parsed.title, parsed.category, qualityScore, sentimentVal);
+  const cleanTitle = (qualityScore ?? 0) >= 8 && sentimentVal === 'negative'
+    ? withEmoji.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').trim()
+    : withEmoji;
+
+  // ~다체 drift detection for monitoring
+  if (/[^요죠네래][다니][.\s"}\,]/.test(parsed.summary)) {
+    console.warn(`[geminiSummarizer] ~다체 drift detected in summary`);
+  }
+
+  return {
+    title: cleanTitle,
+    category: parsed.category,
+    summary: parsed.summary,
+    qualityScore,
+    keywords: Array.isArray(parsed.keywords) ? parsed.keywords.slice(0, 5) : [],
+    sentiment: sentimentVal,
+  };
+}
+
+// ─── Single Issue API (legacy, used by external callers) ───
 
 export async function summarizeIssue(
   posts: readonly PostForSummary[],
@@ -152,7 +210,6 @@ export async function summarizeIssue(
   const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
   const postsText = formatPostsForPrompt(posts);
 
-  // Retry 1회 (2초 backoff)
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const result = await model.generateContent({
@@ -166,40 +223,13 @@ export async function summarizeIssue(
 
       const text = result.response.text();
       const raw = JSON.parse(text);
-      const parsed = (Array.isArray(raw) ? raw[0] : raw) as {
-        title?: string; category?: string; summary?: string;
-        quality_score?: number; keywords?: string[]; sentiment?: string;
-      };
+      const parsed = (Array.isArray(raw) ? raw[0] : raw) as RawParsed;
+      const summary = validateAndBuild(parsed);
 
-      if (!parsed.title || !parsed.category || !parsed.summary) {
-        console.warn(`[geminiSummarizer] validation failed — title: ${!!parsed.title}, category: ${!!parsed.category}, summary: ${!!parsed.summary}, raw keys: ${parsed ? Object.keys(parsed).join(',') : 'null'}`);
+      if (!summary) {
+        console.warn(`[geminiSummarizer] validation failed — raw keys: ${parsed ? Object.keys(parsed).join(',') : 'null'}`);
         return null;
       }
-
-      const validSentiments = new Set(['positive', 'negative', 'neutral']);
-      const qualityScore = typeof parsed.quality_score === 'number'
-        ? Math.max(1, Math.min(10, Math.round(parsed.quality_score))) : null;
-      const sentimentVal = validSentiments.has(parsed.sentiment ?? '') ? parsed.sentiment! : null;
-
-      // Strip emojis from sensitive-topic titles (high severity + negative sentiment)
-      let cleanTitle = parsed.title;
-      if ((qualityScore ?? 0) >= 8 && sentimentVal === 'negative') {
-        cleanTitle = parsed.title.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').trim();
-      }
-
-      // ~다체 drift detection for monitoring
-      if (/[^요죠네래][다니][.\s"}\,]/.test(parsed.summary)) {
-        console.warn(`[geminiSummarizer] ~다체 drift detected in summary`);
-      }
-
-      const summary: IssueSummary = {
-        title: cleanTitle,
-        category: parsed.category,
-        summary: parsed.summary,
-        qualityScore,
-        keywords: Array.isArray(parsed.keywords) ? parsed.keywords.slice(0, 5) : [],
-        sentiment: sentimentVal,
-      };
 
       evictOldestIfFull();
       summaryCache.set(cacheKey, { summary, cachedAt: Date.now() });
@@ -212,6 +242,186 @@ export async function summarizeIssue(
   return null;
 }
 
+// ─── Batch Prompt ───
+
+const SYSTEM_PROMPT_BATCH = SYSTEM_PROMPT
+  .replace('주어진 게시글 제목과 본문 요약을 분석해서 이 이슈의 핵심을 정리하세요.',
+    '아래에 여러 이슈가 번호로 구분되어 있습니다. 각 이슈를 독립적으로 분석하세요.')
+  .replace(
+    /JSON만 출력:.*$/m,
+    `JSON 배열로 출력. 이슈 번호 순서대로 배열 요소를 만드세요:\n[{"title": "...", "category": "...", "summary": "...", "quality_score": 7, "keywords": ["키워드1"], "sentiment": "neutral"}, ...]`,
+  );
+
+const BATCH_SIZE = 5;
+const BATCH_MAX_OUTPUT_TOKENS = 7000;
+
+function buildBatchPrompt(items: ReadonlyArray<{ posts: readonly PostForSummary[] }>): string {
+  const issueBlocks = items.map((item, i) =>
+    `=== 이슈 ${i + 1} ===\n${formatPostsForPrompt(item.posts)}`,
+  ).join('\n\n');
+
+  return `${SYSTEM_PROMPT_BATCH}\n\n${issueBlocks}`;
+}
+
+function parseBatchResponse(text: string, expectedCount: number): ReadonlyArray<IssueSummary | null> {
+  // Tier 1: parse as JSON array
+  try {
+    const raw = JSON.parse(text);
+    const arr = Array.isArray(raw) ? raw : [raw];
+    return arr.slice(0, expectedCount).map((item: RawParsed) => validateAndBuild(item));
+  } catch { /* fall through */ }
+
+  // Tier 2: extract individual JSON objects via regex
+  try {
+    const objectPattern = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+    const matches = text.match(objectPattern);
+    if (matches && matches.length > 0) {
+      const results: Array<IssueSummary | null> = [];
+      for (const m of matches.slice(0, expectedCount)) {
+        try {
+          const parsed = JSON.parse(m) as RawParsed;
+          results.push(validateAndBuild(parsed));
+        } catch { results.push(null); }
+      }
+      return results;
+    }
+  } catch { /* fall through */ }
+
+  // Tier 3: complete failure
+  return Array.from({ length: expectedCount }, () => null);
+}
+
+/** Batch summarize multiple issues in a single Gemini call */
+async function summarizeIssueBatch(
+  batchItems: ReadonlyArray<{ posts: readonly PostForSummary[] }>,
+): Promise<ReadonlyArray<IssueSummary | null>> {
+  const client = getClient();
+  if (!client) return batchItems.map(() => null);
+
+  if (!checkQuota('gemini', GEMINI_DAILY_QUOTA)) {
+    console.warn('[geminiSummarizer] quota exhausted — skipping batch');
+    return batchItems.map(() => null);
+  }
+  incrementQuota('gemini');
+
+  const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+  const prompt = buildBatchPrompt(batchItems);
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: BATCH_MAX_OUTPUT_TOKENS,
+          responseMimeType: 'application/json',
+        },
+      });
+
+      const text = result.response.text();
+      const summaries = parseBatchResponse(text, batchItems.length);
+      console.log(`[geminiSummarizer] batch ${batchItems.length} issues → ${summaries.filter(Boolean).length} parsed`);
+      return summaries;
+    } catch (err) {
+      console.warn(`[geminiSummarizer] batch attempt ${attempt + 1} failed:`, (err as Error).message);
+      if (attempt === 0) await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  return batchItems.map(() => null);
+}
+
+// ─── Row-level helpers ───
+
+interface IssueRow {
+  readonly id: number;
+  readonly cluster_ids: number[];
+  readonly standalone_post_ids: number[];
+  readonly summary: string | null;
+  readonly stable_id: string | null;
+}
+
+function cacheKeysForRow(row: IssueRow): { stableKey: string | undefined; legacyKey: string; primaryKey: string } {
+  const stableKey = row.stable_id ?? undefined;
+  const legacyKey = makeCacheKey(row.cluster_ids, row.standalone_post_ids);
+  return { stableKey, legacyKey, primaryKey: stableKey ?? legacyKey };
+}
+
+async function fetchPostsForRow(pool: import('pg').Pool, row: IssueRow): Promise<readonly PostForSummary[]> {
+  const postIds = [...(row.standalone_post_ids ?? [])];
+  if (row.cluster_ids.length > 0) {
+    const clusterPosts = await pool.query<{ post_id: number }>(
+      `SELECT post_id FROM post_cluster_members WHERE cluster_id = ANY($1::int[])`,
+      [row.cluster_ids],
+    );
+    for (const cp of clusterPosts.rows) postIds.push(cp.post_id);
+  }
+  if (postIds.length === 0) return [];
+
+  const uniqueIds = [...new Set(postIds)];
+  const postResult = await pool.query<{
+    title: string; content_snippet: string | null; category: string | null; source_key: string;
+  }>(
+    `SELECT DISTINCT ON (title) title, content_snippet, category, source_key
+     FROM posts WHERE id = ANY($1::int[])
+     ORDER BY title, COALESCE(content_snippet, '') DESC
+     LIMIT 15`,
+    [uniqueIds],
+  );
+
+  return postResult.rows.map(r => ({
+    title: r.title,
+    contentSnippet: r.content_snippet,
+    category: r.category,
+    sourceKey: r.source_key,
+  }));
+}
+
+async function updateIssueInDb(
+  pool: import('pg').Pool, rowId: number, summary: IssueSummary,
+): Promise<void> {
+  await pool.query(
+    `UPDATE issue_rankings SET title = $1, summary = $2, category_label = $3,
+            quality_score = $5, ai_keywords = $6, sentiment = $7
+     WHERE id = $4`,
+    [summary.title, summary.summary, summary.category, rowId,
+     summary.qualityScore, summary.keywords, summary.sentiment],
+  );
+}
+
+function cacheSummary(row: IssueRow, summary: IssueSummary): void {
+  const { stableKey, legacyKey, primaryKey } = cacheKeysForRow(row);
+  const entry = { summary, cachedAt: Date.now() };
+  evictOldestIfFull();
+  summaryCache.set(primaryKey, entry);
+  if (stableKey && stableKey !== legacyKey) {
+    evictOldestIfFull();
+    summaryCache.set(legacyKey, entry);
+  }
+}
+
+function makeFallbackSummary(posts: readonly PostForSummary[], rowId: number): IssueSummary {
+  const firstTitle = posts[0].title;
+  console.warn(`[geminiSummarizer] fallback used for issue ${rowId} — Gemini unavailable`);
+  return {
+    title: firstTitle.length > 25 ? firstTitle.slice(0, 25) : firstTitle,
+    category: fallbackCategory(firstTitle),
+    summary: `관련 기사 ${posts.length}건`,
+    qualityScore: null,
+    keywords: [],
+    sentiment: null,
+  };
+}
+
+// ─── Batch Pipeline ───
+
+function chunk<T>(arr: readonly T[], size: number): ReadonlyArray<readonly T[]> {
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    result.push(arr.slice(i, i + size));
+  }
+  return result;
+}
+
 /** Batch summarize top issues and update DB */
 export async function summarizeAndUpdateIssues(
   pool: import('pg').Pool,
@@ -219,11 +429,7 @@ export async function summarizeAndUpdateIssues(
 ): Promise<number> {
   pruneCache();
 
-  // Fetch unsummarized issues + check for stale summaries (cluster composition changed)
-  const { rows } = await pool.query<{
-    id: number; cluster_ids: number[]; standalone_post_ids: number[];
-    summary: string | null; stable_id: string | null;
-  }>(
+  const { rows } = await pool.query<IssueRow>(
     `SELECT id, cluster_ids, standalone_post_ids, summary, stable_id
      FROM issue_rankings
      WHERE summary IS NULL OR summary LIKE '관련 기사%'
@@ -236,100 +442,60 @@ export async function summarizeAndUpdateIssues(
 
   let updated = 0;
 
-  async function processOneRow(row: typeof rows[number]): Promise<void> {
-    // Try reuse: prefer stable_id as cache key, fall back to legacy key
-    const stableCacheKey = row.stable_id ?? undefined;
-    const legacyCacheKey = makeCacheKey(row.cluster_ids, row.standalone_post_ids);
-    const cacheKey = stableCacheKey ?? legacyCacheKey;
-
-    const prev = summaryCache.get(cacheKey)
-      ?? (stableCacheKey ? summaryCache.get(legacyCacheKey) : undefined);
+  // Phase 1: Resolve cache hits immediately
+  const uncachedRows: IssueRow[] = [];
+  for (const row of rows) {
+    const { stableKey, legacyKey, primaryKey } = cacheKeysForRow(row);
+    const prev = summaryCache.get(primaryKey)
+      ?? (stableKey ? summaryCache.get(legacyKey) : undefined);
     if (prev && Date.now() - prev.cachedAt < CACHE_TTL_MS) {
-      await pool.query(
-        `UPDATE issue_rankings SET title = $1, summary = $2, category_label = $3,
-                quality_score = $5, ai_keywords = $6, sentiment = $7
-         WHERE id = $4`,
-        [prev.summary.title, prev.summary.summary, prev.summary.category, row.id,
-         prev.summary.qualityScore, prev.summary.keywords, prev.summary.sentiment],
-      );
+      await updateIssueInDb(pool, row.id, prev.summary);
       updated++;
-      return;
+    } else {
+      uncachedRows.push(row);
     }
-
-    // Collect post IDs
-    const postIds = [...(row.standalone_post_ids ?? [])];
-    if (row.cluster_ids.length > 0) {
-      const clusterPosts = await pool.query<{ post_id: number }>(
-        `SELECT post_id FROM post_cluster_members WHERE cluster_id = ANY($1::int[])`,
-        [row.cluster_ids],
-      );
-      for (const cp of clusterPosts.rows) postIds.push(cp.post_id);
-    }
-
-    if (postIds.length === 0) return;
-
-    const uniqueIds = [...new Set(postIds)];
-    // Fetch titles + content_snippet + category + source_key
-    const postResult = await pool.query<{
-      title: string; content_snippet: string | null; category: string | null; source_key: string;
-    }>(
-      `SELECT DISTINCT ON (title) title, content_snippet, category, source_key
-       FROM posts WHERE id = ANY($1::int[])
-       ORDER BY title, COALESCE(content_snippet, '') DESC
-       LIMIT 15`,
-      [uniqueIds],
-    );
-
-    const posts: PostForSummary[] = postResult.rows.map(r => ({
-      title: r.title,
-      contentSnippet: r.content_snippet,
-      category: r.category,
-      sourceKey: r.source_key,
-    }));
-
-    if (posts.length === 0) return;
-
-    let summary = await summarizeIssue(posts, row.cluster_ids, row.standalone_post_ids);
-
-    // Fallback: generate minimal summary when Gemini fails
-    if (!summary) {
-      const firstTitle = posts[0].title;
-      summary = {
-        title: firstTitle.length > 25 ? firstTitle.slice(0, 25) : firstTitle,
-        category: fallbackCategory(firstTitle),
-        summary: `관련 기사 ${posts.length}건`,
-        qualityScore: null,
-        keywords: [],
-        sentiment: null,
-      };
-      console.warn(`[geminiSummarizer] fallback used for issue ${row.id} — Gemini unavailable`);
-    }
-
-    await pool.query(
-      `UPDATE issue_rankings SET title = $1, summary = $2, category_label = $3,
-              quality_score = $5, ai_keywords = $6, sentiment = $7
-       WHERE id = $4`,
-      [summary.title, summary.summary, summary.category, row.id,
-       summary.qualityScore, summary.keywords, summary.sentiment],
-    );
-
-    // Cache with stable_id key (and legacy key for backward compat)
-    const entry = { summary, cachedAt: Date.now() };
-    evictOldestIfFull();
-    summaryCache.set(cacheKey, entry);
-    if (stableCacheKey && stableCacheKey !== legacyCacheKey) {
-      evictOldestIfFull();
-      summaryCache.set(legacyCacheKey, entry);
-    }
-
-    updated++;
   }
 
-  const limit = pLimit(3);
-  await Promise.all(rows.map(row => limit(() => processOneRow(row))));
+  if (uncachedRows.length === 0) {
+    if (updated > 0) console.log(`[geminiSummarizer] updated ${updated} issue summaries (all cached)`);
+    return updated;
+  }
+
+  // Phase 2: Fetch posts for uncached issues (parallel, pLimit(4))
+  const fetchLimit = pLimit(4);
+  const rowsWithPosts = await Promise.all(
+    uncachedRows.map(row => fetchLimit(async () => ({
+      row,
+      posts: await fetchPostsForRow(pool, row),
+    }))),
+  );
+
+  const validItems = rowsWithPosts.filter(item => item.posts.length > 0);
+  if (validItems.length === 0) {
+    if (updated > 0) console.log(`[geminiSummarizer] updated ${updated} issue summaries`);
+    return updated;
+  }
+
+  // Phase 3: Batch Gemini calls (chunks of BATCH_SIZE, pLimit(2))
+  const batches = chunk(validItems, BATCH_SIZE);
+  const batchLimit = pLimit(2);
+
+  await Promise.all(batches.map(batch => batchLimit(async () => {
+    const batchInput = batch.map(item => ({ posts: item.posts }));
+    const summaries = await summarizeIssueBatch(batchInput);
+
+    for (let i = 0; i < batch.length; i++) {
+      const { row, posts } = batch[i];
+      const summary = summaries[i] ?? makeFallbackSummary(posts, row.id);
+
+      await updateIssueInDb(pool, row.id, summary);
+      cacheSummary(row, summary);
+      updated++;
+    }
+  })));
 
   if (updated > 0) {
-    console.log(`[geminiSummarizer] updated ${updated} issue summaries`);
+    console.log(`[geminiSummarizer] updated ${updated} issue summaries (${batches.length} batch calls)`);
   }
   return updated;
 }
