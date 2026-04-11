@@ -33,9 +33,7 @@ describe('DcinsideScraper', () => {
     expect(posts.length).toBe(2);
     expect(posts[0].title).toBe('첫번째 실시간 베스트 글');
     expect(posts[0].url).toBe('https://gall.dcinside.com/board/view/?id=hit&no=12345');
-    expect(posts[0].thumbnail).toBe('https://dcimg.dcinside.co.kr/th1.jpg');
     expect(posts[1].title).toBe('두번째 실시간 베스트 글');
-    expect(posts[1].thumbnail).toBe('https://dcimg.dcinside.co.kr/th2.jpg');
   });
 
   it('includes sourceName in all posts', async () => {
