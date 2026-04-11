@@ -45,7 +45,7 @@ function parsePerformanceMeta(post: Post): PerformanceMeta | null {
   if (!match) return null;
 
   return {
-    rank: post.view_count || 0,
+    rank: 0, // 실제 rank는 배열 인덱스 기반으로 외부에서 재할당
     genre: match[1],
     performanceName: match[2],
     venue: match[3],

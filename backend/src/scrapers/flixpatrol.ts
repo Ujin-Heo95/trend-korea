@@ -80,10 +80,10 @@ export class FlixPatrolScraper extends BaseScraper {
     const netflixItems = parseFlixPage(cheerio.load(netflixRes.data), 'Netflix');
     const disneyItems = parseFlixPage(cheerio.load(disneyRes.data), 'Disney+');
 
-    // Merge and limit to 20 items total
-    const allItems = [...netflixItems, ...disneyItems].slice(0, 20);
+    // Merge: Netflix first then Disney+, sorted by rank within each platform
+    const allItems = [...netflixItems, ...disneyItems];
 
-    return allItems.map((item, i) => ({
+    return allItems.slice(0, 20).map(item => ({
       sourceKey: 'flixpatrol',
       sourceName: 'FlixPatrol',
       title: `${item.platform} ${item.rank}위 ${item.title} (${item.changeLabel})`,
@@ -95,7 +95,6 @@ export class FlixPatrolScraper extends BaseScraper {
         platform: item.platform,
         type: item.type,
         changeLabel: item.changeLabel,
-        globalRank: i + 1,
       },
     }));
   }

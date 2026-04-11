@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useIssueRankingDetail } from '../hooks/usePosts';
+import { trackEvent } from '../lib/analytics';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { getSourceColor } from '../constants/sourceColors';
 import { ErrorRetry } from '../components/shared/ErrorRetry';
@@ -16,6 +17,10 @@ export const IssueDetailPage: React.FC = () => {
   const { data, isLoading, isError, refetch } = useIssueRankingDetail(issueId);
 
   useDocumentTitle(data?.issue.title ?? '이슈 상세');
+
+  useEffect(() => {
+    if (data?.issue) trackEvent('issue_detail_view', { issueId, title: data.issue.title.slice(0, 50) });
+  }, [data?.issue, issueId]);
 
   const handleBack = () => {
     if (window.history.length > 2) {

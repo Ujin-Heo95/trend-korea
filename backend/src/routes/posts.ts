@@ -74,10 +74,15 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       // Over-fetch to compensate for cluster dedup filtering
       const fetchLimit = Math.ceil(limit * 1.5);
 
+      const RANKED_CATEGORIES = ['movie', 'performance', 'music', 'books', 'ott'];
+      const isRankedCategory = category && category.split(',').every(c => RANKED_CATEGORIES.includes(c.trim()));
+
       const scoreJoin = isTrending ? 'LEFT JOIN post_scores ps ON ps.post_id = p.id' : '';
       const orderBy = isTrending
         ? 'COALESCE(ps.trend_score, 0) DESC, p.id DESC'
-        : 'COALESCE(p.published_at, p.first_scraped_at) DESC, p.id DESC';
+        : isRankedCategory
+          ? `COALESCE((p.metadata->>'rank')::int, 999) ASC, p.id DESC`
+          : 'COALESCE(p.published_at, p.first_scraped_at) DESC, p.id DESC';
 
       const [rows, count] = await Promise.all([
         app.pg.query(

@@ -62,7 +62,12 @@ export const TravelHotplaceView: React.FC<{ posts: Post[] }> = ({ posts }) => {
       .filter(p => p.source_key === 'tour_visitor')
       .map(p => ({ post: p, meta: parseVisitorMeta(p) }))
       .filter((v): v is { post: Post; meta: VisitorMeta } => v.meta !== null)
-      .sort((a, b) => Math.abs(b.meta.changePercent) - Math.abs(a.meta.changePercent)),
+      .sort((a, b) => {
+        // 증가 지역(양수) 우선, 같은 부호 내에서는 절대값 내림차순
+        if (a.meta.changePercent >= 0 && b.meta.changePercent < 0) return -1;
+        if (a.meta.changePercent < 0 && b.meta.changePercent >= 0) return 1;
+        return Math.abs(b.meta.changePercent) - Math.abs(a.meta.changePercent);
+      }),
     [posts],
   );
 

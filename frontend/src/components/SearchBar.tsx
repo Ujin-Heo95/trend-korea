@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { trackEvent } from '../lib/analytics';
 
 interface Props {
   value: string;
@@ -12,7 +13,7 @@ export const SearchBar: React.FC<Props> = ({ value, onChange }) => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (input !== value) onChange(input);
+      if (input !== value) { if (input) trackEvent('search', { query: input.slice(0, 50) }); onChange(input); }
     }, 400);
     return () => clearTimeout(timer);
   }, [input, value, onChange]);

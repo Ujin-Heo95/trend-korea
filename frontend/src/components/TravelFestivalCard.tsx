@@ -47,10 +47,12 @@ function getPeriodStatus(meta: FestivalMeta): 'ongoing' | 'upcoming' | 'ended' |
   if (meta.eventPeriod) {
     const dateMatch = meta.eventPeriod.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/g);
     if (dateMatch && dateMatch.length >= 2) {
-      const startNum = dateMatch[0].replace(/[.\-/]/g, '').padEnd(8, '0');
-      const endNum = dateMatch[1].replace(/[.\-/]/g, '').padEnd(8, '0');
-      if (todayStr < startNum) return 'upcoming';
-      if (todayStr > endNum) return 'ended';
+      const startParts = dateMatch[0].replace(/[.\-/]/g, '');
+      const endParts = dateMatch[1].replace(/[.\-/]/g, '');
+      // 유효한 8자리 날짜만 사용 (YYYYMMDD)
+      if (startParts.length < 8 || endParts.length < 8) return null;
+      if (todayStr < startParts) return 'upcoming';
+      if (todayStr > endParts) return 'ended';
       return 'ongoing';
     }
   }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { initKakao, shareToKakao, isKakaoAvailable } from '../../lib/kakao';
+import { trackEvent } from '../../lib/analytics';
 
 interface Props {
   url: string;
@@ -19,6 +20,7 @@ export const ShareButton: React.FC<Props> = ({ url, title, description, thumbnai
   const handleKakaoShare = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    trackEvent('share_kakao', { title: title.slice(0, 50) });
     await shareToKakao({ title, description, imageUrl: thumbnail, linkUrl: url });
   };
 
@@ -26,6 +28,7 @@ export const ShareButton: React.FC<Props> = ({ url, title, description, thumbnai
     e.preventDefault();
     e.stopPropagation();
     try {
+      trackEvent('share_link', { title: title.slice(0, 50) });
       if (navigator.share) {
         await navigator.share({ title, url });
         return;

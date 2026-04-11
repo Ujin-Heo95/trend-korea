@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { Post } from '../types';
+import { trackEvent } from '../lib/analytics';
 
 const STORAGE_KEY = 'weeklit:bookmarks';
 const MAX_BOOKMARKS = 100;
@@ -41,6 +42,7 @@ export function useBookmarks() {
   const toggleBookmark = useCallback((post: Post) => {
     setBookmarks(prev => {
       const exists = prev.some(b => b.id === post.id);
+      trackEvent('bookmark_toggle', { postId: post.id, action: exists ? 'remove' : 'add' });
       if (exists) {
         const next = prev.filter(b => b.id !== post.id);
         saveStore(next);

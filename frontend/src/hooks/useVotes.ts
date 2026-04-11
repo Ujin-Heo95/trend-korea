@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { postVote } from '../api/client';
+import { trackEvent } from '../lib/analytics';
 
 const STORAGE_KEY = 'weeklit:votes';
 const OLD_STORAGE_KEY = 'trend-korea:votes';
@@ -58,6 +59,8 @@ export function useVotes() {
       } catch { /* quota exceeded */ }
       return next;
     });
+
+    trackEvent('vote', { postId });
 
     // Fire-and-forget backend sync
     postVote(postId)

@@ -130,15 +130,13 @@ export class KopisBoxofficeScraper extends BaseScraper {
         const list = Array.isArray(items) ? items : [items];
         const sliced = list.slice(0, 10);
 
-        // 상위 5개만 상세 API 조회 (API 호출 절감)
+        // 상위 10개 전체 상세 API 조회
         const details = await Promise.all(
-          sliced.map((item, idx) =>
-            idx < 5
-              ? detailLimit(async () => {
-                  await delay(300);
-                  return fetchDetail(item.mt20id);
-                })
-              : Promise.resolve(null)
+          sliced.map(item =>
+            detailLimit(async () => {
+              await delay(300);
+              return fetchDetail(item.mt20id);
+            })
           )
         );
 

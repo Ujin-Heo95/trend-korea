@@ -39,7 +39,7 @@ export const OttRankingTable: React.FC<{ posts: Post[] }> = ({ posts }) => {
     posts
       .map(p => ({ post: p, meta: parseOttMeta(p) }))
       .filter((o): o is { post: Post; meta: OttMeta } => o.meta !== null)
-      .sort((a, b) => (a.meta.globalRank ?? a.meta.rank) - (b.meta.globalRank ?? b.meta.rank)),
+      .sort((a, b) => (a.meta.rank ?? 999) - (b.meta.rank ?? 999) || a.meta.platform.localeCompare(b.meta.platform)),
     [posts],
   );
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { HorizontalScrollRow } from './shared/HorizontalScrollRow';
+import { trackEvent } from '../lib/analytics';
 
 const CATEGORIES: { key: string | undefined; label: string; icon: string }[] = [
   { key: undefined,                                                label: '전체',        icon: '📋' },
@@ -27,7 +28,7 @@ export const CategoryTabs: React.FC<Props> = ({ selected, onChange }) => (
           role="tab"
           aria-selected={isSelected}
           aria-controls="posts-panel"
-          onClick={() => onChange(key)}
+          onClick={() => { trackEvent('category_switch', { category: label }); onChange(key); }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
             isSelected
               ? 'bg-blue-600 text-white shadow-sm'
