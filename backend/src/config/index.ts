@@ -43,6 +43,7 @@ interface Config {
   supabaseServiceRoleKey: string;
   backupEnabled: boolean;
   backupRetentionDays: number;
+  serveFrontend: boolean;
 }
 
 const dbUrl = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/trend_korea';
@@ -137,4 +138,5 @@ export const config: Config = {
     const v = Number(process.env.BACKUP_RETENTION_DAYS ?? 7);
     return Number.isInteger(v) && v >= 1 ? v : 7;
   })(),
+  serveFrontend: process.env.SERVE_FRONTEND !== 'false',
 };

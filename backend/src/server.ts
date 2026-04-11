@@ -21,6 +21,7 @@ import { issueRoutes } from './routes/issues.js';
 import { issueRankingDetailRoutes } from './routes/issueRankingDetail.js';
 import { adminConfigRoutes } from './routes/adminConfig.js';
 import { communityRankingRoutes } from './routes/communityRanking.js';
+import { prerenderRoutes } from './routes/prerender.js';
 import { startScheduler } from './scheduler/index.js';
 import { awaitRunningScrapers } from './scrapers/index.js';
 import { registerPrerender } from './middleware/prerender.js';
@@ -119,14 +120,15 @@ export async function buildApp() {
   await app.register(issueRankingDetailRoutes);
   await app.register(adminConfigRoutes);
   await app.register(communityRankingRoutes);
+  await app.register(prerenderRoutes);
 
   // 봇 프리렌더: API 이외의 봇 요청에 동적 meta 태그 HTML 반환
   registerPrerender(app, pool);
 
-  // SPA 정적 파일 서빙 (프론트엔드 빌드 결과물이 존재할 때 + 테스트 환경 제외)
+  // SPA 정적 파일 서빙 (SERVE_FRONTEND=false 시 비활성화 — API 전용 모드)
   const frontendDist = resolve(import.meta.dirname, '../../frontend/dist');
   const isTest = config.nodeEnv === 'test' || process.env.VITEST === 'true';
-  if (!isTest && existsSync(frontendDist)) {
+  if (!isTest && config.serveFrontend && existsSync(frontendDist)) {
     await app.register(fastifyStatic, {
       root: frontendDist,
       wildcard: false,

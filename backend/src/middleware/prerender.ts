@@ -24,7 +24,7 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
-interface PageMeta {
+export interface PageMeta {
   title: string;
   description: string;
   url: string;
@@ -41,7 +41,7 @@ function renderJsonLd(jsonLd: PageMeta['jsonLd']): string {
     .join('\n  ');
 }
 
-function renderHtml(meta: PageMeta): string {
+export function renderHtml(meta: PageMeta): string {
   const title = escapeHtml(meta.title);
   const desc = escapeHtml(meta.description);
   const url = escapeHtml(meta.url);
@@ -117,7 +117,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 // ── 페이지별 메타데이터 ──
 
-async function getIssueMeta(pool: Pool, postId: number): Promise<PageMeta | null> {
+export async function getIssueMeta(pool: Pool, postId: number): Promise<PageMeta | null> {
   const { rows } = await pool.query<{
     title: string;
     source_name: string;
@@ -160,7 +160,7 @@ async function getIssueMeta(pool: Pool, postId: number): Promise<PageMeta | null
   };
 }
 
-async function getDailyReportMeta(pool: Pool, date: string): Promise<PageMeta | null> {
+export async function getDailyReportMeta(pool: Pool, date: string): Promise<PageMeta | null> {
   const { rows } = await pool.query<{
     report_date: string;
     editorial_briefing: string | null;
@@ -220,7 +220,7 @@ const ORGANIZATION_JSON_LD = {
   description: DEFAULT_DESC,
 };
 
-function getStaticMeta(path: string): PageMeta {
+export function getStaticMeta(path: string): PageMeta {
   if (path.startsWith('/keywords')) {
     return {
       title: '이슈 키워드 — 위클릿',

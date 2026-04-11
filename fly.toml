@@ -1,0 +1,28 @@
+app = "weeklit-backend"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "Dockerfile"
+  [build.args]
+    BUILD_FRONTEND = "false"
+
+[env]
+  NODE_ENV = "production"
+  SERVE_FRONTEND = "false"
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[http_service.checks]]
+  path = "/health"
+  interval = "30s"
+  timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
