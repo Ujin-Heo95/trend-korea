@@ -49,7 +49,7 @@ export class NaverNewsRankingScraper extends BaseScraper {
           url,
           thumbnail,
           author,
-          category: 'news',
+          category: 'portal',
           metadata: { rank: posts.length + 1 },
         });
       });
