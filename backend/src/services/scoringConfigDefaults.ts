@@ -86,8 +86,8 @@ export const CONFIG_GROUPS: readonly ConfigGroup[] = [
           daum_news: 1.8, google_news_kr: 1.6, newsis: 1.8, ddanzi: 1.6, etnews: 2.0,
           // YouTube
           youtube: 2.5,
-          // 테크
-          geeknews: 1.3, yozm: 1.3,
+          // 전문매체
+          yozm: 1.0,
           naver_d2: 1.1, kakao_tech: 1.1, toss_tech: 1.1,
           // 커뮤니티
           dcinside: 1.0, bobaedream: 1.0, ruliweb: 1.0, theqoo: 1.0,

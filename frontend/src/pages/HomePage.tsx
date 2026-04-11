@@ -83,6 +83,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
   const isPortalTab = category === 'portal';
   const isEntertainmentTab = category === 'entertainment';
   const isTravelTab = category === 'travel';
+  const isVideoTab = category === 'video';
   const isDealsTab = category === 'deals';
   const isAllTab = !category && !searchQuery;
 
@@ -105,7 +106,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     ...(isNewsTab && newsSubcategory ? { subcategory: newsSubcategory } : {}),
     ...(searchQuery ? { q: searchQuery } : {}),
     ...(selectedSources.length > 0 ? { source: selectedSources.join(',') } : {}),
-    ...(isAllTab || category === 'community' || isNewsTab ? { sort: sortMode } : {}),
+    ...(isAllTab || category === 'community' || isNewsTab || isVideoTab ? { sort: sortMode } : {}),
   };
 
   const {
@@ -204,7 +205,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         <SourceFilterChips category={category!} selected={selectedSources} onChange={setSelectedSources} />
       )}
 
-      {(category === 'community' || isNewsTab) && (
+      {(category === 'community' || isNewsTab || isVideoTab) && (
         <div className="flex justify-end mb-3 px-1">
           <div className="flex gap-1.5">
             <button
@@ -271,7 +272,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
                 <React.Fragment key={post.id}>
                   <PostCard
                     post={post}
-                    rank={(isPortalTab || isDealsTab || ((category === 'community' || isNewsTab) && sortMode === 'trending')) ? i + 1 : undefined}
+                    rank={(isPortalTab || isDealsTab || ((category === 'community' || isNewsTab || isVideoTab) && sortMode === 'trending')) ? i + 1 : undefined}
                     isRead={isRead(post.url)}
                     onRead={markAsRead}
                     style={i < 15 ? { '--enter-delay': `${i * 40}ms` } as React.CSSProperties : undefined}

@@ -22,23 +22,18 @@ khan,경향신문,news,,rss,medium
 hankyung,한국경제,news,경제,rss,medium
 mk,매일경제,news,경제,rss,medium
 kmib,국민일보,news,,rss,medium
-geeknews,GeekNews,tech,,html,medium
 yozm,요즘IT,tech,,rss,medium
 airkorea,에어코리아,alert,,api,low
 ppomppu_hot,뽐뿌 핫딜,deals,,rss,medium
 ruliweb_hot,루리웹 핫딜,deals,,rss,medium
 clien_jirum,클리앙 알뜰구매,deals,,html,medium
 quasarzone_deal,퀘사이사존 핫딜,deals,,html,medium
-investing_kr,Investing.com 한국,finance,경제,rss,medium
 sedaily,서울경제,finance,경제,rss,medium
 google_trends,Google 트렌드,trend,,rss,medium
 korea_press,정책브리핑 보도자료,government,,rss,low
 korea_policy,정책뉴스,government,,rss,low
 korea_briefing,부처 브리핑,government,,rss,low
-uppity,어피티,newsletter,,rss,low
 google_news_kr,Google 뉴스 한국,news,,rss,high
-koreaherald,Korea Herald,news,,rss,medium
-koreatimes,Korea Times,news,,rss,medium
 newsis,뉴시스,news,,rss,medium
 ddanzi,딴지일보,community,,rss,high
 clien,클리앙,community,,html,medium
@@ -56,7 +51,6 @@ naver_datalab,네이버 검색 트렌드,trend,,api,medium
 chosun,조선일보,news,,rss,high
 jtbc,JTBC 뉴스,news,,rss,high
 etnews,전자신문,tech,,rss,medium
-newswire,뉴스와이어,press,,rss,medium
 daum_cafe,다음 카페 검색,community,,api,medium
 bigkinds_issues,빅카인즈 오늘의 이슈,news,,api,low
 tour_visitor,관광 빅데이터 방문객,travel,,api,low
@@ -65,7 +59,6 @@ kcisa_cca_performance,공연정보(통합),performance,,api,low
 kcisa_cca_exhibition,전시정보(통합),performance,,api,low
 ohmynews,오마이뉴스,news,,rss,medium
 moneytoday,머니투데이,finance,경제,rss,medium
-boannews,보안뉴스,tech,,rss,medium
 dogdrip,개드립,community,,html,medium
 melon_chart,멜론 차트,music,,html,low
 naver_news_ranking,네이버 뉴스 랭킹,news,,html,medium
@@ -74,8 +67,6 @@ asiae,아시아경제,news,,rss,medium
 segye,세계일보,news,,rss,medium
 edaily,이데일리,finance,경제,rss,medium
 bizwatch,비즈워치,finance,경제,rss,medium
-cnn,CNN,news,,rss,low
-nature,네이쳐,tech,,rss,low
 bbc_korean,BBC코리아,news,,rss,medium
 zdnet_kr,지디넷코리아,tech,,rss,medium
 mbn,MBN,news,,rss,medium

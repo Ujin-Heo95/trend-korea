@@ -32,6 +32,7 @@
 ### Testing
 - Vitest + axios mock + fixture HTML 파일
 - 테스트 파일: `tests/` (src 미러 구조)
+- **통합 테스트**: `tests/__integration__/` — pg-mem 인메모리 DB, vote flow + scoring batch + dedup+trending (25 tests)
 
 ## Key Files
 

@@ -185,14 +185,6 @@
       "subcategory": null
     },
     {
-      "key": "geeknews",
-      "name": "GeekNews",
-      "category": "tech",
-      "type": "html",
-      "priority": "medium",
-      "subcategory": null
-    },
-    {
       "key": "yozm",
       "name": "요즘IT",
       "category": "tech",
@@ -241,14 +233,6 @@
       "subcategory": null
     },
     {
-      "key": "investing_kr",
-      "name": "Investing.com 한국",
-      "category": "finance",
-      "type": "rss",
-      "priority": "medium",
-      "subcategory": "경제"
-    },
-    {
       "key": "sedaily",
       "name": "서울경제",
       "category": "finance",
@@ -289,35 +273,11 @@
       "subcategory": null
     },
     {
-      "key": "uppity",
-      "name": "어피티",
-      "category": "newsletter",
-      "type": "rss",
-      "priority": "low",
-      "subcategory": null
-    },
-    {
       "key": "google_news_kr",
       "name": "Google 뉴스 한국",
       "category": "news",
       "type": "rss",
       "priority": "high",
-      "subcategory": null
-    },
-    {
-      "key": "koreaherald",
-      "name": "Korea Herald",
-      "category": "news",
-      "type": "rss",
-      "priority": "medium",
-      "subcategory": null
-    },
-    {
-      "key": "koreatimes",
-      "name": "Korea Times",
-      "category": "news",
-      "type": "rss",
-      "priority": "medium",
       "subcategory": null
     },
     {
@@ -457,14 +417,6 @@
       "subcategory": null
     },
     {
-      "key": "newswire",
-      "name": "뉴스와이어",
-      "category": "press",
-      "type": "rss",
-      "priority": "medium",
-      "subcategory": null
-    },
-    {
       "key": "daum_cafe",
       "name": "다음 카페 검색",
       "category": "community",
@@ -529,14 +481,6 @@
       "subcategory": "경제"
     },
     {
-      "key": "boannews",
-      "name": "보안뉴스",
-      "category": "tech",
-      "type": "rss",
-      "priority": "medium",
-      "subcategory": null
-    },
-    {
       "key": "dogdrip",
       "name": "개드립",
       "category": "community",
@@ -599,22 +543,6 @@
       "type": "rss",
       "priority": "medium",
       "subcategory": "경제"
-    },
-    {
-      "key": "cnn",
-      "name": "CNN",
-      "category": "news",
-      "type": "rss",
-      "priority": "low",
-      "subcategory": null
-    },
-    {
-      "key": "nature",
-      "name": "네이쳐",
-      "category": "tech",
-      "type": "rss",
-      "priority": "low",
-      "subcategory": null
     },
     {
       "key": "bbc_korean",
@@ -753,5 +681,5 @@
       "subcategory": null
     }
   ],
-  "total": 95
+  "total": 85
 }

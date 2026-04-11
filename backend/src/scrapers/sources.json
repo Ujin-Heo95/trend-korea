@@ -300,19 +300,10 @@
       "enabled": true
     },
     {
-      "key": "geeknews",
-      "name": "GeekNews",
-      "category": "tech",
-      "type": "html",
-      "module": "./geeknews.js",
-      "className": "GeeknewsScraper",
-      "priority": "medium",
-      "enabled": true
-    },
-    {
       "key": "yozm",
       "name": "요즘IT",
-      "category": "tech",
+      "category": "news",
+      "subcategory": "IT/과학",
       "type": "rss",
       "feedUrl": "https://yozm.wishket.com/magazine/feed/",
       "priority": "medium",
@@ -397,16 +388,6 @@
       "enabled": true
     },
     {
-      "key": "investing_kr",
-      "name": "Investing.com 한국",
-      "category": "news",
-      "subcategory": "경제",
-      "type": "rss",
-      "feedUrl": "https://kr.investing.com/rss/news.rss",
-      "priority": "medium",
-      "enabled": true
-    },
-    {
       "key": "sedaily",
       "name": "서울경제",
       "category": "news",
@@ -454,40 +435,14 @@
       "enabled": true
     },
     {
-      "key": "uppity",
-      "name": "어피티",
-      "category": "newsletter",
-      "type": "rss",
-      "feedUrl": "https://uppity.co.kr/feed/",
-      "priority": "low",
-      "enabled": true
-    },
-    {
       "key": "google_news_kr",
       "name": "Google 뉴스 한국",
       "category": "portal",
-      "type": "rss",
-      "feedUrl": "https://news.google.com/rss?hl=ko&gl=KR&ceid=KR:ko",
+      "type": "html",
+      "module": "./google-news.js",
+      "className": "GoogleNewsScraper",
       "priority": "high",
       "enabled": true
-    },
-    {
-      "key": "koreaherald",
-      "name": "Korea Herald",
-      "category": "news",
-      "type": "rss",
-      "feedUrl": "https://www.koreaherald.com/rss/newsAll",
-      "priority": "medium",
-      "enabled": false
-    },
-    {
-      "key": "koreatimes",
-      "name": "Korea Times",
-      "category": "news",
-      "type": "rss",
-      "feedUrl": "https://feed.koreatimes.co.kr/k/allnews.xml",
-      "priority": "medium",
-      "enabled": false
     },
     {
       "key": "newsis",
@@ -727,15 +682,6 @@
       "enabled": false
     },
     {
-      "key": "newswire",
-      "name": "뉴스와이어",
-      "category": "news",
-      "type": "rss",
-      "feedUrl": "https://api.newswire.co.kr/rss/all",
-      "priority": "medium",
-      "enabled": true
-    },
-    {
       "key": "naver_d2",
       "name": "네이버 D2",
       "category": "techblog",
@@ -911,16 +857,6 @@
       "enabled": true
     },
     {
-      "key": "boannews",
-      "name": "보안뉴스",
-      "category": "tech",
-      "type": "rss",
-      "feedUrl": "https://www.boannews.com/media/news_rss.xml",
-      "encoding": "euc-kr",
-      "priority": "medium",
-      "enabled": true
-    },
-    {
       "key": "dogdrip",
       "name": "개드립",
       "category": "community",
@@ -1033,24 +969,6 @@
       "feedUrl": "https://news.bizwatch.co.kr/rss/service/industry",
       "priority": "medium",
       "enabled": true
-    },
-    {
-      "key": "cnn",
-      "name": "CNN",
-      "category": "news",
-      "type": "rss",
-      "feedUrl": "http://rss.cnn.com/rss/cnn_latest.rss",
-      "priority": "low",
-      "enabled": false
-    },
-    {
-      "key": "nature",
-      "name": "네이쳐",
-      "category": "tech",
-      "type": "rss",
-      "feedUrl": "https://www.nature.com/nature.rss",
-      "priority": "low",
-      "enabled": false
     },
     {
       "key": "bbc_korean",
