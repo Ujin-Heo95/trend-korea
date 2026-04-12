@@ -3,6 +3,12 @@ import pLimit from 'p-limit';
 import { config } from '../config/index.js';
 import { checkQuota, incrementQuota } from './apiQuota.js';
 import { getChannel } from './scoring-weights.js';
+import {
+  computeFingerprint,
+  topPostIdsFor,
+  getCachedSummary,
+  setCachedSummary,
+} from './issueSummaryCache.js';
 
 const GEMINI_DAILY_QUOTA = parseInt(process.env.GEMINI_DAILY_QUOTA ?? '1500', 10);
 
@@ -251,7 +257,12 @@ function cacheKeysForRow(row: IssueRow): { stableKey: string | undefined; legacy
   return { stableKey, legacyKey, primaryKey: stableKey ?? legacyKey };
 }
 
-async function fetchPostsForRow(pool: import('pg').Pool, row: IssueRow): Promise<readonly PostForSummary[]> {
+interface FetchedPosts {
+  readonly posts: readonly PostForSummary[];
+  readonly allPostIds: readonly number[];
+}
+
+async function fetchPostsForRow(pool: import('pg').Pool, row: IssueRow): Promise<FetchedPosts> {
   const postIds = [...(row.standalone_post_ids ?? [])];
   if (row.cluster_ids.length > 0) {
     const clusterPosts = await pool.query<{ post_id: number }>(
@@ -260,7 +271,7 @@ async function fetchPostsForRow(pool: import('pg').Pool, row: IssueRow): Promise
     );
     for (const cp of clusterPosts.rows) postIds.push(cp.post_id);
   }
-  if (postIds.length === 0) return [];
+  if (postIds.length === 0) return { posts: [], allPostIds: [] };
 
   const uniqueIds = [...new Set(postIds)];
   const postResult = await pool.query<{
@@ -273,12 +284,15 @@ async function fetchPostsForRow(pool: import('pg').Pool, row: IssueRow): Promise
     [uniqueIds],
   );
 
-  return postResult.rows.map(r => ({
-    title: r.title,
-    contentSnippet: r.content_snippet,
-    category: r.category,
-    sourceKey: r.source_key,
-  }));
+  return {
+    posts: postResult.rows.map(r => ({
+      title: r.title,
+      contentSnippet: r.content_snippet,
+      category: r.category,
+      sourceKey: r.source_key,
+    })),
+    allPostIds: uniqueIds,
+  };
 }
 
 async function updateIssueInDb(
@@ -342,9 +356,10 @@ export async function summarizeAndUpdateIssues(
 
   if (rows.length === 0) return 0;
 
+  const metrics = { memHit: 0, dbHit: 0, batchDedup: 0, geminiCalls: 0, fallback: 0 };
   let updated = 0;
 
-  // Phase 1: Resolve cache hits immediately
+  // ── Phase 1: in-memory cache hits (hot path, no DB roundtrip) ──
   const uncachedRows: IssueRow[] = [];
   for (const row of rows) {
     const { stableKey, legacyKey, primaryKey } = cacheKeysForRow(row);
@@ -352,6 +367,7 @@ export async function summarizeAndUpdateIssues(
       ?? (stableKey ? summaryCache.get(legacyKey) : undefined);
     if (prev && Date.now() - prev.cachedAt < CACHE_TTL_MS) {
       await updateIssueInDb(pool, row.id, prev.summary);
+      metrics.memHit++;
       updated++;
     } else {
       uncachedRows.push(row);
@@ -359,39 +375,89 @@ export async function summarizeAndUpdateIssues(
   }
 
   if (uncachedRows.length === 0) {
-    if (updated > 0) console.log(`[geminiSummarizer] updated ${updated} issue summaries (all cached)`);
+    console.log(`[geminiSummarizer] updated ${updated} (mem=${metrics.memHit}, all cached)`);
     return updated;
   }
 
-  // Phase 2: Fetch posts for uncached issues (parallel, pLimit(4))
+  // ── Phase 2: fetch posts for memory-miss rows (parallel, pLimit(4)) ──
   const fetchLimit = pLimit(4);
   const rowsWithPosts = await Promise.all(
     uncachedRows.map(row => fetchLimit(async () => ({
       row,
-      posts: await fetchPostsForRow(pool, row),
+      ...(await fetchPostsForRow(pool, row)),
     }))),
   );
 
   const validItems = rowsWithPosts.filter(item => item.posts.length > 0);
   if (validItems.length === 0) {
-    if (updated > 0) console.log(`[geminiSummarizer] updated ${updated} issue summaries`);
+    console.log(`[geminiSummarizer] updated ${updated} (mem=${metrics.memHit})`);
     return updated;
   }
 
-  // Phase 3: Individual Gemini calls (pLimit(3) — 교차 오염 방지)
+  // ── Phase 2.5: DB cache lookup + in-batch dedup ──
+  // In-batch dedup: two issue rows that resolve to the same fingerprint
+  // (e.g. overlapping clusters with identical top-5 post ids) share one
+  // Gemini call instead of triggering two parallel calls.
+  const inflightByFingerprint = new Map<string, Promise<IssueSummary>>();
   const geminiLimit = pLimit(3);
 
-  await Promise.all(validItems.map(({ row, posts }) => geminiLimit(async () => {
-    const summary = await summarizeSingleIssue(posts) ?? makeFallbackSummary(posts, row.id);
+  await Promise.all(validItems.map(({ row, posts, allPostIds }) => (async () => {
+    const fingerprint = computeFingerprint(allPostIds);
+    const topIds = topPostIdsFor(allPostIds);
 
+    // 2.5a — DB cache hit?
+    const dbHit = await getCachedSummary(pool, fingerprint, topIds);
+    if (dbHit) {
+      await updateIssueInDb(pool, row.id, dbHit.summary);
+      cacheSummary(row, dbHit.summary);
+      metrics.dbHit++;
+      updated++;
+      return;
+    }
+
+    // 2.5b — already in flight in this batch?
+    const inflight = inflightByFingerprint.get(fingerprint);
+    if (inflight) {
+      const summary = await inflight;
+      await updateIssueInDb(pool, row.id, summary);
+      cacheSummary(row, summary);
+      metrics.batchDedup++;
+      updated++;
+      return;
+    }
+
+    // 2.5c — true miss: dispatch Gemini call (rate-limited, pLimit(3))
+    const promise = geminiLimit(async () => {
+      const result = await summarizeSingleIssue(posts);
+      if (result) {
+        metrics.geminiCalls++;
+        return result;
+      }
+      metrics.fallback++;
+      return makeFallbackSummary(posts, row.id);
+    });
+    inflightByFingerprint.set(fingerprint, promise);
+
+    const summary = await promise;
     await updateIssueInDb(pool, row.id, summary);
     cacheSummary(row, summary);
-    updated++;
-  })));
 
-  if (updated > 0) {
-    console.log(`[geminiSummarizer] updated ${updated} issue summaries (individual calls)`);
-  }
+    // Persist to DB cache (skip fallbacks — they're degraded)
+    if (summary.summary !== `[fallback] 관련 기사 ${posts.length}건`) {
+      try {
+        await setCachedSummary(pool, fingerprint, summary, topIds);
+      } catch (err) {
+        console.warn('[geminiSummarizer] DB cache write failed:', (err as Error).message);
+      }
+    }
+    updated++;
+  })()));
+
+  console.log(
+    `[geminiSummarizer] updated ${updated} ` +
+    `(mem=${metrics.memHit}, db=${metrics.dbHit}, batch=${metrics.batchDedup}, ` +
+    `gemini=${metrics.geminiCalls}, fallback=${metrics.fallback})`,
+  );
   return updated;
 }
 
