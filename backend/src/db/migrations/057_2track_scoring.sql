@@ -10,7 +10,7 @@
 -- ALTER TABLE이 lock을 기다리다 statement_timeout에 걸리는 것을 방지하기 위해
 -- 마이그레이션 트랜잭션 내에서 timeout을 해제한다 (migrate.ts가 BEGIN/COMMIT 래핑).
 SET LOCAL statement_timeout = 0;
-SET LOCAL lock_timeout = '60s';
+SET LOCAL lock_timeout = 0;
 
 ALTER TABLE post_scores
   ADD COLUMN IF NOT EXISTS trend_score_base DOUBLE PRECISION,
