@@ -939,7 +939,10 @@ function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): Scored
     const diversity = sourceDiversityBonus(g, cfg);
     const breaking = breakingKeywordBoost(g, cfg);
 
-    const issueScore = rawScore * momentum * diversity * breaking;
+    // v3: breaking과 momentum×diversity를 곱하지 않고 max로 선택.
+    // 이유: 속보성(순간)과 누적 확산(축적)은 서로 다른 가치 축이고,
+    // 둘 다 강한 이슈가 곱셈으로 top에 과도하게 고착되는 현상을 방지.
+    const issueScore = rawScore * Math.max(momentum * diversity, breaking);
     return { group: g, issueScore, momentumScore: momentum };
   });
 

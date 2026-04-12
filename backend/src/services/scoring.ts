@@ -213,8 +213,10 @@ async function _calculateScores(pool: Pool): Promise<number> {
       sourceWeight: srcW,
       categoryWeight: catW,
       velocityBonus: isNews ? 1.0 : velBonus,           // 뉴스: velocity 무의미 (데이터 없음)
-      clusterBonus: isNews ? 1.0 : (clusterBonusMap.get(row.id) ?? 1.0),  // 뉴스: signalScore에 통합
-      trendSignalBonus: isNews ? 1.0 : (trendSignalMap.get(row.id) ?? 1.0), // 뉴스: signalScore에 통합
+      // v7: 커뮤니티 탭에서도 clusterBonus/trendSignalBonus 제거 — 같은 주제 반복 게시글 과대보상 방지.
+      // 뉴스는 signalScore에 통합, 그 외(specialized 등)는 기존 유지.
+      clusterBonus: isNews || isCommunity ? 1.0 : (clusterBonusMap.get(row.id) ?? 1.0),
+      trendSignalBonus: isNews || isCommunity ? 1.0 : (trendSignalMap.get(row.id) ?? 1.0),
       subcategoryNorm: 1.0,    // 이미 catW에 반영됨 (뉴스용)
       breakingBoost: isNews ? (breakingNewsMap.get(row.id) ?? 1.0) : 1.0,
       freshnessBonus: isNews ? freshnessBonus(ageMinutes) : 1.0,
