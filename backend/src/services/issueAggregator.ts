@@ -447,24 +447,28 @@ export function decideMergeByIdfAndCos(opts: {
   if (opts.cos != null && opts.cos < opts.cosThreshold) {
     return { merge: false, reason: 'low_cos', idfSum };
   }
-  // Phase 4 — Entity hard gate
+  // Phase 4 — Entity hard gate (대칭)
+  //   2026-04-12: "한쪽만 entity 있음 → 통과" 루프홀 제거.
+  //   이유: entity 없는 브릿지 클러스터(동작어만 공유)가 서로 무관한 구체 사건 두 개를 전이적으로 묶는
+  //   과병합 사고의 근본 원인. 한쪽 entity-empty 쌍은 항상 거부한다.
   const ea = opts.entitiesA;
   const eb = opts.entitiesB;
   if (ea && eb) {
     const aHas = ea.size > 0;
     const bHas = eb.size > 0;
     if (aHas && bHas) {
-      // 양쪽 모두 entity 있음 → 교집합 1개 이상 필수
       if (entityIntersection(ea, eb) === 0) {
         return { merge: false, reason: 'entity_mismatch', idfSum };
       }
-    } else if (!aHas && !bHas) {
-      // 양쪽 모두 entity 없음 + cos가 borderline → arbiter 위임 신호
+    } else if (aHas !== bHas) {
+      // 한쪽만 entity 존재: 다른 주제일 확률이 높다 → 거부 (entity_mismatch 로 카운트)
+      return { merge: false, reason: 'entity_mismatch', idfSum };
+    } else {
+      // 양쪽 모두 entity 없음 + cos borderline → arbiter 위임
       if (opts.cos != null && opts.cos >= ARBITER_COS_LOW && opts.cos <= ARBITER_COS_HIGH) {
         return { merge: false, reason: 'entity_borderline', idfSum };
       }
     }
-    // 한쪽만 entity 있음: hard-block 안 함 (인용/추상 제목과 구체 사건의 매칭 가능성)
   }
   return { merge: true, reason: 'merge', idfSum };
 }
@@ -499,10 +503,15 @@ async function mergeViaTrendKeywords(
     return { group: g, keywords };
   });
 
-  // Union-Find with group size limit to prevent chain merging
+  // Union-Find with group size limit + accumulated-root gate to prevent chain merging.
+  //   2026-04-12: per-(i,j) 게이트만으로는 A↔B, B↔C 각각 통과하면 union-find 가 A∪B∪C 를 전이적으로
+  //   합쳐 버려 A⊥C 무관 클러스터가 같은 이슈카드로 묶임. 각 find-root 의 누적 entity set 을 유지하고
+  //   신규 union 은 rootA/rootB 의 누적 상태로 재검증한다.
   const MAX_POSTS_PER_ISSUE = 50;
   const parent = Array.from({ length: groupsWithKw.length }, (_, i) => i);
   const groupSize = groupsWithKw.map(g => g.group.posts.length);
+  // 루트별 누적 entity set — 초기값은 원래 그룹의 entity set을 복제
+  const rootEntities: Set<string>[] = groupsWithKw.map((_, i) => new Set(groupEntities[i]));
 
   function find(x: number): number {
     while (parent[x] !== x) {
@@ -516,10 +525,10 @@ async function mergeViaTrendKeywords(
     const ra = find(a);
     const rb = find(b);
     if (ra === rb) return false;
-    // Refuse merge if combined size would exceed limit
     if (groupSize[ra] + groupSize[rb] > MAX_POSTS_PER_ISSUE) return false;
     parent[ra] = rb;
     groupSize[rb] += groupSize[ra];
+    for (const e of rootEntities[ra]) rootEntities[rb].add(e);
     return true;
   }
 
@@ -603,6 +612,9 @@ async function mergeViaTrendKeywords(
     const repB = repPost(b);
     const cos = (repA && repB) ? embeddingCosine(repA.id, repB.id) : null;
 
+    // 누적-루트 entity 로 평가 — 이전 union 으로 확장된 상태를 반영해 연쇄 병합 차단
+    const ra = find(a);
+    const rb = find(b);
     const decision = decideMergeByIdfAndCos({
       sharedKeywords: [...sharedKws],
       idfMap,
@@ -610,8 +622,8 @@ async function mergeViaTrendKeywords(
       cosThreshold: cfg.mergeCosThreshold,
       cos,
       stopwords: ACTION_ONLY_STOPWORDS,
-      entitiesA: groupEntities[a],
-      entitiesB: groupEntities[b],
+      entitiesA: rootEntities[ra],
+      entitiesB: rootEntities[rb],
     });
 
     if (decision.reason === 'entity_borderline' && repA && repB) {
@@ -782,6 +794,8 @@ function deduplicateIssuesByEmbedding(groups: readonly IssueGroup[]): IssueGroup
   const groupPostCount = groups.map(g =>
     g.newsPosts.length + g.communityPosts.length + g.videoPosts.length,
   );
+  // 2026-04-12: 누적-루트 entity 로 체인 병합 차단 (Phase 3 과 동일 패턴)
+  const rootEntities: Set<string>[] = groupEntities.map(s => new Set(s));
 
   function find(x: number): number {
     while (parent[x] !== x) {
@@ -791,7 +805,6 @@ function deduplicateIssuesByEmbedding(groups: readonly IssueGroup[]): IssueGroup
     return x;
   }
 
-  /** guard C 포함 union: 병합 후 크기가 MAX 초과면 거부 */
   function union(a: number, b: number): boolean {
     const ra = find(a);
     const rb = find(b);
@@ -799,6 +812,7 @@ function deduplicateIssuesByEmbedding(groups: readonly IssueGroup[]): IssueGroup
     if (groupPostCount[ra] + groupPostCount[rb] > MAX_POSTS_PER_DEDUP_GROUP) return false;
     parent[ra] = rb;
     groupPostCount[rb] += groupPostCount[ra];
+    for (const e of rootEntities[ra]) rootEntities[rb].add(e);
     return true;
   }
 
@@ -831,10 +845,20 @@ function deduplicateIssuesByEmbedding(groups: readonly IssueGroup[]): IssueGroup
         continue;
       }
 
-      // guard D (Phase 4): entity hard-gate — 양쪽 모두 entity 있는데 교집합 0이면 거부
-      const ea = groupEntities[i];
-      const eb = groupEntities[j];
-      if (ea.size > 0 && eb.size > 0 && entityIntersection(ea, eb) === 0) {
+      // guard D (Phase 4 대칭): 누적-루트 entity set 으로 평가 — 체인 병합 차단.
+      //   - 양쪽 entity 있음 + 교집합 0 → 거부
+      //   - 한쪽만 entity 있음 → 거부 (브릿지 클러스터 차단)
+      //   - 양쪽 empty → 통과 (cos + keyword guard 에 위임)
+      const ea = rootEntities[find(i)];
+      const eb = rootEntities[find(j)];
+      const aHas = ea.size > 0;
+      const bHas = eb.size > 0;
+      if (aHas && bHas) {
+        if (entityIntersection(ea, eb) === 0) {
+          skippedEntity++;
+          continue;
+        }
+      } else if (aHas !== bHas) {
         skippedEntity++;
         continue;
       }

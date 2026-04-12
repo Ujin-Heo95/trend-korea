@@ -189,7 +189,9 @@ describe('decideMergeByIdfAndCos', () => {
     expect(result.merge).toBe(true);
   });
 
-  it('one-sided entity (quote vs concrete event) is allowed through (no hard block)', () => {
+  it('one-sided entity is REJECTED (bridge cluster prevention — 2026-04-12)', () => {
+    // 이전: 한쪽만 entity → 통과. 문제: entity 없는 브릿지 클러스터가 서로 다른 구체 사건을 연쇄 병합.
+    // 현재: 한쪽 entity-empty 쌍은 항상 거부.
     const idfMap = mkMap({ '발언': [20, 4.0] });
     const result = call({
       sharedKeywords: ['발언'],
@@ -198,7 +200,23 @@ describe('decideMergeByIdfAndCos', () => {
       entitiesA: new Set(['트럼프']),
       entitiesB: new Set(),
     });
-    expect(result.merge).toBe(true);
+    expect(result.merge).toBe(false);
+    expect(result.reason).toBe('entity_mismatch');
+  });
+
+  it('rejects 이재명+이스라엘 cluster merging with empty-entity 대한항공 우승 cluster (regression)', () => {
+    // 실전 사고 재현 (2026-04-12): entity 없는 "대한항공 우승" 클러스터가 브릿지로 작용해
+    // "이재명 이스라엘 발언" 과 같은 이슈카드로 묶였음.
+    const idfMap = mkMap({ '발언': [30, 4.0], '축하': [25, 4.2] });
+    const result = call({
+      sharedKeywords: ['발언', '축하'],
+      idfMap,
+      cos: null,
+      entitiesA: new Set(['이재명', '이스라엘']),
+      entitiesB: new Set(), // "대한항공" 이 KNOWN_ORGS 에 없던 시점 → empty
+    });
+    expect(result.merge).toBe(false);
+    expect(result.reason).toBe('entity_mismatch');
   });
 });
 

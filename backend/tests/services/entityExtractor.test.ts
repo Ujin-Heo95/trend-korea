@@ -27,6 +27,15 @@ describe('extractEntities', () => {
     expect(e.has('삼성전자')).toBe(true);
   });
 
+  it('extracts expanded orgs (2026-04-12 bridge-cluster fix)', () => {
+    // 이 org 들이 KNOWN_ORGS 에 없던 시절에는 해당 제목이 entity-empty 가 되어
+    // 브릿지 클러스터로 작용, 무관한 이슈카드와 연쇄 병합되는 사고가 있었음.
+    expect(extractEntities('대한항공 남자배구 우승').has('대한항공')).toBe(true);
+    expect(extractEntities('대전 오월드 늑대 실종').has('오월드')).toBe(true);
+    expect(extractEntities('체리자동차 한국 상륙').has('체리자동차')).toBe(true);
+    expect(extractEntities('YTN 단독 보도').has('ytn')).toBe(true);
+  });
+
   it('extracts English proper nouns', () => {
     const e = extractEntities('Apple 신제품 공개, Tim Cook 발표');
     expect(e.has('apple')).toBe(true);
