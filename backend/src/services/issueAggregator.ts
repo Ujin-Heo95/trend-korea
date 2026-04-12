@@ -359,45 +359,60 @@ function buildClusterGroups(posts: readonly ScoredPost[]): ClusterGroup[] {
 // ─── Step 3: Merge Via Trend Keywords ───
 
 /**
- * keyword_idf 테이블에서 IDF 캐시를 로드한다.
+ * keyword_idf 테이블에서 IDF + DF 캐시를 로드한다.
  * Phase 1 keywordIdfBatch가 5분 주기로 채움. 24h 이내 stale 제외.
- * 미스 시 IDF_FALLBACK 으로 폴백 (호출 측에서 처리).
+ * df는 "키워드가 실제로 코퍼스에 등장한 횟수" — wiki phantom 키워드(df=0) 필터에 사용.
  */
-async function loadIdfMap(pool: Pool): Promise<Map<string, number>> {
-  const map = new Map<string, number>();
+export interface IdfStat { readonly df: number; readonly idf: number; }
+
+async function loadIdfMap(pool: Pool): Promise<Map<string, IdfStat>> {
+  const map = new Map<string, IdfStat>();
   try {
-    const { rows } = await pool.query<{ keyword_normalized: string; idf: number }>(
-      `SELECT keyword_normalized, idf FROM keyword_idf
+    const { rows } = await pool.query<{ keyword_normalized: string; df: number; idf: number }>(
+      `SELECT keyword_normalized, df, idf FROM keyword_idf
        WHERE computed_at > NOW() - INTERVAL '24 hours'`,
     );
-    for (const r of rows) map.set(r.keyword_normalized, Number(r.idf));
+    for (const r of rows) map.set(r.keyword_normalized, { df: Number(r.df), idf: Number(r.idf) });
   } catch (err) {
     logger.warn({ err }, '[issueAggregator] keyword_idf load failed — using fallback');
   }
   return map;
 }
 
-function idfOf(map: ReadonlyMap<string, number>, kw: string): number {
+function idfOf(map: ReadonlyMap<string, IdfStat>, kw: string): number {
   const v = map.get(kw);
-  return v == null ? IDF_FALLBACK : v;
+  return v == null ? IDF_FALLBACK : v.idf;
+}
+
+/** 코퍼스 등장 여부 — wiki phantom(df=0) 키워드 필터.
+ *  IDF 캐시에 없으면 콜드스타트로 간주하여 통과 (Phase 1 안전망). */
+function appearsInCorpus(map: ReadonlyMap<string, IdfStat>, kw: string): boolean {
+  const v = map.get(kw);
+  if (v == null) return true; // 콜드스타트 — 차단하지 않음
+  return v.df >= 2;            // 최소 2개 문서에 등장해야 의미 있는 신호
 }
 
 /**
  * Phase 2/3 병합 판정 — 순수 함수로 추출(단위 테스트 + __internal__ 노출).
- *   1) ACTION_ONLY_STOPWORDS 제거 후 informative 키워드만 평가
- *   2) IDF 합 < idfThreshold → 거부
- *   3) 양쪽 임베딩 가용 시 cos < cosThreshold → 거부 (한쪽 부재면 IDF만으로 결정)
+ *   1) ACTION_ONLY_STOPWORDS 제거
+ *   2) wiki phantom(df<2 in corpus) 제거 — 위키 문서 제목이 트렌드 키워드로 들어와도 매칭 신호로 안 침
+ *   3) IDF 합 < idfThreshold → 거부
+ *   4) 양쪽 임베딩 가용 시 cos < cosThreshold → 거부 (한쪽 부재면 IDF만으로 결정)
  */
 export type MergeDecisionReason = 'merge' | 'no_informative_kw' | 'low_idf' | 'low_cos';
 export function decideMergeByIdfAndCos(opts: {
   sharedKeywords: readonly string[];
-  idfMap: ReadonlyMap<string, number>;
+  idfMap: ReadonlyMap<string, IdfStat>;
   idfThreshold: number;
   cosThreshold: number;
   cos: number | null;
   stopwords: ReadonlySet<string>;
 }): { merge: boolean; reason: MergeDecisionReason; idfSum: number } {
-  const informative = opts.sharedKeywords.filter(kw => !opts.stopwords.has(kw));
+  const informative = opts.sharedKeywords.filter(kw => {
+    if (opts.stopwords.has(kw)) return false;
+    if (!appearsInCorpus(opts.idfMap, kw)) return false;
+    return true;
+  });
   if (informative.length === 0) {
     return { merge: false, reason: 'no_informative_kw', idfSum: 0 };
   }
@@ -745,15 +760,17 @@ function deduplicateIssuesByEmbedding(groups: readonly IssueGroup[]): IssueGroup
 const LN2 = Math.LN2;
 const BREAKING_KEYWORDS = ['속보', '[속보]', '긴급', '[긴급]'];
 
-/** Fix 1: 로그 체감 수익 — 상위 포스트 우선, 추가 포스트는 체감 기여 */
+/** Fix 1: 로그 체감 수익 — 상위 포스트 우선, 추가 포스트는 체감 기여
+ *  NaN/Infinity 포스트는 자동으로 제외 (production NaN 누출 방지). */
 function aggregatePostScores(scores: readonly number[], k: number): number {
-  if (scores.length === 0) return 0;
-  const sorted = [...scores].sort((a, b) => b - a);
+  const valid = scores.filter(Number.isFinite);
+  if (valid.length === 0) return 0;
+  const sorted = valid.sort((a, b) => b - a);
   let total = 0;
   for (let i = 0; i < sorted.length; i++) {
     total += sorted[i] / (1 + k * Math.log1p(i));
   }
-  return total;
+  return Number.isFinite(total) ? total : 0;
 }
 
 /** Fix 3: 이슈 모멘텀 — 최근 포스트 유입 가속도 */
@@ -867,8 +884,9 @@ function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): Scored
     // v3: breaking과 momentum×diversity를 곱하지 않고 max로 선택.
     // 이유: 속보성(순간)과 누적 확산(축적)은 서로 다른 가치 축이고,
     // 둘 다 강한 이슈가 곱셈으로 top에 과도하게 고착되는 현상을 방지.
-    const issueScore = rawScore * Math.max(momentum * diversity, breaking);
-    return { group: g, issueScore, momentumScore: momentum };
+    const rawIssueScore = rawScore * Math.max(momentum * diversity, breaking);
+    const issueScore = Number.isFinite(rawIssueScore) ? rawIssueScore : 0;
+    return { group: g, issueScore, momentumScore: Number.isFinite(momentum) ? momentum : 1.0 };
   });
 
   scored.sort((a, b) => b.issueScore - a.issueScore);

@@ -2,15 +2,12 @@ import { createHash } from 'crypto';
 import type { Pool } from 'pg';
 import type { ScrapedPost } from '../scrapers/types.js';
 import { logger } from '../utils/logger.js';
-import { cosineSimilarity } from './embedding.js';
+// 임베딩 fallback 제거 — 한국어 짧은 텍스트의 Gemini 임베딩 베이스 cos(~0.82+)가
+// 토픽 유사성만으로도 0.92+를 줘서 무관 사건들이 한 클러스터로 폭주.
+// dedup은 word/bigram Jaccard만 사용 (literal text overlap 요구).
 
 const JACCARD_THRESHOLD = 0.8;
 const WORD_JACCARD_THRESHOLD = 0.65;
-// 한국어 짧은 텍스트(커뮤니티 제목)의 Gemini 임베딩 베이스 cos가 0.82~0.88로 매우 관대해
-// 0.85 임계값이 무관한 글을 한 클러스터로 묶어 폭주 발생(예: 등산객·오이김치·피어싱이 한 클러스터).
-// 운영 데이터 기준 무관 글의 평균 cos가 ~0.82이므로 의미 있는 유사도는 +0.10 마진을 두어 0.92로 상향.
-// 동일 사건 다중 보도는 보통 cos > 0.93 → 정상 병합은 유지.
-const EMBEDDING_COSINE_THRESHOLD = 0.92;
 const MIN_TITLE_LENGTH_FOR_L2 = 8;
 const WINDOW_HOURS = 6;
 
@@ -319,14 +316,11 @@ async function clusterOnePostBatch(
           if (wordSim >= WORD_JACCARD_THRESHOLD) {
             matches.push({ postId: c.id, score: wordSim, layer: 'L2' });
             matchedIds.add(c.id);
-          } else {
-            // 최종 폴백: Gemini 임베딩 코사인 유사도 (의미적 유사도)
-            const embSim = cosineSimilarity(row.id, c.id);
-            if (embSim !== null && embSim >= EMBEDDING_COSINE_THRESHOLD) {
-              matches.push({ postId: c.id, score: embSim, layer: 'L2' });
-              matchedIds.add(c.id);
-            }
           }
+          // Gemini 임베딩 fallback 제거: 한국어 짧은 텍스트의 베이스 cos가 0.82~0.93로 매우 관대해
+          // "축구 토픽 글들" 같이 의미적으로만 유사한 무관 사건들이 한 클러스터로 폭주.
+          // 운영 사례: cluster 8993이 김민재/안정환/혼다/한국 여자축구/황선홍 인터뷰를 모두 묶음.
+          // 같은 사건의 다중 보도는 보통 인명/지명/사건명이 겹쳐 word/bigram Jaccard로 충분히 잡힌다.
         }
       }
     }
