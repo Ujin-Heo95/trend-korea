@@ -299,7 +299,22 @@ async function summarizeSingleIssue(
       metrics.totalLatencyMs += Date.now() - startedAt;
 
       const text = result.response.text();
-      const raw = JSON.parse(text);
+      // Defensive: Gemini may wrap JSON in ```json fences even with responseMimeType set,
+      // and may emit a leading BOM or trailing comma. Strip those before parsing.
+      const cleaned = text
+        .replace(/^\uFEFF/, '')
+        .replace(/^\s*```(?:json)?\s*/i, '')
+        .replace(/\s*```\s*$/i, '')
+        .trim();
+      let raw: unknown;
+      try {
+        raw = JSON.parse(cleaned);
+      } catch (parseErr) {
+        console.warn(
+          `[geminiSummarizer] JSON.parse failed: ${(parseErr as Error).message} | first 250 chars: ${cleaned.slice(0, 250)}`
+        );
+        throw parseErr;
+      }
       const parsed = (Array.isArray(raw) ? raw[0] : raw) as RawParsed;
       const summary = validateAndBuild(parsed);
 
