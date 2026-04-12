@@ -115,6 +115,49 @@ describe('clusterPosts', () => {
     expect(sizes).toEqual([1, 2]);
   });
 
+  it('IDF gate: 코사인 ≥ 임계지만 일반어만 공유 → 별도 클러스터', () => {
+    // 두 벡터는 cosine 0.99 로 임계 통과. 게이트가 attach 차단해야 함.
+    const lookup = lookupFrom(new Map([
+      [1, vec([1, 0.1, 0])],
+      [2, vec([0.99, 0.1, 0])],
+    ]));
+    const posts = [
+      makePost(1, { sourceKey: 'yna', title: '강남 아파트 화재' }),
+      makePost(2, { sourceKey: 'mbc', title: '전세 아파트 시세' }),
+    ];
+    // 게이트: "아파트" 만 공유 → false
+    const gate = (a: string, b: string) =>
+      a.includes('강남') && b.includes('강남') ? true : false;
+    const clusters = clusterPosts(posts, lookup, gate);
+    expect(clusters).toHaveLength(2);
+  });
+
+  it('IDF gate: 게이트가 항상 true → 기존 동작 (cold start 보존)', () => {
+    const lookup = lookupFrom(new Map([
+      [1, vec([1, 0.1, 0])],
+      [2, vec([0.99, 0.1, 0])],
+    ]));
+    const posts = [
+      makePost(1, { sourceKey: 'yna' }),
+      makePost(2, { sourceKey: 'mbc' }),
+    ];
+    const clusters = clusterPosts(posts, lookup, () => true);
+    expect(clusters).toHaveLength(1);
+  });
+
+  it('IDF gate: undefined 게이트 → 기존 동작 (서명 호환)', () => {
+    const lookup = lookupFrom(new Map([
+      [1, vec([1, 0.1, 0])],
+      [2, vec([0.99, 0.1, 0])],
+    ]));
+    const posts = [
+      makePost(1, { sourceKey: 'yna' }),
+      makePost(2, { sourceKey: 'mbc' }),
+    ];
+    const clusters = clusterPosts(posts, lookup, undefined);
+    expect(clusters).toHaveLength(1);
+  });
+
   it('constants exported for tuning', () => {
     expect(CLUSTERING_CONSTANTS.CLUSTER_COSINE_THRESHOLD).toBe(0.78);
     expect(CLUSTERING_CONSTANTS.MIN_UNIQUE_SOURCES).toBe(2);

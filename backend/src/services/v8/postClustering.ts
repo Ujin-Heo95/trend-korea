@@ -20,6 +20,17 @@ import { cosineSimVectors, getEmbedding as defaultGetEmbedding } from '../embedd
 
 export type EmbeddingLookup = (postId: number) => Float32Array | null;
 
+/**
+ * Optional attach 게이트. cosine ≥ THRESHOLD 를 통과한 후보에 대해
+ * 추가로 "두 제목이 클러스터링 가치가 있는 토큰을 공유하는가" 를 검사한다.
+ * 미지정/cold-start: 모든 후보 통과 (기존 동작 보존).
+ *
+ * 도입 동기: 임베딩이 "집/아파트/주택" 같은 일반명사 1~2개에 과도하게
+ * 가중치를 부여해 무관한 사건이 같은 anchor 에 attach 되는 사고 차단
+ * (services/tokenStats.ts 참조).
+ */
+export type ClusterAttachGate = (postTitle: string, anchorTitle: string) => boolean;
+
 const CLUSTER_COSINE_THRESHOLD = 0.78;
 const CLUSTER_TIME_WINDOW_MS = 12 * 60 * 60 * 1000;
 const CLUSTER_MAX_SIZE = 50;
@@ -29,6 +40,7 @@ interface AnchorBucket {
   readonly anchorVector: Float32Array;
   readonly anchorTime: number;
   readonly anchorPostId: number;
+  readonly anchorTitle: string;
   readonly memberIndices: number[];
 }
 
@@ -41,6 +53,7 @@ interface AnchorBucket {
 export function clusterPosts(
   posts: readonly V8Post[],
   lookup: EmbeddingLookup = defaultGetEmbedding,
+  gate?: ClusterAttachGate,
 ): V8Cluster[] {
   if (posts.length === 0) return [];
 
@@ -69,6 +82,7 @@ export function clusterPosts(
         anchorVector: new Float32Array(0),
         anchorTime: times[i],
         anchorPostId: sorted[i].id,
+        anchorTitle: sorted[i].title,
         memberIndices: [i],
       });
       continue;
@@ -80,7 +94,7 @@ export function clusterPosts(
       windowStart++;
     }
 
-    // active buckets 중 best-fit anchor 찾기.
+    // active buckets 중 best-fit anchor 찾기. cosine 1차 + gate 2차.
     let bestIdx = -1;
     let bestSim = CLUSTER_COSINE_THRESHOLD;
     for (let b = windowStart; b < buckets.length; b++) {
@@ -88,10 +102,10 @@ export function clusterPosts(
       if (bucket.anchorVector.length === 0) continue;
       if (bucket.memberIndices.length >= CLUSTER_MAX_SIZE) continue;
       const sim = cosineSimVectors(va, bucket.anchorVector);
-      if (sim >= bestSim) {
-        bestSim = sim;
-        bestIdx = b;
-      }
+      if (sim < bestSim) continue;
+      if (gate && !gate(sorted[i].title, bucket.anchorTitle)) continue;
+      bestSim = sim;
+      bestIdx = b;
     }
 
     if (bestIdx >= 0) {
@@ -101,6 +115,7 @@ export function clusterPosts(
         anchorVector: va,
         anchorTime: ti,
         anchorPostId: sorted[i].id,
+        anchorTitle: sorted[i].title,
         memberIndices: [i],
       });
     }

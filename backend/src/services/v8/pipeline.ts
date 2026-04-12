@@ -16,6 +16,7 @@ import { clusterPosts } from './postClustering.js';
 import { computeCrossChannelEcho } from './crossChannelEcho.js';
 import { computeUnifiedScores } from './unifiedScoring.js';
 import { rankIssues } from './issueRanker.js';
+import { loadTokenStatsSnapshot, makeShareHighIdfGate } from '../tokenStats.js';
 
 const V8_TIME_WINDOW_HOURS = 12;
 const V8_MAX_POSTS = 3000;
@@ -270,8 +271,17 @@ export async function runV8Pipeline(pool: Pool): Promise<V8PipelineResult> {
 
   const weights = await preloadWeights();
 
+  // High-IDF 토큰 게이트: 일반명사("집/아파트/주택") 단독 brigde 차단.
+  // snapshot 이 비어있으면 (cold start / 첫 부팅) 게이트는 자동 bypass.
+  const tokenSnapshot = await loadTokenStatsSnapshot(pool);
+  const idfGate = makeShareHighIdfGate(tokenSnapshot);
+  logger.info(
+    { tokenCount: tokenSnapshot.stats.size, n24h: tokenSnapshot.docCount24h, nBaseline: tokenSnapshot.docCountBaseline },
+    '[v8] token-stats snapshot loaded',
+  );
+
   const clusterStart = Date.now();
-  const clusters = clusterPosts(posts);
+  const clusters = clusterPosts(posts, undefined, idfGate);
   const clusterMs = Date.now() - clusterStart;
   logger.info({ count: clusters.length, ms: clusterMs }, '[v8] clusters formed');
 

@@ -12,6 +12,7 @@ import { clearIssuesCache } from '../routes/issues.js';
 import { performDatabaseBackup } from '../services/backup.js';
 import { notifyBackupResult } from '../services/discord.js';
 import { loadEmbeddingsFromDb } from '../services/embedding.js';
+import { rebuildTokenStats, loadTokenStatsSnapshot } from '../services/tokenStats.js';
 import { batchPool, summarizerPool, logPoolStats } from '../db/client.js';
 import { runPipeline } from './pipeline.js';
 import { loadFeatureFlags } from '../services/featureFlags.js';
@@ -88,6 +89,7 @@ const BOOT_STAGGER = {
   mediumPriority: 150_000,   // T+2:30 : ~30 소스
   lowPriority:    270_000,   // T+4:30 : ~36 소스
   embeddings:     330_000,   // T+5:30 : 무거우니 마지막
+  tokenStats:     390_000,   // T+6:30 : 임베딩 로드 후, 첫 :10 pipeline tick 전에 워밍
 } as const;
 
 export function startScheduler(): void {
@@ -135,6 +137,28 @@ export function startScheduler(): void {
   setTimeout(() => {
     loadEmbeddingsFromDb(batchPool).catch(captureError);
   }, BOOT_STAGGER.embeddings);
+
+  // T+6:30 : 토큰 DF/burst 통계 워밍.
+  // 비어있으면 (cold start) 즉시 1회 rebuild, 있으면 snapshot 만 메모리 적재.
+  // 첫 pipeline tick 전에 끝나야 IDF gate 가 첫 사이클부터 동작.
+  setTimeout(async () => {
+    try {
+      const snap = await loadTokenStatsSnapshot(batchPool);
+      if (snap.stats.size === 0) {
+        console.log('[scheduler] token-stats empty — initial rebuild');
+        const result = await rebuildTokenStats(batchPool);
+        console.log(
+          `[scheduler] token-stats initial rebuild: tokens=${result.tokenCount} n24=${result.docCount24h} nBase=${result.docCountBaseline} ms=${result.durationMs}`,
+        );
+      } else {
+        console.log(
+          `[scheduler] token-stats snapshot loaded: tokens=${snap.stats.size} n24=${snap.docCount24h} nBase=${snap.docCountBaseline}`,
+        );
+      }
+    } catch (err) {
+      captureError(err);
+    }
+  }, BOOT_STAGGER.tokenStats);
 }
 
 function startCronJobs(): void {
@@ -210,6 +234,21 @@ function startCronJobs(): void {
     await snapshotRankings(batchPool).catch(captureError);
   });
   console.log('[scheduler] rank snapshot: hourly');
+
+  // 토큰 DF/burst 재집계: 1시간 주기 (offset +7).
+  // pipeline (:00,:10,...) / summary (:05,:15,...) / snapshot (:00) 와 충돌 회피.
+  // quiet hours 도 갱신 — baseline 안정성을 위해 야간에도 코퍼스 추세 반영.
+  cron.schedule('7 * * * *', async () => {
+    try {
+      const result = await rebuildTokenStats(batchPool);
+      console.log(
+        `[scheduler] token-stats rebuild: tokens=${result.tokenCount} n24=${result.docCount24h} nBase=${result.docCountBaseline} ms=${result.durationMs}`,
+      );
+    } catch (err) {
+      captureError(err);
+    }
+  });
+  console.log('[scheduler] token-stats rebuild: hourly (offset +7)');
 
   // L1 — stale watchdog: 2분 주기 (quiet hours 제외)
   //   MAX(calculated_at) > 15분 경과면 즉시 aggregateIssues + materialize 강제 실행.
