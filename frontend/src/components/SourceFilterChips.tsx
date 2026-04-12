@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useSources } from '../hooks/usePosts';
-import { getSourceColor, getSourceLabel } from '../constants/sourceColors';
+import { getSourceColor, getSourceLabel, getSourceBrandStyle } from '../constants/sourceColors';
 import { HorizontalScrollRow } from './shared/HorizontalScrollRow';
 
 interface Props {
@@ -47,15 +47,15 @@ export const SourceFilterChips: React.FC<Props> = ({ category, selected, onChang
       {sources.map(({ key, name, category: cat }) => {
         const active = selected.includes(key);
         const color = getSourceColor(key, cat);
+        const brandStyle = getSourceBrandStyle(key);
         const label = getSourceLabel(key, name);
         return (
           <button
             key={key}
             onClick={() => toggle(key)}
-            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ${
-              active
-                ? `${color} border-current/20 shadow-sm`
-                : `${color} opacity-60 hover:opacity-100 border-transparent`
+            style={brandStyle}
+            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-opacity border border-transparent ${color} ${
+              active ? 'shadow-sm' : 'opacity-55 hover:opacity-100'
             }`}
           >
             {label}

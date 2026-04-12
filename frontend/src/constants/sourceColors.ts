@@ -1,4 +1,6 @@
-/** Category-based default colors — new sources auto-inherit from their category */
+import type { CSSProperties } from 'react';
+
+/** Category-based default colors — fallback when no brand hex is registered */
 const CATEGORY_COLORS: Record<string, string> = {
   community: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400',
   news: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
@@ -10,52 +12,140 @@ const CATEGORY_COLORS: Record<string, string> = {
   trend: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400',
   movie: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-400',
   performance: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400',
-  deal: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
+  deals: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
   music: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400',
+  books: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
+  ott: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400',
+  webtoon: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
 };
 
-/** Source-specific overrides for visual differentiation */
-const SOURCE_OVERRIDES: Record<string, string> = {
-  // Community — unique brand colors
-  dcinside: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400',
-  theqoo: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-400',
-  instiz: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400',
-  natepann: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400',
-  todayhumor: 'bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-400',
-  ppomppu: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
-  ruliweb: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
-  clien: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400',
-  fmkorea: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
-  bobaedream: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
-  mlbpark: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400',
-  inven: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400',
-  humoruniv: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
-  // News — differentiate major outlets
-  hani: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
-  khan: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400',
-  hankyung: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
-  mk: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400',
-  // Trend
-  google_trends: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400',
-  naver_datalab: 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400',
-  // Video — broadcaster brand colors
-  youtube_sbs_news: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400',
-  youtube_ytn: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
-  youtube_mbc_news: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-400',
-  youtube_kbs_news: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
-  youtube_jtbc_news: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
-  // Portal — distinct hues per provider
-  bigkinds_issues: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400',
-  naver_news_ranking: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
-  zum_news: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400',
-  google_news_kr: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400',
-  nate_news: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400',
-  // Deal — distinct hues per community
-  clien_jirum: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400',
-  quasarzone_deal: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-400',
-  eomisae: 'bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-400',
-  ruliweb_hot: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
-  ppomppu_hot: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
+/**
+ * Brand hex colors per source — text color uses this hex directly,
+ * background uses color-mix() to create a faint tint that works in both themes.
+ * Yellows / very light brand colors are pre-darkened for AA contrast.
+ */
+const SOURCE_BRAND_HEX: Record<string, string> = {
+  // ── Community ──
+  dcinside: '#1B1BCC',
+  theqoo: '#D14785',
+  instiz: '#6B3FA0',
+  natepann: '#B58900',
+  todayhumor: '#5C7A29',
+  ppomppu: '#C8102E',
+  ruliweb: '#D45500',
+  clien: '#0085C2',
+  fmkorea: '#2C5BAB',
+  bobaedream: '#009A4E',
+  mlbpark: '#1A3A8A',
+  inven: '#5E2E91',
+  humoruniv: '#B58900',
+  arcalive: '#3A6FB0',
+  cook82: '#C2185B',
+  ygosu: '#1F6FEB',
+  slrclub: '#1F6FEB',
+  etoland: '#0F766E',
+  dogdrip: '#7B341E',
+
+  // ── News ──
+  yna: '#1F4E78',
+  hani: '#1F4E78',
+  sbs: '#14479B',
+  donga: '#0066B3',
+  khan: '#C8102E',
+  hankyung: '#C8102E',
+  mk: '#003DA5',
+  seoul: '#003DA5',
+  kmib: '#C8102E',
+  yozm: '#1F6FEB',
+  korea_kr_press: '#1F4E78',
+  korea_kr_policy: '#1F4E78',
+  korea_press: '#1F4E78',
+  korea_policy: '#1F4E78',
+  korea_briefing: '#1F4E78',
+  sedaily: '#003DA5',
+  newsis: '#003DA5',
+  ddanzi: '#C8102E',
+  chosun: '#C8102E',
+  joins: '#003DA5',
+  kbs: '#1A4E96',
+  mbc: '#E60012',
+  jtbc: '#8B6914',
+  ytn: '#C8102E',
+  daum_news: '#B58900',
+  etnews: '#0066B3',
+  ohmynews: '#2E7D32',
+  moneytoday: '#C8102E',
+  nocutnews: '#C8102E',
+  asiae: '#003DA5',
+  segye: '#003DA5',
+  edaily: '#003DA5',
+  bizwatch: '#0066B3',
+  bbc_korean: '#BB1919',
+  mbn: '#C8102E',
+
+  // ── Tech ──
+  zdnet_kr: '#444444',
+  itworld_kr: '#003DA5',
+  naver_d2: '#03C75A',
+  kakao_tech: '#B58900',
+  toss_tech: '#1B64DA',
+  daangn_tech: '#FF6F0F',
+  line_tech: '#06C755',
+  banksalad_tech: '#1B64DA',
+
+  // ── Video (broadcaster YouTube) ──
+  youtube: '#FF0000',
+  youtube_sbs_news: '#14479B',
+  youtube_ytn: '#C8102E',
+  youtube_mbc_news: '#E60012',
+  youtube_kbs_news: '#1A4E96',
+  youtube_jtbc_news: '#8B6914',
+  youtube_search: '#FF0000',
+
+  // ── Portal ──
+  bigkinds_issues: '#1F4E96',
+  naver_news_ranking: '#03C75A',
+  zum_news: '#4C5BD4',
+  google_news_kr: '#4285F4',
+  nate_news: '#DC143C',
+
+  // ── Deals ──
+  ppomppu_best: '#C8102E',
+  ppomppu_hot: '#C8102E',
+  ruliweb_hot: '#D45500',
+  clien_jirum: '#0085C2',
+  quasarzone_deal: '#0091BD',
+  eomisae: '#8B5A2B',
+
+  // ── Trend ──
+  google_trends: '#4285F4',
+  naver_datalab: '#03C75A',
+  namuwiki: '#008275',
+  wikipedia_ko: '#555555',
+
+  // ── Books ──
+  yes24_bestseller: '#1B5E20',
+  aladin_bestseller: '#0085C2',
+
+  // ── Music ──
+  melon_chart: '#00A030',
+  bugs_chart: '#D62828',
+  genie_chart: '#F37321',
+  kworb_spotify_kr: '#1DB954',
+  kworb_youtube_kr: '#FF0000',
+
+  // ── Webtoon ──
+  naver_webtoon: '#00A045',
+
+  // ── OTT ──
+  flixpatrol: '#E50914',
+
+  // ── Performance / Movie ──
+  kopis_boxoffice: '#7C3AED',
+  kobis_boxoffice: '#C2410C',
+
+  // ── Alert ──
+  airkorea: '#B58900',
 };
 
 /** Display label overrides — strip noisy suffixes / shorten portal names. */
@@ -81,21 +171,34 @@ export function getSourceLabel(sourceKey: string, fallback: string): string {
   return SOURCE_LABEL_OVERRIDES[sourceKey] ?? fallback;
 }
 
-const FALLBACK = 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400';
+const FALLBACK_CLASS = 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400';
 
 /**
- * Get the color classes for a source badge.
- * Priority: source override > category default > fallback.
+ * Returns the Tailwind class fallback for a source — used when no brand hex
+ * is registered (or as base classes alongside the inline style).
  */
 export function getSourceColor(sourceKey: string, category?: string | null): string {
-  return SOURCE_OVERRIDES[sourceKey]
-    ?? (category ? CATEGORY_COLORS[category] : undefined)
-    ?? FALLBACK;
+  if (SOURCE_BRAND_HEX[sourceKey]) return '';
+  return (category ? CATEGORY_COLORS[category] : undefined) ?? FALLBACK_CLASS;
 }
 
-/** @deprecated Use getSourceColor() instead — kept for backwards compat during migration */
+/**
+ * Returns inline style for the source badge using its registered brand hex.
+ * Background uses color-mix() to create a faint tint that adapts to the page bg
+ * in both light and dark themes (≈14% in light, ≈22% in dark via fallback).
+ */
+export function getSourceBrandStyle(sourceKey: string): CSSProperties | undefined {
+  const hex = SOURCE_BRAND_HEX[sourceKey];
+  if (!hex) return undefined;
+  return {
+    backgroundColor: `color-mix(in srgb, ${hex} 14%, transparent)`,
+    color: hex,
+  };
+}
+
+/** @deprecated kept for backwards compat */
 export const SOURCE_COLORS: Record<string, string> = new Proxy({} as Record<string, string>, {
-  get(_target, prop: string) {
-    return SOURCE_OVERRIDES[prop] ?? FALLBACK;
+  get() {
+    return FALLBACK_CLASS;
   },
 });
