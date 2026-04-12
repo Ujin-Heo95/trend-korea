@@ -27,7 +27,6 @@ export const PIPELINE_LOCK_KEYS = {
   summarizer: 0xa002,
   trackBDecay: 0xa003,
   crossValidation: 0xa004,
-  mergeArbiter: 0xa005,
 } as const;
 
 export type PipelineLockKey = (typeof PIPELINE_LOCK_KEYS)[keyof typeof PIPELINE_LOCK_KEYS];

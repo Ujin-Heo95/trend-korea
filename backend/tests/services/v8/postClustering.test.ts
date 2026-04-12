@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { clusterPosts, filterMultiSourceClusters, CLUSTERING_CONSTANTS } from '../../../src/services/v8/postClustering.js';
-import type { V8Post } from '../../../src/services/v8/types.js';
+import type { V8Channel, V8Post } from '../../../src/services/v8/types.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 function vec(values: number[]): Float32Array {
   return new Float32Array(values);
@@ -91,4 +97,67 @@ describe('clusterPosts', () => {
     expect(CLUSTERING_CONSTANTS.CLUSTER_COSINE_THRESHOLD).toBe(0.78);
     expect(CLUSTERING_CONSTANTS.MIN_UNIQUE_SOURCES).toBe(2);
   });
+});
+
+interface BridgeFixturePost {
+  id: number;
+  title: string;
+  source_key: string;
+  channel: V8Channel;
+  embedding: number[];
+}
+
+interface BridgeFixture {
+  name: string;
+  source_ref: string;
+  description: string;
+  expected_clusters: number;
+  scraped_at: string;
+  posts: BridgeFixturePost[];
+}
+
+function loadBridgeFixture(filename: string): BridgeFixture {
+  const path = resolve(__dirname, '../../fixtures/bridge-cluster', filename);
+  return JSON.parse(readFileSync(path, 'utf8')) as BridgeFixture;
+}
+
+function fixtureToPosts(fx: BridgeFixture): { posts: V8Post[]; lookup: (id: number) => Float32Array | null } {
+  const scrapedAt = new Date(fx.scraped_at);
+  const embeddings = new Map<number, Float32Array>();
+  const posts: V8Post[] = fx.posts.map(p => {
+    embeddings.set(p.id, new Float32Array(p.embedding));
+    return {
+      id: p.id,
+      title: p.title,
+      url: `https://ex.com/${p.id}`,
+      sourceKey: p.source_key,
+      category: p.channel,
+      channel: p.channel,
+      scrapedAt,
+      publishedAt: scrapedAt,
+      viewCount: 0,
+      commentCount: 0,
+      likeCount: 0,
+      thumbnailUrl: null,
+    };
+  });
+  return { posts, lookup: (id: number) => embeddings.get(id) ?? null };
+}
+
+describe('bridge-cluster regressions', () => {
+  const fixtures = [
+    'case-01-knownorgs-bridge.json',
+    'case-02-union-find-transitive.json',
+    'case-03-anchor-symmetry.json',
+  ];
+
+  for (const filename of fixtures) {
+    it(`${filename}: v8 k-NN gate keeps historical incident separated`, () => {
+      const fx = loadBridgeFixture(filename);
+      const { posts, lookup } = fixtureToPosts(fx);
+      const raw = clusterPosts(posts, lookup);
+      const survivors = filterMultiSourceClusters(raw);
+      expect(survivors).toHaveLength(fx.expected_clusters);
+    });
+  }
 });

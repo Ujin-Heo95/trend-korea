@@ -28,8 +28,14 @@ a single bad cluster under legacy IDF+entity gating. v8 k-NN clustering
 See `lessons_issue_bridge_cluster.md` in global memory for the root-cause
 analysis of the 6 stale-card incidents that motivate this harness.
 
-## TODO
+## Cases
 
-Populate with the 3 historical cases referenced in the v8 plan
-(`~/.claude/plans/jiggly-watching-pixel.md`, Verification §3). Until then,
-v8 k-NN relies on production observation alone for regression confidence.
+| File | Incident | Expected post-filter clusters |
+|---|---|---|
+| `case-01-knownorgs-bridge.json` | KNOWN_ORGS one-sided pass-through merging unrelated 삼성 events | 2 |
+| `case-02-union-find-transitive.json` | DSU transitive bridge via generic intermediate post | 2 |
+| `case-03-anchor-symmetry.json` | Anchor-entity asymmetric subset match across unrelated games | 1 (one topic dropped by cross-source filter) |
+
+Each fixture asserts: after `clusterPosts` + `filterMultiSourceClusters`,
+the surviving cluster count equals `expected_clusters`. Loosening the v8
+cos threshold below 0.78 or removing the cross-source gate breaks these.

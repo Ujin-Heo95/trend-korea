@@ -1,0 +1,13 @@
+{
+  "name": "KNOWN_ORGS asymmetric pass-through",
+  "source_ref": "lessons_issue_bridge_cluster.md (commit ee335a9 — KNOWN_ORGS 확장)",
+  "description": "Both topics mention '삼성' so legacy entity gate union-merged them via the KNOWN_ORGS one-sided pass-through loophole, even though the events are unrelated (반도체 실적 vs 노조 파업). v8 k-NN must reject the merge because the embedding cosine between the two topic centroids is below 0.78.",
+  "expected_clusters": 2,
+  "scraped_at": "2026-04-13T00:00:00Z",
+  "posts": [
+    { "id": 101, "title": "삼성전자 3분기 반도체 실적 사상 최대", "source_key": "yna",  "channel": "news",      "embedding": [1.0, 0.05, 0.0, 0.0, 0.0, 0.0] },
+    { "id": 102, "title": "삼성 반도체 영업이익 컨센서스 상회",       "source_key": "mbc",  "channel": "news",      "embedding": [0.98, 0.1,  0.0, 0.0, 0.0, 0.0] },
+    { "id": 103, "title": "삼성 노조 파업 돌입 — 임금협상 결렬",       "source_key": "kbs",  "channel": "news",      "embedding": [0.0, 0.0, 1.0, 0.05, 0.0, 0.0] },
+    { "id": 104, "title": "삼성노조 총파업 선언, 사측 협상 거부",      "source_key": "dcinside", "channel": "community", "embedding": [0.0, 0.0, 0.97, 0.1,  0.0, 0.0] }
+  ]
+}

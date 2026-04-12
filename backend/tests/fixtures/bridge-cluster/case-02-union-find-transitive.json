@@ -1,0 +1,14 @@
+{
+  "name": "Union-Find transitive A-B-C bridge",
+  "source_ref": "lessons_issue_bridge_cluster.md (commit 71eaeb6 — 누적-루트 게이트)",
+  "description": "Legacy DSU.union merged A↔B (cos 0.85) and B↔C (cos 0.83) into one component even though A↔C cos = 0.55. The bridging post B was a generic '여야 충돌' headline that semantically straddled topic A (예산안) and topic C (특검법). v8 keeps them separate because B's embedding does not actually exceed 0.78 against either A or C — the legacy bridge was an IDF false positive, not a true cosine bridge. This fixture pins the post-embedding-era expectation: B sits closer to topic C than A, but neither edge crosses 0.78.",
+  "expected_clusters": 2,
+  "scraped_at": "2026-04-13T01:00:00Z",
+  "posts": [
+    { "id": 201, "title": "내년도 예산안 심사 본회의 통과",        "source_key": "yna",     "channel": "news",      "embedding": [1.0, 0.0, 0.0, 0.0] },
+    { "id": 202, "title": "예산안 처리 — 여야 막판 합의",            "source_key": "kbs",     "channel": "news",      "embedding": [0.97, 0.15, 0.0, 0.0] },
+    { "id": 203, "title": "여야 충돌, 본회의 정회 반복",              "source_key": "fmkorea", "channel": "community", "embedding": [0.6, 0.6, 0.4, 0.0] },
+    { "id": 204, "title": "특검법 강행 처리 — 야당 단독",             "source_key": "mbc",     "channel": "news",      "embedding": [0.0, 0.0, 1.0, 0.05] },
+    { "id": 205, "title": "특검법 통과 후폭풍, 대통령실 거부권 시사",  "source_key": "sbs",     "channel": "news",      "embedding": [0.0, 0.05, 0.96, 0.15] }
+  ]
+}

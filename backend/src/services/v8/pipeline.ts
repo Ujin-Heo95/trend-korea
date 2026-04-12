@@ -186,8 +186,10 @@ export async function runV8Pipeline(pool: Pool): Promise<V8PipelineResult> {
 
   const weights = await preloadWeights();
 
+  const clusterStart = Date.now();
   const clusters = clusterPosts(posts);
-  logger.info({ count: clusters.length }, '[v8] clusters formed');
+  const clusterMs = Date.now() - clusterStart;
+  logger.info({ count: clusters.length, ms: clusterMs }, '[v8] clusters formed');
 
   const echo = computeCrossChannelEcho(posts, weights);
 

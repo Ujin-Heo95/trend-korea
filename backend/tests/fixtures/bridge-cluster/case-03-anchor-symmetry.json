@@ -1,0 +1,12 @@
+{
+  "name": "Anchor entity asymmetric matching",
+  "source_ref": "lessons_issue_bridge_cluster.md (대칭 entity 가드)",
+  "description": "Legacy entity gate compared post-A entities ⊆ post-B entities directionally — '손흥민' was an anchor in post A and a passing mention in post B (different match), so the one-direction subset check passed and merged unrelated games. v8 ignores entity sets entirely; cosine alone must keep them separate, AND the cross-source filter must drop singleton-source contamination so only the genuine multi-source cluster survives. Topic A has 2 sources (passes filter); topic B has 1 source only (gets dropped by filterMultiSourceClusters → final count = 1).",
+  "expected_clusters": 1,
+  "scraped_at": "2026-04-13T02:00:00Z",
+  "posts": [
+    { "id": 301, "title": "손흥민 토트넘 시즌 10호골 — 리버풀전 결승골", "source_key": "yna",       "channel": "news",      "embedding": [1.0, 0.0, 0.0, 0.0, 0.0] },
+    { "id": 302, "title": "손흥민 결승골로 토트넘 1-0 승리",               "source_key": "spotvnews", "channel": "news",      "embedding": [0.96, 0.1, 0.0, 0.0, 0.0] },
+    { "id": 303, "title": "한국 대표팀 친선경기 명단 발표 — 손흥민 포함",  "source_key": "naver_sports", "channel": "news",   "embedding": [0.0, 0.0, 1.0, 0.05, 0.0] }
+  ]
+}

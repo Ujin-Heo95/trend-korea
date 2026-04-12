@@ -10,7 +10,8 @@
  *  3) 클러스터 max size = 50
  *  4) cross-source ≥ 2 (고립 단일 소스 포스트는 클러스터 아님 = singleton)
  *
- * 알고리즘: brute-force O(N²). N ≤ 4000 (12h 윈도우) 에서 ~2–3s.
+ * 알고리즘: brute-force O(N²) with 시간순 정렬 + early-break + same-component skip.
+ * N ≈ 2500 (12h 윈도우) 에서 목표 < 10s.
  */
 
 import type { V8Channel, V8Post, V8Cluster } from './types.js';
@@ -81,27 +82,34 @@ export function clusterPosts(
 ): V8Cluster[] {
   if (posts.length === 0) return [];
 
-  // 1. 임베딩 프리로드
-  const vectors = new Map<number, Float32Array>();
-  for (const p of posts) {
-    const v = lookup(p.id);
-    if (v) vectors.set(p.id, v);
+  // 1. 시간순 정렬 (early-break 활성화). 입력은 readonly 이므로 새 배열 복사.
+  //    내부 인덱스 i, j 는 이 정렬된 배열 기준이며 결과의 stable id 는
+  //    원본 post id 를 사용하므로 정렬은 안전.
+  const sorted = [...posts].sort((a, b) => a.scrapedAt.getTime() - b.scrapedAt.getTime());
+  const n = sorted.length;
+
+  // 2. 임베딩 프리로드 (정렬된 인덱스 → Float32Array, null 포함)
+  const vectors: (Float32Array | null)[] = new Array(n);
+  const times: number[] = new Array(n);
+  for (let k = 0; k < n; k++) {
+    vectors[k] = lookup(sorted[k].id);
+    times[k] = sorted[k].scrapedAt.getTime();
   }
 
-  // 2. Union-Find 초기화
-  const n = posts.length;
+  // 3. Union-Find 초기화
   const dsu = new DSU(n);
 
-  // 3. 쌍별 비교 (brute-force)
+  // 4. 쌍별 비교 (brute-force, time-sorted, early-break, same-component skip)
   for (let i = 0; i < n; i++) {
-    const a = posts[i];
-    const va = vectors.get(a.id);
+    const va = vectors[i];
     if (!va) continue;
+    const ti = times[i];
     for (let j = i + 1; j < n; j++) {
-      const b = posts[j];
-      const dt = Math.abs(a.scrapedAt.getTime() - b.scrapedAt.getTime());
-      if (dt > CLUSTER_TIME_WINDOW_MS) continue;
-      const vb = vectors.get(b.id);
+      // time window: 정렬되어 있으므로 j 가 윈도우를 벗어나면 이후도 모두 벗어남 → break
+      if (times[j] - ti > CLUSTER_TIME_WINDOW_MS) break;
+      // 이미 같은 component → cosine 계산 생략
+      if (dsu.find(i) === dsu.find(j)) continue;
+      const vb = vectors[j];
       if (!vb) continue;
       const sim = cosineSimVectors(va, vb);
       if (sim < CLUSTER_COSINE_THRESHOLD) continue;
@@ -109,7 +117,7 @@ export function clusterPosts(
     }
   }
 
-  // 4. 컴포넌트 수집
+  // 5. 컴포넌트 수집
   const components = new Map<number, number[]>();
   for (let i = 0; i < n; i++) {
     const root = dsu.find(i);
@@ -118,10 +126,10 @@ export function clusterPosts(
     else components.set(root, [i]);
   }
 
-  // 5. V8Cluster 변환
+  // 6. V8Cluster 변환
   const clusters: V8Cluster[] = [];
   for (const indices of components.values()) {
-    const members = indices.map(i => posts[i]);
+    const members = indices.map(i => sorted[i]);
     const sourceSet = new Set(members.map(p => p.sourceKey));
     const channelSet = new Set(members.map(p => p.channel));
     const channelBreakdown: Record<V8Channel, number> = {
