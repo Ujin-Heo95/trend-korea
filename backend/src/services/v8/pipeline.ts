@@ -90,7 +90,7 @@ function toLegacyCategoryLabel(card: V8IssueCard): string {
   return card.category;
 }
 
-async function persistIssueRankings(
+export async function persistIssueRankings(
   pool: Pool,
   cards: readonly V8IssueCard[],
   calculatedAt: Date,
@@ -103,7 +103,16 @@ async function persistIssueRankings(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('DELETE FROM issue_rankings');
+
+    // stale_id 가 현재 cards 에 속하지 않는 기존 행 + legacy NULL stable_id 행 정리.
+    // Gemini 요약이 들어간 현행 카드는 UPSERT 에서 summary 를 보존한다.
+    const currentStableIds = cards.map(c => c.clusterId);
+    await client.query(
+      `DELETE FROM issue_rankings
+         WHERE stable_id IS NULL
+            OR NOT (stable_id = ANY($1::text[]))`,
+      [currentStableIds],
+    );
 
     for (const card of cards) {
       const bd = card.cluster.channelBreakdown;
@@ -117,6 +126,12 @@ async function persistIssueRankings(
         .filter(p => p.channel === 'video')
         .reduce((s, p) => s + p.normalizedScore, 0);
 
+      // seed summary 는 '[fallback] …' prefix — isStaleSummary() 가 stale 로 판정하여
+      // 다음 Gemini tick 의 targets 에 포함된다. Gemini 가 실제 요약을 쓰면
+      // ON CONFLICT 분기에서 AI-owned 필드(title/summary/category_label/quality/keywords/sentiment)
+      // 가 보존되고, pipeline-owned 필드(점수·thumbnail·member·expires 등)만 갱신된다.
+      const seedSummary = `[fallback] ${card.title}`;
+
       await client.query(
         `INSERT INTO issue_rankings (
            title, summary, category_label, issue_score,
@@ -124,13 +139,32 @@ async function persistIssueRankings(
            news_post_count, community_post_count, video_post_count,
            representative_thumbnail, cluster_ids, standalone_post_ids,
            calculated_at, expires_at, stable_id, cross_validation_score, cross_validation_sources
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+         ON CONFLICT (stable_id, window_hours) WHERE stable_id IS NOT NULL DO UPDATE SET
+           title          = CASE WHEN issue_rankings.summary IS NULL OR issue_rankings.summary LIKE '[fallback]%'
+                                 THEN EXCLUDED.title ELSE issue_rankings.title END,
+           summary        = CASE WHEN issue_rankings.summary IS NULL OR issue_rankings.summary LIKE '[fallback]%'
+                                 THEN EXCLUDED.summary ELSE issue_rankings.summary END,
+           category_label = CASE WHEN issue_rankings.summary IS NULL OR issue_rankings.summary LIKE '[fallback]%'
+                                 THEN EXCLUDED.category_label ELSE issue_rankings.category_label END,
+           issue_score              = EXCLUDED.issue_score,
+           news_score               = EXCLUDED.news_score,
+           community_score          = EXCLUDED.community_score,
+           trend_signal_score       = EXCLUDED.trend_signal_score,
+           video_score              = EXCLUDED.video_score,
+           news_post_count          = EXCLUDED.news_post_count,
+           community_post_count     = EXCLUDED.community_post_count,
+           video_post_count         = EXCLUDED.video_post_count,
+           representative_thumbnail = EXCLUDED.representative_thumbnail,
+           cluster_ids              = EXCLUDED.cluster_ids,
+           standalone_post_ids      = EXCLUDED.standalone_post_ids,
+           calculated_at            = EXCLUDED.calculated_at,
+           expires_at               = EXCLUDED.expires_at,
+           cross_validation_score   = EXCLUDED.cross_validation_score,
+           cross_validation_sources = EXCLUDED.cross_validation_sources`,
         [
           card.title,
-          // summary fallback = title: materializeIssueResponse 는 summary IS NOT NULL 필터를
-          // 쓰므로 v8 첫 tick 에 gemini 가 아직 돌지 않았어도 카드가 사용자에게 노출되도록 보장.
-          // Gemini 요약이 :05 tick 에서 이 칼럼을 덮어쓴다.
-          card.title,
+          seedSummary,
           toLegacyCategoryLabel(card),
           card.issueScore,
           newsScore,
