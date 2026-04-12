@@ -63,6 +63,7 @@ const migrations = [
   '054_scraper_source_overrides.sql',
   '055_issue_window_hours.sql',
   '056_issue_summary_cache.sql',
+  '057_2track_scoring.sql',
 ];
 
 try {
