@@ -41,9 +41,11 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
 
     // 공개 응답: 서버 활성 상태 + 이슈 데이터 신선도. SLO 초과 시 503 (UptimeRobot 트리거).
     // DB 실패는 200 'degraded' 유지 — healthcheck 자체는 통과 (Fly process restart 회피).
+    // null age 도 stale 로 간주 — 테이블이 완전히 비었다는 건 파이프라인이 오랫동안 못 돌았다는 뜻.
+    // freshness 메타(routes/issues.ts buildFreshness) 와 동일한 규칙.
     if (!isAdmin) {
       const issueDataAgeSec = dbConnected ? await readIssueDataAgeSeconds(app) : null;
-      const isStale = issueDataAgeSec !== null && issueDataAgeSec > ISSUE_DATA_SLO_SECONDS;
+      const isStale = !dbConnected || issueDataAgeSec === null || issueDataAgeSec > ISSUE_DATA_SLO_SECONDS;
       const status = !dbConnected ? 'degraded' : isStale ? 'stale' : 'ok';
       const httpStatus = isStale ? 503 : 200;
       return reply.status(httpStatus).send({
@@ -99,7 +101,8 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
     const apiKeys = await checkApiKeys();
     const hasInvalidKey = apiKeys.some(k => k.valid === false);
     const issueDataAgeSec = await readIssueDataAgeSeconds(app);
-    const issueIsStale = issueDataAgeSec !== null && issueDataAgeSec > ISSUE_DATA_SLO_SECONDS;
+    // null 도 stale 로 간주 (공개 응답과 동일 규칙)
+    const issueIsStale = issueDataAgeSec === null || issueDataAgeSec > ISSUE_DATA_SLO_SECONDS;
     const cacheTelemetry = getIssuesCacheTelemetry();
 
     return reply.status(200).send({
