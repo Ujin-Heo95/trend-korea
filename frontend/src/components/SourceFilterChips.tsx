@@ -51,12 +51,16 @@ export const SourceFilterChips: React.FC<Props> = ({ category, selected, onChang
         const brandStyle = getSourceBrandStyle(key);
         const label = getSourceLabel(key, name);
         const style: React.CSSProperties | undefined = brandStyle
-          ? {
-              ...brandStyle,
-              borderColor: active
-                ? brandStyle.color as string
-                : `color-mix(in srgb, ${brandStyle.color} 45%, transparent)`,
-            }
+          ? active
+            ? {
+                ...brandStyle,
+                borderColor: brandStyle.color as string,
+              }
+            : {
+                color: brandStyle.color,
+                backgroundColor: `color-mix(in srgb, ${brandStyle.color} 7%, transparent)`,
+                boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${brandStyle.color} 18%, transparent)`,
+              }
           : undefined;
         return (
           <button
