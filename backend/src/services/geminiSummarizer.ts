@@ -289,7 +289,7 @@ async function summarizeSingleIssue(
           contents: [{ role: 'user', parts: [{ text: `${SYSTEM_PROMPT}\n\n게시글:\n${postsText}` }] }],
           generationConfig: {
             temperature: 0.3,
-            maxOutputTokens: 2000,
+            maxOutputTokens: 1500,
             responseMimeType: 'application/json',
             responseSchema: RESPONSE_SCHEMA,
           },

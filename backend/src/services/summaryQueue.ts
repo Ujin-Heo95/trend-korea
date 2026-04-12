@@ -35,7 +35,7 @@ export const DEFAULT_QUEUE_CONFIG: QueueConfig = {
   noveltyFactor: 1.2,
   noveltyThreshold: 0.3,
   phaseTimeoutMs: 90_000,
-  singleCallTimeoutMs: 8_000,
+  singleCallTimeoutMs: 15_000,
   maxIssuesPerWindow: 15,
 };
 
