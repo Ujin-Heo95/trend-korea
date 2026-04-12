@@ -12,6 +12,7 @@ export interface FeatureFlags {
   readonly gemini_summary_enabled: boolean;
   readonly cross_validation_enabled: boolean;
   readonly apify_scrapers_enabled: boolean;
+  readonly scoring_track_b_enabled: boolean;
 }
 
 const DEFAULTS: FeatureFlags = {
@@ -19,6 +20,7 @@ const DEFAULTS: FeatureFlags = {
   gemini_summary_enabled: true,
   cross_validation_enabled: true,
   apify_scrapers_enabled: true,
+  scoring_track_b_enabled: false,
 };
 
 let cachedFlags: FeatureFlags = { ...DEFAULTS };
@@ -38,6 +40,7 @@ export async function loadFeatureFlags(): Promise<FeatureFlags> {
       gemini_summary_enabled: config.gemini_summary_enabled !== false,
       cross_validation_enabled: config.cross_validation_enabled !== false,
       apify_scrapers_enabled: config.apify_scrapers_enabled !== false,
+      scoring_track_b_enabled: config.scoring_track_b_enabled === true,
     };
     lastLoadedAt = now;
   } catch (err) {

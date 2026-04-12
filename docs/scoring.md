@@ -22,34 +22,38 @@ score = normalizedEngagement × adaptiveDecay × communitySourceWeight
       × volumeDampening
 ```
 
-### 뉴스 탭 (v6 — 4항 가산 혼합 signalScore)
+### 뉴스 탭 (v7 — 5항 가산 혼합 signalScore, freshness 흡수)
 
 ```
 signalScore = max(
-  portalRank × 0.35 + clusterImportance × 0.30
-  + trendAlignment × 0.20 + engagementSignal × 0.15,
+  portalRank × 0.32 + clusterImportance × 0.27
+  + trendAlignment × 0.18 + engagementSignal × 0.13
+  + freshnessSignal × 0.10,
   1.0
 )
 
 score = signalScore × decay × sourceWeight × subcategoryNorm
-      × breakingBoost × freshnessBonus × volumeDampening
+      × breakingBoost × volumeDampening
 ```
 
-**v6 변경 사항**:
-1. **4번째 신호 추가**: 실제 engagement 데이터가 있는 뉴스 소스(daum_news, nate_news 등)의 참여도를 [0,10]으로 정규화하여 15% 비중 반영
-2. **포털 랭킹 확장**: naver_news_ranking 외에 nate_news(×0.6), zum_news(×0.5) 순위도 portalRank에 통합
-3. **소스별 뉴스 decay**: 통신사 180분, 방송 240분, 일간지 300분, 경제지 320분 차등
-4. **T1 단독 속보**: 제목에 "속보/긴급" 포함 시 다중 소스 대기 없이 즉시 부스트 (최대 2.0)
-5. **freshnessBonus**: 발행 30분 이내 1.3x, 1시간 이내 1.15x, 2시간 이내 1.05x
+**v7 변경 사항 (TD-005)**:
+1. **freshness 흡수**: 외곽 `freshnessBonus` 승수(1.3/1.15/1.075/1.0) 제거 → 5번째 가산항 `freshnessSignal`로 이동. 소스별 `decay` halfLife와 이중 계산되던 문제 해소.
+2. **freshness 연속 함수**: `10 × exp(-ln2 × age / 45)` — 45분 반감기. age=0→10, 30→6.3, 60→4.0, 120→1.6, ∞→0. v6 step 함수 경계 절벽 제거.
+3. **entity 기반 clusterImportance**: 임베딩 centroid 평균 거리(`d_avg`) × 매체 티어 다양성. 같은 사건 반복 보도 클러스터는 d_avg가 낮아 억제, 다각도 보도는 가중. 임베딩 ≥2개 시 v7, 없으면 per-cluster로 v6 공식 fallback.
+4. **가중치 재정규화**: 포털 0.32 + 클러스터 0.27 + 트렌드 0.18 + 참여 0.13 + 신선도 0.10 = 1.00.
+
+**v6 → v7 계승 (유지)**:
+- 포털 랭킹 확장 (naver/nate/zum 통합), 소스별 뉴스 decay (180~320분 차등), T1 단독 속보, engagementSignal.
 
 | 컴포넌트 | 범위 | 비중 | 산출 |
 |----------|------|------|------|
-| portalRank | [0, 10] | 35% | naver/nate/zum 뉴스 랭킹 순위 (소스별 차등 승수). 클러스터 전파 (naver ×0.8, nate/zum ×0.5). 6h 시간감쇠 |
-| clusterImportance | [0, 10] | 30% | 뉴스 매체 수 (log₂ 스케일) × 티어 다양성 보너스 |
-| trendAlignment | [0, 10] | 20% | trendSignalBonus [1.0,1.8] → [0,10] 선형 정규화 |
-| engagementSignal | [0, 10] | 15% | 뉴스 소스 중 engagement>0인 포스트의 Z-Score 정규화 (engagement=0이면 0) |
+| portalRank | [0, 10] | 32% | naver/nate/zum 뉴스 랭킹 순위 (소스별 차등 승수). 클러스터 전파 (naver ×0.8, nate/zum ×0.5). 6h 시간감쇠 |
+| clusterImportance | [0, 10] | 27% | **v7**: log₂(1+uniqueOutlets) × (1 + min(d_avg×2, 3)) × 티어보너스. 임베딩 부재 시 v6 공식 fallback |
+| trendAlignment | [0, 10] | 18% | trendSignalBonus [1.0,1.8] → [0,10] 선형 정규화 |
+| engagementSignal | [0, 10] | 13% | 뉴스 소스 중 engagement>0인 포스트의 Z-Score 정규화 (engagement=0이면 0) |
+| freshnessSignal | [0, 10] | 10% | **v7 신규**: `10 × exp(-ln2 × ageMinutes / 45)` — 45분 반감기 연속 함수 |
 
-가중치 `0.35/0.30/0.20/0.15`는 DB `scoring_config` 테이블의 `news_signal_weights` 그룹에서 런타임 오버라이드 가능.
+가중치 `0.32/0.27/0.18/0.13/0.10`은 DB `scoring_config` 테이블의 `news_signal_weights_v7` 그룹에서 런타임 오버라이드 가능.
 
 ---
 
@@ -278,16 +282,24 @@ result = max(1.0, min(raw, 1.8))
 | 30분 후 | 2.0 | 1.5 |
 | 120분+ | ~1.0 | ~1.0 |
 
-### 3.9 신선도 보너스 (freshnessBonus, 뉴스 전용, v6 신규)
+### 3.9 신선도 신호 (freshnessSignal, 뉴스 전용, v7 가산항)
 
-외부 신호 도착 전 "사각지대" 해소. 갓 발행된 뉴스에 초기 부스트.
+외부 신호 도착 전 "사각지대" 해소. signalScore의 5번째 가산항 — [0, 10] 범위 45분 반감기 연속 함수.
 
-| 경과 시간 | 보너스 |
-|-----------|--------|
-| ≤ 30분 | 1.3 |
-| 31~60분 | 1.15 |
-| 61~120분 | 1.05 |
-| > 120분 | 1.0 |
+```
+freshnessSignal = 10 × exp(-ln2 × ageMinutes / 45)
+```
+
+| 경과 시간 | 신호값 | signalScore 기여 (× 0.10) |
+|-----------|--------|---------------------------|
+| 0분 | 10.0 | +1.00 |
+| 30분 | 6.30 | +0.63 |
+| 45분 | 5.00 | +0.50 |
+| 60분 | 3.97 | +0.40 |
+| 120분 | 1.58 | +0.16 |
+| ∞ | 0 | 0 |
+
+**v6 → v7 전환**: v6의 외곽 `freshnessBonus` 곱셈(1.3/1.15/1.075/1.0)은 소스별 `decay` halfLife와 이중 계산 문제가 있어 제거. 대신 signalScore 내부 가산항으로 편입되어 단일 경로로 반영된다.
 
 ### 3.10 볼륨 감쇄 (volumeDampening)
 
@@ -424,7 +436,7 @@ momentumScore = clamp(1.0 + MOMENTUM_WEIGHT × ln(acceleration), [MOMENTUM_PENAL
 | `community_source_weights` | A(1.3~1.4)~D(0.8~0.9) |
 | `community_decay_half_lives` | 120~200분 소스별 |
 | `engagement_weights` | 채널별 comment/like 가중치 |
-| `news_signal_weights` | portal_weight(0.35), cluster_weight(0.30), trend_weight(0.20), engagement_weight(0.15) |
+| `news_signal_weights_v7` | portal_weight(0.32), cluster_weight(0.27), trend_weight(0.18), engagement_weight(0.13), freshness_weight(0.10) |
 | `news_decay_half_lives` | 소스별 뉴스 반감기 (yna: 180 ~ mk: 320, 기본 240) |
 | `trend_signal` | CAP(1.8), 키워드 길이, 시간 감쇠 |
 | `breaking_news` | 감지 윈도우(2h), 최소 소스(3), 부스트 상한(3.0) |

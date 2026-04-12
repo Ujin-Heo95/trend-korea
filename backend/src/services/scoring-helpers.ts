@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 import type { Channel } from './scoring-weights.js';
 import { CHANNEL_HALF_LIFE_MINUTES, DEFAULT_HALF_LIFE_MINUTES } from './scoring-weights.js';
+import { getEmbedding, cosineSimVectors } from './embedding.js';
 
 const LN2 = Math.LN2;
 
@@ -34,7 +35,6 @@ export interface ScoreFactors {
   trendSignalBonus: number;
   subcategoryNorm: number;
   breakingBoost: number;
-  freshnessBonus: number;
 }
 
 export interface SourceStats {
@@ -64,8 +64,7 @@ export function computeScore(factors: ScoreFactors): number {
     * factors.clusterBonus
     * factors.trendSignalBonus
     * factors.subcategoryNorm
-    * factors.breakingBoost
-    * factors.freshnessBonus;
+    * factors.breakingBoost;
 }
 
 /** Backward-compatible overload for tests / simple usage */
@@ -599,7 +598,90 @@ const SOURCE_TIER: Record<string, number> = {
   daum_news: 4, newsis: 4, nate_news: 4, zum_news: 4, google_news_kr: 4,
 };
 
-/** 클러스터 내 뉴스 매체 수 + 티어 다양성 → [0, 10] 중요도 */
+/** v7: 임베딩 centroid 평균 거리 기반 "서로 다른 사건 단위" importance.
+ *  같은 엔티티를 반복 보도한 클러스터는 d_avg가 낮아 억제,
+ *  서로 다른 각도(사실/반응/분석)를 다룬 클러스터는 d_avg가 높아 가중.
+ *  Formula: log2(1 + uniqueOutlets) × (1 + min(d_avg × 2, 3)), clamp [0, 10]. */
+export function clusterImportanceFromVectors(
+  uniqueOutlets: number,
+  vectors: readonly Float32Array[],
+): number {
+  if (uniqueOutlets <= 1 || vectors.length < 2) return 0;
+
+  // centroid = 평균 벡터
+  const dim = vectors[0].length;
+  const centroid = new Float32Array(dim);
+  for (const v of vectors) {
+    for (let i = 0; i < dim; i++) centroid[i] += v[i];
+  }
+  for (let i = 0; i < dim; i++) centroid[i] /= vectors.length;
+
+  // d_avg = 평균 코사인 거리 (1 - cosSim) ∈ [0, 1]
+  let distSum = 0;
+  for (const v of vectors) {
+    distSum += 1 - cosineSimVectors(v, centroid);
+  }
+  const dAvg = distSum / vectors.length;
+
+  const outletBase = Math.log2(1 + uniqueOutlets); // 2→1.58, 4→2.32, 8→3.17
+  const diversityMult = 1 + Math.min(dAvg * 2, 3); // d_avg clamp +3
+  return Math.min(outletBase * diversityMult, 10);
+}
+
+/** v7: entity-based clusterImportance — 임베딩 centroid 거리 + 티어 다양성.
+ *  임베딩이 ≥2개 있는 클러스터는 v7 공식, 없거나 1개면 v6 공식으로 per-cluster fallback. */
+export async function calculateClusterImportanceMapV7(pool: Pool): Promise<Map<number, number>> {
+  const { rows } = await pool.query<{
+    cluster_id: number;
+    member_ids: number[];
+    source_keys: string[];
+    news_source_count: number;
+  }>(`
+    SELECT pcm.cluster_id,
+           ARRAY_AGG(pcm.post_id) AS member_ids,
+           ARRAY_AGG(DISTINCT p.source_key) AS source_keys,
+           COUNT(DISTINCT CASE WHEN p.category IN ('news','newsletter','portal') THEN p.source_key END)::int AS news_source_count
+    FROM post_cluster_members pcm
+    JOIN posts p ON p.id = pcm.post_id
+    JOIN post_clusters pc ON pc.id = pcm.cluster_id
+    WHERE pc.cluster_created_at > NOW() - INTERVAL '24 hours'
+    GROUP BY pcm.cluster_id
+  `);
+
+  const map = new Map<number, number>();
+  for (const r of rows) {
+    if (r.news_source_count <= 1) continue;
+
+    const uniqueOutlets = r.news_source_count;
+    const tiers = new Set(r.source_keys.map(sk => SOURCE_TIER[sk] ?? 5));
+    const tierBonus = 1.0 + 0.1 * Math.min(tiers.size - 1, 3);
+
+    // 클러스터 멤버 임베딩 수집
+    const vectors: Float32Array[] = [];
+    for (const pid of r.member_ids) {
+      const v = getEmbedding(pid);
+      if (v) vectors.push(v);
+    }
+
+    let importance: number;
+    if (vectors.length >= 2) {
+      // v7: centroid 거리 기반
+      importance = clusterImportanceFromVectors(uniqueOutlets, vectors) * tierBonus;
+    } else {
+      // per-cluster fallback: v6 공식 (매체수 × 티어)
+      const mediaScore = Math.min(10.0, 3.0 * Math.log2(uniqueOutlets));
+      importance = mediaScore * tierBonus;
+    }
+
+    const clamped = Math.min(importance, 10.0);
+    for (const pid of r.member_ids) {
+      map.set(pid, clamped);
+    }
+  }
+  return map;
+}
+
+/** v6 (legacy): 클러스터 내 뉴스 매체 수 + 티어 다양성 → [0, 10] 중요도 */
 export async function calculateClusterImportanceMap(pool: Pool): Promise<Map<number, number>> {
   const { rows } = await pool.query<{
     member_post_id: number;
@@ -704,18 +786,15 @@ export async function calculateNewsEngagementMap(pool: Pool): Promise<Map<number
   return map;
 }
 
-// ─── News: Freshness Bonus (신선도 보너스) ───
+// ─── News: Freshness Signal (v7 5번째 가산 항) ───
 
-const FRESHNESS_HALF_LIFE_MIN = 30;
-const FRESHNESS_MAX_BOOST = 0.3;
+const FRESHNESS_SIGNAL_HALF_LIFE_MIN = 45;
 
-/** v7: 발행 후 경과 시간에 따른 smooth freshness bonus (뉴스 전용).
- *  Formula: 1 + 0.3 × exp(-ln2 × age / 30) — 30분 반감기, 점진 감쇠.
- *  Age=0→1.30, age=30→1.15, age=60→1.075, age=∞→1.0.
- *  v6의 step 함수 (1.3/1.15/1.05/1.0) 경계 절벽을 제거. */
-export function freshnessBonus(ageMinutes: number): number {
-  if (!Number.isFinite(ageMinutes) || ageMinutes <= 0) {
-    return 1.0 + FRESHNESS_MAX_BOOST;
-  }
-  return 1.0 + FRESHNESS_MAX_BOOST * Math.exp(-LN2 * ageMinutes / FRESHNESS_HALF_LIFE_MIN);
+/** v7: 발행 후 경과 시간을 [0, 10] 신호로 환산 (뉴스 signalScore 5번째 항).
+ *  Formula: 10 × exp(-ln2 × age / 45) — 45분 반감기, 연속 함수.
+ *  Age=0→10, age=30→6.3, age=45→5.0, age=60→4.0, age=120→1.6, age=∞→0.
+ *  v6 외곽 freshnessBonus(곱셈 1.3/1.15/1.075/1.0)를 대체 — signalScore 내부 가산항으로 흡수. */
+export function freshnessSignal(ageMinutes: number): number {
+  if (!Number.isFinite(ageMinutes) || ageMinutes <= 0) return 10;
+  return 10 * Math.exp(-LN2 * ageMinutes / FRESHNESS_SIGNAL_HALF_LIFE_MIN);
 }
