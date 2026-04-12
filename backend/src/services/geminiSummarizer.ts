@@ -595,21 +595,16 @@ export async function summarizeAndUpdateIssues(
         .map(q => q.rowId),
     );
 
-    // Process in priority order; geminiLimit caps real parallelism.
+    // Kick off all targets in parallel; processOne wraps the actual Gemini call
+    // in geminiLimit (cap=3) and self-handles phase abort + cache short-circuits.
+    // Priority order is preserved by iteration order — earlier targets enter the
+    // pLimit queue first, so high-priority items get the first 3 slots.
+    const tasks: Promise<void>[] = [];
     for (const q of queue) {
       if (!targetIds.has(q.rowId)) continue;
-      if (phase.signal.aborted) {
-        const item = itemByRowId.get(q.rowId);
-        if (item && q.summaryIsStale) {
-          const fb = makeFallbackSummary(item.posts, item.row.id);
-          await updateIssueInDb(pool, item.row.id, fb);
-          metrics.fallbacks++;
-          updated++;
-        }
-        continue;
-      }
-      await processOne(q.rowId);
+      tasks.push(processOne(q.rowId));
     }
+    await Promise.all(tasks);
 
     const m = getSummaryMetrics();
     console.log(
