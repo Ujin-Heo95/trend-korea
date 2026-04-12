@@ -1001,11 +1001,10 @@ function breakingKeywordBoost(group: IssueGroup, cfg: IssueConfig): number {
 }
 
 function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): ScoredIssue[] {
-  // Filter: must have ≥1 news post OR ≥1 news-channel video post
-  const anchored = groups.filter(g =>
-    g.newsPosts.length > 0 ||
-    g.videoPosts.some(p => NEWS_VIDEO_SOURCES.has(p.sourceKey)),
-  );
+  // 뉴스 앵커 필수: 뉴스 카테고리 post 가 ≥1개 있어야 이슈카드 후보.
+  // video/community 단독 이슈는 드롭 — 사용자에게 "관련 보도 0건" 카드가 노출되는 사고 차단.
+  // (news-채널 YouTube 도 뉴스 본문이 없으면 anchor 자격 없음)
+  const anchored = groups.filter(g => g.newsPosts.length > 0);
 
   // Fix 4: 커뮤니티 동적 가중치를 위한 중앙값 계산
   const communityScores = anchored.map(g =>
@@ -1510,10 +1509,15 @@ export async function materializeIssueResponse(pool: Pool): Promise<void> {
           };
         });
 
+        // 2026-04-12: calculated_at 은 반드시 현재 materialize 실행 시각으로 고정.
+        //   이전: issues[0].calculated_at 사용 → carry-forward 된 이슈의 이전 tick 시각이
+        //   그대로 payload 로 전파되어 사용자가 20~30분 stale 을 보는 사고 발생.
+        //   이제는 materialized row 의 calculated_at 과 response_json 내부 값이 일치.
+        const materializedAt = new Date().toISOString();
         const responseJson = {
           issues: responseIssues,
           total: issues.length,
-          calculated_at: issues[0]?.calculated_at ?? null,
+          calculated_at: materializedAt,
         };
 
         await client.query(

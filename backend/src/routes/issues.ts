@@ -2,7 +2,13 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import { LRUCache } from '../cache/lru.js';
 import type { IssueRankingRow } from '../db/types.js';
 
-const issuesCache = new LRUCache<unknown>(50, 600_000);
+// 2026-04-12: TTL 600s → 60s.
+//   루트 원인: worker(cron) 가 clearIssuesCache 를 호출해도 web 프로세스의 in-memory LRU 에
+//   영향 없음(프로세스 분리). 따라서 web 은 TTL 만 의지해서 stale 해제함.
+//   600s 로는 사용자가 최대 10분 stale 을 보고 있었음. 60s 로 하향 — 백엔드 DB 부하는
+//   pipeline 10분 사이클 대비 10배 증가이지만 issue_rankings_materialized 단일 테이블 읽기라
+//   미미. 재발 대비 상한 1분 보장.
+const issuesCache = new LRUCache<unknown>(50, 60_000);
 // version 엔드포인트는 독립 캐시 — 15초 TTL로 clearIssuesCache 누락 시에도 자동 복구
 const versionCache = new LRUCache<unknown>(1, 15_000);
 
@@ -106,8 +112,8 @@ interface ResponseIssueLike {
 
 function fillRuleBasedIfEmpty<T extends ResponseIssueLike>(issue: T): T {
   if (!isEmptySummary(issue.summary)) return issue;
-  const sources = issue.news_posts.length > 0 ? issue.news_posts : issue.community_posts;
-  return { ...issue, summary: ruleBasedSummary(issue.title, sources) };
+  // 안전망은 news_posts 만 사용 — 뉴스 앵커 없는 이슈는 애초에 노출 금지 정책 (issueAggregator scoreAndFilter)
+  return { ...issue, summary: ruleBasedSummary(issue.title, issue.news_posts) };
 }
 
 interface MaterializedResponse {
@@ -118,7 +124,9 @@ function applySafetyNet(payload: unknown): unknown {
   if (!payload || typeof payload !== 'object') return payload;
   const p = payload as MaterializedResponse;
   if (!Array.isArray(p.issues)) return payload;
-  return { ...p, issues: p.issues.map(fillRuleBasedIfEmpty) };
+  // 뉴스 앵커 없는 이슈는 응답에서 제외 — DB stale 데이터 누출 차단
+  const filtered = p.issues.filter(it => it.news_posts.length > 0);
+  return { ...p, issues: filtered.map(fillRuleBasedIfEmpty) };
 }
 
 // SNS trend source keys
