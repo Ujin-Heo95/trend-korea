@@ -16,21 +16,21 @@ export const InstallBanner: React.FC = () => {
         <img
           src="/brand_logo_mini.png"
           alt=""
-          width={48}
-          height={48}
-          className="w-12 h-12 rounded-xl bg-white shrink-0"
+          width={36}
+          height={36}
+          className="w-9 h-9 rounded-lg bg-white shrink-0"
         />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-            위클릿을 홈 화면에 추가
+            홈 화면에 추가해 보세요
           </p>
           {variant === 'android' ? (
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-              앱처럼 빠르게 실시간 트렌드 확인
+              앱처럼 빠르게 트렌드 확인할 수 있어요
             </p>
           ) : (
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-snug">
-              아래 <span aria-hidden>⬆</span> 공유 → <strong>홈 화면에 추가</strong>
+              아래 <span aria-hidden>⬆</span> 공유 버튼 눌러서 <strong>'홈 화면에 추가'</strong> 를 골라 주세요
             </p>
           )}
         </div>
