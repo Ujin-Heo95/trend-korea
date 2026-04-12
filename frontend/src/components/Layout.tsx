@@ -23,7 +23,21 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
       <div className="max-w-5xl mx-auto px-4 py-2 sm:py-3 flex items-center justify-between gap-3">
         {/* Left: Logo + desktop-only extras */}
         <div className="flex items-center gap-3">
-          <Link to="/" className="text-xl font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">위클릿</Link>
+          <Link
+            to="/"
+            aria-label="위클릿 홈"
+            className="inline-flex items-center hover:opacity-80 transition-opacity dark:bg-white dark:rounded-md dark:px-2 dark:py-1"
+          >
+            <img
+              src="/brand_logo.png"
+              alt="위클릿"
+              width={112}
+              height={32}
+              className="h-7 sm:h-8 w-auto"
+              fetchPriority="high"
+              decoding="async"
+            />
+          </Link>
           <span className="text-sm text-slate-400 dark:text-slate-500 hidden sm:inline">실시간 트렌드 모아보기</span>
           <span className="hidden sm:inline-flex"><LivePulse /></span>
           <span className="hidden sm:inline-flex"><StreakBadge /></span>
