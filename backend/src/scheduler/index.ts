@@ -188,18 +188,18 @@ function startCronJobs(): void {
     });
   }
 
-  // 트렌드 스코어 갱신 + 이슈 집계: 정시 10분 주기 offset +4 (:04, :14, :24, …)
-  // offset 이유: scraper cron(`*/10`,`*/15`,`*/30`)이 :00/:15/:30 에서 동시 발화 →
-  //             batchPool 경합으로 calculateScores 108s Supabase 커넥션 드롭 → critical 실패.
-  //             scraper-high 가 :00 에 시작해 ~2-3분 걸리므로 :04 에 시작하면 여유 확보.
-  // TD-006: Gemini 요약은 이 파이프라인에서 분리 — 별도 +2 offset (현 설정: 2,12,22,...).
-  cron.schedule('4,14,24,34,44,54 * * * *', async () => {
+  // 트렌드 스코어 갱신 + 이슈 집계: 정시 10분 주기 (:00, :10, :20, …)
+  // worker 프로세스 분리(2026-04-12) 이후 web 트래픽과 컴퓨트 격리되어 정시 정렬 가능.
+  // scraper high cron(:00) 과 동시 발화하지만 batchPool=15, scoring p-limit(4) +
+  // scraper p-limit(4) = 최대 8 동시 → batchPool 여유 안에서 안전.
+  // 사용자 요구: 종합 탭 갱신 시각이 :00/:10/:20 등 round timestamp 로 보이도록.
+  cron.schedule('0,10,20,30,40,50 * * * *', async () => {
     if (isQuietHours()) {
       console.log('[scheduler] quiet hours (02-06 KST) — skipping issue pipeline');
       return;
     }
-    // advisory lock으로 tick 중첩 방지: 이전 :04 tick이 길어져 :14와 겹치면
-    // :14는 즉시 skipped 로 종료 → 커넥션 풀 경합이 원천 차단된다.
+    // advisory lock으로 tick 중첩 방지: 이전 :00 tick이 길어져 :10와 겹치면
+    // :10는 즉시 skipped 로 종료 → 커넥션 풀 경합이 원천 차단된다.
     await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.issuePipeline, 'issue-pipeline', async () => {
       logPoolStats('pipeline-start');
       try {
@@ -227,9 +227,9 @@ function startCronJobs(): void {
   });
 
   // mergeArbiterWorker — 비동기 Gemini 중재자.
-  // issue-pipeline(:04,:14,...) 과 2분 offset(:06,:16,...) 으로 pending_merge_decisions 큐 소비.
+  // issue-pipeline(:00,:10,...) 과 2분 offset(:02,:12,...) 으로 pending_merge_decisions 큐 소비.
   // critical path에서 Gemini를 완전 제거한 뒤, 다음 파이프라인 tick이 결정을 재사용.
-  cron.schedule('6,16,26,36,46,56 * * * *', async () => {
+  cron.schedule('2,12,22,32,42,52 * * * *', async () => {
     if (isQuietHours()) return;
     await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.mergeArbiter, 'merge-arbiter', async () => {
       try {
@@ -241,14 +241,14 @@ function startCronJobs(): void {
       }
     }).catch(captureError);
   });
-  console.log('[scheduler] merge arbiter worker: every 10 min (offset +6)');
+  console.log('[scheduler] merge arbiter worker: every 10 min (offset +2)');
 
   // TD-006: Gemini 요약 — 독립 tick
-  // 파이프라인(:04,:14,...) 완료 후 5분 여유 두고 실행 (:09,:19,...) — issue_rankings 최신 상태 보장.
+  // 파이프라인(:00,:10,...) 완료 후 5분 여유 두고 실행 (:05,:15,...) — issue_rankings 최신 상태 보장.
   // aggregateIssues 실패/지연이 사용자 응답 경로(materialize)에 전파되지 않도록 분리.
   // summarizeAndUpdateIssues 내부에 phase 90s AbortController + fallback이 있어
   // 절대 전체 응답을 막지 않음.
-  cron.schedule('9,19,29,39,49,59 * * * *', async () => {
+  cron.schedule('5,15,25,35,45,55 * * * *', async () => {
     if (isQuietHours()) return;
     await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.summarizer, 'summarizer', async () => {
       try {
@@ -263,11 +263,11 @@ function startCronJobs(): void {
       }
     }).catch(captureError);
   });
-  console.log('[scheduler] gemini summary: every 10 min (offset +9, flag-gated)');
+  console.log('[scheduler] gemini summary: every 10 min (offset +5, flag-gated)');
 
-  // Track B decay-only updater: 10분 주기 (offset +7 — legacy pipeline :00 과 분리)
+  // Track B decay-only updater: 10분 주기 (offset +3 — pipeline :00 후 3분, arbiter :02 후 1분)
   // feature flag OFF 기본. staging A/B 검증 후 ON.
-  cron.schedule('7,17,27,37,47,57 * * * *', async () => {
+  cron.schedule('3,13,23,33,43,53 * * * *', async () => {
     if (isQuietHours()) return;
     await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.trackBDecay, 'trackB-decay', async () => {
       try {
@@ -279,7 +279,7 @@ function startCronJobs(): void {
       }
     }).catch(captureError);
   });
-  console.log('[scheduler] track B decay: every 10 min (offset +7, flag-gated)');
+  console.log('[scheduler] track B decay: every 10 min (offset +3, flag-gated)');
 
   // 교차검증: 15분 주기 (quiet hours 제외)
   cron.schedule('3,18,33,48 * * * *', async () => {
