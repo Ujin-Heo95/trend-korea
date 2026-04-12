@@ -124,8 +124,16 @@ function applySafetyNet(payload: unknown): unknown {
   if (!payload || typeof payload !== 'object') return payload;
   const p = payload as MaterializedResponse;
   if (!Array.isArray(p.issues)) return payload;
-  // 뉴스 앵커 없는 이슈는 응답에서 제외 — DB stale 데이터 누출 차단
+  // 뉴스 앵커 없는 이슈는 기본적으로 응답에서 제외 — DB stale 데이터 누출 차단.
+  // 다만 2026-04-12 사고: news 스크래퍼 집단 DNS/타임아웃 실패로 posts 테이블에 news 가
+  // 부재할 때 필터가 전체 이슈를 드롭 → 사용자 빈 화면. graceful degrade:
+  // "필터 결과가 0건이고 원본은 존재" 이면 필터 우회하여 community/video anchor 라도 노출.
   const filtered = p.issues.filter(it => it.news_posts.length > 0);
+  if (filtered.length === 0 && p.issues.length > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(`[issues] safety-net degraded: ${p.issues.length} issues without news anchor — falling back to all`);
+    return { ...p, issues: p.issues.map(fillRuleBasedIfEmpty) };
+  }
   return { ...p, issues: filtered.map(fillRuleBasedIfEmpty) };
 }
 
@@ -372,10 +380,17 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         };
       });
       // 안전망 일원화: news_posts 가 비는 이슈는 드롭 + 남은 이슈는 rule-based 로 채움.
-      // 기존에는 .map(fillRuleBasedIfEmpty) 만 돌려서 live 경로에서 "관련 보도 0건" 카드가 노출될 수 있었음.
-      const filteredIssues = responseIssues
-        .filter(it => it.news_posts.length > 0)
-        .map(fillRuleBasedIfEmpty);
+      // 2026-04-12 graceful degrade: 필터 결과가 0건이면 전체를 그대로 반환 — 뉴스 스크래퍼
+      // 집단 장애 상황에서도 community/video 앵커 이슈라도 사용자에게 보여준다.
+      const strictFiltered = responseIssues.filter(it => it.news_posts.length > 0);
+      const filteredIssues = (strictFiltered.length === 0 && responseIssues.length > 0
+        ? responseIssues
+        : strictFiltered
+      ).map(fillRuleBasedIfEmpty);
+      if (strictFiltered.length === 0 && responseIssues.length > 0) {
+        // eslint-disable-next-line no-console
+        console.warn(`[issues] live safety-net degraded: ${responseIssues.length} issues without news anchor`);
+      }
 
       // next_cursor for keyset pagination
       const lastIssue = issues[issues.length - 1];
