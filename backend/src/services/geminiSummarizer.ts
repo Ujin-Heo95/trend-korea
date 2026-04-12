@@ -269,7 +269,7 @@ async function summarizeSingleIssue(
   }
   incrementQuota('gemini');
 
-  const model = client.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
   const postsText = formatPostsForPrompt(posts);
 
   // Phase signal propagates → abort the whole call chain when 90s budget expires.
@@ -312,9 +312,10 @@ async function summarizeSingleIssue(
       try {
         raw = JSON.parse(cleaned);
       } catch (parseErr) {
-        // JSON.stringify로 newline·따옴표를 escape해서 한 줄로 출력 (pino가 newline에서 자르는 문제 회피)
+        // finishReason이 STOP이 아니면 모델이 mid-stream halt한 것 (SAFETY/RECITATION/MAX_TOKENS 등)
+        const finishReason = result.response.candidates?.[0]?.finishReason ?? 'unknown';
         console.warn(
-          `[geminiSummarizer] JSON.parse failed: ${(parseErr as Error).message} | raw(${cleaned.length}): ${JSON.stringify(cleaned).slice(0, 500)}`
+          `[geminiSummarizer] JSON.parse failed: ${(parseErr as Error).message} | finishReason=${finishReason} | raw(${cleaned.length}): ${JSON.stringify(cleaned).slice(0, 500)}`
         );
         throw parseErr;
       }
