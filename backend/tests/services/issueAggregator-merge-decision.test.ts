@@ -136,6 +136,70 @@ describe('decideMergeByIdfAndCos', () => {
     expect(result.merge).toBe(false);
     expect(result.reason).toBe('no_informative_kw');
   });
+
+  // ─── Phase 4: Entity-aware gate ───
+
+  it('rejects merge when both sides have disjoint entities (regression: 김민재 vs 황선홍)', () => {
+    const idfMap = mkMap({ '축구': [50, 4.0] });
+    const result = call({
+      sharedKeywords: ['축구'],
+      idfMap,
+      cos: 0.83,
+      entitiesA: new Set(['김민재', '뮌헨']),
+      entitiesB: new Set(['황선홍']),
+    });
+    expect(result.merge).toBe(false);
+    expect(result.reason).toBe('entity_mismatch');
+  });
+
+  it('allows merge when entities overlap (삼성전자 두 기사)', () => {
+    const idfMap = mkMap({ '삼성전자': [30, 4.5] });
+    const result = call({
+      sharedKeywords: ['삼성전자'],
+      idfMap,
+      cos: 0.85,
+      entitiesA: new Set(['삼성전자']),
+      entitiesB: new Set(['삼성전자']),
+    });
+    expect(result.merge).toBe(true);
+  });
+
+  it('returns entity_borderline when both entity sets are empty + cos in 0.80~0.88', () => {
+    const idfMap = mkMap({ '경제전망': [10, 4.0] });
+    const result = call({
+      sharedKeywords: ['경제전망'],
+      idfMap,
+      cos: 0.84,
+      entitiesA: new Set(),
+      entitiesB: new Set(),
+    });
+    expect(result.merge).toBe(false);
+    expect(result.reason).toBe('entity_borderline');
+  });
+
+  it('does NOT trigger borderline when cos is high enough on its own', () => {
+    const idfMap = mkMap({ '경제전망': [10, 4.0] });
+    const result = call({
+      sharedKeywords: ['경제전망'],
+      idfMap,
+      cos: 0.95,
+      entitiesA: new Set(),
+      entitiesB: new Set(),
+    });
+    expect(result.merge).toBe(true);
+  });
+
+  it('one-sided entity (quote vs concrete event) is allowed through (no hard block)', () => {
+    const idfMap = mkMap({ '발언': [20, 4.0] });
+    const result = call({
+      sharedKeywords: ['발언'],
+      idfMap,
+      cos: 0.85,
+      entitiesA: new Set(['트럼프']),
+      entitiesB: new Set(),
+    });
+    expect(result.merge).toBe(true);
+  });
 });
 
 describe('aggregatePostScores NaN guard', () => {

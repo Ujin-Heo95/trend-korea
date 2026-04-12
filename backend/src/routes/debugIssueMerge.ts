@@ -6,6 +6,7 @@
  */
 import type { FastifyInstance } from 'fastify';
 import { cosineSimilarity as embeddingCosine } from '../services/embedding.js';
+import { extractEntities } from '../services/entityExtractor.js';
 
 interface IssueRow {
   id: number;
@@ -92,6 +93,14 @@ export async function debugIssueMergeRoutes(app: FastifyInstance): Promise<void>
       }
     }
 
+    // 4) 포스트별 entity 추출 (Phase 4: entity hard-gate 진단)
+    const postsWithEntities = posts.map(p => ({
+      ...p,
+      entities: [...extractEntities(p.title)],
+    }));
+    const allEntities = new Set<string>();
+    for (const p of postsWithEntities) for (const e of p.entities) allEntities.add(e);
+
     return {
       issue: {
         id: issue.id,
@@ -100,7 +109,8 @@ export async function debugIssueMergeRoutes(app: FastifyInstance): Promise<void>
         clusterIds,
         standalonePostIds: standaloneIds,
       },
-      posts,
+      posts: postsWithEntities,
+      uniqueEntities: [...allEntities],
       keywordIdf,
       idfSum,
       pairCos,

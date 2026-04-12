@@ -6,6 +6,8 @@ import { buildKeywordIndex, matchPostToKeywords, computeTrendSignalBonus } from 
 import { getChannel, SCORED_CATEGORIES_SQL } from './scoring-weights.js';
 import { cosineSimilarity as embeddingCosine } from './embedding.js';
 import { getScoringConfig } from './scoringConfig.js';
+import { extractEntities, entityIntersection } from './entityExtractor.js';
+import { arbitrateMerge, resetArbiterBatchState, getArbiterStats } from './mergeArbiter.js';
 
 // ─── Types ───
 
@@ -88,6 +90,11 @@ const DEFAULT_MERGE_IDF_THRESHOLD = 3.5;
 const DEFAULT_MERGE_COS_THRESHOLD = 0.78;
 // IDF 캐시 미스 시 폴백값 — 신규/희귀 키워드는 의미 있는 신호로 간주.
 const IDF_FALLBACK = 2.5;
+// Phase 4 — Entity-aware 게이트
+// 양쪽 제목에서 추출한 entity Set이 모두 비어있지 않은데 교집합 0이면 다른 사건으로 판정.
+// 양쪽 다 비어있는 borderline은 cos이 이 구간에 들면 Gemini arbiter에 위임.
+const ARBITER_COS_LOW = 0.80;
+const ARBITER_COS_HIGH = 0.88;
 
 const NEWS_VIDEO_SOURCES = new Set([
   'youtube_sbs_news', 'youtube_ytn', 'youtube_mbc_news',
@@ -399,7 +406,14 @@ function appearsInCorpus(map: ReadonlyMap<string, IdfStat>, kw: string): boolean
  *   3) IDF 합 < idfThreshold → 거부
  *   4) 양쪽 임베딩 가용 시 cos < cosThreshold → 거부 (한쪽 부재면 IDF만으로 결정)
  */
-export type MergeDecisionReason = 'merge' | 'no_informative_kw' | 'low_idf' | 'low_cos';
+export type MergeDecisionReason =
+  | 'merge'
+  | 'no_informative_kw'
+  | 'low_idf'
+  | 'low_cos'
+  | 'entity_mismatch'
+  | 'entity_borderline';
+
 export function decideMergeByIdfAndCos(opts: {
   sharedKeywords: readonly string[];
   idfMap: ReadonlyMap<string, IdfStat>;
@@ -407,6 +421,8 @@ export function decideMergeByIdfAndCos(opts: {
   cosThreshold: number;
   cos: number | null;
   stopwords: ReadonlySet<string>;
+  entitiesA?: ReadonlySet<string>;
+  entitiesB?: ReadonlySet<string>;
 }): { merge: boolean; reason: MergeDecisionReason; idfSum: number } {
   const informative = opts.sharedKeywords.filter(kw => {
     if (opts.stopwords.has(kw)) return false;
@@ -422,6 +438,25 @@ export function decideMergeByIdfAndCos(opts: {
   }
   if (opts.cos != null && opts.cos < opts.cosThreshold) {
     return { merge: false, reason: 'low_cos', idfSum };
+  }
+  // Phase 4 — Entity hard gate
+  const ea = opts.entitiesA;
+  const eb = opts.entitiesB;
+  if (ea && eb) {
+    const aHas = ea.size > 0;
+    const bHas = eb.size > 0;
+    if (aHas && bHas) {
+      // 양쪽 모두 entity 있음 → 교집합 1개 이상 필수
+      if (entityIntersection(ea, eb) === 0) {
+        return { merge: false, reason: 'entity_mismatch', idfSum };
+      }
+    } else if (!aHas && !bHas) {
+      // 양쪽 모두 entity 없음 + cos가 borderline → arbiter 위임 신호
+      if (opts.cos != null && opts.cos >= ARBITER_COS_LOW && opts.cos <= ARBITER_COS_HIGH) {
+        return { merge: false, reason: 'entity_borderline', idfSum };
+      }
+    }
+    // 한쪽만 entity 있음: hard-block 안 함 (인용/추상 제목과 구체 사건의 매칭 가능성)
   }
   return { merge: true, reason: 'merge', idfSum };
 }
@@ -517,13 +552,22 @@ async function mergeViaTrendKeywords(
     }
   }
 
-  // 그룹별 대표 포스트 ID (임베딩 게이트용 — 최고 점수 뉴스 > 영상 > 커뮤니티)
-  function repPostId(idx: number): number | null {
+  // 그룹별 대표 포스트 ID + 제목 (임베딩 게이트 + entity 게이트용)
+  function repPost(idx: number): { id: number; title: string } | null {
     const g = groupsWithKw[idx].group;
     if (g.posts.length === 0) return null;
     const sorted = [...g.posts].sort((a, b) => b.trendScore - a.trendScore);
-    return sorted[0]?.id ?? null;
+    const top = sorted[0];
+    return top ? { id: top.id, title: top.title } : null;
   }
+  // entity Set은 그룹의 모든 포스트 제목을 합쳐 추출 (단일 대표보다 robust)
+  const groupEntities: Set<string>[] = groupsWithKw.map(({ group }) => {
+    const e = new Set<string>();
+    for (const p of group.posts) {
+      for (const t of extractEntities(p.title)) e.add(t);
+    }
+    return e;
+  });
 
   // Phase 2/3 병합 판정:
   //   1) 공유 키워드에서 ACTION_ONLY_STOPWORDS 제거
@@ -532,6 +576,11 @@ async function mergeViaTrendKeywords(
   let mergedByIdf = 0;
   let rejectedByIdf = 0;
   let rejectedByCos = 0;
+  let rejectedByEntity = 0;
+  let arbiterMerged = 0;
+  let arbiterRejected = 0;
+
+  resetArbiterBatchState();
 
   for (const [pairKey, sharedKws] of pairSharedKws) {
     const [aStr, bStr] = pairKey.split(':');
@@ -539,9 +588,9 @@ async function mergeViaTrendKeywords(
     const b = Number(bStr);
     if (find(a) === find(b)) continue;
 
-    const idA = repPostId(a);
-    const idB = repPostId(b);
-    const cos = (idA != null && idB != null) ? embeddingCosine(idA, idB) : null;
+    const repA = repPost(a);
+    const repB = repPost(b);
+    const cos = (repA && repB) ? embeddingCosine(repA.id, repB.id) : null;
 
     const decision = decideMergeByIdfAndCos({
       sharedKeywords: [...sharedKws],
@@ -550,20 +599,40 @@ async function mergeViaTrendKeywords(
       cosThreshold: cfg.mergeCosThreshold,
       cos,
       stopwords: ACTION_ONLY_STOPWORDS,
+      entitiesA: groupEntities[a],
+      entitiesB: groupEntities[b],
     });
+
+    if (decision.reason === 'entity_borderline' && repA && repB) {
+      // Gemini 중재자에 위임 (양쪽 모두 추출 entity 0 + cos 0.80~0.88)
+      const arb = await arbitrateMerge(repA.title, repB.title);
+      if (arb.sameEvent) {
+        if (union(a, b)) { mergedByIdf++; arbiterMerged++; }
+      } else {
+        arbiterRejected++;
+      }
+      continue;
+    }
+
     if (!decision.merge) {
       if (decision.reason === 'low_idf') rejectedByIdf++;
       else if (decision.reason === 'low_cos') rejectedByCos++;
+      else if (decision.reason === 'entity_mismatch') rejectedByEntity++;
       continue;
     }
 
     if (union(a, b)) mergedByIdf++;
   }
 
-  if (mergedByIdf > 0 || rejectedByIdf > 0 || rejectedByCos > 0) {
+  if (mergedByIdf > 0 || rejectedByIdf > 0 || rejectedByCos > 0 || rejectedByEntity > 0) {
     logger.info(
-      { mergedByIdf, rejectedByIdf, rejectedByCos, candidatePairs: pairSharedKws.size },
-      '[issueAggregator] Step 3 IDF+cos merge decisions',
+      {
+        mergedByIdf, rejectedByIdf, rejectedByCos, rejectedByEntity,
+        arbiterMerged, arbiterRejected,
+        arbiterStats: getArbiterStats(),
+        candidatePairs: pairSharedKws.size,
+      },
+      '[issueAggregator] Step 3 IDF+cos+entity merge decisions',
     );
   }
 
@@ -670,6 +739,15 @@ function deduplicateIssuesByEmbedding(groups: readonly IssueGroup[]): IssueGroup
     g.communityPosts[0] ?? null,
   );
 
+  // 그룹별 entity Set (모든 멤버 제목 합집합)
+  const groupEntities: Set<string>[] = groups.map(g => {
+    const e = new Set<string>();
+    for (const p of g.newsPosts) for (const t of extractEntities(p.title)) e.add(t);
+    for (const p of g.videoPosts) for (const t of extractEntities(p.title)) e.add(t);
+    for (const p of g.communityPosts) for (const t of extractEntities(p.title)) e.add(t);
+    return e;
+  });
+
   const parent = Array.from({ length: groups.length }, (_, i) => i);
   const groupPostCount = groups.map(g =>
     g.newsPosts.length + g.communityPosts.length + g.videoPosts.length,
@@ -697,6 +775,7 @@ function deduplicateIssuesByEmbedding(groups: readonly IssueGroup[]): IssueGroup
   let mergedPairs = 0;
   let skippedNoAnchor = 0;
   let skippedKeywordGuard = 0;
+  let skippedEntity = 0;
 
   for (let i = 0; i < groups.length; i++) {
     const repA = repPosts[i];
@@ -722,13 +801,21 @@ function deduplicateIssuesByEmbedding(groups: readonly IssueGroup[]): IssueGroup
         continue;
       }
 
+      // guard D (Phase 4): entity hard-gate — 양쪽 모두 entity 있는데 교집합 0이면 거부
+      const ea = groupEntities[i];
+      const eb = groupEntities[j];
+      if (ea.size > 0 && eb.size > 0 && entityIntersection(ea, eb) === 0) {
+        skippedEntity++;
+        continue;
+      }
+
       if (union(i, j)) mergedPairs++;
     }
   }
 
-  if (mergedPairs > 0 || skippedNoAnchor > 0 || skippedKeywordGuard > 0) {
+  if (mergedPairs > 0 || skippedNoAnchor > 0 || skippedKeywordGuard > 0 || skippedEntity > 0) {
     logger.info(
-      { mergedPairs, skippedNoAnchor, skippedKeywordGuard, inputGroups: groups.length },
+      { mergedPairs, skippedNoAnchor, skippedKeywordGuard, skippedEntity, inputGroups: groups.length },
       '[dedup] embedding-based merge',
     );
   }
