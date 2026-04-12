@@ -2,6 +2,7 @@ import { GoogleGenerativeAI, SchemaType, type ResponseSchema } from '@google/gen
 import pLimit from 'p-limit';
 import { config } from '../config/index.js';
 import { checkQuota, incrementQuota } from './apiQuota.js';
+import { extractArticleBody, isExtractorSupported } from './articleBodyExtractor.js';
 import { getChannel } from './scoring-weights.js';
 import {
   computeFingerprint,
@@ -36,6 +37,7 @@ interface PostForSummary {
   readonly contentSnippet: string | null;
   readonly category: string | null;
   readonly sourceKey: string;
+  readonly url: string;
 }
 
 // ─── Cache ───
@@ -211,10 +213,50 @@ function formatPostsForPrompt(posts: readonly PostForSummary[]): string {
   return posts.slice(0, 15).map((p, i) => {
     const label = channelLabel(p.category);
     const snippet = p.contentSnippet
-      ? `\n   > ${p.contentSnippet.slice(0, 200)}`
+      ? `\n   > ${p.contentSnippet.slice(0, 1500)}`
       : '';
     return `${i + 1}. [${label}] ${p.title}${snippet}`;
   }).join('\n');
+}
+
+/**
+ * Fetch full article bodies for the top news posts whose RSS snippet is short.
+ * Used to enrich Gemini's input — wire-service RSS feeds (yna in particular)
+ * only expose ~80 chars of body, which is too thin for 5W1H summarization.
+ *
+ * Only the top 3 posts get fetched (latency budget: 4s × 3 sequential =
+ * worst-case 12s, but with cache + circuit they're typically <1s combined).
+ * Fetches run in parallel; failures fall through to the original snippet.
+ */
+async function enrichBodies(posts: readonly PostForSummary[]): Promise<readonly PostForSummary[]> {
+  const SHORT_SNIPPET_THRESHOLD = 200;
+  const ENRICH_TOP_N = 3;
+
+  const candidates = posts
+    .slice(0, ENRICH_TOP_N)
+    .map((p, idx) => ({ p, idx }))
+    .filter(({ p }) =>
+      p.url
+      && (p.contentSnippet?.length ?? 0) < SHORT_SNIPPET_THRESHOLD
+      && isExtractorSupported(p.url),
+    );
+
+  if (candidates.length === 0) return posts;
+
+  const fetched = await Promise.all(
+    candidates.map(async ({ p, idx }) => {
+      const body = await extractArticleBody(p.url);
+      return { idx, body };
+    }),
+  );
+
+  const enriched = posts.slice() as PostForSummary[];
+  for (const { idx, body } of fetched) {
+    if (body && body.length > (enriched[idx].contentSnippet?.length ?? 0)) {
+      enriched[idx] = { ...enriched[idx], contentSnippet: body };
+    }
+  }
+  return enriched;
 }
 
 // ─── Shared Parsing ───
@@ -270,7 +312,8 @@ async function summarizeSingleIssue(
   incrementQuota('gemini');
 
   const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
-  const postsText = formatPostsForPrompt(posts);
+  const enrichedPosts = await enrichBodies(posts);
+  const postsText = formatPostsForPrompt(enrichedPosts);
 
   // Phase signal propagates → abort the whole call chain when 90s budget expires.
   // Single-call timer caps each request so one slow call can't monopolize.
@@ -375,9 +418,10 @@ async function fetchPostsForRow(pool: import('pg').Pool, row: IssueRow): Promise
 
   const uniqueIds = [...new Set(postIds)];
   const postResult = await pool.query<{
-    title: string; content_snippet: string | null; category: string | null; source_key: string;
+    title: string; content_snippet: string | null; category: string | null;
+    source_key: string; url: string;
   }>(
-    `SELECT DISTINCT ON (title) title, content_snippet, category, source_key
+    `SELECT DISTINCT ON (title) title, content_snippet, category, source_key, url
      FROM posts WHERE id = ANY($1::int[])
      ORDER BY title, COALESCE(content_snippet, '') DESC
      LIMIT 15`,
@@ -390,6 +434,7 @@ async function fetchPostsForRow(pool: import('pg').Pool, row: IssueRow): Promise
       contentSnippet: r.content_snippet,
       category: r.category,
       sourceKey: r.source_key,
+      url: r.url,
     })),
     allPostIds: uniqueIds,
   };

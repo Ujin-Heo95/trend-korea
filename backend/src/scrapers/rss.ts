@@ -212,7 +212,7 @@ export class RssScraper extends BaseScraper {
     const rawSnippet = item.contentSnippet?.trim()
       || stripHtml(item.content ?? '')
       || '';
-    const contentSnippet = rawSnippet.slice(0, 500).trim() || undefined;
+    const contentSnippet = rawSnippet.slice(0, 4000).trim() || undefined;
 
     return {
       sourceKey: this.cfg.sourceKey,

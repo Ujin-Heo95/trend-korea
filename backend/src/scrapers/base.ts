@@ -9,7 +9,7 @@ let circuitPool: Pool | null = null;
 const MAX_TITLE_LEN = 300;
 const MAX_AUTHOR_LEN = 100;
 const MAX_URL_LEN = 2048;
-const MAX_SNIPPET_LEN = 500;
+const MAX_SNIPPET_LEN = 4000;
 const MAX_METADATA_BYTES = 8192;
 
 // ── Circuit Breaker ────────────────────────────────────
