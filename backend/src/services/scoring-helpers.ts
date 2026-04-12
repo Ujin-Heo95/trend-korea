@@ -508,11 +508,18 @@ export async function calculateClusterBonusMap(pool: Pool): Promise<Map<number, 
 const PORTAL_RANK_MAX = 30;
 const PORTAL_RANK_DECAY_HOURS = 6;
 
-/** 포털 소스별 점수 승수 및 클러스터 전파율 */
+/**
+ * 포털 소스별 점수 승수 및 클러스터 전파율.
+ * 네이버 독점 완화: 기존 naver 1.0× / nate 0.6× / zum 0.5× 는 2배 차이로
+ * 인기순 탭이 네이버로 쏠렸다. 상한을 0.90 으로 낮추고 나머지를 0.70~0.80 으로 올려
+ * 소스 다양성을 확보한다. google_news_kr / bigkinds_issues 도 포털 랭킹 풀에 포함.
+ */
 const PORTAL_SOURCE_CONFIG: Record<string, { scoreMultiplier: number; propagationRate: number }> = {
-  naver_news_ranking: { scoreMultiplier: 1.0, propagationRate: 0.8 },
-  nate_news:          { scoreMultiplier: 0.6, propagationRate: 0.5 },
-  zum_news:           { scoreMultiplier: 0.5, propagationRate: 0.5 },
+  naver_news_ranking: { scoreMultiplier: 0.90, propagationRate: 0.75 },
+  nate_news:          { scoreMultiplier: 0.80, propagationRate: 0.60 },
+  zum_news:           { scoreMultiplier: 0.75, propagationRate: 0.55 },
+  google_news_kr:     { scoreMultiplier: 0.80, propagationRate: 0.60 },
+  bigkinds_issues:    { scoreMultiplier: 0.90, propagationRate: 0.70 },
 };
 const PORTAL_SOURCE_KEYS = Object.keys(PORTAL_SOURCE_CONFIG);
 

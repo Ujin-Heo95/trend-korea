@@ -16,8 +16,9 @@ export const SourceFilterChips: React.FC<Props> = ({ category, selected, onChang
   const sources = useMemo(() => {
     if (!category) return [];
     const cats = category.split(',');
+    const HIDDEN_KEYS = new Set(['youtube', 'youtube_search']);
     return allSources
-      .filter(s => cats.includes(s.category) && s.post_count > 0)
+      .filter(s => cats.includes(s.category) && s.post_count > 0 && !HIDDEN_KEYS.has(s.key))
       .sort((a, b) => b.post_count - a.post_count);
   }, [allSources, category]);
 

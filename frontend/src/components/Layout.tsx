@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { SearchBar } from './SearchBar';
-import { MobileBottomNav } from './MobileBottomNav';
 import { AdSlot } from './shared/AdSlot';
 import { Footer } from './Footer';
 import { ThemeToggle } from './shared/ThemeToggle';
@@ -43,12 +42,6 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
           <span className="hidden sm:inline-flex"><LivePulse /></span>
           <span className="hidden sm:inline-flex"><StreakBadge /></span>
           <Link
-            to="/?category=movie"
-            className="text-xs font-medium px-2 py-1 rounded-full bg-purple-50 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors hidden sm:inline-block"
-          >
-            영화/공연
-          </Link>
-          <Link
             to="/weather"
             className="text-xs font-medium px-2 py-1 rounded-full bg-sky-50 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/60 transition-colors hidden sm:inline-block"
           >
@@ -80,9 +73,8 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
         </div>
       </div>
     </header>
-    <main id="main-content" className="max-w-5xl mx-auto px-0 sm:px-4 py-2 pb-14 sm:pb-6">{children}</main>
+    <main id="main-content" className="max-w-5xl mx-auto px-0 sm:px-4 py-2 pb-4 sm:pb-6">{children}</main>
     <Footer />
-    <MobileBottomNav />
     <ScrollToTop />
     <InstallBanner />
   </div>

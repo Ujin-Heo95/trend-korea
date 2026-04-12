@@ -190,8 +190,9 @@ export function getSourceBrandStyle(sourceKey: string): CSSProperties | undefine
   const hex = SOURCE_BRAND_HEX[sourceKey];
   if (!hex) return undefined;
   return {
-    backgroundColor: `color-mix(in srgb, ${hex} 14%, transparent)`,
+    backgroundColor: `color-mix(in srgb, ${hex} 26%, transparent)`,
     color: hex,
+    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${hex} 35%, transparent)`,
   };
 }
 

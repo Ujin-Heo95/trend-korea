@@ -79,18 +79,25 @@ export class NateNewsScraper extends BaseScraper {
 
       const a = $(li).find('a').first();
       const href = a.attr('href') ?? '';
-      const title = a.text().trim();
+      // 사이드바 구조에 따라 텍스트에 썸네일 alt/카운트가 섞일 수 있어 제목은 명시적으로 추출
+      const title = (a.find('strong, .tit, .txt').first().text().trim() || a.text().trim())
+        .replace(/\s+/g, ' ');
       if (!title || title.length < 4 || !href) return;
 
       const url = normalizeNateUrl(href);
       if (seenUrls.has(url)) return;
       seenUrls.add(url);
 
+      // 썸네일: li 내부의 img (일부 항목에만 존재)
+      const imgRaw = $(li).find('img').first().attr('src') || $(li).find('img').first().attr('data-src');
+      const thumbnail = imgRaw ? (imgRaw.startsWith('//') ? `https:${imgRaw}` : imgRaw) : undefined;
+
       posts.push({
         sourceKey: 'nate_news',
         sourceName: '네이트 뉴스 랭킹',
         title,
         url,
+        thumbnail,
         category: 'portal',
         metadata: { rank: posts.length + 1 },
       });
