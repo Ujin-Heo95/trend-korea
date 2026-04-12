@@ -36,10 +36,10 @@ import {
   calculateSubcategoryPercentiles,
   detectBreakingNews,
   calculatePortalRankMap,
-  calculateClusterImportanceMap,
+  calculateClusterImportanceMapV7,
   calculateNewsEngagementMap,
   normalizeTrendSignal,
-  freshnessBonus,
+  freshnessSignal,
   velocityToBonus,
   communityVelocityToBonus,
 } from './scoring-helpers.js';
@@ -132,16 +132,17 @@ async function _calculateScores(pool: Pool): Promise<number> {
     calculateSubcategoryPercentiles(pool).catch(() => new Map<number, number>()),
     detectBreakingNews(pool).catch(() => new Map<number, number>()),
     calculatePortalRankMap(pool).catch(() => new Map<number, number>()),
-    calculateClusterImportanceMap(pool).catch(() => new Map<number, number>()),
+    calculateClusterImportanceMapV7(pool).catch(() => new Map<number, number>()),
     calculateNewsEngagementMap(pool).catch(() => new Map<number, number>()),
   ]);
 
-  // 뉴스 signalScore 가중치 (DB 오버라이드 가능) — v6: 4항 가산 혼합
+  // 뉴스 signalScore 가중치 (DB 오버라이드 가능) — v7: 5항 가산 혼합 (freshness 흡수)
   const scoringConfig = (await import('./scoringConfig.js')).getScoringConfig();
-  const newsPortalW = await scoringConfig.getNumber('news_signal_weights', 'portal_weight', 0.35).catch(() => 0.35);
-  const newsClusterW = await scoringConfig.getNumber('news_signal_weights', 'cluster_weight', 0.30).catch(() => 0.30);
-  const newsTrendW = await scoringConfig.getNumber('news_signal_weights', 'trend_weight', 0.20).catch(() => 0.20);
-  const newsEngagementW = await scoringConfig.getNumber('news_signal_weights', 'engagement_weight', 0.15).catch(() => 0.15);
+  const newsPortalW = await scoringConfig.getNumber('news_signal_weights_v7', 'portal_weight', 0.32).catch(() => 0.32);
+  const newsClusterW = await scoringConfig.getNumber('news_signal_weights_v7', 'cluster_weight', 0.27).catch(() => 0.27);
+  const newsTrendW = await scoringConfig.getNumber('news_signal_weights_v7', 'trend_weight', 0.18).catch(() => 0.18);
+  const newsEngagementW = await scoringConfig.getNumber('news_signal_weights_v7', 'engagement_weight', 0.13).catch(() => 0.13);
+  const newsFreshnessW = await scoringConfig.getNumber('news_signal_weights_v7', 'freshness_weight', 0.10).catch(() => 0.10);
 
   const now = Date.now();
   const globalBaseline = 2.0;
@@ -192,17 +193,17 @@ async function _calculateScores(pool: Pool): Promise<number> {
         ? 1.0                               // 커뮤니티는 categoryWeight 불필요
         : getCategoryWeightFrom(weights, row.category);
 
-    // 뉴스 채널: 4항 가산 혼합 signalScore + freshness 흡수 (v7)
-    // v6에서 freshnessBonus는 trend_score 외곽 곱셈이었음 → v7에서 signalScore로 흡수.
-    // computeScore가 모든 factor를 곱하므로 magnitude는 동일, formula만 step→smooth.
+    // 뉴스 채널 v7: 5항 가산 혼합 signalScore — freshness를 5번째 가산항으로 흡수.
+    // v6 외곽 freshnessBonus 곱셈(1.3/1.15/1.075/1.0) 제거 → halfLife decay와의 이중 계산 해소.
     const newsSignalScore = isNews
       ? Math.max(
           (portalRankMap.get(row.id) ?? 0) * newsPortalW
           + (clusterImportanceMap.get(row.id) ?? 0) * newsClusterW
           + normalizeTrendSignal(trendSignalMap.get(row.id) ?? 1.0) * newsTrendW
-          + (newsEngagementMap.get(row.id) ?? 0) * newsEngagementW,
+          + (newsEngagementMap.get(row.id) ?? 0) * newsEngagementW
+          + freshnessSignal(ageMinutes) * newsFreshnessW,
           1.0,
-        ) * freshnessBonus(ageMinutes)
+        )
       : undefined;
 
     const factors: ScoreFactors = {
@@ -223,8 +224,6 @@ async function _calculateScores(pool: Pool): Promise<number> {
       trendSignalBonus: isNews || isCommunity ? 1.0 : (trendSignalMap.get(row.id) ?? 1.0),
       subcategoryNorm: 1.0,    // 이미 catW에 반영됨 (뉴스용)
       breakingBoost: isNews ? (breakingNewsMap.get(row.id) ?? 1.0) : 1.0,
-      // v7: freshnessBonus는 newsSignalScore에 흡수됨 — 외곽 곱셈은 1.0 고정.
-      freshnessBonus: 1.0,
     };
 
     const score = computeScore(factors);

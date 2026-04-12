@@ -1,9 +1,10 @@
 # TD-005: 뉴스 signalScore v7 — freshness 흡수 + entity 기반 clusterImportance
 
-- 상태: 승인 대기 (Round 3 "뉴스 v7" 선행 작업, Round 4 임베딩 dedup 이후 실행)
+- 상태: **완료** (2026-04-12, `feat/news-signal-v7` 브랜치)
 - 일자: 2026-04-12
 - 부서: 개발
 - 선행: TD-006 임베딩 단일화 (Round 4, 2026-04-12 a007fba 완료)
+- 변경: 시간 제약으로 1주일 shadow 로깅 생략 → 하드 전환 후 production 모니터링으로 대체. Feature flag 없음 (롤백은 revert). `058_news_signal_v7.sql` 마이그레이션 + `news_signal_weights_v7` 그룹.
 
 ## 맥락
 

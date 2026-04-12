@@ -153,27 +153,29 @@ issueScore = rawScore × momentumBonus × diversityBonus × breakingKeywordBoost
 이슈 점수의 입력값인 개별 포스트 `trend_score`는 다음과 같이 산출:
 
 ```
-# 뉴스 채널 (4항 가산 혼합)
-signalScore = max(portalRank×0.35 + clusterImportance×0.30
-              + trendAlignment×0.20 + engagementSignal×0.15, 1.0)
+# 뉴스 채널 (v7: 5항 가산 혼합, freshness 흡수)
+signalScore = max(portalRank×0.32 + clusterImportance×0.27
+              + trendAlignment×0.18 + engagementSignal×0.13
+              + freshnessSignal×0.10, 1.0)
 trend_score = signalScore × decay × sourceWeight × subcategoryNorm
-            × breakingBoost × freshnessBonus × volumeDampening
+            × breakingBoost × volumeDampening
 
 # 커뮤니티 채널 (곱셈 기반)
 trend_score = normalizedEngagement × decay × communitySourceWeight
             × velocityBonus × clusterBonus × trendSignalBonus × volumeDampening
 ```
 
-**파일**: `scoring-helpers.ts:39-50`, `scoring.ts:125-207`
+**파일**: `scoring-helpers.ts`, `scoring.ts`
 
 ### 주요 팩터
 
 | 팩터 | 범위 | 뉴스 | 커뮤니티 | 설명 |
 |------|------|------|----------|------|
-| `signalScore` | [1.0, 10.0] | ✓ | — | 4항 가산 혼합 (portal+cluster+trend+engagement) |
+| `signalScore` | [1.0, 10.0] | ✓ | — | v7: 5항 가산 (portal+cluster+trend+engagement+freshness) |
+| `clusterImportance` | [0, 10] | ✓ | — | v7: 임베딩 centroid 거리 × 티어 (entity 기반) |
+| `freshnessSignal` | [0, 10] | ✓ | — | v7: 45분 반감기, signalScore 5번째 가산항 |
 | `decay` | [0, 1.0] | ✓ (소스별) | ✓ (소스별) | 지수 감쇠 |
 | `sourceWeight` | [0.8, 2.5] | ✓ | ✓ | 소스 신뢰도 |
-| `freshnessBonus` | [1.0, 1.3] | ✓ | — | 발행 30분 이내 1.3x |
 | `breakingBoost` | [1.0, 3.0] | ✓ | — | 속보 감지 (다중소스 3.0, T1 단독 2.0) |
 | `velocityBonus` | [1.0, 1.6] | — | ✓ | 최근 2시간 참여 변화율 |
 | `clusterBonus` | [1.0, 3.0] | — | ✓ | 중복 포스트 수 + 다양성 |

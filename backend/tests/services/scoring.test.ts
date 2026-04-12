@@ -4,7 +4,7 @@ import {
   getCommunitySourceWeight, getCommunityHalfLife,
   getHalfLife, getNewsHalfLife, volumeDampeningFactor, type ScoreFactors,
 } from '../../src/services/scoring.js';
-import { normalizeTrendSignal, freshnessBonus } from '../../src/services/scoring-helpers.js';
+import { normalizeTrendSignal, freshnessSignal, clusterImportanceFromVectors } from '../../src/services/scoring-helpers.js';
 
 const LN2 = Math.LN2;
 
@@ -135,7 +135,6 @@ function makeFactors(overrides: Partial<ScoreFactors> = {}): ScoreFactors {
     trendSignalBonus: 1.0,
     subcategoryNorm: 1.0,
     breakingBoost: 1.0,
-    freshnessBonus: 1.0,
     ...overrides,
   };
 }
@@ -380,112 +379,164 @@ describe('normalizeTrendSignal', () => {
   });
 });
 
-describe('news signalScore (4-signal additive blend v6)', () => {
-  const portalW = 0.35;
-  const clusterW = 0.30;
-  const trendW = 0.20;
-  const engagementW = 0.15;
+describe('news signalScore (5-signal additive blend v7)', () => {
+  const portalW = 0.32;
+  const clusterW = 0.27;
+  const trendW = 0.18;
+  const engagementW = 0.13;
+  const freshnessW = 0.10;
 
-  function calcSignalScore(portal: number, cluster: number, trendRaw: number, engagement: number = 0): number {
+  function calcSignalScore(portal: number, cluster: number, trendRaw: number, engagement: number = 0, ageMin: number = 0): number {
     return Math.max(
-      portal * portalW + cluster * clusterW + normalizeTrendSignal(trendRaw) * trendW + engagement * engagementW,
+      portal * portalW
+      + cluster * clusterW
+      + normalizeTrendSignal(trendRaw) * trendW
+      + engagement * engagementW
+      + freshnessSignal(ageMin) * freshnessW,
       1.0,
     );
   }
 
-  it('all zeros → minimum signalScore 1.0', () => {
-    expect(calcSignalScore(0, 0, 1.0, 0)).toBe(1.0);
+  it('weights sum to 1.0', () => {
+    expect(portalW + clusterW + trendW + engagementW + freshnessW).toBeCloseTo(1.0, 5);
   });
 
-  it('portal rank 1 alone → significant score', () => {
-    const score = calcSignalScore(10, 0, 1.0, 0);
-    expect(score).toBeCloseTo(3.5, 5); // 10*0.35 = 3.5
+  it('all zeros except fresh → near 1.0 (clamped)', () => {
+    // ancient post: 0 for all terms → clamped to 1.0
+    expect(calcSignalScore(0, 0, 1.0, 0, 10000)).toBe(1.0);
   });
 
-  it('cluster 4 sources alone → moderate score', () => {
-    const score = calcSignalScore(0, 6, 1.0, 0);
-    expect(score).toBeCloseTo(1.8, 5); // 6*0.30 = 1.8
+  it('fresh post alone contributes via freshness term', () => {
+    // age=0: freshnessSignal=10, 10*0.10=1.0 → clamped to 1.0
+    expect(calcSignalScore(0, 0, 1.0, 0, 0)).toBe(1.0);
   });
 
-  it('trend match alone → moderate score', () => {
-    const score = calcSignalScore(0, 0, 1.8, 0);
-    expect(score).toBeCloseTo(2.0, 5); // 10*0.20 = 2.0
-  });
-
-  it('engagement alone → contributes to score', () => {
-    const score = calcSignalScore(0, 0, 1.0, 8);
-    expect(score).toBeCloseTo(1.2, 5); // 8*0.15 = 1.2
-  });
-
-  it('all signals max → high combined score', () => {
-    const score = calcSignalScore(10, 10, 1.8, 10);
-    // 10*0.35 + 10*0.30 + 10*0.20 + 10*0.15 = 10.0
+  it('all signals max (fresh) → 10.0', () => {
+    const score = calcSignalScore(10, 10, 1.8, 10, 0);
+    // 10*0.32 + 10*0.27 + 10*0.18 + 10*0.13 + 10*0.10 = 10.0
     expect(score).toBeCloseTo(10.0, 5);
   });
 
-  it('partial signals still contribute (additive not multiplicative)', () => {
-    const combined = calcSignalScore(10, 6, 1.0, 5);
-    expect(combined).toBeCloseTo(10 * portalW + 6 * clusterW + 5 * engagementW, 5);
+  it('portal rank 1 alone (fresh) → significant score', () => {
+    const score = calcSignalScore(10, 0, 1.0, 0, 0);
+    // 10*0.32 + 10*0.10 = 4.2
+    expect(score).toBeCloseTo(4.2, 5);
   });
 
-  it('signalScore replaces engagement in news scoring', () => {
-    const signalScore = calcSignalScore(8, 6, 1.4, 7);
+  it('signalScore replaces engagement in news scoring (no outer freshness mult)', () => {
+    const signalScore = calcSignalScore(8, 6, 1.4, 7, 30);
     const factors = makeFactors({
       normalizedEngagement: signalScore,
       sourceWeight: 2.2,
       decay: 0.8,
-      velocityBonus: 1.0,
-      clusterBonus: 1.0,
-      trendSignalBonus: 1.0,
-      breakingBoost: 1.0,
     });
     const score = computeScore(factors);
+    // 외곽 freshnessBonus 곱셈 없음 — signalScore × decay × srcW 만
     expect(score).toBeCloseTo(signalScore * 2.2 * 0.8, 2);
-    expect(score).toBeGreaterThan(0);
   });
 });
 
-describe('freshnessBonus (news-only, v7 smooth)', () => {
-  it('returns 1.3 max boost at age 0', () => {
-    expect(freshnessBonus(0)).toBeCloseTo(1.3, 5);
+describe('freshnessSignal (v7 5번째 가산항)', () => {
+  it('returns 10 at age 0', () => {
+    expect(freshnessSignal(0)).toBeCloseTo(10, 5);
   });
 
-  it('returns ~1.15 at one half-life (30 min)', () => {
-    // 1 + 0.3 × 0.5 = 1.15
-    expect(freshnessBonus(30)).toBeCloseTo(1.15, 5);
+  it('returns ~5.0 at one half-life (45 min)', () => {
+    expect(freshnessSignal(45)).toBeCloseTo(5.0, 5);
   });
 
-  it('returns ~1.075 at two half-lives (60 min)', () => {
-    // 1 + 0.3 × 0.25 = 1.075
-    expect(freshnessBonus(60)).toBeCloseTo(1.075, 5);
+  it('returns ~6.3 at 30 min', () => {
+    // 10 × exp(-ln2 × 30/45) = 10 × 2^(-0.667) ≈ 6.30
+    expect(freshnessSignal(30)).toBeCloseTo(6.30, 2);
   });
 
-  it('returns ~1.01875 at four half-lives (120 min)', () => {
-    // 1 + 0.3 × 0.0625 = 1.01875
-    expect(freshnessBonus(120)).toBeCloseTo(1.01875, 5);
+  it('returns ~4.0 at 60 min', () => {
+    // 10 × 2^(-60/45) ≈ 3.97
+    expect(freshnessSignal(60)).toBeCloseTo(3.97, 2);
   });
 
-  it('asymptotes to 1.0 for very old posts', () => {
-    expect(freshnessBonus(10000)).toBeCloseTo(1.0, 4);
-    expect(freshnessBonus(1000)).toBeGreaterThan(1.0);
+  it('returns ~1.6 at 120 min', () => {
+    // 10 × 2^(-120/45) ≈ 1.575
+    expect(freshnessSignal(120)).toBeCloseTo(1.575, 2);
+  });
+
+  it('asymptotes to 0 for very old posts', () => {
+    expect(freshnessSignal(10000)).toBeCloseTo(0, 3);
+    expect(freshnessSignal(1000)).toBeGreaterThan(0);
   });
 
   it('is monotonically decreasing', () => {
     const samples = [0, 10, 20, 30, 60, 120, 240];
     for (let i = 1; i < samples.length; i++) {
-      expect(freshnessBonus(samples[i])).toBeLessThan(freshnessBonus(samples[i - 1]));
+      expect(freshnessSignal(samples[i])).toBeLessThan(freshnessSignal(samples[i - 1]));
     }
   });
 
-  it('handles negative / non-finite age gracefully', () => {
-    expect(freshnessBonus(-5)).toBeCloseTo(1.3, 5);
-    expect(freshnessBonus(NaN)).toBeCloseTo(1.3, 5);
+  it('handles negative / non-finite age → clamps to 10', () => {
+    expect(freshnessSignal(-5)).toBe(10);
+    expect(freshnessSignal(NaN)).toBe(10);
+  });
+});
+
+describe('clusterImportanceFromVectors (v7 entity-based)', () => {
+  function randomVec(dim: number, seed: number): Float32Array {
+    const v = new Float32Array(dim);
+    let s = seed;
+    for (let i = 0; i < dim; i++) {
+      s = (s * 9301 + 49297) % 233280;
+      v[i] = (s / 233280) - 0.5;
+    }
+    // normalize
+    let norm = 0;
+    for (let i = 0; i < dim; i++) norm += v[i] * v[i];
+    norm = Math.sqrt(norm);
+    for (let i = 0; i < dim; i++) v[i] /= norm;
+    return v;
+  }
+
+  it('returns 0 when uniqueOutlets <= 1', () => {
+    const v = randomVec(8, 1);
+    expect(clusterImportanceFromVectors(1, [v, v])).toBe(0);
   });
 
-  it('still multiplies cleanly into computeScore when applied as a factor', () => {
-    const base = computeScore(makeFactors());
-    const boosted = computeScore(makeFactors({ freshnessBonus: 1.3 }));
-    expect(boosted).toBeCloseTo(base * 1.3, 5);
+  it('returns 0 when fewer than 2 vectors', () => {
+    const v = randomVec(8, 1);
+    expect(clusterImportanceFromVectors(5, [v])).toBe(0);
+  });
+
+  it('same event (identical vectors) → low importance (d_avg≈0)', () => {
+    const v = randomVec(8, 1);
+    // 6 outlets, all identical embedding
+    const score = clusterImportanceFromVectors(6, [v, v, v, v, v, v]);
+    // log2(7) ≈ 2.807, × (1 + 0×2) = 2.807
+    expect(score).toBeCloseTo(Math.log2(7), 2);
+  });
+
+  it('multi-angle coverage (diverse vectors) → higher importance than same-event', () => {
+    const diverse = [1, 2, 3, 4, 5, 6].map(i => randomVec(32, i * 1000));
+    const sameV = randomVec(32, 1);
+    const sameEvent = [sameV, sameV, sameV, sameV, sameV, sameV];
+
+    const diverseScore = clusterImportanceFromVectors(6, diverse);
+    const sameScore = clusterImportanceFromVectors(6, sameEvent);
+
+    expect(diverseScore).toBeGreaterThan(sameScore);
+  });
+
+  it('clamps to 10 maximum', () => {
+    const diverse = Array.from({ length: 20 }, (_, i) => randomVec(32, i * 777));
+    const score = clusterImportanceFromVectors(20, diverse);
+    expect(score).toBeLessThanOrEqual(10);
+    expect(score).toBeGreaterThan(0);
+  });
+
+  it('monotonic in uniqueOutlets for identical vectors', () => {
+    const v = randomVec(8, 42);
+    const s2 = clusterImportanceFromVectors(2, [v, v]);
+    const s4 = clusterImportanceFromVectors(4, [v, v, v, v]);
+    const s8 = clusterImportanceFromVectors(8, [v, v, v, v, v, v, v, v]);
+    expect(s4).toBeGreaterThan(s2);
+    expect(s8).toBeGreaterThan(s4);
   });
 });
 

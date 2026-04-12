@@ -35,7 +35,6 @@ function makeFactors(overrides: Partial<ScoreFactors> = {}): ScoreFactors {
     trendSignalBonus: 1.0,
     subcategoryNorm: 1.0,
     breakingBoost: 1.0,
-    freshnessBonus: 1.0,
     ...overrides,
   };
 }
