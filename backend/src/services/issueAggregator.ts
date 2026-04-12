@@ -503,6 +503,16 @@ async function mergeViaTrendKeywords(
     return { group: g, keywords };
   });
 
+  // entity Set은 그룹의 모든 포스트 제목을 합쳐 추출 (단일 대표보다 robust).
+  //   2026-04-12: 누적-루트 게이트를 위해 union-find 초기화 이전에 미리 계산.
+  const groupEntities: Set<string>[] = groupsWithKw.map(({ group }) => {
+    const e = new Set<string>();
+    for (const p of group.posts) {
+      for (const t of extractEntities(p.title)) e.add(t);
+    }
+    return e;
+  });
+
   // Union-Find with group size limit + accumulated-root gate to prevent chain merging.
   //   2026-04-12: per-(i,j) 게이트만으로는 A↔B, B↔C 각각 통과하면 union-find 가 A∪B∪C 를 전이적으로
   //   합쳐 버려 A⊥C 무관 클러스터가 같은 이슈카드로 묶임. 각 find-root 의 누적 entity set 을 유지하고
@@ -511,7 +521,7 @@ async function mergeViaTrendKeywords(
   const parent = Array.from({ length: groupsWithKw.length }, (_, i) => i);
   const groupSize = groupsWithKw.map(g => g.group.posts.length);
   // 루트별 누적 entity set — 초기값은 원래 그룹의 entity set을 복제
-  const rootEntities: Set<string>[] = groupsWithKw.map((_, i) => new Set(groupEntities[i]));
+  const rootEntities: Set<string>[] = groupEntities.map(s => new Set(s));
 
   function find(x: number): number {
     while (parent[x] !== x) {
@@ -580,14 +590,6 @@ async function mergeViaTrendKeywords(
     const top = sorted[0];
     return top ? { id: top.id, title: top.title } : null;
   }
-  // entity Set은 그룹의 모든 포스트 제목을 합쳐 추출 (단일 대표보다 robust)
-  const groupEntities: Set<string>[] = groupsWithKw.map(({ group }) => {
-    const e = new Set<string>();
-    for (const p of group.posts) {
-      for (const t of extractEntities(p.title)) e.add(t);
-    }
-    return e;
-  });
 
   // Phase 2/3 병합 판정:
   //   1) 공유 키워드에서 ACTION_ONLY_STOPWORDS 제거
