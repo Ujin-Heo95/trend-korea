@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MetaHead } from '../components/shared/MetaHead';
 import fortuneData from '../data/fortune-templates.json';
@@ -181,17 +181,14 @@ function NewsTarot() {
   const [phase, setPhase] = useState<TarotPhase>('select');
   const [selectedCard, setSelectedCard] = useState<TarotCard | null>(null);
   const [isReversed, setIsReversed] = useState(false);
-  const [shuffledCards, setShuffledCards] = useState<TarotCard[]>([]);
-
-  // Shuffle on mount
-  useEffect(() => {
+  const [shuffledCards, setShuffledCards] = useState<TarotCard[]>(() => {
     const cards = [...tarotCards] as TarotCard[];
     for (let i = cards.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [cards[i], cards[j]] = [cards[j], cards[i]];
     }
-    setShuffledCards(cards);
-  }, []);
+    return cards;
+  });
 
   const handleSelect = useCallback((card: TarotCard) => {
     const reversed = Math.random() < 0.3; // 30% 역방향
@@ -218,7 +215,7 @@ function NewsTarot() {
     if (!trendingPosts?.length || !selectedCard) return '오늘의 핫이슈';
     const post = trendingPosts[selectedCard.id % trendingPosts.length];
     // Extract clean topic from title (remove ranking prefixes like "🔺 1위 ")
-    return post.title.replace(/^[🔺🔻🆕📊]\s*\d+위\s*/, '').replace(/\s*\(\d[\d,]*회\)$/, '').trim() || '오늘의 핫이슈';
+    return post.title.replace(/^[🔺🔻🆕📊]\s*\d+위\s*/u, '').replace(/\s*\(\d[\d,]*회\)$/u, '').trim() || '오늘의 핫이슈';
   }, [trendingPosts, selectedCard]);
 
   if (phase === 'select') {

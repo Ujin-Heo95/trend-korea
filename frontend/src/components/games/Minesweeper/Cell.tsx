@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import type { Cell as CellData } from './useMinesweeper';
 
 const NUMBER_COLORS: Record<number, string> = {
@@ -25,20 +25,18 @@ export const CellComponent: React.FC<CellProps> = React.memo(({ cell, onClick, o
     onContextMenu();
   };
 
-  const handleLongPress = (() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    return {
-      onTouchStart: () => {
-        timer = setTimeout(onContextMenu, 400);
-      },
-      onTouchEnd: () => {
-        if (timer) { clearTimeout(timer); timer = null; }
-      },
-      onTouchMove: () => {
-        if (timer) { clearTimeout(timer); timer = null; }
-      },
-    };
-  })();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleLongPress = {
+    onTouchStart: () => {
+      timerRef.current = setTimeout(onContextMenu, 400);
+    },
+    onTouchEnd: () => {
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    },
+    onTouchMove: () => {
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    },
+  };
 
   if (cell.state === 'hidden') {
     return (

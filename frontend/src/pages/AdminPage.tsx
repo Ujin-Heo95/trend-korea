@@ -48,7 +48,13 @@ type AdminTab = 'dashboard' | 'monitoring' | 'config';
 export function AdminPage() {
   const { token, setToken, clearToken } = useAdminToken();
   const { data, isLoading, isError, error, isAuthed, refetch } = useAdminHealth(token);
-  const [lastRefresh, setLastRefresh] = useState(Date.now());
+  const [lastRefresh, setLastRefresh] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+
+  React.useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
     const hash = window.location.hash.replace('#', '') as AdminTab;
     return hash === 'config' ? 'config' : hash === 'monitoring' ? 'monitoring' : 'dashboard';
@@ -88,7 +94,7 @@ export function AdminPage() {
   }
 
   const { health, sources } = data;
-  const secAgo = Math.floor((Date.now() - lastRefresh) / 1000);
+  const secAgo = Math.floor((now - lastRefresh) / 1000);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
