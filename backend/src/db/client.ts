@@ -14,7 +14,10 @@ const apiPoolMax = Math.max(Math.floor(config.dbPoolMax * 0.4), 4); // ~40% of t
 export const pool = new Pool({
   connectionString: config.dbUrl,
   max: apiPoolMax,
-  min: isPooler ? 0 : 2,
+  // 프리웜(min≥2): Supavisor 경로여도 초기 lazy 연결 금지.
+  // 이유: 파이프라인이 batchPool 쪽 TLS 핸드셰이크를 동시에 열 때 shared-cpu-1x
+  //      이벤트 루프가 일시 freeze → /health 타임아웃 재현 (10:04:03→10:04:39 공백).
+  min: 2,
   idleTimeoutMillis: config.dbIdleTimeoutMs,
   connectionTimeoutMillis: config.dbConnectionTimeoutMs,
   ...(!isPooler && { keepAlive: true, keepAliveInitialDelayMillis: 10_000 }),
@@ -26,7 +29,9 @@ const batchPoolMax = config.dbPoolMax - apiPoolMax;
 export const batchPool = new Pool({
   connectionString: config.dbUrl,
   max: batchPoolMax,
-  min: isPooler ? 0 : 1,
+  // 프리웜(min≥2): 파이프라인 첫 발화 때 4개 TLS 동시 핸드셰이크로 인한
+  //              event loop freeze 방지. 상시 2개 유지.
+  min: 2,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 15_000,
   ...(!isPooler && { keepAlive: true, keepAliveInitialDelayMillis: 10_000 }),

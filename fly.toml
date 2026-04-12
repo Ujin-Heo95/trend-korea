@@ -26,7 +26,8 @@ primary_region = "nrt"
 [[http_service.checks]]
   path = "/health"
   interval = "30s"
-  timeout = "5s"
+  timeout = "10s"
+  grace_period = "30s"
 
 [[vm]]
   size = "shared-cpu-1x"
