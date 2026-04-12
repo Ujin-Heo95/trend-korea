@@ -93,6 +93,28 @@ describe('clusterPosts', () => {
     expect(multi).toHaveLength(0);
   });
 
+  it('chaining 방지: A-B 인접, B-C 인접 이지만 A-C 직접유사도 < 임계값 → 2개 클러스터', () => {
+    // 알려진 cos 으로 구성:
+    //   A=(1,0,0), B=(cos20°, sin20°, 0), C=(cos40°, sin40°, 0)
+    // cos(A,B)=cos20°≈0.940 ≥ 0.78  → B 는 A 의 anchor cluster 에 합류
+    // cos(A,C)=cos40°≈0.766 < 0.78  → C 는 A anchor 와 매칭 안 됨 → 신규 anchor
+    // (single-link DSU 였다면 cos(B,C)=cos20°≈0.940 으로 chain 되어 1 클러스터)
+    const lookup = lookupFrom(new Map([
+      [1, vec([1, 0, 0])],
+      [2, vec([Math.cos(Math.PI / 9), Math.sin(Math.PI / 9), 0])],
+      [3, vec([Math.cos(2 * Math.PI / 9), Math.sin(2 * Math.PI / 9), 0])],
+    ]));
+    const posts = [
+      makePost(1, { sourceKey: 'src-a', scrapedAt: new Date('2026-04-13T00:00:00Z') }),
+      makePost(2, { sourceKey: 'src-b', scrapedAt: new Date('2026-04-13T00:01:00Z') }),
+      makePost(3, { sourceKey: 'src-c', scrapedAt: new Date('2026-04-13T00:02:00Z') }),
+    ];
+    const clusters = clusterPosts(posts, lookup);
+    expect(clusters).toHaveLength(2);
+    const sizes = clusters.map(c => c.memberPostIds.length).sort();
+    expect(sizes).toEqual([1, 2]);
+  });
+
   it('constants exported for tuning', () => {
     expect(CLUSTERING_CONSTANTS.CLUSTER_COSINE_THRESHOLD).toBe(0.78);
     expect(CLUSTERING_CONSTANTS.MIN_UNIQUE_SOURCES).toBe(2);
