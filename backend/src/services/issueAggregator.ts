@@ -304,12 +304,15 @@ async function fetchScoredPosts(pool: Pool, windowHours: number): Promise<Scored
   }>(`
     SELECT p.id, p.source_key, p.category, p.title, p.content_snippet, p.thumbnail,
            COALESCE(ps.trend_score, 0) AS trend_score,
-           pcm.cluster_id,
+           pc.id AS cluster_id,
            COALESCE(ps.cluster_bonus, 1.0) AS cluster_bonus,
            p.scraped_at
     FROM posts p
     LEFT JOIN post_scores ps ON ps.post_id = p.id
     LEFT JOIN post_cluster_members pcm ON pcm.post_id = p.id
+    LEFT JOIN post_clusters pc
+      ON pc.id = pcm.cluster_id
+     AND pc.cluster_created_at > NOW() - make_interval(hours => $1)
     WHERE p.scraped_at > NOW() - make_interval(hours => $1)
       AND COALESCE(p.category, '') IN ${SCORED_CATEGORIES_SQL}
     ORDER BY COALESCE(ps.trend_score, 0) DESC
