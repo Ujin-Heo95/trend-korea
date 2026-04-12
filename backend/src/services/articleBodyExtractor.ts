@@ -8,6 +8,7 @@ type DomainRule = {
   readonly host: string;
   readonly selectors: readonly string[];
   readonly removeWithin: readonly string[];
+  readonly eucKr?: boolean;
 };
 
 const DOMAIN_RULES: readonly DomainRule[] = [
@@ -18,6 +19,23 @@ const DOMAIN_RULES: readonly DomainRule[] = [
     // article element on layout changes.
     selectors: ['.story-news.article p', 'article p', 'article'],
     removeWithin: ['script', 'style', 'iframe', 'figure', 'aside', '.adrs', '.adv', '.btn'],
+  },
+  {
+    // Daum 뉴스 상세 — v.daum.net/v/{id}. `.article_view` 컨테이너 안의 <p>
+    // 태그들이 본문. 광고/기자정보는 figcaption / .txt_caption 등으로 분리됨.
+    // 검증: 20260412213003163 → 8 paragraphs, 1279 chars.
+    host: 'daum.net',
+    selectors: ['.article_view p', '.article_view'],
+    removeWithin: ['script', 'style', 'iframe', 'figure', 'figcaption', '.link_figure', '.txt_caption'],
+  },
+  {
+    // Nate 뉴스 상세 — news.nate.com/view/{id}. `#realArtcContents` 단일 div 안에
+    // <br> 로 단락 구분된 본문 텍스트가 들어있음 (거의 <p> 없음). element text 경로로 추출.
+    // EUC-KR 인코딩. 검증: 20260412n15179 → ~4000 chars.
+    host: 'nate.com',
+    selectors: ['#realArtcContents'],
+    removeWithin: ['script', 'style', 'iframe', '.articleSubecjt', '.articleControl'],
+    eucKr: true,
   },
 ];
 
@@ -87,7 +105,11 @@ export async function extractArticleBody(url: string): Promise<string | null> {
 
   let body: string | null;
   try {
-    const $ = await fetchHtml(url, { timeout: FETCH_TIMEOUT_MS, delay: [0, 50] });
+    const $ = await fetchHtml(url, {
+      timeout: FETCH_TIMEOUT_MS,
+      delay: [0, 50],
+      eucKr: rule.eucKr ?? false,
+    });
     body = extractWithRule($, rule);
   } catch (err) {
     // Swallow — caller falls back to existing snippet. Log at debug level only;

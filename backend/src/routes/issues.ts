@@ -370,17 +370,22 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
           // Channel tags
           channel_tags: channelTags,
         };
-      }).map(fillRuleBasedIfEmpty);
+      });
+      // 안전망 일원화: news_posts 가 비는 이슈는 드롭 + 남은 이슈는 rule-based 로 채움.
+      // 기존에는 .map(fillRuleBasedIfEmpty) 만 돌려서 live 경로에서 "관련 보도 0건" 카드가 노출될 수 있었음.
+      const filteredIssues = responseIssues
+        .filter(it => it.news_posts.length > 0)
+        .map(fillRuleBasedIfEmpty);
 
       // next_cursor for keyset pagination
       const lastIssue = issues[issues.length - 1];
-      const nextCursor = lastIssue && responseIssues.length === limit
+      const nextCursor = lastIssue && filteredIssues.length === limit
         ? { cursor_score: lastIssue.issue_score, cursor_id: lastIssue.id }
         : null;
 
       const calculatedAt = (issues[0]?.calculated_at as string | undefined) ?? null;
       const result = {
-        issues: responseIssues,
+        issues: filteredIssues,
         total: countResult.rows[0].total,
         calculated_at: calculatedAt,
         next_cursor: nextCursor,

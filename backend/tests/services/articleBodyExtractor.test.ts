@@ -17,6 +17,8 @@ import * as cheerio from 'cheerio';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ynaHtml = readFileSync(join(__dirname, '../fixtures/yna_article.html'), 'utf-8');
+const daumHtml = readFileSync(join(__dirname, '../fixtures/daum_article.html'), 'utf-8');
+const nateHtml = readFileSync(join(__dirname, '../fixtures/nate_article.html'), 'utf-8');
 
 describe('articleBodyExtractor', () => {
   beforeEach(() => {
@@ -37,9 +39,18 @@ describe('articleBodyExtractor', () => {
       expect(isExtractorSupported('https://yna.co.kr/view/test')).toBe(true);
     });
 
+    it('returns true for daum portal article URLs', () => {
+      expect(isExtractorSupported('https://v.daum.net/v/20260412213003163')).toBe(true);
+    });
+
+    it('returns true for nate news URLs (suffix match)', () => {
+      expect(isExtractorSupported('https://news.nate.com/view/20260412n15179')).toBe(true);
+    });
+
     it('returns false for unsupported domains', () => {
       expect(isExtractorSupported('https://news.naver.com/article/001/0014567890')).toBe(false);
       expect(isExtractorSupported('https://www.newsis.com/view/NISX20260412')).toBe(false);
+      expect(isExtractorSupported('https://news.zum.com/articles/105004207')).toBe(false);
     });
 
     it('returns false for malformed URLs', () => {
@@ -67,6 +78,62 @@ describe('articleBodyExtractor', () => {
       await extractArticleBody('https://www.yna.co.kr/view/AKR20260412036100062');
       await extractArticleBody('https://www.yna.co.kr/view/AKR20260412036100062');
       expect(vi.mocked(fetchHtml)).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('extractArticleBody — daum portal', () => {
+    beforeEach(() => {
+      vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(daumHtml));
+    });
+
+    it('extracts joined paragraphs from .article_view p', async () => {
+      const body = await extractArticleBody('https://v.daum.net/v/20260412213003163');
+      expect(body).not.toBeNull();
+      expect(body!.length).toBeGreaterThan(300);
+      expect(body).toContain('새로운 경제 정책을 발표');
+      expect(body).toContain('소상공인 지원 확대');
+    });
+
+    it('strips figcaption photo credits and script tags', async () => {
+      const body = await extractArticleBody('https://v.daum.net/v/20260412213003163');
+      expect(body).not.toContain('사진=연합뉴스');
+      expect(body).not.toContain('console.log');
+    });
+
+    it('passes eucKr:false for daum (default utf-8)', async () => {
+      await extractArticleBody('https://v.daum.net/v/20260412213003163');
+      expect(vi.mocked(fetchHtml)).toHaveBeenCalledWith(
+        'https://v.daum.net/v/20260412213003163',
+        expect.objectContaining({ eucKr: false }),
+      );
+    });
+  });
+
+  describe('extractArticleBody — nate portal', () => {
+    beforeEach(() => {
+      vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(nateHtml));
+    });
+
+    it('extracts element text from #realArtcContents', async () => {
+      const body = await extractArticleBody('https://news.nate.com/view/20260412n15179');
+      expect(body).not.toBeNull();
+      expect(body!.length).toBeGreaterThan(200);
+      expect(body).toContain('반도체 소자를 개발');
+      expect(body).toContain('인공지능 가속기 칩');
+    });
+
+    it('strips script tags and control areas', async () => {
+      const body = await extractArticleBody('https://news.nate.com/view/20260412n15179');
+      expect(body).not.toContain('공유 버튼 영역');
+      expect(body).not.toContain('var ad=1');
+    });
+
+    it('requests EUC-KR decoding for nate', async () => {
+      await extractArticleBody('https://news.nate.com/view/20260412n15179');
+      expect(vi.mocked(fetchHtml)).toHaveBeenCalledWith(
+        'https://news.nate.com/view/20260412n15179',
+        expect.objectContaining({ eucKr: true }),
+      );
     });
   });
 
