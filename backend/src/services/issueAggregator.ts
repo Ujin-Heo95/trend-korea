@@ -7,7 +7,12 @@ import { getChannel, SCORED_CATEGORIES_SQL } from './scoring-weights.js';
 import { cosineSimilarity as embeddingCosine } from './embedding.js';
 import { getScoringConfig } from './scoringConfig.js';
 import { extractEntities, entityIntersection } from './entityExtractor.js';
-import { arbitrateMerge, resetArbiterBatchState, getArbiterStats } from './mergeArbiter.js';
+import {
+  computePairHash,
+  recordPendingMergeDecisions,
+  loadRecentDecisions,
+  type PendingPairInput,
+} from './pendingMergeDecisions.js';
 
 // ─── Types ───
 
@@ -468,6 +473,9 @@ async function mergeViaTrendKeywords(
 ): Promise<IssueGroup[]> {
   const keywordIndex = await buildKeywordIndex(pool);
   const idfMap = await loadIdfMap(pool);
+  // 비동기 arbiter 결정 캐시: 직전 48h 내 mergeArbiterWorker가 기록한 결정을 로드.
+  // critical path에서 Gemini를 호출하지 않기 위해 여기서 맵만 미리 받아둔다.
+  const arbiterDecisions = await loadRecentDecisions(pool, 48);
 
   type GroupWithKeywords = { group: ClusterGroup; keywords: Set<string> };
   const groupsWithKw: GroupWithKeywords[] = groups.map(g => {
@@ -577,10 +585,10 @@ async function mergeViaTrendKeywords(
   let rejectedByIdf = 0;
   let rejectedByCos = 0;
   let rejectedByEntity = 0;
-  let arbiterMerged = 0;
-  let arbiterRejected = 0;
-
-  resetArbiterBatchState();
+  let arbiterHitMerged = 0;    // 이전 worker 결정으로 즉시 union
+  let arbiterHitRejected = 0;  // 이전 worker 결정이 false
+  let arbiterEnqueued = 0;     // 이번 tick에 pending 큐에 새로 기록
+  const pendingToRecord: PendingPairInput[] = [];
 
   for (const [pairKey, sharedKws] of pairSharedKws) {
     const [aStr, bStr] = pairKey.split(':');
@@ -604,12 +612,24 @@ async function mergeViaTrendKeywords(
     });
 
     if (decision.reason === 'entity_borderline' && repA && repB) {
-      // Gemini 중재자에 위임 (양쪽 모두 추출 entity 0 + cos 0.80~0.88)
-      const arb = await arbitrateMerge(repA.title, repB.title);
-      if (arb.sameEvent) {
-        if (union(a, b)) { mergedByIdf++; arbiterMerged++; }
+      // 비동기 arbiter: critical path에서 Gemini를 호출하지 않고
+      // (1) 이전 worker 결정이 있으면 즉시 적용
+      // (2) 없으면 pending 큐에 기록만 하고 이번 tick에서는 분리 유지.
+      const hash = computePairHash(repA.title, repB.title);
+      const prior = arbiterDecisions.get(hash);
+      if (prior === true) {
+        if (union(a, b)) { mergedByIdf++; arbiterHitMerged++; }
+      } else if (prior === false) {
+        arbiterHitRejected++;
       } else {
-        arbiterRejected++;
+        pendingToRecord.push({
+          titleA: repA.title,
+          titleB: repB.title,
+          postAId: repA.id,
+          postBId: repB.id,
+          cos,
+        });
+        arbiterEnqueued++;
       }
       continue;
     }
@@ -624,15 +644,22 @@ async function mergeViaTrendKeywords(
     if (union(a, b)) mergedByIdf++;
   }
 
-  if (mergedByIdf > 0 || rejectedByIdf > 0 || rejectedByCos > 0 || rejectedByEntity > 0) {
+  // 비동기 기록: 실패해도 critical path 진행에 영향 없음.
+  if (pendingToRecord.length > 0) {
+    recordPendingMergeDecisions(pool, pendingToRecord).catch(err => {
+      logger.warn({ err }, '[issueAggregator] pending merge record failed (non-fatal)');
+    });
+  }
+
+  if (mergedByIdf > 0 || rejectedByIdf > 0 || rejectedByCos > 0 || rejectedByEntity > 0 || arbiterEnqueued > 0) {
     logger.info(
       {
         mergedByIdf, rejectedByIdf, rejectedByCos, rejectedByEntity,
-        arbiterMerged, arbiterRejected,
-        arbiterStats: getArbiterStats(),
+        arbiterHitMerged, arbiterHitRejected, arbiterEnqueued,
+        priorDecisions: arbiterDecisions.size,
         candidatePairs: pairSharedKws.size,
       },
-      '[issueAggregator] Step 3 IDF+cos+entity merge decisions',
+      '[issueAggregator] Step 3 IDF+cos+entity merge decisions (async arbiter)',
     );
   }
 

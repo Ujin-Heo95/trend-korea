@@ -68,6 +68,7 @@ const migrations = [
   '059_keyword_idf.sql',
   '060_quality_metrics.sql',
   '061_issue_quality_judgments.sql',
+  '062_pending_merge_decisions.sql',
 ];
 
 try {

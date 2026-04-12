@@ -34,7 +34,8 @@ export const DEFAULT_QUEUE_CONFIG: QueueConfig = {
   unsummarizedPenaltyMax: 3.0,
   noveltyFactor: 1.2,
   noveltyThreshold: 0.3,
-  phaseTimeoutMs: 90_000,
+  // 45s hard cap — advisory lock과 이중 안전망. 다음 cron tick(:09→:14)과 절대 겹치지 않도록 물리적 상한.
+  phaseTimeoutMs: 45_000,
   singleCallTimeoutMs: 15_000,
   maxIssuesPerWindow: 15,
 };

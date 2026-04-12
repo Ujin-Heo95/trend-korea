@@ -21,6 +21,8 @@ import { checkPipelineHealth } from '../services/pipelineHealth.js';
 import { runTrackBDecay } from '../services/decayUpdater.js';
 import { runKeywordIdfBatch, getKeywordIdfCoverage, cleanStaleKeywordIdf } from '../services/keywordIdfBatch.js';
 import { runQualityMetricsBatch, cleanStaleQualityMetrics, getLatestMetric } from '../services/qualityMetricsBatch.js';
+import { runMergeArbiterWorker } from '../services/mergeArbiterWorker.js';
+import { withPipelineLock, PIPELINE_LOCK_KEYS } from '../services/pipelineLock.js';
 import {
   runQualityJudgeBatch,
   aggregateJudgments,
@@ -156,29 +158,50 @@ function startCronJobs(): void {
       console.log('[scheduler] quiet hours (02-06 KST) — skipping issue pipeline');
       return;
     }
-    logPoolStats('pipeline-start');
-    try {
-      const flags = await loadFeatureFlags();
-      await runPipeline('issue-pipeline', [
-        // 비 critical 전환: 일시적 Supabase 커넥션 드롭 시에도 후속 단계(aggregateIssues)는
-        // 직전 tick 의 post_scores 로 진행 → issue_rankings 신규 카드 생성이 멈추지 않음.
-        { name: 'calculateScores', run: () => calculateScores(batchPool), critical: false },
-        ...(flags.embeddings_enabled
-          ? [{ name: 'generateEmbeddings', run: () => generateEmbeddingsForRecentPosts(batchPool) }]
-          : []),
-        { name: 'aggregateIssues', run: () => aggregateIssues(batchPool), critical: true },
-        { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
-        { name: 'keywordIdfBatch', run: () => runKeywordIdfBatch(batchPool) },
-        { name: 'qualityMetricsBatch', run: () => runQualityMetricsBatch(batchPool) },
-      ]);
-      await monitorIdfCoverage();
-      await monitorQualityMetrics();
-      await checkPipelineHealth(batchPool).catch(captureError);
-    } finally {
-      clearIssuesCache();
-      logPoolStats('pipeline-end');
-    }
+    // advisory lock으로 tick 중첩 방지: 이전 :04 tick이 길어져 :14와 겹치면
+    // :14는 즉시 skipped 로 종료 → 커넥션 풀 경합이 원천 차단된다.
+    await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.issuePipeline, 'issue-pipeline', async () => {
+      logPoolStats('pipeline-start');
+      try {
+        const flags = await loadFeatureFlags();
+        await runPipeline('issue-pipeline', [
+          // 비 critical 전환: 일시적 Supabase 커넥션 드롭 시에도 후속 단계(aggregateIssues)는
+          // 직전 tick 의 post_scores 로 진행 → issue_rankings 신규 카드 생성이 멈추지 않음.
+          { name: 'calculateScores', run: () => calculateScores(batchPool), critical: false },
+          ...(flags.embeddings_enabled
+            ? [{ name: 'generateEmbeddings', run: () => generateEmbeddingsForRecentPosts(batchPool) }]
+            : []),
+          { name: 'aggregateIssues', run: () => aggregateIssues(batchPool), critical: true },
+          { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
+          { name: 'keywordIdfBatch', run: () => runKeywordIdfBatch(batchPool) },
+          { name: 'qualityMetricsBatch', run: () => runQualityMetricsBatch(batchPool) },
+        ]);
+        await monitorIdfCoverage();
+        await monitorQualityMetrics();
+        await checkPipelineHealth(batchPool).catch(captureError);
+      } finally {
+        clearIssuesCache();
+        logPoolStats('pipeline-end');
+      }
+    }).catch(captureError);
   });
+
+  // mergeArbiterWorker — 비동기 Gemini 중재자.
+  // issue-pipeline(:04,:14,...) 과 2분 offset(:06,:16,...) 으로 pending_merge_decisions 큐 소비.
+  // critical path에서 Gemini를 완전 제거한 뒤, 다음 파이프라인 tick이 결정을 재사용.
+  cron.schedule('6,16,26,36,46,56 * * * *', async () => {
+    if (isQuietHours()) return;
+    await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.mergeArbiter, 'merge-arbiter', async () => {
+      try {
+        const flags = await loadFeatureFlags();
+        if (!flags.gemini_summary_enabled) return; // gemini 자체가 꺼져있으면 skip
+        await runMergeArbiterWorker(batchPool);
+      } catch (err) {
+        captureError(err);
+      }
+    }).catch(captureError);
+  });
+  console.log('[scheduler] merge arbiter worker: every 10 min (offset +6)');
 
   // TD-006: Gemini 요약 — 독립 tick
   // 파이프라인(:04,:14,...) 완료 후 5분 여유 두고 실행 (:09,:19,...) — issue_rankings 최신 상태 보장.
@@ -187,16 +210,18 @@ function startCronJobs(): void {
   // 절대 전체 응답을 막지 않음.
   cron.schedule('9,19,29,39,49,59 * * * *', async () => {
     if (isQuietHours()) return;
-    try {
-      const flags = await loadFeatureFlags();
-      if (!flags.gemini_summary_enabled) return;
-      await summarizeAndUpdateIssues(batchPool);
-      // 요약 결과 반영: materialized 재생성 + 응답 캐시 무효화
-      await materializeIssueResponse(batchPool).catch(captureError);
-      clearIssuesCache();
-    } catch (err) {
-      captureError(err);
-    }
+    await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.summarizer, 'summarizer', async () => {
+      try {
+        const flags = await loadFeatureFlags();
+        if (!flags.gemini_summary_enabled) return;
+        await summarizeAndUpdateIssues(batchPool);
+        // 요약 결과 반영: materialized 재생성 + 응답 캐시 무효화
+        await materializeIssueResponse(batchPool).catch(captureError);
+        clearIssuesCache();
+      } catch (err) {
+        captureError(err);
+      }
+    }).catch(captureError);
   });
   console.log('[scheduler] gemini summary: every 10 min (offset +9, flag-gated)');
 
@@ -204,22 +229,26 @@ function startCronJobs(): void {
   // feature flag OFF 기본. staging A/B 검증 후 ON.
   cron.schedule('7,17,27,37,47,57 * * * *', async () => {
     if (isQuietHours()) return;
-    try {
-      const flags = await loadFeatureFlags();
-      if (!flags.scoring_track_b_enabled) return;
-      await runTrackBDecay(batchPool);
-    } catch (err) {
-      captureError(err);
-    }
+    await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.trackBDecay, 'trackB-decay', async () => {
+      try {
+        const flags = await loadFeatureFlags();
+        if (!flags.scoring_track_b_enabled) return;
+        await runTrackBDecay(batchPool);
+      } catch (err) {
+        captureError(err);
+      }
+    }).catch(captureError);
   });
   console.log('[scheduler] track B decay: every 10 min (offset +7, flag-gated)');
 
   // 교차검증: 15분 주기 (quiet hours 제외)
   cron.schedule('3,18,33,48 * * * *', async () => {
     if (isQuietHours()) return;
-    const flags = await loadFeatureFlags();
-    if (!flags.cross_validation_enabled) return;
-    await crossValidateIssues(batchPool).catch(captureError);
+    await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.crossValidation, 'cross-validation', async () => {
+      const flags = await loadFeatureFlags();
+      if (!flags.cross_validation_enabled) return;
+      await crossValidateIssues(batchPool).catch(captureError);
+    }).catch(captureError);
   });
   console.log('[scheduler] cross-validation: every 15 min (offset +3)');
 

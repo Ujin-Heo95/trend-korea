@@ -83,7 +83,9 @@ if (apifyMonthlyBudgetCents !== rawApifyBudget) {
   console.warn(`[config] WARNING: APIFY_MONTHLY_BUDGET_CENTS="${process.env.APIFY_MONTHLY_BUDGET_CENTS}" invalid — defaulting to 2000`);
 }
 
-const dbPoolMax = Math.min(Math.max(Number(process.env.DB_POOL_MAX ?? 20) || 20, 1), 50);
+// Supabase Pro pooler(:6543) 는 ~100 pooled connection 허용.
+// 25 로 상향해 burst(Promise.all 8+) 시에도 waiter queue 발생 최소화.
+const dbPoolMax = Math.min(Math.max(Number(process.env.DB_POOL_MAX ?? 25) || 25, 1), 50);
 const dbIdleTimeoutMs = Number(process.env.DB_IDLE_TIMEOUT_MS ?? 20000) || 20000;
 const dbConnectionTimeoutMs = Number(process.env.DB_CONNECTION_TIMEOUT_MS ?? 10000) || 10000;
 

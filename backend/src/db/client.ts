@@ -11,7 +11,9 @@ const isPooler = config.dbUrl.includes(':6543');
 const apiPoolMax = Math.max(Math.floor(config.dbPoolMax * 0.4), 4); // ~40% of total
 export const pool = new Pool({
   connectionString: config.dbUrl,
-  max: isPooler ? Math.max(config.dbPoolMax, 20) : apiPoolMax, // pooler can handle more
+  // Supavisor 경로(:6543)에서는 pooler가 connection multiplexing을 하므로
+  // 단일 풀로 config.dbPoolMax 전체를 쓴다 (batchPool도 같은 인스턴스 재사용).
+  max: isPooler ? config.dbPoolMax : apiPoolMax,
   min: isPooler ? 0 : 2,
   idleTimeoutMillis: config.dbIdleTimeoutMs,
   connectionTimeoutMillis: config.dbConnectionTimeoutMs,
