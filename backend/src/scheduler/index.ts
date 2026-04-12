@@ -21,7 +21,13 @@ import { checkPipelineHealth } from '../services/pipelineHealth.js';
 import { runTrackBDecay } from '../services/decayUpdater.js';
 import { runKeywordIdfBatch, getKeywordIdfCoverage, cleanStaleKeywordIdf } from '../services/keywordIdfBatch.js';
 import { runQualityMetricsBatch, cleanStaleQualityMetrics, getLatestMetric } from '../services/qualityMetricsBatch.js';
-import { notifyPipelineWarning } from '../services/discord.js';
+import {
+  runQualityJudgeBatch,
+  aggregateJudgments,
+  persistJudgeMetrics,
+  formatJudgeReport,
+} from '../services/qualityJudge.js';
+import { notifyPipelineWarning, notifyQualityReport } from '../services/discord.js';
 
 function captureError(err: unknown): void {
   console.error(err);
@@ -240,6 +246,43 @@ function startCronJobs(): void {
     }
   });
   console.log('[scheduler] backup: 17:00 UTC daily (02:00 KST)');
+
+  // 품질 플라이휠 Stage 2 — LLM judge: 02:00 KST 평가 → 02:30 KST Discord 리포트
+  // KST 02:00 = UTC 17:00 / KST 02:30 = UTC 17:30. quiet hours 한가운데라 트래픽 0.
+  // 평가 결과를 모듈 스코프로 들고 30분 후 같은 프로세스에서 리포트하도록 캐시.
+  let lastJudgeReport: { at: number; report: string } | null = null;
+  cron.schedule('0 17 * * *', async () => {
+    try {
+      const flags = await loadFeatureFlags();
+      if (!flags.gemini_summary_enabled) {
+        console.log('[scheduler] qualityJudge skipped — gemini disabled');
+        return;
+      }
+      const batchResult = await runQualityJudgeBatch(batchPool);
+      const aggregate = aggregateJudgments(batchResult.results);
+      await persistJudgeMetrics(batchPool, aggregate).catch(captureError);
+      lastJudgeReport = {
+        at: Date.now(),
+        report: formatJudgeReport({ batchResult, aggregate }),
+      };
+    } catch (err) {
+      captureError(err);
+    }
+  });
+  console.log('[scheduler] quality judge: 17:00 UTC daily (02:00 KST)');
+
+  cron.schedule('30 17 * * *', async () => {
+    try {
+      if (!lastJudgeReport || Date.now() - lastJudgeReport.at > 60 * 60 * 1000) {
+        await notifyQualityReport('품질 리포트: 평가 결과 없음 (judge 미실행 또는 실패)');
+        return;
+      }
+      await notifyQualityReport(lastJudgeReport.report);
+    } catch (err) {
+      captureError(err);
+    }
+  });
+  console.log('[scheduler] quality report: 17:30 UTC daily (02:30 KST)');
 
   // 02:00 + 14:00 KST = 17:00, 05:00 UTC (피크 시간 회피) — DB 한도 대응
   cron.schedule('0 17,5 * * *', async () => {

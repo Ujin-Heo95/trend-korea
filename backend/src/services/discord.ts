@@ -148,6 +148,30 @@ export async function notifyPipelineWarning(
   }
 }
 
+export async function notifyQualityReport(message: string): Promise<void> {
+  if (!config.discordWebhookUrl) return;
+  const body = {
+    embeds: [
+      {
+        title: '🧪 일일 품질 리포트 (LLM judge)',
+        description: message.slice(0, 1500),
+        color: 0x4477ee,
+        footer: { text: new Date().toISOString() },
+      },
+    ],
+  };
+  try {
+    const res = await fetch(config.discordWebhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) console.error(`[discord] quality report webhook failed: ${res.status}`);
+  } catch (err) {
+    logger.error({ err }, '[discord] quality report webhook error');
+  }
+}
+
 export async function notifyBudgetAlert(
   usedCents: number,
   budgetCents: number,

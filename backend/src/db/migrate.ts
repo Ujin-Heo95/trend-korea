@@ -67,6 +67,7 @@ const migrations = [
   '058_news_signal_v7.sql',
   '059_keyword_idf.sql',
   '060_quality_metrics.sql',
+  '061_issue_quality_judgments.sql',
 ];
 
 try {
