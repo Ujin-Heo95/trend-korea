@@ -14,9 +14,13 @@ vi.mock('../../src/services/pipelineLock.js', () => ({
 }));
 const aggregateMock = vi.fn().mockResolvedValue(undefined);
 const materializeMock = vi.fn().mockResolvedValue(undefined);
+const calculateScoresMock = vi.fn().mockResolvedValue(undefined);
 vi.mock('../../src/services/issueAggregator.js', () => ({
   aggregateIssues: aggregateMock,
   materializeIssueResponse: materializeMock,
+}));
+vi.mock('../../src/services/scoring.js', () => ({
+  calculateScores: calculateScoresMock,
 }));
 const clearCacheMock = vi.fn();
 vi.mock('../../src/routes/issues.js', () => ({
@@ -34,6 +38,7 @@ describe('runIssueWatchdog (L1)', () => {
     aggregateMock.mockClear();
     materializeMock.mockClear();
     clearCacheMock.mockClear();
+    calculateScoresMock.mockClear();
   });
 
   it('returns ok when MAX(calculated_at) age < 15 min', async () => {
@@ -41,12 +46,14 @@ describe('runIssueWatchdog (L1)', () => {
     const result = await runIssueWatchdog(pool);
     expect(result).toBe('ok');
     expect(aggregateMock).not.toHaveBeenCalled();
+    expect(calculateScoresMock).not.toHaveBeenCalled();
   });
 
-  it('forces recovery when stale > 15 min', async () => {
+  it('forces full critical path recovery when stale > 15 min (includes calculateScores)', async () => {
     const pool = makePool(async () => ({ rows: [{ age_sec: 18 * 60 }] }));
     const result = await runIssueWatchdog(pool);
     expect(result).toBe('recovered');
+    expect(calculateScoresMock).toHaveBeenCalledOnce();
     expect(aggregateMock).toHaveBeenCalledOnce();
     expect(materializeMock).toHaveBeenCalledOnce();
     expect(clearCacheMock).toHaveBeenCalledOnce();
@@ -75,11 +82,11 @@ describe('runIssueProbe (L2)', () => {
   it('passes when fresh + coherent', async () => {
     const now = Date.now();
     const issues = [
-      { title: 'topic alpha news one', summary: 'real summary', calculated_at: new Date(now - 60_000).toISOString() },
-      { title: 'topic beta news two', summary: 'real summary', calculated_at: new Date(now - 60_000).toISOString() },
-      { title: 'topic gamma news three', summary: 'real summary', calculated_at: new Date(now - 60_000).toISOString() },
-      { title: 'topic delta news four', summary: 'real summary', calculated_at: new Date(now - 60_000).toISOString() },
-      { title: 'topic epsilon news five', summary: 'real summary', calculated_at: new Date(now - 60_000).toISOString() },
+      { title: 'topic alpha news one', summary: 'real summary', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
+      { title: 'topic beta news two', summary: 'real summary', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
+      { title: 'topic gamma news three', summary: 'real summary', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
+      { title: 'topic delta news four', summary: 'real summary', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
+      { title: 'topic epsilon news five', summary: 'real summary', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
     ];
     const pool = makePool(async () => ({ rows: issues }));
     const result = await runIssueProbe(pool);
@@ -92,11 +99,11 @@ describe('runIssueProbe (L2)', () => {
     const now = Date.now();
     const dup = 'same exact title every where';
     const issues = [
-      { title: dup, summary: 'x', calculated_at: new Date(now - 60_000).toISOString() },
-      { title: dup, summary: 'x', calculated_at: new Date(now - 60_000).toISOString() },
-      { title: 'other unique title alpha', summary: 'x', calculated_at: new Date(now - 60_000).toISOString() },
-      { title: 'other unique title beta', summary: 'x', calculated_at: new Date(now - 60_000).toISOString() },
-      { title: 'other unique title gamma', summary: 'x', calculated_at: new Date(now - 60_000).toISOString() },
+      { title: dup, summary: 'x', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
+      { title: dup, summary: 'x', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
+      { title: 'other unique title alpha', summary: 'x', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
+      { title: 'other unique title beta', summary: 'x', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
+      { title: 'other unique title gamma', summary: 'x', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
     ];
     const pool = makePool(async () => ({ rows: issues }));
     const result = await runIssueProbe(pool);
@@ -125,6 +132,9 @@ describe('runIssueProbe (L2)', () => {
       title: `title ${i} unique text here`,
       summary: 'real',
       calculated_at: new Date(now - 400_000).toISOString(), // 6.6min ago
+      news_post_count: 3,
+      cluster_ids: [],
+      standalone_post_ids: [],
     }));
     const pool = makePool(async () => ({ rows: issues }));
     const result = await runIssueProbe(pool);
@@ -132,14 +142,30 @@ describe('runIssueProbe (L2)', () => {
     expect((result.age_sec ?? 0) > 300).toBe(true);
   });
 
+  it('detects zombie data — all rows with news_post_count=0 (2026-04-12 empty UI fix)', async () => {
+    const now = Date.now();
+    const issues = Array.from({ length: 5 }, (_, i) => ({
+      title: `zombie title ${i} valid text`,
+      summary: 'real',
+      calculated_at: new Date(now - 60_000).toISOString(),
+      news_post_count: 0, // 전 행이 news 0 → route 가 빈 배열 반환
+      cluster_ids: [],
+      standalone_post_ids: [],
+    }));
+    const pool = makePool(async () => ({ rows: issues }));
+    const result = await runIssueProbe(pool);
+    expect(result.ok).toBe(false);
+    expect(result.reasons.join(',')).toContain('zombie_data');
+  });
+
   it('short titles (<8 chars) are not considered for dup check', async () => {
     const now = Date.now();
     const issues = [
-      { title: '속보', summary: 'x', calculated_at: new Date(now - 60_000).toISOString() },
-      { title: '속보', summary: 'x', calculated_at: new Date(now - 60_000).toISOString() },
-      { title: 'full length unique title a', summary: 'x', calculated_at: new Date(now - 60_000).toISOString() },
-      { title: 'full length unique title b', summary: 'x', calculated_at: new Date(now - 60_000).toISOString() },
-      { title: 'full length unique title c', summary: 'x', calculated_at: new Date(now - 60_000).toISOString() },
+      { title: '속보', summary: 'x', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
+      { title: '속보', summary: 'x', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
+      { title: 'full length unique title a', summary: 'x', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
+      { title: 'full length unique title b', summary: 'x', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
+      { title: 'full length unique title c', summary: 'x', calculated_at: new Date(now - 60_000).toISOString(), news_post_count: 3, cluster_ids: [], standalone_post_ids: [] },
     ];
     const pool = makePool(async () => ({ rows: issues }));
     const result = await runIssueProbe(pool);

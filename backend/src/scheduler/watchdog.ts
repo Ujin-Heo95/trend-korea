@@ -28,6 +28,7 @@ import type { Pool } from 'pg';
 import { logger } from '../utils/logger.js';
 import { notifyPipelineWarning } from '../services/discord.js';
 import { aggregateIssues, materializeIssueResponse } from '../services/issueAggregator.js';
+import { calculateScores } from '../services/scoring.js';
 import { clearIssuesCache } from '../routes/issues.js';
 import { withPipelineLock, PIPELINE_LOCK_KEYS } from '../services/pipelineLock.js';
 
@@ -105,7 +106,12 @@ export async function runIssueWatchdog(pool: Pool): Promise<'ok' | 'stale' | 're
 async function forceRecovery(pool: Pool, reason: string): Promise<'recovered' | 'failed'> {
   const result = await withPipelineLock(pool, PIPELINE_LOCK_KEYS.issuePipeline, 'watchdog-recovery', async () => {
     try {
-      logger.warn({ reason }, '[watchdog] forcing aggregateIssues + materialize');
+      // 2026-04-12 22:51 사고: watchdog 이 aggregateIssues 만 돌려서 복구를 시도했으나
+      //   post_scores 가 stale (worker 가 stopped 라 calculateScores 가 안 돌았음) → aggregator 가
+      //   old post reference 로 issue_rankings 를 채웠고 route 의 posts join 에서 전부 드롭.
+      //   반드시 calculateScores → aggregateIssues → materialize 순서로 critical path 전체 실행.
+      logger.warn({ reason }, '[watchdog] forcing calculateScores + aggregateIssues + materialize');
+      await calculateScores(pool);
       await aggregateIssues(pool);
       await materializeIssueResponse(pool);
       clearIssuesCache(`watchdog-recovery:${reason}`);
@@ -143,14 +149,27 @@ export async function runIssueProbe(pool: Pool): Promise<ProbeResult> {
       title: string;
       summary: string | null;
       calculated_at: string;
+      news_post_count: number;
+      cluster_ids: number[];
+      standalone_post_ids: number[];
     }>(
-      `SELECT title, summary, calculated_at::text
+      `SELECT title, summary, calculated_at::text, news_post_count, cluster_ids, standalone_post_ids
          FROM issue_rankings
         WHERE expires_at > NOW() AND window_hours = $1
         ORDER BY issue_score DESC
         LIMIT 15`,
       [PROBE_WINDOW],
     );
+
+    // 좀비 데이터 감지 — issue_rankings 에는 행이 있는데 news_post_count 가 전부 0 이면
+    // posts join 이 실패해 API 가 빈 배열을 반환하는 상태.
+    //   2026-04-12 22:51 사고 재현: worker stopped → calculateScores 스킵 →
+    //   aggregator 가 old post ref 로 행을 채움 → news join 0 → 사용자 화면 빈 카드.
+    //   probe 가 이 패턴을 reason 으로 잡고 L1 이 calculateScores 포함 full recovery 를 돌림.
+    const zeroNewsCount = issues.filter(i => (i.news_post_count ?? 0) === 0).length;
+    if (issues.length > 0 && zeroNewsCount === issues.length) {
+      reasons.push(`zombie_data=all_${issues.length}_rows_news_count_0`);
+    }
 
     // (a) data age
     let ageSec: number | null = null;
