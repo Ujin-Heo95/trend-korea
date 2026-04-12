@@ -1000,11 +1000,29 @@ function breakingKeywordBoost(group: IssueGroup, cfg: IssueConfig): number {
   return 1.0 + (cfg.breakingKwMaxBoost - 1.0) * Math.exp(-LN2 * newestBreakingAge / cfg.breakingKwHalflife);
 }
 
+// 이슈카드 앵커 카테고리 — 뉴스 OR 포털 (2026-04-12 명시화).
+//   이전: g.newsPosts.length > 0 (getChannel('portal')==='news' 매핑에 암묵 의존).
+//   현재: category 를 직접 체크 — 'news' OR 'portal'. naver_news_ranking/nate_news/zum_news
+//   등 포털 소스(category='portal') 만으로도 이슈카드 노출 허용. newsletter/government
+//   등 부가 카테고리는 뉴스 부재 시 단독 앵커로 쓰지 않음.
+const NEWS_OR_PORTAL_ANCHOR = new Set(['news', 'portal']);
+
+function hasNewsOrPortalAnchor(g: IssueGroup): boolean {
+  for (const p of g.newsPosts) {
+    if (NEWS_OR_PORTAL_ANCHOR.has(p.category ?? '')) return true;
+  }
+  for (const p of g.communityPosts) {
+    if (NEWS_OR_PORTAL_ANCHOR.has(p.category ?? '')) return true;
+  }
+  for (const p of g.videoPosts) {
+    if (NEWS_OR_PORTAL_ANCHOR.has(p.category ?? '')) return true;
+  }
+  return false;
+}
+
 function scoreAndFilter(groups: readonly IssueGroup[], cfg: IssueConfig): ScoredIssue[] {
-  // 뉴스 앵커 필수: 뉴스 카테고리 post 가 ≥1개 있어야 이슈카드 후보.
-  // video/community 단독 이슈는 드롭 — 사용자에게 "관련 보도 0건" 카드가 노출되는 사고 차단.
-  // (news-채널 YouTube 도 뉴스 본문이 없으면 anchor 자격 없음)
-  const anchored = groups.filter(g => g.newsPosts.length > 0);
+  // 뉴스 OR 포털 앵커 필수: video/community 단독 이슈는 드롭.
+  const anchored = groups.filter(hasNewsOrPortalAnchor);
 
   // Fix 4: 커뮤니티 동적 가중치를 위한 중앙값 계산
   const communityScores = anchored.map(g =>
