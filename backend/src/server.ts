@@ -128,9 +128,12 @@ export async function buildApp() {
     } else if (url.startsWith('/api/sources')) {
       reply.header('cache-control', 'public, max-age=300, s-maxage=600');
     } else if (url.startsWith('/api/issues')) {
-      reply.header('cache-control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=60');
+      // 신선도 우선: 종합 탭은 10분 tick 후 즉시 반영돼야 함. CDN/브라우저 캐시는
+      // 5번 재발한 stale 사고의 직접 원인이므로 명시적으로 끔. /api/issues/version 폴링이
+      // 변경 감지를 담당하고, freshness 메타가 사용자 측 자동 invalidate 를 트리거함.
+      reply.header('cache-control', 'no-cache, no-store, must-revalidate');
     } else if (url.startsWith('/api/posts')) {
-      reply.header('cache-control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=30');
+      reply.header('cache-control', 'no-cache, no-store, must-revalidate');
     } else if (url.startsWith('/api/og/') || url.startsWith('/api/sitemap')) {
       reply.header('cache-control', 'public, max-age=3600');
     } else if (url.startsWith('/api/')) {

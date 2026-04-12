@@ -20,7 +20,7 @@ const CATEGORY_BADGE: Record<string, string> = {
 // ─── Main Component ───
 
 export const IssueRankingList: React.FC<{ window?: TimeWindow }> = ({ window = '12h' }) => {
-  const { data, isLoading, isError } = useIssueRankings(window);
+  const { data, isLoading, isError, showStaleBanner } = useIssueRankings(window);
 
   if (isLoading) return <IssueRankingSkeleton />;
   if (isError || !data) {
@@ -35,7 +35,7 @@ export const IssueRankingList: React.FC<{ window?: TimeWindow }> = ({ window = '
   if (data.issues.length === 0) {
     return (
       <div className="text-center py-16 text-slate-400 dark:text-slate-500">
-        <p className="text-lg mb-1">이슈 데이��를 준비 중입니다</p>
+        <p className="text-lg mb-1">이슈 데이터를 준비 중입니다</p>
         <p className="text-sm">잠시만 기다려 주세요</p>
       </div>
     );
@@ -43,12 +43,28 @@ export const IssueRankingList: React.FC<{ window?: TimeWindow }> = ({ window = '
 
   return (
     <div>
+      {showStaleBanner && <StaleWarningBanner ageSeconds={data.freshness?.data_age_seconds ?? null} />}
       <AggregationTimestamp calculatedAt={data.calculated_at} />
       <div className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
         {data.issues.map((issue) => (
           <IssueCard key={issue.id} issue={issue} />
         ))}
       </div>
+    </div>
+  );
+};
+
+// ─── Stale Warning Banner ───
+// 백엔드 freshness.is_stale 가 2회 연속 true 일 때만 노출. 5번째 stale 사고 재발 방지의 사용자측 신호.
+const StaleWarningBanner: React.FC<{ ageSeconds: number | null }> = ({ ageSeconds }) => {
+  const minutes = ageSeconds !== null ? Math.round(ageSeconds / 60) : null;
+  return (
+    <div
+      role="status"
+      className="mx-2 my-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+    >
+      ⚠️ 일부 데이터가 최신이 아닐 수 있습니다{minutes !== null ? ` (마지막 갱신: ${minutes}분 전)` : ''}.
+      자동 재시도 중입니다.
     </div>
   );
 };

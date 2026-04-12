@@ -220,7 +220,7 @@ function startCronJobs(): void {
         await monitorQualityMetrics();
         await checkPipelineHealth(batchPool).catch(captureError);
       } finally {
-        clearIssuesCache();
+        clearIssuesCache('pipeline-tick-complete');
         logPoolStats('pipeline-end');
       }
     }).catch(captureError);
@@ -256,8 +256,13 @@ function startCronJobs(): void {
         if (!flags.gemini_summary_enabled) return;
         await summarizeAndUpdateIssues(batchPool);
         // 요약 결과 반영: materialized 재생성 + 응답 캐시 무효화
-        await materializeIssueResponse(batchPool).catch(captureError);
-        clearIssuesCache();
+        // materializeIssueResponse 실패는 silent 였지만, stale 사고 5번째 재발 후 알람으로 승격.
+        await materializeIssueResponse(batchPool).catch((err) => {
+          captureError(err);
+          const msg = err instanceof Error ? err.message : String(err);
+          notifyPipelineWarning('materializeResponse(summary-tick)', msg).catch(() => {});
+        });
+        clearIssuesCache('summary-tick-complete');
       } catch (err) {
         captureError(err);
       }

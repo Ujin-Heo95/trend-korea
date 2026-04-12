@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { LRUCache } from '../cache/lru.js';
 import type { IssueRankingRow } from '../db/types.js';
 
@@ -6,10 +6,60 @@ const issuesCache = new LRUCache<unknown>(50, 600_000);
 // version 엔드포인트는 독립 캐시 — 15초 TTL로 clearIssuesCache 누락 시에도 자동 복구
 const versionCache = new LRUCache<unknown>(1, 15_000);
 
-/** 외부에서 캐시 무효화 (요약 완료 후 호출) */
-export function clearIssuesCache(): void {
+// ── 신선도 SLO ──
+// 파이프라인 cron 10분 + 요약 tick(+2분) + 여유 3분. 이 값을 넘으면 stale 로 간주.
+export const ISSUE_DATA_SLO_SECONDS = 900;
+
+// 캐시 invalidation 텔레메트리 (재발 시 5분 내 진단을 위해 마지막 호출 사유 보관)
+interface CacheTelemetry {
+  last_clear_at: string | null;
+  last_clear_reason: string | null;
+}
+const cacheTelemetry: CacheTelemetry = { last_clear_at: null, last_clear_reason: null };
+
+export function getIssuesCacheTelemetry(): Readonly<CacheTelemetry> {
+  return cacheTelemetry;
+}
+
+/** 외부에서 캐시 무효화 (요약 완료 후 호출). reason 은 디버깅 텔레메트리에 기록. */
+export function clearIssuesCache(reason: string = 'unknown'): void {
   issuesCache.clear();
   versionCache.clear();
+  cacheTelemetry.last_clear_at = new Date().toISOString();
+  cacheTelemetry.last_clear_reason = reason;
+}
+
+type FreshnessSource = 'materialized' | 'live' | 'empty';
+
+interface FreshnessMeta {
+  calculated_at: string | null;
+  data_age_seconds: number | null;
+  slo_seconds: number;
+  is_stale: boolean;
+  source: FreshnessSource;
+}
+
+function buildFreshness(calculatedAt: string | null, source: FreshnessSource): FreshnessMeta {
+  if (!calculatedAt) {
+    return { calculated_at: null, data_age_seconds: null, slo_seconds: ISSUE_DATA_SLO_SECONDS, is_stale: true, source };
+  }
+  const ageMs = Date.now() - new Date(calculatedAt).getTime();
+  const ageSec = Math.max(0, Math.round(ageMs / 1000));
+  return {
+    calculated_at: calculatedAt,
+    data_age_seconds: ageSec,
+    slo_seconds: ISSUE_DATA_SLO_SECONDS,
+    is_stale: ageSec > ISSUE_DATA_SLO_SECONDS,
+    source,
+  };
+}
+
+function setFreshnessHeaders(reply: FastifyReply, freshness: FreshnessMeta): void {
+  if (freshness.data_age_seconds !== null) {
+    reply.header('x-data-age-seconds', String(freshness.data_age_seconds));
+  }
+  reply.header('x-data-source', freshness.source);
+  reply.header('x-data-stale', freshness.is_stale ? '1' : '0');
 }
 
 interface RelatedPost {
@@ -110,7 +160,7 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         },
       },
     },
-    async (req) => {
+    async (req, reply) => {
       const limit = req.query.limit ?? 20;
       const page = req.query.page ?? 1;
       const cursorScore = req.query.cursor_score;
@@ -119,23 +169,33 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
       const windowHours = WINDOW_MAP[windowParam] ?? 12;
       const offset = (page - 1) * limit;
 
+      // 캐시는 페이로드 + 데이터 소스 식별만 보관. freshness 는 매 요청마다 NOW() 기준 재계산
+      // (캐시된 calculated_at 자체는 stale 되지 않으므로 시간 흐름에 따른 SLO 판단이 가능)
+      type CachedPayload = { data: unknown; calculatedAt: string | null; source: FreshnessSource };
       const cacheKey = `issues:${windowParam}:${page}:${limit}`;
-      const cached = issuesCache.get(cacheKey);
-      if (cached) return cached;
+      const cached = issuesCache.get(cacheKey) as CachedPayload | undefined;
+      if (cached) {
+        const freshness = buildFreshness(cached.calculatedAt, cached.source);
+        setFreshnessHeaders(reply, freshness);
+        return { ...(cached.data as object), freshness };
+      }
 
       // Try materialized response first (pre-computed, fastest path)
       // 20분 이상 된 materialized는 무시 → fallback live query로 우회 (stale 방지)
       if (limit === 20) {
-        const { rows: matRows } = await app.pg.query<{ response_json: unknown }>(
-          `SELECT response_json FROM issue_rankings_materialized
+        const { rows: matRows } = await app.pg.query<{ response_json: unknown; calculated_at: string }>(
+          `SELECT response_json, calculated_at::text AS calculated_at FROM issue_rankings_materialized
             WHERE page = $1 AND page_size = $2 AND window_hours = $3
               AND calculated_at > NOW() - INTERVAL '20 minutes'`,
           [page, 20, windowHours],
         );
         if (matRows.length > 0 && matRows[0].response_json) {
-          const result = applySafetyNet(matRows[0].response_json);
-          issuesCache.set(cacheKey, result);
-          return result;
+          const data = applySafetyNet(matRows[0].response_json);
+          const calculatedAt = matRows[0].calculated_at;
+          issuesCache.set(cacheKey, { data, calculatedAt, source: 'materialized' } satisfies CachedPayload);
+          const freshness = buildFreshness(calculatedAt, 'materialized');
+          setFreshnessHeaders(reply, freshness);
+          return { ...(data as object), freshness };
         }
       }
 
@@ -170,8 +230,10 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
       const issues = issueResult.rows;
       if (issues.length === 0) {
         const empty = { issues: [], total: 0, calculated_at: null };
-        issuesCache.set(cacheKey, empty);
-        return empty;
+        issuesCache.set(cacheKey, { data: empty, calculatedAt: null, source: 'empty' } satisfies CachedPayload);
+        const freshness = buildFreshness(null, 'empty');
+        setFreshnessHeaders(reply, freshness);
+        return { ...empty, freshness };
       }
 
       // Collect all post IDs to fetch in one query
@@ -308,14 +370,17 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         ? { cursor_score: lastIssue.issue_score, cursor_id: lastIssue.id }
         : null;
 
+      const calculatedAt = (issues[0]?.calculated_at as string | undefined) ?? null;
       const result = {
         issues: responseIssues,
         total: countResult.rows[0].total,
-        calculated_at: issues[0]?.calculated_at ?? null,
+        calculated_at: calculatedAt,
         next_cursor: nextCursor,
       };
-      issuesCache.set(cacheKey, result);
-      return result;
+      issuesCache.set(cacheKey, { data: result, calculatedAt, source: 'live' } satisfies CachedPayload);
+      const freshness = buildFreshness(calculatedAt, 'live');
+      setFreshnessHeaders(reply, freshness);
+      return { ...result, freshness };
     },
   );
 }

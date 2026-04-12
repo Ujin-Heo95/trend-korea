@@ -6,6 +6,19 @@ import { pool, batchPool } from '../db/client.js';
 import { getEmbeddingCacheSize } from '../services/embedding.js';
 import { getFeatureFlags } from '../services/featureFlags.js';
 import { getCircuitStates, CIRCUIT_BREAKER_COOLDOWN_MS } from '../scrapers/base.js';
+import { ISSUE_DATA_SLO_SECONDS, getIssuesCacheTelemetry } from './issues.js';
+
+async function readIssueDataAgeSeconds(app: FastifyInstance): Promise<number | null> {
+  try {
+    const { rows } = await app.pg.query<{ age_sec: number | null }>(
+      `SELECT EXTRACT(EPOCH FROM (NOW() - MAX(calculated_at)))::int AS age_sec
+         FROM issue_rankings WHERE expires_at > NOW()`,
+    );
+    return rows[0]?.age_sec ?? null;
+  } catch {
+    return null;
+  }
+}
 
 interface ScraperRunRow {
   source_key: string;
@@ -26,9 +39,22 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
       dbConnected = false;
     }
 
-    // 공개 응답: 서버 활성 상태만 반환 (DB 실패해도 200 — healthcheck 통과)
+    // 공개 응답: 서버 활성 상태 + 이슈 데이터 신선도. SLO 초과 시 503 (UptimeRobot 트리거).
+    // DB 실패는 200 'degraded' 유지 — healthcheck 자체는 통과 (Fly process restart 회피).
     if (!isAdmin) {
-      return reply.status(200).send({ status: dbConnected ? 'ok' : 'degraded', db: { connected: dbConnected } });
+      const issueDataAgeSec = dbConnected ? await readIssueDataAgeSeconds(app) : null;
+      const isStale = issueDataAgeSec !== null && issueDataAgeSec > ISSUE_DATA_SLO_SECONDS;
+      const status = !dbConnected ? 'degraded' : isStale ? 'stale' : 'ok';
+      const httpStatus = isStale ? 503 : 200;
+      return reply.status(httpStatus).send({
+        status,
+        db: { connected: dbConnected },
+        issue_data: {
+          age_seconds: issueDataAgeSec,
+          slo_seconds: ISSUE_DATA_SLO_SECONDS,
+          is_stale: isStale,
+        },
+      });
     }
 
     if (!dbConnected) {
@@ -72,9 +98,18 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
 
     const apiKeys = await checkApiKeys();
     const hasInvalidKey = apiKeys.some(k => k.valid === false);
+    const issueDataAgeSec = await readIssueDataAgeSeconds(app);
+    const issueIsStale = issueDataAgeSec !== null && issueDataAgeSec > ISSUE_DATA_SLO_SECONDS;
+    const cacheTelemetry = getIssuesCacheTelemetry();
 
     return reply.status(200).send({
-      status: failedLastRun === 0 && !hasInvalidKey ? 'ok' : 'degraded',
+      status: failedLastRun === 0 && !hasInvalidKey && !issueIsStale ? 'ok' : 'degraded',
+      issue_data: {
+        age_seconds: issueDataAgeSec,
+        slo_seconds: ISSUE_DATA_SLO_SECONDS,
+        is_stale: issueIsStale,
+      },
+      issues_cache: cacheTelemetry,
       db: {
         connected: true,
         post_count: dbStats.post_count ?? 0,

@@ -85,10 +85,19 @@ export interface IssueRanking {
   channel_tags: ChannelTag[];
 }
 
+export interface FreshnessMeta {
+  calculated_at: string | null;
+  data_age_seconds: number | null;
+  slo_seconds: number;
+  is_stale: boolean;
+  source: 'materialized' | 'live' | 'empty';
+}
+
 export interface IssueRankingResponse {
   issues: IssueRanking[];
   total: number;
   calculated_at: string | null;
+  freshness?: FreshnessMeta;
 }
 
 // ── 이슈 상세 (posts 기반 — 다른 탭에서 사용) ─────────────
