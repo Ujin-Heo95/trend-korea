@@ -64,6 +64,7 @@ const migrations = [
   '055_issue_window_hours.sql',
   '056_issue_summary_cache.sql',
   '057_2track_scoring.sql',
+  '058_news_signal_v7.sql',
 ];
 
 try {
