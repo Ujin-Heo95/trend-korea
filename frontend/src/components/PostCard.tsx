@@ -129,36 +129,34 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
       })()}
 
       {expanded && post.related_sources && post.related_sources.length > 0 && (
-        <div className="px-4 pb-2 ml-10 space-y-1 border-l-2 border-slate-200 dark:border-slate-600 pl-3">
+        <div className="px-4 pb-2 ml-10 flex flex-wrap items-center gap-1.5 border-l-2 border-slate-200 dark:border-slate-600 pl-3">
           {post.related_sources.map((s) => {
             const isExternalSource = post.category === 'community' || NEWS_CATEGORIES.includes(post.category ?? '');
+            const chip = (
+              <span
+                className={`text-xs px-1.5 py-0.5 rounded ${getSourceColor(s.source_key)}`}
+                style={getSourceBrandStyle(s.source_key)}
+              >
+                {getSourceLabel(s.source_key, s.source_name)}
+              </span>
+            );
             return isExternalSource ? (
               <a
                 key={s.url}
                 href={s.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+                className="inline-flex hover:opacity-80 transition-opacity"
               >
-                <span
-                  className={`px-1.5 py-0.5 rounded ${getSourceColor(s.source_key)}`}
-                  style={getSourceBrandStyle(s.source_key)}
-                >
-                  {getSourceLabel(s.source_key, s.source_name)}
-                </span>
+                {chip}
               </a>
             ) : (
               <Link
                 key={s.url}
                 to={`/issue/${s.id}`}
-                className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+                className="inline-flex hover:opacity-80 transition-opacity"
               >
-                <span
-                  className={`px-1.5 py-0.5 rounded ${getSourceColor(s.source_key)}`}
-                  style={getSourceBrandStyle(s.source_key)}
-                >
-                  {getSourceLabel(s.source_key, s.source_name)}
-                </span>
+                {chip}
               </Link>
             );
           })}
