@@ -1,6 +1,7 @@
 # 콘텐츠 랭킹 시스템
 
-> 2026-04-11 현행. 뉴스 탭은 4항 가산 혼합 signalScore, 커뮤니티 탭은 곱셈 기반.
+> 2026-04-11 기준 (v6 뉴스 / v2 이슈). **v7 재설계 진행 중** — 증분 2-track + 임베딩 dedup + 요약 큐. 상세 `plans/luminous-drifting-shell.md`.
+> Gemini 모델: `gemini-2.5-flash` (요약), `text-embedding-004` (임베딩, 도입 예정).
 
 ---
 

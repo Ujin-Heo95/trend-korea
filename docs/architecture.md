@@ -1,6 +1,6 @@
 # Architecture
 
-> 2026-04-11 현행화. 120개 등록/82개 활성.
+> 2026-04-12 현행화. 111개 등록 / 78개 활성. 스코어링·요약 파이프라인 v7 재설계 진행 중 (`plans/luminous-drifting-shell.md`).
 
 ## System Overview
 
@@ -36,7 +36,7 @@
 ## Backend Data Flow
 
 ```
-sources.json (120개 소스 레지스트리, 82개 활성)
+sources.json (111개 소스 레지스트리, 78개 활성)
 └── registry.ts (로더: RSS 자동생성, HTML/API 동적 import)
 
 node-cron 우선순위 스케줄러 (8개 크론 잡)
@@ -101,7 +101,7 @@ BaseScraper (base.ts)
 │     seoul_cultural_event, kcisa_cca_performance, kcisa_cca_exhibition
 └── Apify (3개 비활성): instagram, x, tiktok (SNS 플랫폼 제약)
 
-총계: 120개 등록, 82개 활성
+총계: 111개 등록, 78개 활성 (community 17, news 25, portal 5, deals 6, video 5, music 5, government 3, trend 3, tech 2, books 2, ott 1, movie 1, webtoon 1, performance 1, alert 1; travel/techblog/sns/sports 일시 비활성)
 ```
 
 ## Database Schema

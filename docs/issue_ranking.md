@@ -1,14 +1,15 @@
 # 이슈 랭킹 파이프라인 (전체 탭)
 
-> 마지막 업데이트: 2026-04-11
+> 마지막 업데이트: 2026-04-12
 > 관련 파일: `scoring.md` (개별 포스트 스코어링), 본 문서 (이슈 집계 및 순위 결정)
+> **v3 재설계 진행 중**: `plans/luminous-drifting-shell.md` 참조. Step 3.5 임베딩 단일화 + Step 3.6(Gemini borderline) 제거 + `issueScore = rawScore × max(momentum×diversity, breaking)`.
 
 ## 1. 개요
 
 '전체' 탭은 개별 포스트가 아닌 **이슈(Issue)** 단위로 랭킹을 표시한다.
 이슈는 유사한 포스트들의 그룹이며, `issue_rankings` 테이블에 저장된다.
 
-**파이프라인 실행 주기**: 5분 (KST 02:00-06:00 quiet hours 제외)
+**파이프라인 실행 주기**: 10분 (`scheduler/index.ts:66-91`, KST 02:00-06:00 quiet hours 제외)
 
 ```
 calculateScores()       ← 개별 포스트 trend_score 계산 (scoring.ts)
