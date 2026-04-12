@@ -17,6 +17,7 @@ import { batchPool, logPoolStats } from '../db/client.js';
 import { runPipeline } from './pipeline.js';
 import { loadFeatureFlags } from '../services/featureFlags.js';
 import { enrichYoutubeEngagement } from '../services/youtubeEnrichment.js';
+import { checkPipelineHealth } from '../services/pipelineHealth.js';
 
 function captureError(err: unknown): void {
   console.error(err);
@@ -69,20 +70,24 @@ function startCronJobs(): void {
       return;
     }
     logPoolStats('pipeline-start');
-    const flags = await loadFeatureFlags();
-    await runPipeline('issue-pipeline', [
-      { name: 'calculateScores', run: () => calculateScores(batchPool), critical: true },
-      ...(flags.embeddings_enabled
-        ? [{ name: 'generateEmbeddings', run: () => generateEmbeddingsForRecentPosts(batchPool) }]
-        : []),
-      { name: 'aggregateIssues', run: () => aggregateIssues(batchPool), critical: true },
-      ...(flags.gemini_summary_enabled
-        ? [{ name: 'summarizeIssues', run: () => summarizeAndUpdateIssues(batchPool) }]
-        : []),
-      { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
-    ]);
-    clearIssuesCache();
-    logPoolStats('pipeline-end');
+    try {
+      const flags = await loadFeatureFlags();
+      await runPipeline('issue-pipeline', [
+        { name: 'calculateScores', run: () => calculateScores(batchPool), critical: true },
+        ...(flags.embeddings_enabled
+          ? [{ name: 'generateEmbeddings', run: () => generateEmbeddingsForRecentPosts(batchPool) }]
+          : []),
+        { name: 'aggregateIssues', run: () => aggregateIssues(batchPool), critical: true },
+        ...(flags.gemini_summary_enabled
+          ? [{ name: 'summarizeIssues', run: () => summarizeAndUpdateIssues(batchPool) }]
+          : []),
+        { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
+      ]);
+      await checkPipelineHealth(batchPool).catch(captureError);
+    } finally {
+      clearIssuesCache();
+      logPoolStats('pipeline-end');
+    }
   });
 
   // 교차검증: 15분 주기 (quiet hours 제외)

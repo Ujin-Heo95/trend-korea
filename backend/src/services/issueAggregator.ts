@@ -1085,7 +1085,7 @@ async function writeIssueRankings(pool: Pool, issues: readonly IssueRow[], windo
     );
     // 요약은 모든 윈도우에서 가져옴 (cross-window carry-forward)
     const summaryMap = new Map(
-      existingRows.filter(r => r.summary != null && r.stable_id != null && !r.summary.startsWith('관련 기사')).map(r => [r.stable_id, {
+      existingRows.filter(r => r.summary != null && r.stable_id != null && !r.summary.startsWith('[fallback]') && !r.summary.startsWith('관련 기사')).map(r => [r.stable_id, {
         title: r.title, summary: r.summary, categoryLabel: r.category_label,
         qualityScore: r.quality_score, aiKeywords: r.ai_keywords ?? [], sentiment: r.sentiment,
       }]),
@@ -1268,7 +1268,22 @@ export async function materializeIssueResponse(pool: Pool): Promise<void> {
      ORDER BY window_hours, issue_score DESC`,
   );
 
-  if (allIssues.length === 0) return;
+  // 0건이어도 materialized 테이블은 반드시 정리 — 낡은 응답이 무기한 반환되는 버그 방지
+  if (allIssues.length === 0) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM issue_rankings_materialized');
+      await client.query('COMMIT');
+      logger.warn('[materialize] no issues with summary — cleared materialized table');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+    return;
+  }
 
   // Group by window_hours
   const issuesByWindow = new Map<number, typeof allIssues>();

@@ -310,7 +310,7 @@ function makeFallbackSummary(posts: readonly PostForSummary[], rowId: number): I
   return {
     title: firstTitle.length > 25 ? firstTitle.slice(0, 25) : firstTitle,
     category: fallbackCategory(firstTitle),
-    summary: `관련 기사 ${posts.length}건`,
+    summary: `[fallback] 관련 기사 ${posts.length}건`,
     qualityScore: null,
     keywords: [],
     sentiment: null,
@@ -319,20 +319,25 @@ function makeFallbackSummary(posts: readonly PostForSummary[], rowId: number): I
 
 // ─── Pipeline ───
 
-/** Summarize top issues individually and update DB */
+/** Summarize top issues individually and update DB.
+ *  윈도우별로 공평하게 slot 할당하여 6h/24h가 starvation 되지 않도록 함. */
 export async function summarizeAndUpdateIssues(
   pool: import('pg').Pool,
-  maxIssues = 30,
+  maxIssuesPerWindow = 15,
 ): Promise<number> {
   pruneCache();
 
+  // PARTITION BY window_hours로 윈도우당 top-N만 선택 — 3-윈도우 합 최대 45개
   const { rows } = await pool.query<IssueRow>(
-    `SELECT id, cluster_ids, standalone_post_ids, summary, stable_id
-     FROM issue_rankings
-     WHERE summary IS NULL OR summary LIKE '관련 기사%'
-     ORDER BY issue_score DESC
-     LIMIT $1`,
-    [maxIssues],
+    `SELECT id, cluster_ids, standalone_post_ids, summary, stable_id FROM (
+       SELECT id, cluster_ids, standalone_post_ids, summary, stable_id,
+              ROW_NUMBER() OVER (PARTITION BY window_hours ORDER BY issue_score DESC) AS rn
+         FROM issue_rankings
+        WHERE expires_at > NOW()
+          AND (summary IS NULL OR summary LIKE '[fallback]%')
+     ) t
+     WHERE t.rn <= $1`,
+    [maxIssuesPerWindow],
   );
 
   if (rows.length === 0) return 0;

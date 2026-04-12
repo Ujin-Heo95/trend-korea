@@ -3,10 +3,13 @@ import { LRUCache } from '../cache/lru.js';
 import type { IssueRankingRow } from '../db/types.js';
 
 const issuesCache = new LRUCache<unknown>(50, 600_000);
+// version 엔드포인트는 독립 캐시 — 15초 TTL로 clearIssuesCache 누락 시에도 자동 복구
+const versionCache = new LRUCache<unknown>(1, 15_000);
 
 /** 외부에서 캐시 무효화 (요약 완료 후 호출) */
 export function clearIssuesCache(): void {
   issuesCache.clear();
+  versionCache.clear();
 }
 
 interface RelatedPost {
@@ -34,16 +37,17 @@ const SNS_SOURCES = new Set([
 
 export async function issueRoutes(app: FastifyInstance): Promise<void> {
   // 경량 버전 체크 — 프론트엔드가 30초마다 폴링하여 갱신 감지
+  // 독립 캐시(15초 TTL) — clearIssuesCache 누락 시에도 자동 복구
   app.get('/api/issues/version', async () => {
     const cacheKey = 'issues-version';
-    const cached = issuesCache.get(cacheKey);
+    const cached = versionCache.get(cacheKey);
     if (cached) return cached;
 
     const { rows } = await app.pg.query<{ calculated_at: string | null }>(
       `SELECT MAX(calculated_at)::text AS calculated_at FROM issue_rankings WHERE expires_at > NOW()`,
     );
     const result = { calculated_at: rows[0]?.calculated_at ?? null };
-    issuesCache.set(cacheKey, result);
+    versionCache.set(cacheKey, result);
     return result;
   });
 
@@ -79,9 +83,12 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
       if (cached) return cached;
 
       // Try materialized response first (pre-computed, fastest path)
+      // 20분 이상 된 materialized는 무시 → fallback live query로 우회 (stale 방지)
       if (limit === 20) {
         const { rows: matRows } = await app.pg.query<{ response_json: unknown }>(
-          `SELECT response_json FROM issue_rankings_materialized WHERE page = $1 AND page_size = $2 AND window_hours = $3`,
+          `SELECT response_json FROM issue_rankings_materialized
+            WHERE page = $1 AND page_size = $2 AND window_hours = $3
+              AND calculated_at > NOW() - INTERVAL '20 minutes'`,
           [page, 20, windowHours],
         );
         if (matRows.length > 0 && matRows[0].response_json) {
