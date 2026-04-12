@@ -23,6 +23,7 @@ import { runKeywordIdfBatch, getKeywordIdfCoverage, cleanStaleKeywordIdf } from 
 import { runQualityMetricsBatch, cleanStaleQualityMetrics, getLatestMetric } from '../services/qualityMetricsBatch.js';
 import { runMergeArbiterWorker } from '../services/mergeArbiterWorker.js';
 import { withPipelineLock, PIPELINE_LOCK_KEYS } from '../services/pipelineLock.js';
+import { runIssueWatchdog, runIssueProbe, resetDailyCounters } from './watchdog.js';
 import {
   runQualityJudgeBatch,
   aggregateJudgments,
@@ -303,6 +304,29 @@ function startCronJobs(): void {
     await snapshotRankings(batchPool).catch(captureError);
   });
   console.log('[scheduler] rank snapshot: hourly');
+
+  // L1 — stale watchdog: 2분 주기 (quiet hours 제외)
+  //   MAX(calculated_at) > 15분 경과면 즉시 aggregateIssues + materialize 강제 실행.
+  //   지난 세션 사고들(TDZ, silent abort, cross-process clearCache 실패)처럼 정상
+  //   cron 이 이유없이 멈추는 경우 자동 복구. pipelineLock 공유.
+  cron.schedule('*/2 * * * *', async () => {
+    if (isQuietHours()) return;
+    await runIssueWatchdog(batchPool).catch(captureError);
+  });
+  console.log('[scheduler] L1 issue watchdog: every 2 min');
+
+  // L2 — synthetic probe: 3분 주기 (quiet hours 제외)
+  //   사용자 쿼리 기준 검사: age/count/duplicate/fallback ratio. 실패 시 L1 트리거.
+  cron.schedule('*/3 * * * *', async () => {
+    if (isQuietHours()) return;
+    await runIssueProbe(batchPool).catch(captureError);
+  });
+  console.log('[scheduler] L2 synthetic probe: every 3 min');
+
+  // 24h 카운터 리셋: 매일 00:00 UTC (09:00 KST)
+  cron.schedule('0 0 * * *', () => {
+    resetDailyCounters();
+  });
 
   // YouTube 영상 통계 보강: 30분 주기 (offset +5)
   cron.schedule('5,35 * * * *', async () => {

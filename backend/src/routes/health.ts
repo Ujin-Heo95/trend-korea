@@ -7,6 +7,7 @@ import { getEmbeddingCacheSize } from '../services/embedding.js';
 import { getFeatureFlags } from '../services/featureFlags.js';
 import { getCircuitStates, CIRCUIT_BREAKER_COOLDOWN_MS } from '../scrapers/base.js';
 import { ISSUE_DATA_SLO_SECONDS, getIssuesCacheTelemetry } from './issues.js';
+import { getWatchdogStatus } from '../scheduler/watchdog.js';
 
 async function readIssueDataAgeSeconds(app: FastifyInstance): Promise<number | null> {
   try {
@@ -110,6 +111,7 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
         is_stale: issueIsStale,
       },
       issues_cache: cacheTelemetry,
+      watchdog: getWatchdogStatus(),
       db: {
         connected: true,
         post_count: dbStats.post_count ?? 0,
