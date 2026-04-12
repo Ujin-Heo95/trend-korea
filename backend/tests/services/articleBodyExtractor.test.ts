@@ -23,6 +23,7 @@ const joinsHtml = readFileSync(join(__dirname, '../fixtures/joongang_article.htm
 const kbsHtml = readFileSync(join(__dirname, '../fixtures/kbs_article.html'), 'utf-8');
 const ytnHtml = readFileSync(join(__dirname, '../fixtures/ytn_article.html'), 'utf-8');
 const mbcHtml = readFileSync(join(__dirname, '../fixtures/mbc_article.html'), 'utf-8');
+const zumHtml = readFileSync(join(__dirname, '../fixtures/zum_mobile_article.html'), 'utf-8');
 
 describe('articleBodyExtractor', () => {
   beforeEach(() => {
@@ -58,10 +59,13 @@ describe('articleBodyExtractor', () => {
       expect(isExtractorSupported('https://imnews.imbc.com/replay/2026/nwdesk/article/6814612_37004.html')).toBe(true);
     });
 
+    it('returns true for zum news (desktop URL, rewritten to mobile)', () => {
+      expect(isExtractorSupported('https://news.zum.com/articles/105004207')).toBe(true);
+    });
+
     it('returns false for unsupported domains', () => {
       expect(isExtractorSupported('https://news.naver.com/article/001/0014567890')).toBe(false);
       expect(isExtractorSupported('https://www.newsis.com/view/NISX20260412')).toBe(false);
-      expect(isExtractorSupported('https://news.zum.com/articles/105004207')).toBe(false);
     });
 
     it('returns false for malformed URLs', () => {
@@ -209,6 +213,43 @@ describe('articleBodyExtractor', () => {
       expect(body).toContain('앵커');
       expect(body).not.toContain('광고 슬롯');
       expect(body).not.toContain('mbcTracker');
+    });
+  });
+
+  describe('extractArticleBody — zum (URL rewrite)', () => {
+    beforeEach(() => {
+      vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(zumHtml));
+    });
+
+    it('rewrites news.zum.com → m.news.zum.com before fetching', async () => {
+      await extractArticleBody('https://news.zum.com/articles/105004207');
+      expect(vi.mocked(fetchHtml)).toHaveBeenCalledWith(
+        'https://m.news.zum.com/articles/105004207',
+        expect.any(Object),
+      );
+    });
+
+    it('extracts body from HTML5 article tag on mobile page', async () => {
+      const body = await extractArticleBody('https://news.zum.com/articles/105004207');
+      expect(body).not.toBeNull();
+      expect(body!.length).toBeGreaterThan(300);
+      expect(body).toContain('이스라엘');
+      expect(body).toContain('레바논');
+    });
+
+    it('strips figure/linkNews/ads/script noise from zum body', async () => {
+      const body = await extractArticleBody('https://news.zum.com/articles/105004207');
+      expect(body).not.toContain('사진=AP');
+      expect(body).not.toContain('관련기사');
+      expect(body).not.toContain('zumTracker');
+    });
+
+    it('preserves www. prefix handling in URL rewrite', async () => {
+      await extractArticleBody('https://www.news.zum.com/articles/999');
+      expect(vi.mocked(fetchHtml)).toHaveBeenCalledWith(
+        'https://m.news.zum.com/articles/999',
+        expect.any(Object),
+      );
     });
   });
 

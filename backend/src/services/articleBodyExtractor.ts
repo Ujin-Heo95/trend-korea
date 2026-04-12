@@ -9,6 +9,8 @@ type DomainRule = {
   readonly selectors: readonly string[];
   readonly removeWithin: readonly string[];
   readonly eucKr?: boolean;
+  /** Optionally rewrite the URL before fetching (e.g., desktop → mobile for SPA sites). */
+  readonly rewriteUrl?: (url: string) => string;
 };
 
 const DOMAIN_RULES: readonly DomainRule[] = [
@@ -65,6 +67,19 @@ const DOMAIN_RULES: readonly DomainRule[] = [
     host: 'imbc.com',
     selectors: ['.news_txt', '.content_body'],
     removeWithin: ['script', 'style', 'iframe', 'figure', 'figcaption', '.img_set', '.ad'],
+  },
+  {
+    // ZUM 뉴스 — news.zum.com/articles/{id}. 데스크톱은 SPA 렌더링이라 초기 HTML 에
+    // 본문이 없음. 모바일 호스트 m.news.zum.com 은 동일 경로를 SSR 로 제공하며
+    // 원 언론사(뉴시스/경향 등)의 본문을 임베드한 HTML5 <article> 태그에 담아서 내려줌.
+    // 검증: /articles/105004207 → 1161 chars, /articles/105003213 → 1796 chars.
+    host: 'zum.com',
+    selectors: ['article'],
+    removeWithin: [
+      'script', 'style', 'iframe', 'figure', 'figcaption',
+      '.link_news', '.linkNews', '.relatedNews', '.ad', 'ins',
+    ],
+    rewriteUrl: (url) => url.replace(/^https?:\/\/(?:www\.)?news\.zum\.com\//, 'https://m.news.zum.com/'),
   },
 ];
 
@@ -132,9 +147,10 @@ export async function extractArticleBody(url: string): Promise<string | null> {
   const cached = cache.get(url);
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) return cached.body;
 
+  const fetchUrl = rule.rewriteUrl ? rule.rewriteUrl(url) : url;
   let body: string | null;
   try {
-    const $ = await fetchHtml(url, {
+    const $ = await fetchHtml(fetchUrl, {
       timeout: FETCH_TIMEOUT_MS,
       delay: [0, 50],
       eucKr: rule.eucKr ?? false,
