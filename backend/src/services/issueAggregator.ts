@@ -1,15 +1,11 @@
 import type { Pool, PoolClient } from 'pg';
 import { createHash } from 'crypto';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from '../utils/logger.js';
 import { notifyPipelineWarning } from './discord.js';
 import { buildKeywordIndex, matchPostToKeywords, computeTrendSignalBonus } from './trendSignals.js';
 import { getChannel, SCORED_CATEGORIES_SQL } from './scoring-weights.js';
-import { bigrams, jaccardSimilarity, koreanTokenize, wordJaccardSimilarity } from './dedup.js';
 import { cosineSimilarity as embeddingCosine } from './embedding.js';
 import { getScoringConfig } from './scoringConfig.js';
-import { config } from '../config/index.js';
-import { checkQuota, incrementQuota } from './apiQuota.js';
 
 // ─── Types ───
 
@@ -26,7 +22,7 @@ interface ScoredPost {
   readonly scrapedAt: Date;
 }
 
-interface IssueGroup {
+export interface IssueGroup {
   readonly clusterIds: Set<number>;
   readonly standalonePostIds: Set<number>;
   readonly newsPosts: readonly ScoredPost[];
@@ -35,6 +31,8 @@ interface IssueGroup {
   readonly matchedKeywords: readonly string[];
   readonly trendSignalScore: number;
 }
+
+export type { ScoredPost };
 
 interface ScoredIssue {
   readonly group: IssueGroup;
@@ -251,58 +249,8 @@ async function _aggregateIssues(pool: Pool, windowHours: IssueWindow = 12): Prom
   // Step 3: Merge related clusters via trend keywords
   const mergedGroups = await mergeViaTrendKeywords(pool, clusterGroups);
 
-  // Step 3.5: Deduplicate issues by title similarity
-  const { groups: dedupedGroups, borderlinePairs } = deduplicateIssuesByTitle(mergedGroups, cfg.issueDedupThreshold, cfg.containmentThreshold);
-
-  // Step 3.6: AI-assisted borderline dedup (Gemini Flash)
-  let finalGroups = dedupedGroups;
-  if (borderlinePairs.length > 0) {
-    const aiMerges = await geminiDeduplicateBorderline(borderlinePairs);
-    if (aiMerges.size > 0) {
-      // AI가 병합 판단한 쌍을 추가 적용 (크기 제한 포함)
-      const MAX_AI_MERGE = 50;
-      const parent2 = Array.from({ length: finalGroups.length }, (_, i) => i);
-      const size2 = finalGroups.map(g =>
-        g.newsPosts.length + g.communityPosts.length + g.videoPosts.length,
-      );
-      const find2 = (x: number): number => {
-        while (parent2[x] !== x) { parent2[x] = parent2[parent2[x]]; x = parent2[x]; }
-        return x;
-      };
-      for (const key of aiMerges) {
-        const [iStr, jStr] = key.split(':');
-        const a = parseInt(iStr, 10);
-        const b = parseInt(jStr, 10);
-        if (a < finalGroups.length && b < finalGroups.length) {
-          const ra = find2(a);
-          const rb = find2(b);
-          if (ra !== rb && size2[ra] + size2[rb] <= MAX_AI_MERGE) {
-            parent2[ra] = rb;
-            size2[rb] += size2[ra];
-          }
-        }
-      }
-      const merged2 = new Map<number, IssueGroup>();
-      for (let i = 0; i < finalGroups.length; i++) {
-        const root = find2(i);
-        const existing = merged2.get(root);
-        if (!existing) {
-          merged2.set(root, finalGroups[i]);
-        } else {
-          merged2.set(root, {
-            clusterIds: new Set([...existing.clusterIds, ...finalGroups[i].clusterIds]),
-            standalonePostIds: new Set([...existing.standalonePostIds, ...finalGroups[i].standalonePostIds]),
-            newsPosts: [...existing.newsPosts, ...finalGroups[i].newsPosts],
-            communityPosts: [...existing.communityPosts, ...finalGroups[i].communityPosts],
-            videoPosts: [...existing.videoPosts, ...finalGroups[i].videoPosts],
-            matchedKeywords: [...new Set([...existing.matchedKeywords, ...finalGroups[i].matchedKeywords])],
-            trendSignalScore: Math.max(existing.trendSignalScore, finalGroups[i].trendSignalScore),
-          });
-        }
-      }
-      finalGroups = [...merged2.values()];
-    }
-  }
+  // Step 3.5: 임베딩 기반 이슈 중복제거 (v4 — bigram/IDF/containment/Gemini borderline 일체 제거)
+  const finalGroups = deduplicateIssuesByEmbedding(mergedGroups);
 
   // Step 4: Filter and score (includes video)
   const scoredIssues = scoreAndFilter(finalGroups, cfg);
@@ -561,65 +509,48 @@ async function mergeViaTrendKeywords(
   return issueGroups;
 }
 
-// ─── Step 3.5: Deduplicate Issues by Title Similarity ───
+// ─── Step 3.5: 이슈 중복제거 (v4 — 임베딩 단일 진실 소스) ───
 
-interface DedupResult {
-  readonly groups: IssueGroup[];
-  readonly borderlinePairs: readonly { i: number; j: number; titleA: string; titleB: string }[];
+// v4 설계 근거:
+//  - v3까지 bigram Jaccard / IDF 가중 word sim / containment / Gemini borderline 4~5단 혼합.
+//  - 각 단계의 임계값/가중치가 서로 간섭해 튜닝이 누적 부채가 됨. Step 3.6은 요약 예산까지 공유.
+//  - 본 버전은 임베딩 코사인 단일 판정 + 얇은 guard 3종(뉴스 앵커 / 키워드 자카드 / 크기 상한).
+//  - 임베딩 부재(신규 포스트 embedding 생성 실패 등)로 유사도가 null인 쌍은 병합 보류.
+
+const EMBED_MERGE_THRESHOLD = 0.82;      // 기본 병합 임계값
+const EMBED_STRICT_THRESHOLD = 0.88;     // 키워드 교집합 부족 시 상향 임계값
+const KEYWORD_JACCARD_MIN = 0.3;         // guard B: 키워드 자카드 최소선
+const MAX_POSTS_PER_DEDUP_GROUP = 80;    // guard C: 병합 후 그룹 최대 포스트 수
+
+function keywordJaccard(a: readonly string[], b: readonly string[]): number {
+  if (a.length === 0 && b.length === 0) return 1;
+  if (a.length === 0 || b.length === 0) return 0;
+  const sa = new Set(a);
+  const sb = new Set(b);
+  let inter = 0;
+  for (const k of sa) if (sb.has(k)) inter++;
+  return inter / (sa.size + sb.size - inter);
 }
 
-function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: number, containmentThreshold: number = 0.60): DedupResult {
-  if (groups.length <= 1) return { groups: [...groups], borderlinePairs: [] };
+export const __internal__ = {
+  deduplicateIssuesByEmbedding: (groups: readonly IssueGroup[]) => deduplicateIssuesByEmbedding(groups),
+  keywordJaccard,
+  EMBED_MERGE_THRESHOLD,
+  EMBED_STRICT_THRESHOLD,
+  KEYWORD_JACCARD_MIN,
+  MAX_POSTS_PER_DEDUP_GROUP,
+};
 
-  // 대표 포스트 추출
+function deduplicateIssuesByEmbedding(groups: readonly IssueGroup[]): IssueGroup[] {
+  if (groups.length <= 1) return [...groups];
+
+  // 대표 포스트: 최고 점수 뉴스 > 뉴스채널 영상 > 일반 영상 > 커뮤니티
   const repPosts = groups.map(g =>
     [...g.newsPosts].sort((a, b) => b.trendScore - a.trendScore)[0] ??
     [...g.videoPosts].sort((a, b) => b.trendScore - a.trendScore)[0] ??
     g.communityPosts[0] ?? null,
   );
 
-  // 제목 word token 세트 (한국어 토크나이저 사용)
-  const wordSets = repPosts.map(p => p ? koreanTokenize(p.title) : new Set<string>());
-
-  // 스니펫 word token 세트 (있으면 하이브리드 유사도에 사용)
-  const snippetSets = repPosts.map(p =>
-    p?.contentSnippet ? koreanTokenize(p.contentSnippet) : null,
-  );
-
-  // IDF 가중치 계산 — 모든 이슈 제목에서 단어 DF 집계
-  const docFreq = new Map<string, number>();
-  for (const ws of wordSets) {
-    for (const w of ws) {
-      docFreq.set(w, (docFreq.get(w) ?? 0) + 1);
-    }
-  }
-  const totalDocs = wordSets.length;
-  const idf = new Map<string, number>();
-  for (const [word, df] of docFreq) {
-    idf.set(word, Math.log(totalDocs / (1 + df)));
-  }
-
-  /** IDF 가중 Jaccard: 교집합 IDF 합 / 합집합 IDF 합 */
-  function weightedJaccard(a: Set<string>, b: Set<string>): number {
-    if (a.size === 0 && b.size === 0) return 1;
-    if (a.size === 0 || b.size === 0) return 0;
-    let interSum = 0;
-    let unionSum = 0;
-    const allWords = new Set([...a, ...b]);
-    for (const w of allWords) {
-      const weight = idf.get(w) ?? 1;
-      const inA = a.has(w) ? 1 : 0;
-      const inB = b.has(w) ? 1 : 0;
-      interSum += Math.min(inA, inB) * weight;
-      unionSum += Math.max(inA, inB) * weight;
-    }
-    return unionSum === 0 ? 0 : interSum / unionSum;
-  }
-
-  // 기존 bigram도 유지 (하위 호환)
-  const bigramSets = repPosts.map(p => p ? bigrams(p.title) : new Set<string>());
-
-  const MAX_POSTS_PER_DEDUP_GROUP = 50; // Step 3.5에서도 그룹 크기 제한
   const parent = Array.from({ length: groups.length }, (_, i) => i);
   const groupPostCount = groups.map(g =>
     g.newsPosts.length + g.communityPosts.length + g.videoPosts.length,
@@ -633,6 +564,7 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
     return x;
   }
 
+  /** guard C 포함 union: 병합 후 크기가 MAX 초과면 거부 */
   function union(a: number, b: number): boolean {
     const ra = find(a);
     const rb = find(b);
@@ -643,90 +575,43 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
     return true;
   }
 
-  const HIGH_CONFIDENCE_THRESHOLD = 0.60;
-  const WORD_HIGH_CONF = 0.48;  // word-level: IDF 가중 기준 48% 이상이면 같은 이슈
-  const EMB_HIGH_CONF = 0.78;   // 임베딩: 의미적 유사도 78% 이상
-  const SNIPPET_WEIGHT = 0.3;   // 스니펫 블렌딩 비율
-
-  // 경계 케이스 수집 (bestSim 0.25-0.55, 기존 규칙으로 병합되지 않은 쌍)
-  const borderlinePairs: { i: number; j: number; titleA: string; titleB: string }[] = [];
+  let mergedPairs = 0;
+  let skippedNoAnchor = 0;
+  let skippedKeywordGuard = 0;
 
   for (let i = 0; i < groups.length; i++) {
+    const repA = repPosts[i];
+    if (!repA) continue;
     for (let j = i + 1; j < groups.length; j++) {
       if (find(i) === find(j)) continue;
-
-      // Early-exit: bigram 교집합 0이고, word 교집합도 0이면 관련 없는 이슈
-      const bigramSim = jaccardSimilarity(bigramSets[i], bigramSets[j]);
-      if (bigramSim === 0 && wordSets[i].size > 0 && wordSets[j].size > 0) {
-        let hasWordOverlap = false;
-        for (const w of wordSets[i]) {
-          if (wordSets[j].has(w)) { hasWordOverlap = true; break; }
-        }
-        if (!hasWordOverlap) {
-          // 키워드 공유 여부도 빠르게 확인
-          const kwA = new Set(groups[i].matchedKeywords);
-          let hasKwOverlap = false;
-          for (const kw of groups[j].matchedKeywords) {
-            if (kwA.has(kw)) { hasKwOverlap = true; break; }
-          }
-          if (!hasKwOverlap) continue;
-        }
-      }
-
-      // 2) IDF 가중 word 유사도 (신규)
-      let titleWordSim = weightedJaccard(wordSets[i], wordSets[j]);
-
-      // 3) 스니펫 하이브리드 — 양쪽 모두 스니펫이 있으면 블렌딩
-      if (snippetSets[i] && snippetSets[j]) {
-        const snippetSim = wordJaccardSimilarity(snippetSets[i]!, snippetSets[j]!);
-        titleWordSim = (1 - SNIPPET_WEIGHT) * titleWordSim + SNIPPET_WEIGHT * snippetSim;
-      }
-
-      // 임베딩 코사인 유사도 (있으면)
-      const repA = repPosts[i];
       const repB = repPosts[j];
-      const embSim = (repA && repB) ? (embeddingCosine(repA.id, repB.id) ?? 0) : 0;
+      if (!repB) continue;
 
-      // 최종 유사도: bigram, word, embedding 중 높은 쪽 채택
-      const bestSim = Math.max(bigramSim, titleWordSim, embSim);
-
-      const kwA = new Set(groups[i].matchedKeywords);
-      const kwB = groups[j].matchedKeywords;
-      let sharedKw = 0;
-      for (const kw of kwB) {
-        if (kwA.has(kw)) sharedKw++;
+      // guard A: 양쪽 모두 뉴스 앵커가 있어야 병합 (단일 커뮤니티/영상 그룹끼리 병합 방지)
+      if (groups[i].newsPosts.length === 0 && groups[j].newsPosts.length === 0) {
+        skippedNoAnchor++;
+        continue;
       }
 
-      // 6) Token containment ratio — 짧은 제목 토큰의 N%가 긴 제목에 포함되는지
-      const minSize = Math.min(wordSets[i].size, wordSets[j].size);
-      let wordIntersection = 0;
-      const [smaller, larger] = wordSets[i].size <= wordSets[j].size
-        ? [wordSets[i], wordSets[j]] : [wordSets[j], wordSets[i]];
-      for (const w of smaller) {
-        if (larger.has(w)) wordIntersection++;
-      }
-      const containment = minSize > 0 ? wordIntersection / minSize : 0;
+      const cos = embeddingCosine(repA.id, repB.id);
+      if (cos == null || cos < EMBED_MERGE_THRESHOLD) continue;
 
-      // 6단계 신뢰도 기반 병합
-      const highConf = bigramSim >= HIGH_CONFIDENCE_THRESHOLD;   // bigram 확실
-      const wordHighConf = titleWordSim >= WORD_HIGH_CONF;       // word 의미적 확실
-      const embHighConf = embSim >= EMB_HIGH_CONF;                 // 임베딩 의미적 확실
-      const medConf = bestSim >= threshold && sharedKw >= 1;     // 유사 + 키워드 보강
-      const kwBoosted = sharedKw >= 2 && bestSim >= 0.40;       // 키워드 2개↑ 공유 + 유사도 40% 이상
-      const kwOnly = sharedKw >= 3;                              // 키워드 3개↑ 공유 시 무조건
-      const contained = containment >= containmentThreshold && bestSim >= 0.35; // 포함도 높음 + 최소 유사도
-
-      if (highConf || wordHighConf || embHighConf || medConf || kwBoosted || kwOnly || contained) {
-        union(i, j);
-      } else if (bestSim >= 0.20 && bestSim < threshold && repPosts[i] && repPosts[j]) {
-        // 경계 케이스: 유사하지만 확실하지 않은 쌍 → Gemini에 판단 위임
-        borderlinePairs.push({
-          i, j,
-          titleA: repPosts[i]!.title,
-          titleB: repPosts[j]!.title,
-        });
+      // guard B: 키워드 자카드 < 0.3 이면 strict 임계값 요구 (서로 다른 주제 과잉 병합 방지)
+      const kwSim = keywordJaccard(groups[i].matchedKeywords, groups[j].matchedKeywords);
+      if (kwSim < KEYWORD_JACCARD_MIN && cos < EMBED_STRICT_THRESHOLD) {
+        skippedKeywordGuard++;
+        continue;
       }
+
+      if (union(i, j)) mergedPairs++;
     }
+  }
+
+  if (mergedPairs > 0 || skippedNoAnchor > 0 || skippedKeywordGuard > 0) {
+    logger.info(
+      { mergedPairs, skippedNoAnchor, skippedKeywordGuard, inputGroups: groups.length },
+      '[dedup] embedding-based merge',
+    );
   }
 
   const merged = new Map<number, IssueGroup>();
@@ -748,71 +633,7 @@ function deduplicateIssuesByTitle(groups: readonly IssueGroup[], threshold: numb
     }
   }
 
-  return { groups: [...merged.values()], borderlinePairs };
-}
-
-// ─── Gemini Borderline Dedup (경계 케이스 AI 판단) ───
-
-const GEMINI_DEDUP_QUOTA = 1500; // 일일 쿼터 (summarize와 공유)
-
-let geminiDedupClient: GoogleGenerativeAI | null = null;
-
-function getGeminiDedupClient(): GoogleGenerativeAI | null {
-  if (!config.geminiApiKey) return null;
-  if (!geminiDedupClient) geminiDedupClient = new GoogleGenerativeAI(config.geminiApiKey);
-  return geminiDedupClient;
-}
-
-/** Gemini Flash로 경계 유사도 쌍의 동일 이슈 여부 판단 */
-async function geminiDeduplicateBorderline(
-  pairs: readonly { i: number; j: number; titleA: string; titleB: string }[],
-): Promise<Set<string>> {
-  const mergeSet = new Set<string>(); // "i:j" 형식으로 병합할 쌍
-  if (pairs.length === 0) return mergeSet;
-
-  const client = getGeminiDedupClient();
-  if (!client) return mergeSet;
-  if (!checkQuota('gemini', GEMINI_DEDUP_QUOTA)) return mergeSet;
-
-  // 최대 30쌍씩 배치 (토큰 절약)
-  const batch = pairs.slice(0, 30);
-  incrementQuota('gemini');
-
-  const pairsText = batch.map((p, idx) =>
-    `${idx + 1}. A: "${p.titleA}" / B: "${p.titleB}"`,
-  ).join('\n');
-
-  const prompt = `다음 뉴스 제목 쌍들이 같은 이슈(사건/사안)에 대한 것인지 판단하세요.
-같은 이슈면 "Y", 다른 이슈면 "N"으로 답하세요.
-
-${pairsText}
-
-JSON 배열만 출력: ["Y", "N", ...]`;
-
-  try {
-    const model = client.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 200,
-        responseMimeType: 'application/json',
-      },
-    });
-
-    const text = result.response.text();
-    const answers = JSON.parse(text) as string[];
-    for (let k = 0; k < Math.min(answers.length, batch.length); k++) {
-      if (answers[k]?.toUpperCase() === 'Y') {
-        mergeSet.add(`${batch[k].i}:${batch[k].j}`);
-      }
-    }
-    logger.info(`[geminiDedup] ${mergeSet.size}/${batch.length} pairs merged by AI`);
-  } catch (err) {
-    logger.warn({ err }, '[geminiDedup] Gemini call failed, skipping AI dedup');
-  }
-
-  return mergeSet;
+  return [...merged.values()];
 }
 
 // ─── Step 4: Score and Filter (Fix 1~6 적용) ───
