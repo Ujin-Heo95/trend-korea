@@ -146,9 +146,12 @@ function startCronJobs(): void {
     });
   }
 
-  // 트렌드 스코어 갱신 + 이슈 집계: 정시 10분 주기 (:00, :10, :20, …)
-  // TD-006: Gemini 요약은 이 파이프라인에서 분리 — 별도 +2 tick.
-  cron.schedule('*/10 * * * *', async () => {
+  // 트렌드 스코어 갱신 + 이슈 집계: 정시 10분 주기 offset +4 (:04, :14, :24, …)
+  // offset 이유: scraper cron(`*/10`,`*/15`,`*/30`)이 :00/:15/:30 에서 동시 발화 →
+  //             batchPool 경합으로 calculateScores 108s Supabase 커넥션 드롭 → critical 실패.
+  //             scraper-high 가 :00 에 시작해 ~2-3분 걸리므로 :04 에 시작하면 여유 확보.
+  // TD-006: Gemini 요약은 이 파이프라인에서 분리 — 별도 +2 offset (현 설정: 2,12,22,...).
+  cron.schedule('4,14,24,34,44,54 * * * *', async () => {
     if (isQuietHours()) {
       console.log('[scheduler] quiet hours (02-06 KST) — skipping issue pipeline');
       return;
@@ -157,7 +160,9 @@ function startCronJobs(): void {
     try {
       const flags = await loadFeatureFlags();
       await runPipeline('issue-pipeline', [
-        { name: 'calculateScores', run: () => calculateScores(batchPool), critical: true },
+        // 비 critical 전환: 일시적 Supabase 커넥션 드롭 시에도 후속 단계(aggregateIssues)는
+        // 직전 tick 의 post_scores 로 진행 → issue_rankings 신규 카드 생성이 멈추지 않음.
+        { name: 'calculateScores', run: () => calculateScores(batchPool), critical: false },
         ...(flags.embeddings_enabled
           ? [{ name: 'generateEmbeddings', run: () => generateEmbeddingsForRecentPosts(batchPool) }]
           : []),
@@ -175,11 +180,12 @@ function startCronJobs(): void {
     }
   });
 
-  // TD-006: Gemini 요약 — 독립 tick (offset +2분)
+  // TD-006: Gemini 요약 — 독립 tick
+  // 파이프라인(:04,:14,...) 완료 후 5분 여유 두고 실행 (:09,:19,...) — issue_rankings 최신 상태 보장.
   // aggregateIssues 실패/지연이 사용자 응답 경로(materialize)에 전파되지 않도록 분리.
   // summarizeAndUpdateIssues 내부에 phase 90s AbortController + fallback이 있어
   // 절대 전체 응답을 막지 않음.
-  cron.schedule('2,12,22,32,42,52 * * * *', async () => {
+  cron.schedule('9,19,29,39,49,59 * * * *', async () => {
     if (isQuietHours()) return;
     try {
       const flags = await loadFeatureFlags();
@@ -192,7 +198,7 @@ function startCronJobs(): void {
       captureError(err);
     }
   });
-  console.log('[scheduler] gemini summary: every 10 min (offset +2, flag-gated)');
+  console.log('[scheduler] gemini summary: every 10 min (offset +9, flag-gated)');
 
   // Track B decay-only updater: 10분 주기 (offset +7 — legacy pipeline :00 과 분리)
   // feature flag OFF 기본. staging A/B 검증 후 ON.
