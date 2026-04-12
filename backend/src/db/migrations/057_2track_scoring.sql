@@ -6,6 +6,11 @@
 -- NOTE: 최초 버전에는 UPDATE 백필이 있었으나 Supabase statement_timeout(2분)
 -- 초과로 배포 실패. scoring.ts가 5분 주기로 trend_score_base/post_origin/
 -- half_life_min을 매 실행마다 UPSERT하므로 백필은 불필요 — 제거함.
+-- scoring.ts의 5분 주기 UPSERT가 post_scores에 lock을 쥐고 있을 수 있으므로
+-- ALTER TABLE이 lock을 기다리다 statement_timeout에 걸리는 것을 방지하기 위해
+-- 마이그레이션 트랜잭션 내에서 timeout을 해제한다 (migrate.ts가 BEGIN/COMMIT 래핑).
+SET LOCAL statement_timeout = 0;
+SET LOCAL lock_timeout = '60s';
 
 ALTER TABLE post_scores
   ADD COLUMN IF NOT EXISTS trend_score_base DOUBLE PRECISION,
