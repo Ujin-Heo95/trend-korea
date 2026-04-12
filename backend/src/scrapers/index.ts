@@ -1,5 +1,8 @@
 import pLimit from 'p-limit';
-import { pool } from '../db/client.js';
+import { batchPool } from '../db/client.js';
+// 스크래퍼 메타 로깅(scraper_runs) + 모든 post insert 는 batchPool 사용.
+// apiPool 은 HTTP 라우트 전용 — 절대 침범 금지 (하드 격리 불변식).
+// buildScrapers 는 첫 호출 시 받은 pool 을 freeze 하므로 batchPool 을 항상 전달해야 한다.
 import { buildScrapers, getSourcesByPriority } from './registry.js';
 import type { ResolvedScraper, SourcePriority } from './registry.js';
 import { notifyScraperErrors, type ScraperError } from '../services/discord.js';
@@ -16,7 +19,7 @@ function withTimeout<T>(promiseFn: () => Promise<T>, ms: number, label: string):
 }
 
 async function logRunStart(sourceKey: string): Promise<number> {
-  const r = await pool.query<{ id: number }>(
+  const r = await batchPool.query<{ id: number }>(
     `INSERT INTO scraper_runs (source_key, started_at) VALUES ($1, NOW()) RETURNING id`,
     [sourceKey]
   );
@@ -24,7 +27,7 @@ async function logRunStart(sourceKey: string): Promise<number> {
 }
 
 async function logRunEnd(runId: number, postsSaved: number, errorMessage: string | null): Promise<void> {
-  await pool.query(
+  await batchPool.query(
     `UPDATE scraper_runs SET finished_at = NOW(), posts_saved = $1, error_message = $2 WHERE id = $3`,
     [postsSaved, errorMessage, runId]
   );
@@ -60,7 +63,7 @@ export async function runScrapersByPriority(priority: SourcePriority): Promise<v
 
   runningLocks.set(priority, true);
   try {
-    const all = await buildScrapers(pool);
+    const all = await buildScrapers(batchPool);
     const entries = all.filter(s => s.priority === priority);
     if (entries.length === 0) return;
 
@@ -93,7 +96,7 @@ export async function runApifyScrapers(): Promise<void> {
 
   runningLocks.set('apify', true);
   try {
-    const all = await buildScrapers(pool);
+    const all = await buildScrapers(batchPool);
     const apifyEntries = all.filter(s => s.sourceKey.startsWith('apify_'));
     if (apifyEntries.length === 0) return;
 
@@ -126,7 +129,7 @@ export async function runAllScrapers(): Promise<void> {
 
   runningLocks.set('all', true);
   try {
-    const entries = await buildScrapers(pool);
+    const entries = await buildScrapers(batchPool);
     console.log(`[scheduler] running all ${entries.length} scrapers`);
     const limit = pLimit(4); // 전체 실행 시 동시성 제한 (DB 풀 max=15 대비 안전)
     const results = await Promise.allSettled(entries.map(e => limit(() => runScraper(e))));

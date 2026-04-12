@@ -219,14 +219,19 @@ if (isMain) {
   const app = await buildApp();
   await app.listen({ port: config.port, host: '0.0.0.0' });
 
-  // DB validation + scheduler in background (non-blocking)
+  // DB validation in background (non-blocking).
+  // Scheduler 는 RUN_SCHEDULER=true 일 때만 web 프로세스에서 가동.
+  // 기본값(false)은 worker 프로세스 그룹(worker.ts)이 전담 — 컴퓨트 도메인 분리.
+  // 단일 머신 운영 시(전환 전 호환성)는 RUN_SCHEDULER=true 로 명시.
+  const runScheduler = process.env.RUN_SCHEDULER === 'true';
   validateConnection()
     .then(() => {
-      startScheduler();
+      if (runScheduler) startScheduler();
+      else console.log('[server] RUN_SCHEDULER!=true — scheduler disabled in web process (worker handles it)');
     })
     .catch((err) => {
-      console.error('[server] DB validation failed, starting scheduler anyway:', err);
-      startScheduler();
+      console.error('[server] DB validation failed:', err);
+      if (runScheduler) startScheduler();
     });
 
   const shutdown = async (signal: string) => {

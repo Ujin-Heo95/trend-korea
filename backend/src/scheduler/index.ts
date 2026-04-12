@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import * as Sentry from '@sentry/node';
-import { runAllScrapers, runScrapersByPriority, runApifyScrapers } from '../scrapers/index.js';
+import { runScrapersByPriority, runApifyScrapers } from '../scrapers/index.js';
 import { loadCircuitStates } from '../scrapers/base.js';
 import { cleanOldPosts, cleanOldScraperRuns, cleanOldEngagementSnapshots, cleanNumericTitlePosts } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
@@ -121,23 +121,63 @@ const PRIORITY_INTERVALS = {
   low: 30,    // 정부, 기상청
 } as const;
 
-export function startScheduler(delayMs = 60_000): void {
+// 부팅 시 분산 발화 스케줄 (초 단위, listen 직후 기준)
+// 의도: 단일 T+60s 폭발 → 4분에 걸친 우선순위별 stagger 로 변경.
+// shared-cpu-1x 에서 78개 TLS 핸드셰이크 동시 발화로 인한 이벤트 루프 freeze 차단.
+const BOOT_STAGGER = {
+  cronRegister:    15_000,   // T+15s : cron 등록 먼저 (분 경계 미스 방지)
+  circuitStates:   30_000,   // T+30s : 서킷 브레이커 상태 로드 (가벼움)
+  highPriority:    45_000,   // T+45s : ~12 소스
+  mediumPriority: 150_000,   // T+2:30 : ~30 소스
+  lowPriority:    270_000,   // T+4:30 : ~36 소스
+  embeddings:     330_000,   // T+5:30 : 무거우니 마지막
+} as const;
+
+export function startScheduler(): void {
   console.log(`[scheduler] priority intervals: high=${PRIORITY_INTERVALS.high}min, medium=${PRIORITY_INTERVALS.medium}min, low=${PRIORITY_INTERVALS.low}min`);
   console.log(`[scheduler] cleanup: twice daily (00:00, 12:00 UTC)`);
   console.log(`[scheduler] quiet hours: 02:00-06:00 KST (issue aggregation paused)`);
 
-  // 배포 직후 DB 커넥션 경쟁 방지: 서버 listen 후 일정 시간 대기
-  console.log(`[scheduler] waiting ${delayMs / 1000}s before initial scraper run...`);
-  setTimeout(async () => {
-    await loadCircuitStates(batchPool).catch(captureError);
-    await loadEmbeddingsFromDb(batchPool).catch(captureError);
-    runAllScrapers()
-      .catch(captureError)
-      .finally(() => {
-        console.log('[scheduler] initial scraper run complete — starting cron jobs');
-        startCronJobs();
-      });
-  }, delayMs);
+  const skipInitial = process.env.SKIP_INITIAL_SCRAPE === 'true';
+  if (skipInitial) {
+    console.log('[scheduler] SKIP_INITIAL_SCRAPE=true — boot 시 스크래퍼 발화 생략, cron 에 일임');
+  }
+
+  // T+15s : cron 등록 (등록은 즉시여도 무방하나 부팅 직후 부하 최소화 위해 살짝 지연)
+  setTimeout(() => {
+    startCronJobs();
+    console.log('[scheduler] cron jobs registered');
+  }, BOOT_STAGGER.cronRegister);
+
+  // T+30s : 서킷 브레이커 상태 로드 — 단일 SELECT
+  setTimeout(() => {
+    loadCircuitStates(batchPool).catch(captureError);
+  }, BOOT_STAGGER.circuitStates);
+
+  if (!skipInitial) {
+    // T+45s : high priority 만 (커뮤니티/트렌딩 ~12개)
+    setTimeout(() => {
+      console.log('[scheduler] boot stagger: high-priority scrapers');
+      runScrapersByPriority('high').catch(captureError);
+    }, BOOT_STAGGER.highPriority);
+
+    // T+2:30 : medium priority (뉴스 RSS ~30개)
+    setTimeout(() => {
+      console.log('[scheduler] boot stagger: medium-priority scrapers');
+      runScrapersByPriority('medium').catch(captureError);
+    }, BOOT_STAGGER.mediumPriority);
+
+    // T+4:30 : low priority (정부/기상청 ~36개)
+    setTimeout(() => {
+      console.log('[scheduler] boot stagger: low-priority scrapers');
+      runScrapersByPriority('low').catch(captureError);
+    }, BOOT_STAGGER.lowPriority);
+  }
+
+  // T+5:30 : 임베딩 로드 — 메모리/DB 무겁기 때문에 모든 스크래퍼 burst 이후로 미룸
+  setTimeout(() => {
+    loadEmbeddingsFromDb(batchPool).catch(captureError);
+  }, BOOT_STAGGER.embeddings);
 }
 
 function startCronJobs(): void {

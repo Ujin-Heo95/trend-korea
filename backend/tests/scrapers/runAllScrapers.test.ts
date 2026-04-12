@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const { mockPool } = vi.hoisted(() => ({
+  mockPool: { query: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], rowCount: 1 }) },
+}));
 vi.mock('../../src/db/client.js', () => ({
-  pool: { query: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], rowCount: 1 }) },
+  pool: mockPool,
+  batchPool: mockPool,
 }));
 vi.mock('../../src/config/index.js', () => ({
   config: { youtubeApiKey: '' },

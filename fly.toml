@@ -14,6 +14,9 @@ primary_region = "nrt"
   NODE_ENV = "production"
   SERVE_FRONTEND = "false"
   PORT = "8080"
+  # web 은 HTTP 전용. 스케줄러는 worker 프로세스(worker.ts)가 전담.
+  # worker 머신이 죽었을 때 임시로 web 에서 돌리려면 이 값을 "true" 로.
+  RUN_SCHEDULER = "false"
 
 [http_service]
   internal_port = 8080
@@ -27,8 +30,16 @@ primary_region = "nrt"
   path = "/health"
   interval = "30s"
   timeout = "10s"
-  grace_period = "30s"
+  # 부팅 stagger(T+45s ~ T+5:30) 가 끝날 때까지 healthcheck 가 머신을 죽이지 않도록 60s.
+  # 이전 30s 는 T+45s high-priority burst 와 충돌해 머신 재시작 루프 유발.
+  grace_period = "60s"
 
 [[vm]]
   size = "shared-cpu-1x"
   memory = "1024mb"
+
+# 머신 종료 시 자동 재기동 — 특히 worker 프로세스(http 없음)가
+# unhandled rejection 등으로 죽었을 때 stopped 상태로 방치되지 않도록.
+[[restart]]
+  policy = "always"
+  retries = 10
