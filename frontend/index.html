@@ -49,9 +49,12 @@
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
   <script>
+    // updateViaCache: 'none' — sw.js 는 매번 네트워크에서 fetch (HTTP 캐시 우회).
+    // 2026-04-12: CF Pages 의 max-age=14400 헤더가 옛 sw.js 를 4시간 캐시해서
+    // 새 v5 SW 가 install 안 되던 사고. _headers 파일로 서버측도 함께 차단.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js');
+        navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
       });
     }
   </script>

@@ -1,7 +1,7 @@
-// v5: shell stale 캐시 사고 — 이전 SW(v4) 가 캐시한 옛 index.html 이 사라진
-// JS hash 를 가리켜 흰화면 사고 (2026-04-12 안드로이드 태블릿 사용자 신고).
-// activate 시 v4 이하 캐시 자동 정리 + navigation 응답을 매번 캐시 덮어쓰기.
-const CACHE_NAME = 'weeklit-v5';
+// v6: sw.js HTTP 캐시 4시간 사고 — CF Pages 가 max-age=14400 으로 sw.js 를
+// 캐시해서 v5 SW 가 install 안 되던 사용자 다수 stuck. _headers + updateViaCache:'none'
+// 으로 서버/클라이언트 양쪽 차단. v6 bump 으로 v5 stuck 사용자도 강제 갱신.
+const CACHE_NAME = 'weeklit-v6';
 const API_CACHE = 'weeklit-api-v2';
 const SHELL_ASSETS = ['/', '/index.html'];
 

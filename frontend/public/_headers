@@ -1,0 +1,24 @@
+# Cloudflare Pages 응답 헤더 — sw.js 4시간 캐시 사고 (2026-04-12) 영구 차단
+#
+# 사고: 안드로이드 태블릿 사용자가 새로고침해도 흰 화면. 원인은 옛 v4 sw.js 가
+# 브라우저 HTTP 캐시(max-age=14400=4시간) 에 갇혀, 새 v5 sw.js 가 install 안 됨.
+# SW 자체가 stale 한 shell 을 fallback 으로 반환 → React 마운트 실패.
+#
+# 규칙: SW 와 manifest 는 절대 캐시하지 않는다. 빌드 hash 가 붙은 /assets/* 만
+# 장기 캐시. HTML 은 무캐시 (즉시 새 빌드 반영).
+
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Service-Worker-Allowed: /
+
+/manifest.json
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
