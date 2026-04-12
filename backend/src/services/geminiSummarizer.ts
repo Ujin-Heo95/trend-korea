@@ -535,6 +535,10 @@ export async function summarizeAndUpdateIssues(
   const inflightByFingerprint = new Map<string, Promise<IssueSummary>>();
   const geminiLimit = pLimit(3);
   const fetchLimit = pLimit(4);
+  // DB write 동시성 제한 — 전용 micro pool(max=2) 와 짝. updateIssueInDb +
+  // setCachedSummary 가 한꺼번에 30개 row 동시 UPDATE 로 락/이벤트루프
+  // 출렁임을 일으키던 것을 차단해 API latency spike 제거.
+  const dbWriteLimit = pLimit(2);
 
   try {
     // Step 1: fetch posts (needed for fingerprint + priority signals)
@@ -563,7 +567,7 @@ export async function summarizeAndUpdateIssues(
       if (phase.signal.aborted) {
         if (!row.summary || row.summary.startsWith('[fallback]')) {
           const fb = makeFallbackSummary(posts, row.id);
-          await updateIssueInDb(pool, row.id, fb);
+          await dbWriteLimit(() => updateIssueInDb(pool, row.id, fb));
           metrics.fallbacks++;
           updated++;
         }
@@ -576,7 +580,7 @@ export async function summarizeAndUpdateIssues(
       const { stableKey, legacyKey, primaryKey } = cacheKeysForRow(row);
       const prev = summaryCache.get(primaryKey) ?? (stableKey ? summaryCache.get(legacyKey) : undefined);
       if (prev && Date.now() - prev.cachedAt < CACHE_TTL_MS) {
-        await updateIssueInDb(pool, row.id, prev.summary);
+        await dbWriteLimit(() => updateIssueInDb(pool, row.id, prev.summary));
         metrics.cacheHits++;
         updated++;
         return;
@@ -585,7 +589,7 @@ export async function summarizeAndUpdateIssues(
       // DB fingerprint cache hit
       const dbHit = await getCachedSummary(pool, fingerprint, top);
       if (dbHit) {
-        await updateIssueInDb(pool, row.id, dbHit.summary);
+        await dbWriteLimit(() => updateIssueInDb(pool, row.id, dbHit.summary));
         cacheSummary(row, dbHit.summary);
         metrics.cacheHits++;
         updated++;
@@ -596,7 +600,7 @@ export async function summarizeAndUpdateIssues(
       const inflight = inflightByFingerprint.get(fingerprint);
       if (inflight) {
         const summary = await inflight;
-        await updateIssueInDb(pool, row.id, summary);
+        await dbWriteLimit(() => updateIssueInDb(pool, row.id, summary));
         cacheSummary(row, summary);
         metrics.cacheHits++;
         updated++;
@@ -615,12 +619,12 @@ export async function summarizeAndUpdateIssues(
       inflightByFingerprint.set(fingerprint, promise);
 
       const summary = await promise;
-      await updateIssueInDb(pool, row.id, summary);
+      await dbWriteLimit(() => updateIssueInDb(pool, row.id, summary));
       cacheSummary(row, summary);
 
       if (!summary.summary.startsWith('[fallback]')) {
         try {
-          await setCachedSummary(pool, fingerprint, summary, top);
+          await dbWriteLimit(() => setCachedSummary(pool, fingerprint, summary, top));
         } catch (err) {
           console.warn('[geminiSummarizer] DB cache write failed:', (err as Error).message);
         }

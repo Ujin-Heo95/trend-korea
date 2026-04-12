@@ -12,7 +12,7 @@ import { clearIssuesCache } from '../routes/issues.js';
 import { performDatabaseBackup } from '../services/backup.js';
 import { notifyBackupResult } from '../services/discord.js';
 import { loadEmbeddingsFromDb } from '../services/embedding.js';
-import { batchPool, logPoolStats } from '../db/client.js';
+import { batchPool, summarizerPool, logPoolStats } from '../db/client.js';
 import { runPipeline } from './pipeline.js';
 import { loadFeatureFlags } from '../services/featureFlags.js';
 import { enrichYoutubeEngagement } from '../services/youtubeEnrichment.js';
@@ -187,7 +187,8 @@ function startCronJobs(): void {
       try {
         const flags = await loadFeatureFlags();
         if (!flags.gemini_summary_enabled) return;
-        await summarizeAndUpdateIssues(batchPool);
+        // 전용 micro pool(max=2) 사용 — batchPool/apiPool 슬롯 영향 차단.
+        await summarizeAndUpdateIssues(summarizerPool);
         // 요약 결과 반영: materialized 재생성 + 응답 캐시 무효화
         // materializeIssueResponse 실패는 silent 였지만, stale 사고 5번째 재발 후 알람으로 승격.
         await materializeIssueResponse(batchPool).catch((err) => {

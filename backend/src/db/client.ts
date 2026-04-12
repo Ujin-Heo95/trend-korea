@@ -24,8 +24,14 @@ export const pool = new Pool({
   ...sslOpts,
 });
 
+// Summarizer micro pool: 2 connections only, fully isolated.
+// 이유: Gemini summary tick(:05,:15,...) 가 batchPool 슬롯을 잡으면서
+// updateIssueInDb 30개 row 동시 UPDATE 로 락/이벤트루프 출렁임 → API latency
+// spike. 전용 micro pool 로 batchPool 에 영향 안 주도록 분리.
+const summarizerPoolMax = 2;
+
 // Batch pool: higher max, longer timeouts — serves scheduler/scrapers/scoring
-const batchPoolMax = config.dbPoolMax - apiPoolMax;
+const batchPoolMax = config.dbPoolMax - apiPoolMax - summarizerPoolMax;
 export const batchPool = new Pool({
   connectionString: config.dbUrl,
   max: batchPoolMax,
@@ -36,6 +42,20 @@ export const batchPool = new Pool({
   connectionTimeoutMillis: 15_000,
   ...(!isPooler && { keepAlive: true, keepAliveInitialDelayMillis: 10_000 }),
   ...sslOpts,
+});
+
+export const summarizerPool = new Pool({
+  connectionString: config.dbUrl,
+  max: summarizerPoolMax,
+  min: 1,
+  idleTimeoutMillis: 60_000,
+  connectionTimeoutMillis: 15_000,
+  ...(!isPooler && { keepAlive: true, keepAliveInitialDelayMillis: 10_000 }),
+  ...sslOpts,
+});
+
+summarizerPool.on('error', (err) => {
+  logger.error({ err }, '[db:pool:summarizer] idle client error');
 });
 
 pool.on('error', (err) => {
@@ -156,7 +176,7 @@ export async function checkDbHealth(): Promise<boolean> {
 export async function gracefulShutdown(): Promise<void> {
   logger.info('[db] draining connection pools...');
   const timeout = new Promise<void>(resolve => setTimeout(resolve, 5_000));
-  const pools = [pool.end(), batchPool.end()];
+  const pools = [pool.end(), batchPool.end(), summarizerPool.end()];
   await Promise.race([Promise.all(pools), timeout]);
   logger.info('[db] pools closed');
 }
