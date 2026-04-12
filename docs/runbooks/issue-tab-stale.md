@@ -24,10 +24,16 @@
 
 ### 1. 데이터 자체가 stale 인가?
 ```bash
-curl -s https://weeklit.net/health | jq .
-# 기대: { "status": "ok", "issue_data": { "age_seconds": <900, "is_stale": false } }
-# is_stale: true 면 → 파이프라인 문제 (단계 5 로)
+# /health 는 항상 200 (Fly liveness 전용). 신선도 SLO 는 별도 엔드포인트.
+curl -sD - https://weeklit-backend.fly.dev/health/freshness
+# 기대: HTTP 200 + { "status": "ok", "issue_data": { "is_stale": false } }
+# HTTP 503 + "is_stale": true 면 → 파이프라인 문제 (단계 5 로)
+# UptimeRobot 는 이 엔드포인트(/health/freshness)를 봐야 함, /health 아님.
 ```
+
+> **사고 교훈 (2026-04-12)**: `/health` 에 SLO 503 을 묶으면 Fly machine
+> healthcheck 가 critical 잡고 라우팅 차단 → 사용자 다운. 신선도 신호는
+> 반드시 별도 path 로 분리.
 
 ### 2. API 응답에 freshness 가 fresh 한가?
 ```bash

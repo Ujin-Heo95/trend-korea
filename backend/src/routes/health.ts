@@ -39,17 +39,14 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
       dbConnected = false;
     }
 
-    // 공개 응답: 서버 활성 상태 + 이슈 데이터 신선도. SLO 초과 시 503 (UptimeRobot 트리거).
-    // DB 실패는 200 'degraded' 유지 — healthcheck 자체는 통과 (Fly process restart 회피).
-    // null age 도 stale 로 간주 — 테이블이 완전히 비었다는 건 파이프라인이 오랫동안 못 돌았다는 뜻.
-    // freshness 메타(routes/issues.ts buildFreshness) 와 동일한 규칙.
+    // 공개 응답: 서버 liveness 만. 항상 200 (DB 실패해도) — Fly machine healthcheck 가
+    // 이 path 를 보고 critical 로 판단해 라우팅 차단하는 사고 회피. 데이터 신선도 SLO 신호는
+    // 별도 엔드포인트 /health/freshness 에서 503 으로 노출 (UptimeRobot 등 외부 모니터 전용).
     if (!isAdmin) {
       const issueDataAgeSec = dbConnected ? await readIssueDataAgeSeconds(app) : null;
       const isStale = !dbConnected || issueDataAgeSec === null || issueDataAgeSec > ISSUE_DATA_SLO_SECONDS;
-      const status = !dbConnected ? 'degraded' : isStale ? 'stale' : 'ok';
-      const httpStatus = isStale ? 503 : 200;
-      return reply.status(httpStatus).send({
-        status,
+      return reply.status(200).send({
+        status: dbConnected ? (isStale ? 'stale' : 'ok') : 'degraded',
         db: { connected: dbConnected },
         issue_data: {
           age_seconds: issueDataAgeSec,
@@ -155,4 +152,29 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
   };
   app.get('/health', handler);
   app.get('/api/health', handler);
+
+  // 데이터 신선도 SLO 전용 — UptimeRobot 등 외부 모니터가 SLO 위반 시 503 으로 즉시 감지.
+  // /health 와 분리된 이유: Fly machine healthcheck 가 /health 의 503 을 critical 로 잡아
+  // 라우팅을 차단하면 사용자 다운으로 직결됨 (2026-04-12 사고).
+  const freshnessHandler = async (_req: FastifyRequest, reply: FastifyReply) => {
+    let dbConnected = true;
+    try {
+      await app.pg.query('SELECT 1');
+    } catch {
+      dbConnected = false;
+    }
+    const ageSec = dbConnected ? await readIssueDataAgeSeconds(app) : null;
+    const isStale = !dbConnected || ageSec === null || ageSec > ISSUE_DATA_SLO_SECONDS;
+    return reply.status(isStale ? 503 : 200).send({
+      status: isStale ? 'stale' : 'ok',
+      db: { connected: dbConnected },
+      issue_data: {
+        age_seconds: ageSec,
+        slo_seconds: ISSUE_DATA_SLO_SECONDS,
+        is_stale: isStale,
+      },
+    });
+  };
+  app.get('/health/freshness', freshnessHandler);
+  app.get('/api/health/freshness', freshnessHandler);
 }
