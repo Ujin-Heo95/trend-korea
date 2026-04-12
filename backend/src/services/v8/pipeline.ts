@@ -11,7 +11,7 @@ import type { Pool } from 'pg';
 import { logger } from '../../utils/logger.js';
 import { SCORED_CATEGORIES_SQL, getChannel, preloadWeights } from '../scoring-weights.js';
 import { generateEmbeddings, getEmbedding } from '../embedding.js';
-import type { V8Channel, V8Post, V8IssueCard } from './types.js';
+import type { V8Channel, V8Post, V8IssueCard, V8PostScore } from './types.js';
 import { clusterPosts } from './postClustering.js';
 import { computeCrossChannelEcho } from './crossChannelEcho.js';
 import { computeUnifiedScores } from './unifiedScoring.js';
@@ -160,11 +160,61 @@ async function persistIssueRankings(
   }
 }
 
+const POST_SCORES_BATCH_SIZE = 500;
+
+/**
+ * v8 unifiedScore(normalizedScore) → post_scores.trend_score 역기록.
+ *
+ * 종합 탭 이슈카드(v8)와 카테고리 탭 인기순(/api/posts?sort=trending,
+ * post_scores.trend_score 기준)이 동일한 ordering 을 갖도록 한다.
+ * legacy scoring batch 는 1424a11 에서 제거되었으므로 v8 가 단일 source-of-truth.
+ */
+export async function persistPostScoresFromV8(
+  pool: Pool,
+  scores: readonly V8PostScore[],
+  calculatedAt: Date,
+): Promise<number> {
+  if (scores.length === 0) return 0;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    let upserted = 0;
+    for (let i = 0; i < scores.length; i += POST_SCORES_BATCH_SIZE) {
+      const chunk = scores.slice(i, i + POST_SCORES_BATCH_SIZE);
+      const values: string[] = [];
+      const params: unknown[] = [];
+      for (const s of chunk) {
+        const base = params.length;
+        values.push(`($${base + 1}, $${base + 2}, $${base + 3})`);
+        params.push(s.postId, s.normalizedScore, calculatedAt);
+      }
+      await client.query(
+        `INSERT INTO post_scores (post_id, trend_score, calculated_at)
+         VALUES ${values.join(', ')}
+         ON CONFLICT (post_id) DO UPDATE
+           SET trend_score = EXCLUDED.trend_score,
+               calculated_at = EXCLUDED.calculated_at`,
+        params,
+      );
+      upserted += chunk.length;
+    }
+    await client.query('COMMIT');
+    return upserted;
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export interface V8PipelineResult {
   readonly postsLoaded: number;
   readonly embeddingsGenerated: number;
   readonly clustersFormed: number;
   readonly issuesPersisted: number;
+  readonly postScoresUpserted: number;
   readonly durationMs: number;
 }
 
@@ -178,7 +228,7 @@ export async function runV8Pipeline(pool: Pool): Promise<V8PipelineResult> {
   const posts = await loadPostsForV8(pool);
   logger.info({ count: posts.length }, '[v8] posts loaded');
   if (posts.length === 0) {
-    return { postsLoaded: 0, embeddingsGenerated: 0, clustersFormed: 0, issuesPersisted: 0, durationMs: Date.now() - start };
+    return { postsLoaded: 0, embeddingsGenerated: 0, clustersFormed: 0, issuesPersisted: 0, postScoresUpserted: 0, durationMs: Date.now() - start };
   }
 
   const embeddingsGenerated = await ensureEmbeddings(posts);
@@ -200,11 +250,15 @@ export async function runV8Pipeline(pool: Pool): Promise<V8PipelineResult> {
 
   await persistIssueRankings(pool, cards, calculatedAt);
 
+  const postScoresUpserted = await persistPostScoresFromV8(pool, scores, calculatedAt);
+  logger.info({ count: postScoresUpserted }, '[v8] post_scores upserted');
+
   return {
     postsLoaded: posts.length,
     embeddingsGenerated,
     clustersFormed: clusters.length,
     issuesPersisted: cards.length,
+    postScoresUpserted,
     durationMs: Date.now() - start,
   };
 }
