@@ -49,14 +49,22 @@ export const SourceFilterChips: React.FC<Props> = ({ category, selected, onChang
         const color = getSourceColor(key, cat);
         const brandStyle = getSourceBrandStyle(key);
         const label = getSourceLabel(key, name);
+        const style: React.CSSProperties | undefined = brandStyle
+          ? {
+              ...brandStyle,
+              borderColor: active
+                ? brandStyle.color as string
+                : `color-mix(in srgb, ${brandStyle.color} 45%, transparent)`,
+            }
+          : undefined;
         return (
           <button
             key={key}
             onClick={() => toggle(key)}
-            style={brandStyle}
-            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-opacity border border-transparent ${color} ${
-              active ? 'shadow-sm' : 'opacity-55 hover:opacity-100'
-            }`}
+            style={style}
+            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all border ${
+              brandStyle ? '' : `${color} ${active ? 'border-current/40' : 'border-current/25'}`
+            } ${active ? 'shadow-sm font-semibold' : 'hover:brightness-110'}`}
           >
             {label}
           </button>
