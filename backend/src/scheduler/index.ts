@@ -20,6 +20,7 @@ import { enrichYoutubeEngagement } from '../services/youtubeEnrichment.js';
 import { checkPipelineHealth } from '../services/pipelineHealth.js';
 import { runTrackBDecay } from '../services/decayUpdater.js';
 import { runKeywordIdfBatch, getKeywordIdfCoverage, cleanStaleKeywordIdf } from '../services/keywordIdfBatch.js';
+import { runQualityMetricsBatch, cleanStaleQualityMetrics, getLatestMetric } from '../services/qualityMetricsBatch.js';
 import { notifyPipelineWarning } from '../services/discord.js';
 
 function captureError(err: unknown): void {
@@ -44,6 +45,55 @@ async function monitorIdfCoverage(): Promise<void> {
       await notifyPipelineWarning(
         'keyword_idf',
         `IDF 캐시 커버리지 ${pct}% (3 tick 연속 < 50%) — 배치 실패 가능`,
+      );
+    }
+  } catch (err) {
+    captureError(err);
+  }
+}
+
+// 품질 메트릭 알림 — Stage 1 폐쇄 루프
+//  - cluster.size_over_50_count > 0 → 즉시 (1h cooldown) — 과병합 폭주
+//  - issue.score_nan_count > 0 → 즉시 — production NaN 누출
+//  - keyword_idf.df0_ratio > 0.7 (5 tick 연속) → wiki phantom 오염
+//  - issue.merge_pairs_total / cluster 신호가 모두 0인 경우 (3 tick 연속) → 게이트 과엄격
+const qualityAlertState = {
+  clusterOver50LastAt: 0,
+  scoreNanLastAt: 0,
+  df0HighStreak: 0,
+  df0LastAt: 0,
+};
+const ALERT_COOLDOWN_MS = 60 * 60 * 1000;
+
+async function monitorQualityMetrics(): Promise<void> {
+  try {
+    const [over50, nanCount, df0Ratio] = await Promise.all([
+      getLatestMetric(batchPool, 'cluster.size_over_50_count'),
+      getLatestMetric(batchPool, 'issue.score_nan_count'),
+      getLatestMetric(batchPool, 'keyword_idf.df0_ratio'),
+    ]);
+    const now = Date.now();
+
+    if ((over50 ?? 0) > 0 && now - qualityAlertState.clusterOver50LastAt > ALERT_COOLDOWN_MS) {
+      qualityAlertState.clusterOver50LastAt = now;
+      await notifyPipelineWarning('quality.cluster_overmerge', `cluster.size_over_50_count = ${over50} — 과병합 클러스터 발생`);
+    }
+
+    if ((nanCount ?? 0) > 0 && now - qualityAlertState.scoreNanLastAt > ALERT_COOLDOWN_MS) {
+      qualityAlertState.scoreNanLastAt = now;
+      await notifyPipelineWarning('quality.score_nan', `issue.score_nan_count = ${nanCount} — production NaN 누출 (즉시 조사)`);
+    }
+
+    if ((df0Ratio ?? 0) > 0.7) {
+      qualityAlertState.df0HighStreak++;
+    } else {
+      qualityAlertState.df0HighStreak = 0;
+    }
+    if (qualityAlertState.df0HighStreak >= 5 && now - qualityAlertState.df0LastAt > ALERT_COOLDOWN_MS) {
+      qualityAlertState.df0LastAt = now;
+      await notifyPipelineWarning(
+        'quality.idf_df0',
+        `keyword_idf.df0_ratio = ${(df0Ratio! * 100).toFixed(1)}% (5 tick 연속 >70%) — wiki phantom 오염 감지`,
       );
     }
   } catch (err) {
@@ -108,8 +158,10 @@ function startCronJobs(): void {
         { name: 'aggregateIssues', run: () => aggregateIssues(batchPool), critical: true },
         { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
         { name: 'keywordIdfBatch', run: () => runKeywordIdfBatch(batchPool) },
+        { name: 'qualityMetricsBatch', run: () => runQualityMetricsBatch(batchPool) },
       ]);
       await monitorIdfCoverage();
+      await monitorQualityMetrics();
       await checkPipelineHealth(batchPool).catch(captureError);
     } finally {
       clearIssuesCache();
@@ -199,6 +251,7 @@ function startCronJobs(): void {
       await cleanExpiredTrendKeywords(batchPool);
       await cleanExpiredIssueRankings(batchPool);
       await cleanStaleKeywordIdf(batchPool);
+      await cleanStaleQualityMetrics(batchPool);
       await checkDbSize(batchPool);
     } catch (err) {
       captureError(err);

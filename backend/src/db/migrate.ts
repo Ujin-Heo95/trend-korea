@@ -66,6 +66,7 @@ const migrations = [
   '057_2track_scoring.sql',
   '058_news_signal_v7.sql',
   '059_keyword_idf.sql',
+  '060_quality_metrics.sql',
 ];
 
 try {
