@@ -38,7 +38,37 @@ const SOURCE_OVERRIDES: Record<string, string> = {
   // Trend
   google_trends: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400',
   naver_datalab: 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400',
+  // Video — broadcaster brand colors
+  youtube_sbs_news: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400',
+  youtube_ytn: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
+  youtube_mbc_news: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-400',
+  youtube_kbs_news: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
+  youtube_jtbc_news: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
+  // Portal — distinct hues per provider
+  bigkinds_issues: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400',
+  naver_news_ranking: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
+  zum_news: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400',
+  google_news_kr: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400',
+  nate_news: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400',
 };
+
+/** Display label overrides — strip noisy suffixes / shorten portal names. */
+const SOURCE_LABEL_OVERRIDES: Record<string, string> = {
+  youtube_sbs_news: 'SBS 뉴스',
+  youtube_ytn: 'YTN',
+  youtube_mbc_news: 'MBC 뉴스',
+  youtube_kbs_news: 'KBS 뉴스',
+  youtube_jtbc_news: 'JTBC 뉴스',
+  bigkinds_issues: '빅카인즈',
+  naver_news_ranking: '네이버',
+  zum_news: 'ZUM',
+  google_news_kr: 'Google',
+  nate_news: '네이트',
+};
+
+export function getSourceLabel(sourceKey: string, fallback: string): string {
+  return SOURCE_LABEL_OVERRIDES[sourceKey] ?? fallback;
+}
 
 const FALLBACK = 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400';
 

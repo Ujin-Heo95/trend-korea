@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Post } from '../types';
-import { getSourceColor } from '../constants/sourceColors';
+import { getSourceColor, getSourceLabel } from '../constants/sourceColors';
 import { optimizedImage } from '../utils/imageProxy';
 import { timeAgo } from '../utils/timeAgo';
 import { formatCount } from '../utils/formatCount';
@@ -43,7 +43,7 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
                   {rank}
                 </span>
                 <span className={`text-[9px] font-medium px-1 py-0.5 rounded leading-none whitespace-nowrap ${getSourceColor(post.source_key, post.category)}`}>
-                  {post.source_name}
+                  {getSourceLabel(post.source_key, post.source_name)}
                 </span>
               </div>
             )}
@@ -58,7 +58,7 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
                   <span className="text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap">{timeAgo(post.published_at ?? post.first_scraped_at)}</span>
                   {rank == null && (
                     <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${getSourceColor(post.source_key, post.category)}`}>
-                      {post.source_name}
+                      {getSourceLabel(post.source_key, post.source_name)}
                     </span>
                   )}
                   {hasClusters && (
@@ -135,7 +135,7 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
                 className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
               >
                 <span className={`px-1.5 py-0.5 rounded ${getSourceColor(s.source_key)}`}>
-                  {s.source_name}
+                  {getSourceLabel(s.source_key, s.source_name)}
                 </span>
               </a>
             ) : (
@@ -145,7 +145,7 @@ export const PostCard: React.FC<PostCardProps> = React.memo(({ post, rank, isRea
                 className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
               >
                 <span className={`px-1.5 py-0.5 rounded ${getSourceColor(s.source_key)}`}>
-                  {s.source_name}
+                  {getSourceLabel(s.source_key, s.source_name)}
                 </span>
               </Link>
             );
