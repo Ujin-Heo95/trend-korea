@@ -108,7 +108,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     ...(isNewsTab && newsSubcategory ? { subcategory: newsSubcategory } : {}),
     ...(searchQuery ? { q: searchQuery } : {}),
     ...(selectedSources.length > 0 ? { source: selectedSources.join(',') } : {}),
-    ...(isAllTab || category === 'community' || isNewsTab || isVideoTab ? { sort: sortMode } : {}),
+    ...(isAllTab || category === 'community' || isNewsTab || isVideoTab || isPortalTab || isDealsTab ? { sort: sortMode } : {}),
   };
 
   const {
@@ -203,11 +203,11 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
         <EntertainmentSubTabs selected={entertainmentSub} onChange={setEntertainmentSub} />
       )}
 
-      {(category === 'community' || isNewsTab || isPortalTab || isDealsTab) && (
+      {(category === 'community' || isNewsTab || isPortalTab || isDealsTab || isVideoTab) && (
         <SourceFilterChips category={category!} selected={selectedSources} onChange={setSelectedSources} />
       )}
 
-      {(category === 'community' || isNewsTab || isVideoTab) && (
+      {(category === 'community' || isNewsTab || isVideoTab || isPortalTab || isDealsTab) && (
         <div className="flex justify-end mb-3 px-1">
           <div className="flex gap-1.5">
             <button
@@ -277,7 +277,7 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
                 <React.Fragment key={post.id}>
                   <PostCard
                     post={post}
-                    rank={(isPortalTab || isDealsTab || ((category === 'community' || isNewsTab || isVideoTab) && sortMode === 'trending')) ? i + 1 : undefined}
+                    rank={(category === 'community' || isNewsTab || isVideoTab || isPortalTab || isDealsTab) && sortMode === 'trending' ? i + 1 : undefined}
                     isRead={isRead(post.url)}
                     onRead={markAsRead}
                     style={i < 15 ? { '--enter-delay': `${i * 40}ms` } as React.CSSProperties : undefined}

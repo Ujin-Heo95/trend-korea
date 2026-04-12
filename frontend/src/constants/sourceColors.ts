@@ -71,7 +71,7 @@ const SOURCE_LABEL_OVERRIDES: Record<string, string> = {
   google_news_kr: 'Google',
   nate_news: '네이트',
   clien_jirum: '클리앙',
-  quasarzone_deal: '뭬이사존',
+  quasarzone_deal: '퀘이사존',
   eomisae: '어미새',
   ruliweb_hot: '루리웹',
   ppomppu_hot: '뽐뿌',
