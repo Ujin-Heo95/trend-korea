@@ -269,7 +269,7 @@ async function summarizeSingleIssue(
   }
   incrementQuota('gemini');
 
-  const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
   const postsText = formatPostsForPrompt(posts);
 
   // Phase signal propagates → abort the whole call chain when 90s budget expires.
