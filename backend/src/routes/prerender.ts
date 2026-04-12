@@ -3,6 +3,7 @@ import {
   getIssueMeta,
   getDailyReportMeta,
   getStaticMeta,
+  getPathMeta,
   renderHtml,
 } from '../middleware/prerender.js';
 
@@ -28,6 +29,10 @@ export async function prerenderRoutes(app: FastifyInstance): Promise<void> {
     const reportMatch = pagePath.match(/^\/daily-report\/(\d{4}-\d{2}-\d{2})/);
     if (!meta && reportMatch) {
       meta = await getDailyReportMeta(pool, reportMatch[1]);
+    }
+
+    if (!meta) {
+      meta = await getPathMeta(pool, pagePath.split('?')[0]);
     }
 
     const kwMatch = pagePath.match(/^\/keyword\/([^/?]+)/);

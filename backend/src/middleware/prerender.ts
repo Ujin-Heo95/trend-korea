@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { Pool } from 'pg';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
+import { SEO_META, getSeoMeta } from '../seo/meta.js';
 
 const BASE_URL = config.baseUrl;
 const SITE_NAME = config.siteName;
@@ -31,6 +32,10 @@ export interface PageMeta {
   ogImage?: string;
   type?: string;
   jsonLd?: Record<string, unknown> | ReadonlyArray<Record<string, unknown>>;
+  keywords?: string;
+  h1?: string;
+  intro?: string;
+  postsList?: ReadonlyArray<{ id: number; title: string; sourceName: string }>;
 }
 
 function renderJsonLd(jsonLd: PageMeta['jsonLd']): string {
@@ -61,6 +66,34 @@ export function renderHtml(meta: PageMeta): string {
   <meta name="twitter:image" content="${escapedImage}" />`
     : '';
 
+  const keywordsTag = meta.keywords ? `<meta name="keywords" content="${escapeHtml(meta.keywords)}" />` : '';
+
+  const bodyH1 = escapeHtml(meta.h1 ?? meta.title);
+  const bodyIntro = escapeHtml(meta.intro ?? meta.description);
+
+  const postsListHtml = meta.postsList && meta.postsList.length > 0
+    ? `<h2>최신 인기 이슈</h2>
+  <ol>
+${meta.postsList
+  .map(
+    (p, i) =>
+      `    <li><a href="${BASE_URL}/issue/${p.id}">${i + 1}. ${escapeHtml(p.title)}</a> <small>(${escapeHtml(p.sourceName)})</small></li>`,
+  )
+  .join('\n')}
+  </ol>`
+    : `<a href="${url}">위클릿에서 보기</a>`;
+
+  const navHtml = `<nav>
+    <a href="${BASE_URL}/">홈</a> |
+    <a href="${BASE_URL}/realtime">실시간 이슈</a> |
+    <a href="${BASE_URL}/community">커뮤니티</a> |
+    <a href="${BASE_URL}/news">뉴스</a> |
+    <a href="${BASE_URL}/video">유튜브</a> |
+    <a href="${BASE_URL}/portal">포털</a> |
+    <a href="${BASE_URL}/deals">핫딜</a> |
+    <a href="${BASE_URL}/entertainment">엔터테인먼트</a>
+  </nav>`;
+
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -68,6 +101,7 @@ export function renderHtml(meta: PageMeta): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${title}</title>
   <meta name="description" content="${desc}" />
+  ${keywordsTag}
   ${verificationTags}
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${desc}" />
@@ -84,9 +118,10 @@ export function renderHtml(meta: PageMeta): string {
   ${renderJsonLd(meta.jsonLd)}
 </head>
 <body>
-  <h1>${title}</h1>
-  <p>${desc}</p>
-  <a href="${url}">위클릿에서 보기</a>
+  ${navHtml}
+  <h1>${bodyH1}</h1>
+  <p>${bodyIntro}</p>
+  ${postsListHtml}
 </body>
 </html>`;
 }
@@ -236,6 +271,97 @@ const ORGANIZATION_JSON_LD = {
   description: DEFAULT_DESC,
 };
 
+/**
+ * SEO_META에 등록된 path-based 라우트(/community, /news, /realtime 등)에 대해
+ * 해당 카테고리의 최신 인기 포스트 30개를 포함한 PageMeta를 반환한다.
+ * 크롤러에게 thin content가 아닌 실제 콘텐츠 링크를 노출해 인덱싱을 돕는 핵심 함수.
+ */
+export async function getPathMeta(pool: Pool, pathname: string): Promise<PageMeta | null> {
+  const normalized = pathname.split('?')[0];
+  if (!(normalized in SEO_META)) return null;
+  const meta = getSeoMeta(normalized);
+  const pageUrl = `${BASE_URL}${normalized}`;
+
+  const posts = await fetchPostsForCategory(pool, meta.category);
+
+  const jsonLdList: Record<string, unknown>[] = [
+    {
+      '@context': 'https://schema.org',
+      '@type': meta.category ? 'CollectionPage' : 'WebSite',
+      name: meta.title,
+      description: meta.description,
+      url: pageUrl,
+      inLanguage: 'ko',
+      isPartOf: { '@type': 'WebSite', name: '위클릿', url: BASE_URL },
+    },
+  ];
+  if (meta.breadcrumbLabel) {
+    jsonLdList.push(
+      breadcrumb([
+        HOME_CRUMB,
+        { name: meta.breadcrumbLabel, url: pageUrl },
+      ]),
+    );
+  }
+  // 홈/실시간 경로는 WebSite + Dataset 추가
+  if (!meta.category) {
+    jsonLdList.push({
+      '@context': 'https://schema.org',
+      '@type': 'Dataset',
+      name: '한국 실시간 인터넷 트렌드',
+      description: '한국 주요 커뮤니티·뉴스·유튜브에서 10분마다 수집하는 실시간 트렌드 데이터',
+      url: BASE_URL,
+      isAccessibleForFree: true,
+      creator: { '@type': 'Organization', name: '위클릿', url: BASE_URL },
+    });
+  }
+
+  return {
+    title: `${meta.title} | 위클릿`,
+    description: meta.description,
+    url: pageUrl,
+    keywords: meta.keywords.join(', '),
+    h1: meta.h1,
+    intro: meta.intro,
+    postsList: posts,
+    jsonLd: jsonLdList,
+  };
+}
+
+async function fetchPostsForCategory(
+  pool: Pool,
+  category: string | undefined,
+): Promise<Array<{ id: number; title: string; sourceName: string }>> {
+  try {
+    if (!category) {
+      const { rows } = await pool.query<{ id: number; title: string; source_name: string }>(
+        `SELECT p.id, p.title, p.source_name
+         FROM posts p
+         LEFT JOIN post_scores ps ON ps.post_id = p.id
+         WHERE p.scraped_at > NOW() - INTERVAL '2 days'
+         ORDER BY COALESCE(ps.trend_score, 0) DESC, p.id DESC
+         LIMIT 30`,
+      );
+      return rows.map(r => ({ id: r.id, title: r.title, sourceName: r.source_name }));
+    }
+    const cats = category.split(',');
+    const { rows } = await pool.query<{ id: number; title: string; source_name: string }>(
+      `SELECT p.id, p.title, p.source_name
+       FROM posts p
+       LEFT JOIN post_scores ps ON ps.post_id = p.id
+       WHERE p.category = ANY($1::text[])
+         AND p.scraped_at > NOW() - INTERVAL '2 days'
+       ORDER BY COALESCE(ps.trend_score, 0) DESC, p.id DESC
+       LIMIT 30`,
+      [cats],
+    );
+    return rows.map(r => ({ id: r.id, title: r.title, sourceName: r.source_name }));
+  } catch (err) {
+    logger.warn({ err, category }, '[prerender] fetchPostsForCategory failed');
+    return [];
+  }
+}
+
 export function getStaticMeta(path: string): PageMeta {
   if (path.startsWith('/keywords')) {
     return {
@@ -304,6 +430,12 @@ export function registerPrerender(app: FastifyInstance, pool: Pool): void {
       const reportMatch = req.url.match(/^\/daily-report\/(\d{4}-\d{2}-\d{2})/);
       if (!meta && reportMatch) {
         meta = await getDailyReportMeta(pool, reportMatch[1]);
+      }
+
+      // SEO_META에 등록된 path-based 라우트 (/community, /news, /realtime 등)
+      if (!meta) {
+        const pathOnly = req.url.split('?')[0];
+        meta = await getPathMeta(pool, pathOnly);
       }
 
       const kwMatch = req.url.match(/^\/keyword\/([^/?]+)/);

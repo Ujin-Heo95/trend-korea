@@ -21,21 +21,13 @@ import { IssueRankingList } from '../components/IssueRankingList';
 import { TimeWindowTabs } from '../components/TimeWindowTabs';
 import type { TimeWindow } from '../hooks/useIssueRankings';
 import { MetaHead } from '../components/shared/MetaHead';
-import { WebSiteJsonLd, CollectionPageJsonLd, DatasetJsonLd } from '../components/shared/JsonLd';
+import { WebSiteJsonLd, CollectionPageJsonLd, DatasetJsonLd, BreadcrumbJsonLd } from '../components/shared/JsonLd';
 import { Breadcrumb } from '../components/shared/Breadcrumb';
+import { getSeoMeta, type SeoMeta } from '../config/seoMeta';
 import { useReadPosts } from '../hooks/useReadPosts';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { findCategoryComponent } from './categoryRegistry';
 import type { CategoryContext } from './categoryRegistry';
-
-const CATEGORY_TITLES: Record<string, string> = {
-  community: '커뮤니티',
-  'news,newsletter,tech': '뉴스',
-  portal: '포털',
-  video: 'YouTube',
-  deals: '핫딜',
-  entertainment: '엔터테인먼트',
-};
 
 const CATEGORY_LABELS: Record<string, string> = {
   community: '커뮤니티',
@@ -66,13 +58,15 @@ const ENTERTAINMENT_CATEGORY_MAP: Record<EntertainmentSub, string> = {
 };
 
 interface Props {
+  path?: string;
   category: string | undefined;
   onCategoryChange: (cat: string | undefined) => void;
   searchQuery: string;
 }
 
-export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQuery }) => {
-  const pageTitle = category ? CATEGORY_TITLES[category] ?? '실시간 트렌드' : '실시간 트렌드';
+export const HomePage: React.FC<Props> = ({ path = '/', category, onCategoryChange, searchQuery }) => {
+  const seo: SeoMeta = getSeoMeta(path);
+  const pageTitle = seo.title.replace(/\s*\|\s*위클릿\s*$/, '');
   const { isRead, markAsRead } = useReadPosts();
   const mainRef = useRef<HTMLDivElement>(null);
   usePullToRefresh(mainRef);
@@ -160,11 +154,11 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
 
     if (isEntertainmentTab && entertainmentSub !== 'all') {
       const subLabel = ENTERTAINMENT_SUB_LABELS[entertainmentSub];
-      items.push({ label: categoryLabel, href: '/?category=entertainment' });
+      items.push({ label: categoryLabel, href: '/entertainment' });
       if (subLabel) items.push({ label: subLabel });
       else items.push({ label: categoryLabel });
     } else if (isNewsTab && newsSubcategory) {
-      items.push({ label: categoryLabel, href: '/?category=news,newsletter,tech' });
+      items.push({ label: categoryLabel, href: '/news' });
       items.push({ label: newsSubcategory });
     } else {
       items.push({ label: categoryLabel });
@@ -173,22 +167,41 @@ export const HomePage: React.FC<Props> = ({ category, onCategoryChange, searchQu
     return items;
   }, [category, isEntertainmentTab, entertainmentSub, isNewsTab, newsSubcategory]);
 
+  const isHomeRoot = path === '/';
+  const isRealtime = path === '/realtime';
+
   return (
     <div ref={mainRef} style={{ overscrollBehaviorY: 'contain' }}>
-      <MetaHead title={pageTitle} />
-      {isAllTab && (
+      <MetaHead
+        title={pageTitle}
+        description={seo.description}
+        url={`https://weeklit.net${path}`}
+      />
+      {(isHomeRoot || isRealtime) && (
         <>
           <WebSiteJsonLd />
           <DatasetJsonLd />
         </>
       )}
-      {category && CATEGORY_TITLES[category] && (
+      {!isHomeRoot && !isRealtime && (
         <CollectionPageJsonLd
-          name={`${CATEGORY_TITLES[category]} — 위클릿`}
-          description={`한국 ${CATEGORY_TITLES[category]} 실시간 트렌드`}
-          url={`/?category=${category}`}
+          name={seo.title.replace(/\s*\|\s*위클릿\s*$/, '')}
+          description={seo.description}
+          url={path}
         />
       )}
+      {seo.breadcrumbLabel && (
+        <BreadcrumbJsonLd
+          items={[
+            { label: '홈', href: '/' },
+            { label: seo.breadcrumbLabel, href: path },
+          ]}
+        />
+      )}
+      <header className="mb-3 px-1">
+        <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">{seo.h1}</h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{seo.intro}</p>
+      </header>
       <div className="flex items-center justify-between mb-3">
         <CategoryTabs selected={category} onChange={handleCategoryChange} />
       </div>
