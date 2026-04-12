@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import pLimit from 'p-limit';
 import { logger } from '../utils/logger.js';
 import { notifyPipelineWarning } from './discord.js';
 import { calculateTrendSignalMap } from './trendSignals.js';
@@ -83,26 +84,31 @@ export async function calculateScores(pool: Pool): Promise<number> {
 }
 
 async function _calculateScores(pool: Pool): Promise<number> {
-  // Round 1: 독립적인 쿼리 8개를 한 번에 병렬 실행 (풀 max=15, 안전 범위)
+  // p-limit(4): batchPool(max=9) 동시 점유를 4개로 제한 → API healthcheck용 여유 확보.
+  // 이전: Round 1(8) + Round 2(6) = 순간 14개 파이어, batchPool/apiPool 공유 시 API 죽음.
+  const limit = pLimit(4);
+  const run = <T>(fn: () => Promise<T>) => limit(fn);
+
+  // Round 1: 독립적인 쿼리 8개를 p-limit(4)로 제한 병렬 실행
   const [weights, engWeights, sourceStatsMap, channelStatsMap, velocityMap, clusterBonusMap, categoryBaselines, postsResult] = await Promise.all([
-    preloadWeights().catch((): PreloadedWeights => ({
+    run(() => preloadWeights().catch((): PreloadedWeights => ({
       sourceWeights: {}, defaultSourceWeight: 0.8,
       categoryWeights: {}, defaultCategoryWeight: 1.0,
       communitySourceWeights: {}, defaultCommunitySourceWeight: 1.0,
       communityDecayHalfLives: {}, defaultCommunityDecay: 150,
       channelHalfLives: {}, defaultHalfLife: 300,
       newsDecayHalfLives: {}, defaultNewsDecay: 240,
-    })),
-    preloadEngagementWeights().catch((): EngagementWeights => ({
+    }))),
+    run(() => preloadEngagementWeights().catch((): EngagementWeights => ({
       commentWeights: { community: 1.5, news: 0.5, video: 1.0, sns: 1.0, specialized: 1.0 },
       likeWeights: { community: 2.0, sns: 1.5, video: 1.2, specialized: 0.8, news: 0.3 },
-    })),
-    calculateSourceStats(pool),
-    calculateChannelStats(pool),
-    calculateVelocityMap(pool).catch(() => new Map<number, VelocityData>()),
-    calculateClusterBonusMap(pool).catch(() => new Map<number, number>()),
-    calculateCategoryBaselines(pool),
-    pool.query<{
+    }))),
+    run(() => calculateSourceStats(pool)),
+    run(() => calculateChannelStats(pool)),
+    run(() => calculateVelocityMap(pool).catch(() => new Map<number, VelocityData>())),
+    run(() => calculateClusterBonusMap(pool).catch(() => new Map<number, number>())),
+    run(() => calculateCategoryBaselines(pool)),
+    run(() => pool.query<{
       id: number;
       source_key: string;
       category: string | null;
@@ -120,20 +126,20 @@ async function _calculateScores(pool: Pool): Promise<number> {
       WHERE p.scraped_at > NOW() - INTERVAL '24 hours'
         AND COALESCE(p.category, '') IN ${SCORED_CATEGORIES_SQL}
         AND p.title NOT LIKE '[사진]%'
-    `),
+    `)),
   ]);
 
   const rows = postsResult.rows;
   if (rows.length === 0) return 0;
 
-  // Round 2: trendSignalMap은 rows에 의존, 나머지는 독립적
+  // Round 2: trendSignalMap은 rows에 의존, 나머지는 독립적 (Round 1과 동일한 limit 공유)
   const [trendSignalMap, subcategoryPercentiles, breakingNewsMap, portalRankMap, clusterImportanceMap, newsEngagementMap] = await Promise.all([
-    calculateTrendSignalMap(pool, rows.map(r => ({ id: r.id, title: r.title }))).catch(() => new Map<number, number>()),
-    calculateSubcategoryPercentiles(pool).catch(() => new Map<number, number>()),
-    detectBreakingNews(pool).catch(() => new Map<number, number>()),
-    calculatePortalRankMap(pool).catch(() => new Map<number, number>()),
-    calculateClusterImportanceMapV7(pool).catch(() => new Map<number, number>()),
-    calculateNewsEngagementMap(pool).catch(() => new Map<number, number>()),
+    run(() => calculateTrendSignalMap(pool, rows.map(r => ({ id: r.id, title: r.title }))).catch(() => new Map<number, number>())),
+    run(() => calculateSubcategoryPercentiles(pool).catch(() => new Map<number, number>())),
+    run(() => detectBreakingNews(pool).catch(() => new Map<number, number>())),
+    run(() => calculatePortalRankMap(pool).catch(() => new Map<number, number>())),
+    run(() => calculateClusterImportanceMapV7(pool).catch(() => new Map<number, number>())),
+    run(() => calculateNewsEngagementMap(pool).catch(() => new Map<number, number>())),
   ]);
 
   // 뉴스 signalScore 가중치 (DB 오버라이드 가능) — v7: 5항 가산 혼합 (freshness 흡수)

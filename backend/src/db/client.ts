@@ -7,13 +7,13 @@ const sslOpts = isSSL ? { ssl: { rejectUnauthorized: false } } : {};
 // Supavisor transaction mode (port 6543) — keepAlive incompatible
 const isPooler = config.dbUrl.includes(':6543');
 
-// API pool: lower max, shorter timeouts — serves real-time HTTP requests
+// API pool: lower max, shorter timeouts — serves real-time HTTP requests.
+// Supavisor(:6543) 경로여도 batchPool과 별도 pg.Pool 인스턴스를 유지해야
+// 파이프라인 배치 쿼리가 API 커넥션을 고갈시키지 않는다 (하드 격리).
 const apiPoolMax = Math.max(Math.floor(config.dbPoolMax * 0.4), 4); // ~40% of total
 export const pool = new Pool({
   connectionString: config.dbUrl,
-  // Supavisor 경로(:6543)에서는 pooler가 connection multiplexing을 하므로
-  // 단일 풀로 config.dbPoolMax 전체를 쓴다 (batchPool도 같은 인스턴스 재사용).
-  max: isPooler ? config.dbPoolMax : apiPoolMax,
+  max: apiPoolMax,
   min: isPooler ? 0 : 2,
   idleTimeoutMillis: config.dbIdleTimeoutMs,
   connectionTimeoutMillis: config.dbConnectionTimeoutMs,
@@ -23,18 +23,15 @@ export const pool = new Pool({
 
 // Batch pool: higher max, longer timeouts — serves scheduler/scrapers/scoring
 const batchPoolMax = config.dbPoolMax - apiPoolMax;
-export const batchPool = isPooler
-  ? pool // pooler handles connection multiplexing — single pool is sufficient
-  : new Pool({
-    connectionString: config.dbUrl,
-    max: batchPoolMax,
-    min: 1,
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 15_000,
-    keepAlive: true,
-    keepAliveInitialDelayMillis: 10_000,
-    ...sslOpts,
-  });
+export const batchPool = new Pool({
+  connectionString: config.dbUrl,
+  max: batchPoolMax,
+  min: isPooler ? 0 : 1,
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 15_000,
+  ...(!isPooler && { keepAlive: true, keepAliveInitialDelayMillis: 10_000 }),
+  ...sslOpts,
+});
 
 pool.on('error', (err) => {
   logger.error({ err }, '[db:pool:api] idle client error');
@@ -154,7 +151,7 @@ export async function checkDbHealth(): Promise<boolean> {
 export async function gracefulShutdown(): Promise<void> {
   logger.info('[db] draining connection pools...');
   const timeout = new Promise<void>(resolve => setTimeout(resolve, 5_000));
-  const pools = pool === batchPool ? [pool.end()] : [pool.end(), batchPool.end()];
+  const pools = [pool.end(), batchPool.end()];
   await Promise.race([Promise.all(pools), timeout]);
   logger.info('[db] pools closed');
 }
