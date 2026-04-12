@@ -29,6 +29,7 @@ import { prerenderRoutes } from './routes/prerender.js';
 import { debugIssueMergeRoutes } from './routes/debugIssueMerge.js';
 import { adminQualityRoutes } from './routes/adminQuality.js';
 import { startScheduler } from './scheduler/index.js';
+import { startWebWatchdog } from './scheduler/watchdog.js';
 import { awaitRunningScrapers } from './scrapers/index.js';
 import { registerPrerender } from './middleware/prerender.js';
 import { initScoringConfig } from './services/scoringConfig.js';
@@ -231,10 +232,16 @@ if (isMain) {
     .then(() => {
       if (runScheduler) startScheduler();
       else console.log('[server] RUN_SCHEDULER!=true — scheduler disabled in web process (worker handles it)');
+      // Watchdog 은 scheduler 와 독립적으로 항상 기동.
+      // 근거: worker 프로세스가 fly deploy 중 stopped 로 남아 파이프라인 전체가 freeze 되던
+      //   사고(2026-04-12 22:21) 의 재발 방지. web 은 min_machines_running=1 로 보장됨.
+      //   pipelineLock 공유 → worker 가 살아있으면 중복 실행되지 않음.
+      startWebWatchdog();
     })
     .catch((err) => {
       console.error('[server] DB validation failed:', err);
       if (runScheduler) startScheduler();
+      startWebWatchdog();
     });
 
   const shutdown = async (signal: string) => {

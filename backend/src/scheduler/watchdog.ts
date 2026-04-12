@@ -228,3 +228,41 @@ export function resetDailyCounters(): void {
   status.recovery_count_24h = 0;
   status.probe_failure_count_24h = 0;
 }
+
+// ─── Web-process watchdog bootstrap ───
+//
+// 배경: worker 프로세스가 fly deploy 중 stopped 상태로 남는 사고 (2026-04-12 22:21~).
+//   auto_start_machines=true 는 [http_service] 블록(=web) 에만 적용되고 worker 는
+//   자동 재기동 보장 없음. worker 가 죽으면 cron 전체가 정지 → 사용자 영구 stale.
+//
+// 해결: watchdog + probe 를 web 프로세스에서도 독립적으로 기동.
+//   - web 은 min_machines_running=1 로 보장 → 절대 죽지 않음
+//   - pipelineLock 공유 → worker 가 살아있어도 중복 실행되지 않음
+//   - worker 가 죽으면 web 쪽 watchdog 이 자동으로 aggregate+materialize 수행
+//
+// 전체 scheduler 를 web 에서 돌리면 스크래퍼까지 중복 → 이 함수는 watchdog+probe 만 등록.
+import cron from 'node-cron';
+import { batchPool } from '../db/client.js';
+
+let webWatchdogStarted = false;
+
+export function startWebWatchdog(): void {
+  if (webWatchdogStarted) return;
+  webWatchdogStarted = true;
+
+  // L1 — stale watchdog: 2분 주기
+  cron.schedule('*/2 * * * *', () => {
+    void runIssueWatchdog(batchPool).catch(err => logger.error({ err }, '[web-watchdog] L1 error'));
+  });
+  // L2 — synthetic probe: 3분 주기
+  cron.schedule('*/3 * * * *', () => {
+    void runIssueProbe(batchPool).catch(err => logger.error({ err }, '[web-watchdog] L2 error'));
+  });
+  // 부팅 직후 즉시 1회 실행 — 다음 cron tick 까지 대기하지 않음.
+  // 사용자가 "인지 못하는 채로 죽어있어" 사고를 겪은 직접 원인. 배포 직후 5초 안에 회복 시도.
+  setTimeout(() => {
+    void runIssueWatchdog(batchPool).catch(err => logger.error({ err }, '[web-watchdog] initial check error'));
+  }, 5_000);
+
+  logger.info('[web-watchdog] started — L1 every 2min, L2 every 3min, initial check in 5s');
+}
