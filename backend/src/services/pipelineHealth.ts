@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 import { logger } from '../utils/logger.js';
 import { notifyPipelineWarning } from './discord.js';
+import { getSummaryMetrics } from './geminiSummarizer.js';
 
 interface HealthProblem {
   readonly code: string;
@@ -54,6 +55,43 @@ export async function checkPipelineHealth(pool: Pool): Promise<void> {
   for (const w of [6, 12, 24]) {
     if (!windowsWithMat.has(w)) {
       problems.push({ code: 'empty_materialized', detail: `window=${w}h materialized 테이블에 행 없음` });
+    }
+  }
+
+  // TD-006 (E): Gemini summary metrics from the most recent summarize tick
+  const gm = getSummaryMetrics();
+  logger.info(
+    {
+      calls: gm.calls,
+      timeouts: gm.timeouts,
+      cacheHits: gm.cacheHits,
+      fallbacks: gm.fallbacks,
+      avgLatencyMs: Math.round(gm.avgLatencyMs),
+      hitRate: Number(gm.hitRate.toFixed(2)),
+      fallbackRate: Number(gm.fallbackRate.toFixed(2)),
+    },
+    '[pipelineHealth] summary metrics',
+  );
+
+  // Skip noise on tiny tick windows (<5 processed items)
+  if (gm.calls + gm.cacheHits + gm.fallbacks >= 5) {
+    if (gm.hitRate < 0.3 && gm.cacheHits + gm.calls > 0) {
+      problems.push({
+        code: 'low_cache_hit_rate',
+        detail: `summary cache hit ${(gm.hitRate * 100).toFixed(0)}% (<30%) — fingerprint churn?`,
+      });
+    }
+    if (gm.timeouts > 5) {
+      problems.push({
+        code: 'gemini_timeouts',
+        detail: `${gm.timeouts} Gemini timeouts in last tick (>5)`,
+      });
+    }
+    if (gm.fallbackRate > 0.5) {
+      problems.push({
+        code: 'high_fallback_rate',
+        detail: `summary fallback ${(gm.fallbackRate * 100).toFixed(0)}% (>50%)`,
+      });
     }
   }
 

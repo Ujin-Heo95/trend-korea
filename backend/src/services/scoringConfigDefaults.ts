@@ -273,6 +273,23 @@ export const CONFIG_GROUPS: readonly ConfigGroup[] = [
       { key: 'MAX_BOOST', defaultValue: 3.0, min: 1.5, max: 10.0, step: 0.5, label: '최대 부스트', description: '속보 부스트 상한값', type: 'number' },
     ],
   },
+
+  // ─── 10. 요약 큐 (TD-006) ───
+  {
+    groupName: 'summary_queue',
+    label: '요약 큐 우선순위',
+    description: 'Gemini 요약 워커가 이슈를 고르는 우선순위 공식 파라미터',
+    fields: [
+      { key: 'FRESHNESS_HALF_LIFE_HOURS', defaultValue: 6, min: 1, max: 48, step: 1, label: '신선도 반감기 (시간)', description: '이슈 생성 후 경과 시간에 따른 우선순위 감쇠 반감기', type: 'number' },
+      { key: 'UNSUMMARIZED_PENALTY_MIN', defaultValue: 1.0, min: 1.0, max: 3.0, step: 0.1, label: '요약된 이슈 가중치', description: '이미 요약된 이슈에 적용되는 기본 승수', type: 'number' },
+      { key: 'UNSUMMARIZED_PENALTY_MAX', defaultValue: 3.0, min: 1.0, max: 5.0, step: 0.1, label: '미요약 이슈 가중치', description: 'null/fallback summary에 적용되는 최대 승수', type: 'number' },
+      { key: 'NOVELTY_FACTOR', defaultValue: 1.2, min: 1.0, max: 3.0, step: 0.05, label: '구성원 변경 부스트', description: '멤버십 변화율이 임계 이상일 때 적용되는 추가 승수', type: 'number' },
+      { key: 'NOVELTY_THRESHOLD', defaultValue: 0.3, min: 0.1, max: 0.9, step: 0.05, label: '구성원 변경 임계값', description: '이전 tick 대비 top-post Jaccard 거리 임계값', type: 'number' },
+      { key: 'PHASE_TIMEOUT_MS', defaultValue: 90000, min: 10000, max: 300000, step: 1000, label: 'phase 타임아웃 (ms)', description: '요약 phase 전체 허용 시간', type: 'number' },
+      { key: 'SINGLE_CALL_TIMEOUT_MS', defaultValue: 8000, min: 1000, max: 30000, step: 500, label: '단일 호출 타임아웃 (ms)', description: '개별 Gemini 호출 AbortController 타임아웃', type: 'number' },
+      { key: 'MAX_ISSUES_PER_WINDOW', defaultValue: 15, min: 1, max: 50, step: 1, label: '윈도우당 최대 이슈 수', description: '윈도우(6/12/24h)당 한 tick에서 처리할 최대 이슈 수', type: 'number' },
+    ],
+  },
 ] as const;
 
 // ─── Utility: 그룹 이름으로 조회 ───
