@@ -61,6 +61,7 @@ const migrations = [
   '052_materialized_issues.sql',
   '053_stable_id_unique.sql',
   '054_scraper_source_overrides.sql',
+  '055_issue_window_hours.sql',
 ];
 
 try {
