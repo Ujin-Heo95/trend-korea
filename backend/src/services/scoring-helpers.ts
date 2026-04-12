@@ -793,6 +793,159 @@ export async function calculateNewsEngagementMap(pool: Pool): Promise<Map<number
   return map;
 }
 
+// ─── News: YouTube Cross Signal (방송사 YouTube engagement → 매칭 news 가산) ───
+
+const YOUTUBE_NEWS_SOURCE_KEYS = [
+  'youtube_sbs_news', 'youtube_ytn', 'youtube_mbc_news',
+  'youtube_kbs_news', 'youtube_jtbc_news',
+];
+
+// 토큰 매칭 false-positive 차단용 stopword (방송 공통어/장르어).
+// 2자 이상 한글 토큰 추출 후 이 집합을 제거한 잔여 토큰으로 교집합 카운트.
+const YT_CROSS_STOPWORDS = new Set([
+  '속보', '뉴스', '단독', '영상', '라이브', '풀영상', '종합', '오늘', '내일', '어제',
+  '현장', '인터뷰', '브리핑', '공식', '한국', '미국', '일본', '중국', '북한',
+  '대통령', '정부', '국회', '지금', '직접', '발표', '기자', '특보', '아침', '저녁',
+  '이슈', '집중', '취재', '리포트', '전체', '하이라이트', '풀버전', '클립', '뉴스룸',
+  '정치', '사회', '경제', '국제', '문화', '연예', '스포츠', '날씨',
+]);
+
+/** 한글 2자+ 토큰 추출 (stopword 제외). normalizeTitle 과 동일 정규화 후 split. */
+function extractKoreanTokens(title: string): Set<string> {
+  const cleaned = title
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/[^가-힣\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const tokens = new Set<string>();
+  for (const tok of cleaned.split(' ')) {
+    if (tok.length < 2) continue;
+    if (YT_CROSS_STOPWORDS.has(tok)) continue;
+    tokens.add(tok);
+  }
+  return tokens;
+}
+
+/**
+ * 방송사 YouTube 뉴스 영상의 engagement 를 동일 사건의 news 기사 점수에 전파.
+ *
+ * 알고리즘:
+ *  1) 24h × YOUTUBE_NEWS_SOURCE_KEYS × view_count > 0 영상 후보 수집
+ *  2) ln(1 + views + comments*3 + likes*2) z-score → [0, 10] 정규화 (newsEngagement 와 동일 스케일)
+ *  3) 매칭:
+ *     - 1순위 클러스터 전파: 같은 cluster 의 news/portal/newsletter post 에 영상 점수 max 전파
+ *       (cluster size > 20 이면 점수 × 20/size 감쇠로 폭주 방지)
+ *     - 2순위 토큰 폴백: 클러스터 미가입 영상은 24h news 중 stopword 제외 토큰 2개+ 공유 시 ×0.6 감쇠 전파
+ *  4) 한 news post 에 여러 영상이 매칭되면 max
+ *  5) 최종 점수 × 0.5 (매칭 불확실성 할인)
+ */
+export async function calculateYoutubeNewsCrossSignal(pool: Pool): Promise<Map<number, number>> {
+  // Step 1: 영상 후보 + 통계
+  const { rows: videoRows } = await pool.query<{
+    id: number;
+    title: string;
+    view_count: number;
+    comment_count: number;
+    like_count: number;
+  }>(
+    `SELECT id, title, view_count, comment_count, like_count
+     FROM posts
+     WHERE source_key = ANY($1::text[])
+       AND scraped_at > NOW() - INTERVAL '24 hours'
+       AND view_count > 0`,
+    [YOUTUBE_NEWS_SOURCE_KEYS]
+  );
+
+  if (videoRows.length === 0) return new Map();
+
+  // Step 2: log-engagement → z-score → [0, 10]
+  const logEng = videoRows.map(v =>
+    Math.log(1 + v.view_count + v.comment_count * 3 + v.like_count * 2)
+  );
+  const mean = logEng.reduce((a, b) => a + b, 0) / logEng.length;
+  const variance = logEng.reduce((a, b) => a + (b - mean) ** 2, 0) / logEng.length;
+  const stddev = Math.max(Math.sqrt(variance), 0.1);
+
+  const videoScore = new Map<number, number>(); // videoPostId → [0,10]
+  for (let i = 0; i < videoRows.length; i++) {
+    const z = (logEng[i] - mean) / stddev;
+    const norm = Math.min(Math.max((z + 2) * 2.5, 0), 10);
+    videoScore.set(videoRows[i].id, norm);
+  }
+
+  const videoIds = videoRows.map(v => v.id);
+
+  // Step 3a: 클러스터 전파
+  // 영상 → cluster → 같은 cluster 의 news 카테고리 멤버 조회
+  const { rows: clusterPropRows } = await pool.query<{
+    video_id: number;
+    news_post_id: number;
+    cluster_size: number;
+  }>(
+    `WITH video_clusters AS (
+       SELECT pcm.post_id AS video_id, pcm.cluster_id
+       FROM post_cluster_members pcm
+       WHERE pcm.post_id = ANY($1::bigint[])
+     ),
+     cluster_sizes AS (
+       SELECT cluster_id, COUNT(*)::int AS sz
+       FROM post_cluster_members
+       WHERE cluster_id IN (SELECT cluster_id FROM video_clusters)
+       GROUP BY cluster_id
+     )
+     SELECT vc.video_id, pcm2.post_id AS news_post_id, cs.sz AS cluster_size
+     FROM video_clusters vc
+     JOIN post_cluster_members pcm2 ON pcm2.cluster_id = vc.cluster_id
+     JOIN posts p ON p.id = pcm2.post_id
+     JOIN cluster_sizes cs ON cs.cluster_id = vc.cluster_id
+     WHERE p.category IN ('news', 'portal', 'newsletter')
+       AND p.scraped_at > NOW() - INTERVAL '24 hours'`,
+    [videoIds]
+  );
+
+  const result = new Map<number, number>(); // newsPostId → [0,10]
+  const matchedVideoIds = new Set<number>();
+  for (const r of clusterPropRows) {
+    matchedVideoIds.add(r.video_id);
+    const baseScore = videoScore.get(r.video_id) ?? 0;
+    if (baseScore <= 0) continue;
+    // 큰 클러스터는 점수 감쇠 (한 영상이 수십 기사에 폭주 방지)
+    const sizeAdj = r.cluster_size > 20 ? baseScore * (20 / r.cluster_size) : baseScore;
+    const prev = result.get(r.news_post_id) ?? 0;
+    if (sizeAdj > prev) result.set(r.news_post_id, sizeAdj);
+  }
+
+  // Step 3b: 토큰 매칭 폴백 (클러스터 미매칭 영상만)
+  const unmatchedVideos = videoRows.filter(v => !matchedVideoIds.has(v.id));
+  if (unmatchedVideos.length > 0) {
+    const { rows: newsRows } = await pool.query<{ id: number; title: string }>(
+      `SELECT id, title FROM posts
+       WHERE category IN ('news', 'portal', 'newsletter')
+         AND scraped_at > NOW() - INTERVAL '24 hours'`
+    );
+    const newsTokens = newsRows.map(n => ({ id: n.id, tokens: extractKoreanTokens(n.title) }));
+
+    for (const v of unmatchedVideos) {
+      const vTokens = extractKoreanTokens(v.title);
+      if (vTokens.size < 2) continue;
+      const baseScore = (videoScore.get(v.id) ?? 0) * 0.6;
+      if (baseScore <= 0) continue;
+      for (const n of newsTokens) {
+        let shared = 0;
+        for (const t of vTokens) if (n.tokens.has(t)) shared++;
+        if (shared < 2) continue;
+        const prev = result.get(n.id) ?? 0;
+        if (baseScore > prev) result.set(n.id, baseScore);
+      }
+    }
+  }
+
+  // Step 5: 최종 0.5 할인
+  for (const [k, v] of result) result.set(k, v * 0.5);
+
+  return result;
+}
+
 // ─── News: Freshness Signal (v7 5번째 가산 항) ───
 
 const FRESHNESS_SIGNAL_HALF_LIFE_MIN = 45;

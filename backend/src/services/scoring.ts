@@ -39,6 +39,7 @@ import {
   calculatePortalRankMap,
   calculateClusterImportanceMapV7,
   calculateNewsEngagementMap,
+  calculateYoutubeNewsCrossSignal,
   normalizeTrendSignal,
   freshnessSignal,
   velocityToBonus,
@@ -133,13 +134,14 @@ async function _calculateScores(pool: Pool): Promise<number> {
   if (rows.length === 0) return 0;
 
   // Round 2: trendSignalMap은 rows에 의존, 나머지는 독립적 (Round 1과 동일한 limit 공유)
-  const [trendSignalMap, subcategoryPercentiles, breakingNewsMap, portalRankMap, clusterImportanceMap, newsEngagementMap] = await Promise.all([
+  const [trendSignalMap, subcategoryPercentiles, breakingNewsMap, portalRankMap, clusterImportanceMap, newsEngagementMap, ytNewsCrossMap] = await Promise.all([
     run(() => calculateTrendSignalMap(pool, rows.map(r => ({ id: r.id, title: r.title }))).catch(() => new Map<number, number>())),
     run(() => calculateSubcategoryPercentiles(pool).catch(() => new Map<number, number>())),
     run(() => detectBreakingNews(pool).catch(() => new Map<number, number>())),
     run(() => calculatePortalRankMap(pool).catch(() => new Map<number, number>())),
     run(() => calculateClusterImportanceMapV7(pool).catch(() => new Map<number, number>())),
     run(() => calculateNewsEngagementMap(pool).catch(() => new Map<number, number>())),
+    run(() => calculateYoutubeNewsCrossSignal(pool).catch(() => new Map<number, number>())),
   ]);
 
   // 뉴스 signalScore 가중치 (DB 오버라이드 가능) — v7: 5항 가산 혼합 (freshness 흡수)
@@ -147,8 +149,11 @@ async function _calculateScores(pool: Pool): Promise<number> {
   const newsPortalW = await scoringConfig.getNumber('news_signal_weights_v7', 'portal_weight', 0.32).catch(() => 0.32);
   const newsClusterW = await scoringConfig.getNumber('news_signal_weights_v7', 'cluster_weight', 0.27).catch(() => 0.27);
   const newsTrendW = await scoringConfig.getNumber('news_signal_weights_v7', 'trend_weight', 0.18).catch(() => 0.18);
-  const newsEngagementW = await scoringConfig.getNumber('news_signal_weights_v7', 'engagement_weight', 0.13).catch(() => 0.13);
+  // v7.1: ytCrossW 추가 — newsEngagementW 0.13 → 0.05 로 줄이고 0.08 을 cross 에 할당 (총합 1.0 유지).
+  // 방송사 YouTube 뉴스 영상의 시청수 폭발이 동일 사건 news 기사 랭킹에 직접 반영되도록 도입.
+  const newsEngagementW = await scoringConfig.getNumber('news_signal_weights_v7', 'engagement_weight', 0.05).catch(() => 0.05);
   const newsFreshnessW = await scoringConfig.getNumber('news_signal_weights_v7', 'freshness_weight', 0.10).catch(() => 0.10);
+  const ytCrossW = await scoringConfig.getNumber('news_signal_weights_v7', 'yt_cross_weight', 0.08).catch(() => 0.08);
 
   const now = Date.now();
   const globalBaseline = 2.0;
@@ -207,6 +212,7 @@ async function _calculateScores(pool: Pool): Promise<number> {
           + (clusterImportanceMap.get(row.id) ?? 0) * newsClusterW
           + normalizeTrendSignal(trendSignalMap.get(row.id) ?? 1.0) * newsTrendW
           + (newsEngagementMap.get(row.id) ?? 0) * newsEngagementW
+          + (ytNewsCrossMap.get(row.id) ?? 0) * ytCrossW
           + freshnessSignal(ageMinutes) * newsFreshnessW,
           1.0,
         )
@@ -325,9 +331,10 @@ async function _calculateScores(pool: Pool): Promise<number> {
     const clusterHits = rawScoreEntries.filter(e => clusterImportanceMap.has(e.postId)).length;
     const engagementHits = rawScoreEntries.filter(e => newsEngagementMap.has(e.postId)).length;
     const breakingHits = rawScoreEntries.filter(e => breakingNewsMap.has(e.postId)).length;
-    if (portalHits + clusterHits + engagementHits + breakingHits > 0) {
+    const ytCrossHits = rawScoreEntries.filter(e => ytNewsCrossMap.has(e.postId)).length;
+    if (portalHits + clusterHits + engagementHits + breakingHits + ytCrossHits > 0) {
       console.log(
-        `[scoring:news] signalScore active: portal=${portalHits} cluster=${clusterHits} engagement=${engagementHits} breaking=${breakingHits}`
+        `[scoring:news] signalScore active: portal=${portalHits} cluster=${clusterHits} engagement=${engagementHits} breaking=${breakingHits} ytCross=${ytCrossHits}`
       );
     }
   }

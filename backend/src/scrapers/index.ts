@@ -6,6 +6,12 @@ import { batchPool } from '../db/client.js';
 import { buildScrapers, getSourcesByPriority } from './registry.js';
 import type { ResolvedScraper, SourcePriority } from './registry.js';
 import { notifyScraperErrors, type ScraperError } from '../services/discord.js';
+import { enrichYoutubeEngagement } from '../services/youtubeEnrichment.js';
+
+const YOUTUBE_NEWS_SOURCES = new Set([
+  'youtube_sbs_news', 'youtube_ytn', 'youtube_mbc_news',
+  'youtube_kbs_news', 'youtube_jtbc_news',
+]);
 
 const SCRAPER_TIMEOUT_MS = 30_000;
 const runningLocks = new Map<string, boolean>();
@@ -82,6 +88,16 @@ export async function runScrapersByPriority(priority: SourcePriority): Promise<v
     });
     if (errors.length > 0) {
       await notifyScraperErrors(priority, errors).catch(err => console.warn('[discord] notification failed:', err));
+    }
+
+    // 즉시 보강: youtube_*_news 가 이번 라운드에 돌았다면 신규 video post 의 stats 공백을
+    // 30분 cron tick 까지 기다리지 않고 바로 채운다. enrichYoutubeEngagement 는 idempotent
+    // (GREATEST UPDATE) + 48h 윈도우 라 다음 cron 과 충돌해도 안전.
+    const ranYoutubeNews = entries.some(e => YOUTUBE_NEWS_SOURCES.has(e.sourceKey));
+    if (ranYoutubeNews) {
+      await enrichYoutubeEngagement(batchPool).catch(err =>
+        console.warn('[scrapers] post-scrape yt-enrich failed:', err)
+      );
     }
   } finally {
     runningLocks.set(priority, false);

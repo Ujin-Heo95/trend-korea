@@ -8,6 +8,7 @@ const BATCH_SIZE = 50; // YouTube API videos.list 최대 50개/요청
 interface VideoRow {
   id: number;
   url: string;
+  source_key: string;
 }
 
 interface YouTubeStatistics {
@@ -42,9 +43,10 @@ export async function enrichYoutubeEngagement(pool: Pool): Promise<number> {
     return 0;
   }
 
-  // 최근 48시간 내 video 포스트 조회
+  // 최근 48시간 내 video 포스트 조회.
+  // 48h 윈도우 의도적 유지: 그 이후 영상은 마지막 enrichment 값으로 고정 (quota 절약).
   const { rows: posts } = await pool.query<VideoRow>(
-    `SELECT id, url FROM posts
+    `SELECT id, url, source_key FROM posts
      WHERE category = 'video'
        AND scraped_at > NOW() - INTERVAL '48 hours'
      ORDER BY scraped_at DESC`
@@ -57,12 +59,18 @@ export async function enrichYoutubeEngagement(pool: Pool): Promise<number> {
 
   // URL → video ID 매핑
   const idMap = new Map<string, number[]>(); // videoId → [postId, ...]
+  const postSourceMap = new Map<number, string>();
+  let extractFails = 0;
   for (const post of posts) {
+    postSourceMap.set(post.id, post.source_key);
     const videoId = extractVideoId(post.url);
-    if (!videoId) continue;
+    if (!videoId) { extractFails++; continue; }
     const existing = idMap.get(videoId) ?? [];
     existing.push(post.id);
     idMap.set(videoId, existing);
+  }
+  if (extractFails > 0) {
+    logger.warn({ extractFails, sample: posts.slice(0, 3).map(p => p.url) }, '[yt-enrich] extractVideoId failed for some posts');
   }
 
   const allVideoIds = [...idMap.keys()];
@@ -72,6 +80,7 @@ export async function enrichYoutubeEngagement(pool: Pool): Promise<number> {
   }
 
   let totalUpdated = 0;
+  const perSource = new Map<string, number>();
 
   // 50개씩 배치 호출
   for (let i = 0; i < allVideoIds.length; i += BATCH_SIZE) {
@@ -112,6 +121,8 @@ export async function enrichYoutubeEngagement(pool: Pool): Promise<number> {
           const ui = updateValues.length;
           updatePlaceholders.push(`($${ui + 1}::bigint, $${ui + 2}::int, $${ui + 3}::int, $${ui + 4}::int)`);
           updateValues.push(postId, viewCount, commentCount, likeCount);
+          const srcKey = postSourceMap.get(postId);
+          if (srcKey) perSource.set(srcKey, (perSource.get(srcKey) ?? 0) + 1);
 
           // engagement_snapshots: 현재 시점 스냅샷
           if (viewCount > 0 || commentCount > 0 || likeCount > 0) {
@@ -149,6 +160,9 @@ export async function enrichYoutubeEngagement(pool: Pool): Promise<number> {
     }
   }
 
-  logger.info({ totalUpdated, videoIds: allVideoIds.length }, '[yt-enrich] enrichment complete');
+  logger.info(
+    { totalUpdated, videoIds: allVideoIds.length, perSource: Object.fromEntries(perSource), extractFails },
+    '[yt-enrich] enrichment complete'
+  );
   return totalUpdated;
 }
