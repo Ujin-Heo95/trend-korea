@@ -1,4 +1,7 @@
-const CACHE_NAME = 'weeklit-v4';
+// v5: shell stale 캐시 사고 — 이전 SW(v4) 가 캐시한 옛 index.html 이 사라진
+// JS hash 를 가리켜 흰화면 사고 (2026-04-12 안드로이드 태블릿 사용자 신고).
+// activate 시 v4 이하 캐시 자동 정리 + navigation 응답을 매번 캐시 덮어쓰기.
+const CACHE_NAME = 'weeklit-v5';
 const API_CACHE = 'weeklit-api-v2';
 const SHELL_ASSETS = ['/', '/index.html'];
 
@@ -63,10 +66,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation: network-first with cache fallback
+  // Navigation: network-first, **항상** 캐시 덮어쓰기 (오래된 shell hash 잔존 차단).
+  // 핵심: fetch 성공 시 즉시 cache.put('/index.html', ...) 로 갱신 → 다음 오프라인
+  // fallback 도 항상 최신 hash 를 가리킴. 이전 SW 가 install 시 한 번만 캐시하던 패턴이
+  // 안드로이드 태블릿 흰화면 사고의 원인.
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() => caches.match('/index.html'))
+      fetch(request)
+        .then((res) => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match('/index.html'))
     );
     return;
   }

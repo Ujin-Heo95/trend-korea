@@ -9,6 +9,7 @@ import { LivePulse } from './shared/LivePulse';
 import { StreakBadge } from './shared/StreakBadge';
 import { ScrollToTop } from './shared/ScrollToTop';
 import { MobileSearchToggle } from './shared/MobileSearchToggle';
+import { InstallBanner } from './InstallBanner';
 
 interface Props {
   children: React.ReactNode;
@@ -26,7 +27,7 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
           <Link
             to="/"
             aria-label="위클릿 홈"
-            className="inline-flex items-center hover:opacity-80 transition-opacity dark:bg-white dark:rounded-md dark:px-2 dark:py-1"
+            className="inline-flex items-center hover:opacity-80 transition-opacity"
           >
             <img
               src="/brand_logo.png"
@@ -83,6 +84,7 @@ export const Layout: React.FC<Props> = ({ children, searchQuery, onSearchChange 
     <Footer />
     <MobileBottomNav />
     <ScrollToTop />
+    <InstallBanner />
   </div>
   );
 };
