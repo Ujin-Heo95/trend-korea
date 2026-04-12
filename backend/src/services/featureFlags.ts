@@ -20,7 +20,7 @@ const DEFAULTS: FeatureFlags = {
   gemini_summary_enabled: true,
   cross_validation_enabled: true,
   scoring_track_b_enabled: false,
-  scoring_v8_enabled: false,
+  scoring_v8_enabled: true,
 };
 
 let cachedFlags: FeatureFlags = { ...DEFAULTS };
@@ -40,7 +40,7 @@ export async function loadFeatureFlags(): Promise<FeatureFlags> {
       gemini_summary_enabled: config.gemini_summary_enabled !== false,
       cross_validation_enabled: config.cross_validation_enabled !== false,
       scoring_track_b_enabled: config.scoring_track_b_enabled === true,
-      scoring_v8_enabled: config.scoring_v8_enabled === true,
+      scoring_v8_enabled: config.scoring_v8_enabled !== false,
     };
     lastLoadedAt = now;
   } catch (err) {

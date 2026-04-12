@@ -1,217 +1,145 @@
-# 이슈 랭킹 파이프라인 (전체 탭)
+# 이슈 랭킹 파이프라인 (v8)
 
-> 마지막 업데이트: 2026-04-12
-> 관련 파일: `scoring.md` (개별 포스트 스코어링), 본 문서 (이슈 집계 및 순위 결정)
-> **v3 재설계 진행 중**: `plans/luminous-drifting-shell.md` 참조. Step 3.5 임베딩 단일화 + Step 3.6(Gemini borderline) 제거 + `issueScore = rawScore × max(momentum×diversity, breaking)`.
+> 2026-04-12 기준 — v8 통합 파이프라인. 커밋 `72b6604` 부터 도입.
+> 관련 문서: `docs/scoring.md` (5 개 신호 + 통합 공식).
+> 주요 파일: `backend/src/services/v8/`.
 
 ## 1. 개요
 
-'전체' 탭은 개별 포스트가 아닌 **이슈(Issue)** 단위로 랭킹을 표시한다.
-이슈는 유사한 포스트들의 그룹이며, `issue_rankings` 테이블에 저장된다.
-
-**파이프라인 실행 주기**: 10분 (`scheduler/index.ts`, KST 02:00-06:00 quiet hours 제외)
+'전체' 탭은 여전히 **이슈(Issue)** 단위로 랭킹된다. v8 에서 이슈는 곧 **k-NN 클러스터** 이다. v7 의 8 스텝 집계 파이프라인(trend-keyword union-find → 제목 Jaccard dedup → entity arbitration → bridge-cluster guard → 채널별 집계)은 전부 폐기되고, 다음 한 줄로 대체된다.
 
 ```
-:00, :10, :20, …  메인 파이프라인 (사용자 응답 경로)
-  calculateScores()       ← 개별 포스트 trend_score 계산 (scoring.ts)
-      ↓
-  aggregateIssues()       ← 이슈 그룹핑 + 이슈 점수 산출 (issueAggregator.ts)
-      ↓
-  materializeIssueResponse()  ← /api/issues 응답 사전 계산
-
-:02, :12, :22, …  요약 tick (TD-006로 분리, 사용자 응답과 격리)
-  summarizeAndUpdateIssues()  ← summaryQueue 우선순위 + Gemini 호출 (geminiSummarizer.ts)
-      ↓
-  materializeIssueResponse()  ← 요약 반영 후 재생성
+issue_score = Σ(top-K=10 normalizedScore) × channel_breadth_bonus
 ```
 
-**Tick 분리 (TD-006)**: 요약 작업이 사용자 응답 경로(materialize)에 전파되지 않도록
-별도 tick으로 분리. 요약 phase는 90s AbortController로 하드 캡, 개별 Gemini 호출은
-8s. 예산 소진 시 남은 stale 이슈는 rule-based fallback_template로 즉시 채워지고
-phase 종료. routes/issues.ts는 응답 직전 빈 summary를 rule-based로 채우는 안전망을
-가지고 있어 사용자는 절대 빈 summary를 보지 않음.
-
-스케줄러: `scheduler/index.ts:48-56`
+파이프라인 실행 주기는 여전히 10 분. `scheduler/index.ts` 가 `runV8Pipeline(pool)` 을 호출한다.
 
 ---
 
-## 2. 파이프라인 상세 (8 Steps)
-
-### Step 1: 스코어된 포스트 조회 (`fetchScoredPosts`)
-
-**파일**: `issueAggregator.ts:159-186`
-
-```sql
-SELECT p.id, p.source_key, p.category, p.title, p.content_snippet, p.thumbnail,
-       COALESCE(ps.trend_score, 0) AS trend_score,
-       pcm.cluster_id
-FROM posts p
-LEFT JOIN post_scores ps ON ps.post_id = p.id
-LEFT JOIN post_cluster_members pcm ON pcm.post_id = p.id
-WHERE p.scraped_at > NOW() - INTERVAL '{windowHours} hours'
-  AND COALESCE(p.category, '') IN ('news','press','community','video','video_popular')
-ORDER BY COALESCE(ps.trend_score, 0) DESC
-```
-
-- **윈도우**: 기본 12시간 (`ISSUE_WINDOW_HOURS`, DB 설정 가능)
-- **대상 카테고리**: news, press, community, video, video_popular
-- `trend_score`는 `post_scores` 테이블에서 JOIN (5분마다 갱신)
-- `cluster_id`는 `post_cluster_members`에서 JOIN (중복제거 서비스가 관리)
-
-### Step 2: 클러스터 그룹 빌드 (`buildClusterGroups`)
-
-**파일**: `issueAggregator.ts:195-224`
-
-- 같은 `cluster_id`를 가진 포스트를 하나의 그룹으로 묶음
-- `cluster_id`가 NULL인 standalone 포스트 중 **뉴스 또는 뉴스 영상**이면 독립 그룹 생성
-- standalone 커뮤니티 포스트는 **이 단계에서 탈락** (뉴스 앵커가 없으면 이슈 불가)
-
-### Step 3: 트렌드 키워드 기반 병합 (`mergeViaTrendKeywords`)
-
-**파일**: `issueAggregator.ts:228-344`
-
-- `trend_keywords` 테이블의 외부 키워드 (Google Trends, Naver DataLab, BigKinds)와 포스트 제목+본문 매칭
-- 같은 키워드에 매칭된 그룹을 **Union-Find**로 병합
-- 병합 후 포스트를 news/community/video로 분류
-- `trendSignalScore` 산출: `computeTrendSignalBonus(match) - 1.0` (0 이상)
-
-### Step 3.5: 이슈 제목 유사도 중복제거 (`deduplicateIssuesByTitle`)
-
-**파일**: `issueAggregator.ts:346-402`
-
-- 각 이슈의 대표 제목(최고 점수 뉴스 포스트)에서 bigram 추출
-- **Jaccard 유사도 ≥ 0.55**이면 같은 이슈로 병합 (Union-Find)
-- 임계값은 `ISSUE_DEDUP_THRESHOLD`로 DB 설정 가능
-
-### Step 4: 점수 산출 및 필터 (`scoreAndFilter`)
-
-**파일**: `issueAggregator.ts:406-430`
-
-**진입 필터**: 뉴스 포스트 ≥1개 OR 뉴스 채널 영상 ≥1개 (커뮤니티 전용 이슈는 제외)
-
-**이슈 점수 공식** (v2 — 로그 체감 + 모멘텀 + 다양성 + 속보 부스트):
+## 2. 파이프라인 순서
 
 ```
-// 채널별 집계 — clusterBonus 제거 + 로그 체감 (Fix 1+2)
-newsAgg = Σ(baseScore_i / (1 + K × ln(1+i)))  // i=순위별 내림차순
-communityAgg = 동일 공식
-videoAgg = 동일 공식 (뉴스채널 ×1.0, 일반 ×0.4 적용 후)
-// baseScore = trendScore / clusterBonus (이중 적용 제거)
-
-// 커뮤니티 동적 가중치 (Fix 4)
-effectiveCW = COMMUNITY_WEIGHT + COMMUNITY_BOOST × min(communityIntensity/3, 1)
-
-// 기본 점수 합산
-rawScore = newsAgg × NEWS_WEIGHT
-         + communityAgg × effectiveCW
-         + videoAgg
-         + trendSignalScore × TREND_SIGNAL_WEIGHT
-
-// 곱셈 보너스 (Fix 3+5+6)
-issueScore = rawScore × momentumBonus × diversityBonus × breakingKeywordBoost
+loadPosts → ensureEmbeddings → clusterPosts → computeCrossChannelEcho
+  → computeUnifiedScores → rankIssues → persistIssueRankings
 ```
 
-| 컴포넌트 | 산출 방식 | 기본값 |
-|----------|----------|--------|
-| `newsAgg` | 로그 체감 집계 (K=0.7). post1=100%, post2=67%, post10=34% | NEWS_WEIGHT=1.0 |
-| `communityAgg` | 동일 로그 체감 | COMMUNITY_WEIGHT=0.6 (동적 최대 0.9) |
-| `videoAgg` | 동일 로그 체감 (뉴스채널 ×1.0, 일반 ×0.4) | — |
-| `trendSignalScore` | Step 3에서 산출된 외부 트렌드 신호 점수 | 0.4 |
-| `momentumBonus` | 최근 1h vs 이전 2h 가속도 기반 [0.7, 1.8] | — |
-| `diversityBonus` | 소스 다양성 + 채널 교차 보너스 [1.0, 2.5] | — |
-| `breakingKeywordBoost` | 제목에 "속보/긴급" 포함 시 [1.0, 3.0], 30분 반감기 | — |
-
-**뉴스 영상 소스**: youtube_sbs_news, youtube_ytn, youtube_mbc_news, youtube_kbs_news, youtube_jtbc_news
-
-**정렬**: `issueScore DESC`
-
-### Step 5: Top N 선택
-
-**파일**: `issueAggregator.ts:145`
-
-- `scoredIssues.slice(0, cfg.maxIssues)` — 기본 30개
-
-### Step 6: 이슈 행 빌드 (`buildIssueRow`)
-
-**파일**: `issueAggregator.ts:458-504`
-
-- 대표 제목: 최고 점수 뉴스 포스트의 제목
-- 대표 썸네일: 뉴스 > 영상 > 커뮤니티 순으로 유효한 썸네일 선택
-- 카테고리 라벨: 제목 키워드 기반 추론 (정치/경제/연예/스포츠/IT과학/세계/생활/사회)
-- `stableId`: cluster_ids + standalone_post_ids의 MD5 해시 (순위 변동 추적용)
-
-### Step 7: 순위 변동 계산 (`calculateRankChanges`)
-
-**파일**: `issueAggregator.ts:527-575`
-
-- `issue_rankings_history` 테이블의 최신 배치와 비교
-- 매칭 우선순위: ① `stableId` 일치 → ② cluster/standalone ID 50% 이상 겹침
-- `rankChange = 이전순위 - 현재순위` (양수 = 상승, 음수 = 하락, null = 신규)
-
-### Step 8: DB 기록 (`writeIssueRankings`)
-
-**파일**: `issueAggregator.ts:579-640`
-
-- 트랜잭션 내에서 `DELETE FROM issue_rankings` → 새 행 INSERT
-- **TTL**: 기본 6시간, quiet hours(01:00-06:00 KST) 진입 시 07:00 KST까지 연장
-- `issue_rankings_history`에 시간별 스냅샷 저장 (순위 변동 추적용)
+| 단계 | 파일 | 요약 |
+|------|------|------|
+| loadPosts | `v8/pipeline.ts` | 12h 윈도우, `SCORED_CATEGORIES_SQL` 필터, MAX_POSTS=4000 |
+| ensureEmbeddings | `embedding.ts` | 캐시 미스만 Gemini `text-embedding-004` 배치 호출 |
+| clusterPosts | `v8/postClustering.ts` | Union-Find + brute-force cosine, 4 방어선 |
+| computeCrossChannelEcho | `v8/crossChannelEcho.ts` | 타 채널 k-NN 반향 신호 |
+| computeUnifiedScores | `v8/unifiedScoring.ts` | 5 개 신호 곱 + 채널별 log Z-score |
+| rankIssues | `v8/issueRanker.ts` | 본 문서 §3 참조 |
+| persistIssueRankings | `v8/pipeline.ts` | `issue_rankings` 트랜잭션 재기록 |
 
 ---
 
-## 3. 개별 포스트 스코어링 (요약)
+## 3. 이슈 랭커
 
-> 상세: `docs/scoring.md` 참조
+`backend/src/services/v8/issueRanker.ts` — 클러스터 → 랭킹된 `V8IssueCard` 리스트.
 
-이슈 점수의 입력값인 개별 포스트 `trend_score`는 다음과 같이 산출:
+### 3.1 게이트
+
+1. **cross-source ≥ 2** — `filterMultiSourceClusters()`. 고립 singleton 은 이슈가 될 수 없다.
+2. **news OR portal ≥ 1** — `channelBreakdown.news + channelBreakdown.portal ≥ 1`. 커뮤니티·영상만으로 구성된 클러스터는 이슈 생성 금지 (v7 의 "뉴스 앵커" 정책 계승).
+
+### 3.2 스코어 공식
 
 ```
-# 뉴스 채널 (v7: 5항 가산 혼합, freshness 흡수)
-signalScore = max(portalRank×0.32 + clusterImportance×0.27
-              + trendAlignment×0.18 + engagementSignal×0.13
-              + freshnessSignal×0.10, 1.0)
-trend_score = signalScore × decay × sourceWeight × subcategoryNorm
-            × breakingBoost × volumeDampening
-
-# 커뮤니티 채널 (곱셈 기반)
-trend_score = normalizedEngagement × decay × communitySourceWeight
-            × velocityBonus × clusterBonus × trendSignalBonus × volumeDampening
+topK   = memberScores.slice(0, 10)                           // TOP_K_POSTS = 10
+sumTopK = Σ topK.normalizedScore
+breadthBonus = 1.0 + 0.25 × (cluster.uniqueChannels - 1)     // 최대 1.75 @ 4 채널
+issueScore   = sumTopK × breadthBonus
 ```
 
-**파일**: `scoring-helpers.ts`, `scoring.ts`
+- `normalizedScore` 는 이미 채널별 Z-score 정규화된 값이라 가중치 재조정 없이 단순 합산해도 채널 공정성이 유지된다.
+- `CHANNEL_BREADTH_ALPHA = 0.25` — community+news 만 겹쳐도 1.25x, 4 채널 전부 겹치면 1.75x.
+- 로그 체감(`DIMINISHING_K`), 모멘텀(`momentumBonus`), 속보 키워드 부스트(`breakingKeywordBoost`) 같은 v7 승수는 전부 제거되었다 — 모멘텀은 `freshness` 가, 속보는 `authority × freshness` 가, 다양성은 `topicImportance` + `breadthBonus` 가 담당한다.
 
-### 주요 팩터
+### 3.3 대표 포스트 선정
 
-| 팩터 | 범위 | 뉴스 | 커뮤니티 | 설명 |
-|------|------|------|----------|------|
-| `signalScore` | [1.0, 10.0] | ✓ | — | v7: 5항 가산 (portal+cluster+trend+engagement+freshness) |
-| `clusterImportance` | [0, 10] | ✓ | — | v7: 임베딩 centroid 거리 × 티어 (entity 기반) |
-| `freshnessSignal` | [0, 10] | ✓ | — | v7: 45분 반감기, signalScore 5번째 가산항 |
-| `decay` | [0, 1.0] | ✓ (소스별) | ✓ (소스별) | 지수 감쇠 |
-| `sourceWeight` | [0.8, 2.5] | ✓ | ✓ | 소스 신뢰도 |
-| `breakingBoost` | [1.0, 3.0] | ✓ | — | 속보 감지 (다중소스 3.0, T1 단독 2.0) |
-| `velocityBonus` | [1.0, 1.6] | — | ✓ | 최근 2시간 참여 변화율 |
-| `clusterBonus` | [1.0, 3.0] | — | ✓ | 중복 포스트 수 + 다양성 |
-| `trendSignalBonus` | [1.0, 1.8] | — | ✓ | 외부 트렌드 키워드 매칭 |
+우선순위 배열 `['news', 'portal', 'video', 'community']` 순으로 클러스터 내에서 `normalizedScore` 최상위 포스트를 찾아 사용.
 
-### 채널별 Decay 반감기
+- **제목**: 위 순서의 첫 매칭 포스트 제목.
+- **썸네일**: 동일 순서로 `thumbnailUrl != null` 인 첫 포스트.
+- **카테고리 라벨**: 대표 제목 키워드 휴리스틱 (`categorizeByKeyword`) — 정치 / 경제 / 연예 / 스포츠 / 사회 / IT / 종합.
 
-| 채널 | 반감기 | 24시간 후 잔여 |
-|------|--------|--------------|
-| SNS | 120분 | 0.002% |
-| 커뮤니티 | 120-200분 (소스별) | 0.002%-0.3% |
-| 뉴스 | 180-320분 (소스별) | 0.5%-4% |
-| 전문 | 300분 | 0.46% |
-| 영상 | 360분 | 6.25% |
+### 3.4 정렬
+
+`cards.sort((a, b) => b.issueScore - a.issueScore)`. Top N 제한은 persist 단계에서 걸지 않고 모두 기록 — 실질적으로 cross-source ≥ 2 필터와 news/portal 게이트만으로 20~30 건으로 수렴한다.
 
 ---
 
-## 4. API 엔드포인트
+## 4. 클러스터링 방어선
 
-### `GET /api/issues`
+자세한 로직은 `docs/scoring.md` §4. 요약:
 
-**파일**: `routes/issues.ts:31-206`
+```
+cos ≥ 0.78     AND  |Δt| ≤ 12h
+clusterSize ≤ 50 (union 취소로 방지)
+cross-source ≥ 2 (issueRanker 게이트)
+```
 
-**쿼리**:
+Bridge-cluster 사고(`lessons_issue_bridge_cluster.md`)의 전이 병합 루프홀은 embedding 기반 strict threshold + size cap 으로 구조적으로 막혔다. v7 의 entity 게이트 / KNOWN_ORGS / 누적-루트 가드는 전부 불필요해 제거되었다.
+
+---
+
+## 5. 영속화 (`issue_rankings`)
+
+`persistIssueRankings()` 는 트랜잭션 내에서 `DELETE FROM issue_rankings` 후 전체 재기록한다. 테이블 스키마는 v7 과 동일하지만 일부 컬럼의 **의미가 달라졌다**.
+
+| 컬럼 | v8 매핑 |
+|------|---------|
+| `title` | 대표 포스트 제목 (news → portal → video → community 우선순위) |
+| `category_label` | keyword heuristic 결과 |
+| `issue_score` | `sumTopK × breadthBonus` |
+| `news_score` | topK 중 `channel ∈ {news, portal}` 의 `normalizedScore` 합 |
+| `community_score` | topK 중 `channel = community` 합 |
+| `video_score` | topK 중 `channel = video` 합 |
+| `trend_signal_score` | **0 (폐기)** — v8 은 외부 트렌드 키워드 신호를 사용하지 않음 |
+| `news_post_count` | `channelBreakdown.news + channelBreakdown.portal` |
+| `community_post_count` | `channelBreakdown.community` |
+| `video_post_count` | `channelBreakdown.video` |
+| `representative_thumbnail` | 대표 썸네일 |
+| `cluster_ids` | **빈 배열** — v8 은 post_clusters 테이블을 사용하지 않음 |
+| `standalone_post_ids` | 클러스터 멤버 postId 전체 |
+| `stable_id` | `v8-cluster-{minPostId}` (deterministic) |
+| `cross_validation_score` | **0 (폐기)** |
+| `cross_validation_sources` | **빈 배열 (폐기)** |
+| `calculated_at` / `expires_at` | now / now+6h |
+
+`rank_change`, `issue_rankings_history`, `momentum_score` 는 v8 파이프라인에서 갱신하지 않는다 (스키마는 유지). 동적 TTL(quiet hours 연장)도 단순화되어 고정 6h 이다.
+
+---
+
+## 6. Migration from v7
+
+v7 의 8 스텝 집계 파이프라인 (`issueAggregator.ts`, ~1000 lines) 은 전부 폐기되었다.
+
+제거된 스텝:
+
+| v7 스텝 | 제거 사유 |
+|---------|-----------|
+| Step 2 buildClusterGroups (`post_cluster_members` 조회) | v8 은 k-NN 클러스터를 런타임에 계산 |
+| Step 3 mergeViaTrendKeywords (trend_keywords union-find) | 외부 트렌드 키워드 매칭 자체 폐기 |
+| Step 3.5 deduplicateIssuesByTitle (Jaccard ≥ 0.55) | embedding 클러스터링이 이미 동일 주제를 합침 |
+| Step 4 scoreAndFilter (newsAgg + communityAgg + videoAgg + trendSignalScore + momentum×diversity×breaking) | 단일 `sumTopK × breadthBonus` 로 축약 |
+| Step 5 Top N slice | cross-source≥2 + news/portal 게이트로 자연 수렴 |
+| Step 7 calculateRankChanges (stableId 또는 50% 겹침 매칭) | 유지 대상 아님 — stable_id 는 deterministic 하지만 rank_change 는 기록 안 함 |
+
+제거된 파일: `issueAggregator.ts`, `entityExtractor.ts`, `mergeArbiterWorker.ts`, 그리고 `trendSignals.ts` 의 issue 파이프라인 호출부.
+
+제거된 설정 키 (`scoring_config.issue_aggregator` 그룹): `NEWS_WEIGHT`, `COMMUNITY_WEIGHT`, `TREND_SIGNAL_WEIGHT`, `ISSUE_DEDUP_THRESHOLD`, `DIMINISHING_K`, `MOMENTUM_WEIGHT`, `MOMENTUM_PENALTY_MIN`, `COMMUNITY_BOOST`, `DIVERSITY_CAP`, `BREAKING_KW_HALFLIFE`, `BREAKING_KW_MAX_BOOST`, `CROSS_SOURCE_2`, `CROSS_SOURCE_3`.
+
+v8 의 튜닝 파라미터는 코드 상수로 고정되어 있다 (`RANKER_CONSTANTS`, `CLUSTERING_CONSTANTS`, `ECHO_ALPHA` 등). 런타임 오버라이드가 필요해지면 개별적으로 `scoring_config` 로 승격할 예정.
+
+---
+
+## 7. API 엔드포인트
+
+`GET /api/issues` 응답 스키마는 v7 과 동일하다. 내부 SELECT 쿼리와 LRU 캐시(60s) 도 그대로. 프론트엔드 `useIssueRankings` 훅 / `IssueRankingList` 컴포넌트는 변경 없음 — 정렬은 서버 순서 그대로 표시.
+
 ```sql
 SELECT * FROM issue_rankings
 WHERE expires_at > NOW()
@@ -219,108 +147,19 @@ ORDER BY issue_score DESC
 LIMIT $1 OFFSET $2
 ```
 
-**캐시**:
-- 서버: LRU 캐시 50개 항목, TTL 60초 (`cache key: issues:{page}:{limit}`)
-- 클라이언트: React Query staleTime 30초, refetchInterval 60초 (quiet hours 5분)
-
-**프론트엔드**: `useIssueRankings.ts` → `IssueRankingList.tsx` → `IssueCard`
-- 고정 30개, 페이지 1만 요청
-- 클라이언트 측 재정렬 **없음** — 서버 순서 그대로 표시
-
 ---
 
-## 5. 설정 테이블 (`scoring_config`)
-
-`issue_aggregator` 그룹의 런타임 설정 가능 파라미터:
-
-| 키 | 기본값 | 범위 | 설명 |
-|----|--------|------|------|
-| `ISSUE_WINDOW_HOURS` | 12 | 1-48 | 포스트 수집 윈도우 |
-| `MAX_ISSUES` | 30 | 5-100 | 표시할 최대 이슈 수 |
-| `NEWS_WEIGHT` | 1.0 | 0.1-5.0 | 뉴스 점수 비중 |
-| `COMMUNITY_WEIGHT` | 0.6 | 0.0-5.0 | 커뮤니티 기본 가중치 |
-| `TREND_SIGNAL_WEIGHT` | 0.4 | 0.0-5.0 | 트렌드 신호 비중 |
-| `ISSUE_DEDUP_THRESHOLD` | 0.55 | 0.1-1.0 | 이슈 중복 판정 임계값 |
-| `DIMINISHING_K` | 0.7 | 0.1-2.0 | 포스트 수 체감 기울기 (K값) |
-| `MOMENTUM_WEIGHT` | 0.4 | 0.0-1.0 | 모멘텀 ln 계수 |
-| `MOMENTUM_PENALTY_MIN` | 0.7 | 0.5-1.0 | 비활성 이슈 최소 승수 |
-| `COMMUNITY_BOOST` | 0.3 | 0.0-0.5 | 커뮤니티 바이럴 추가 가중치 |
-| `DIVERSITY_CAP` | 2.5 | 1.0-5.0 | 소스 다양성 보너스 상한 |
-| `CROSS_SOURCE_2` | 0.1 | 0.0-0.3 | 2채널 교차 보너스 |
-| `CROSS_SOURCE_3` | 0.2 | 0.0-0.5 | 3채널 교차 보너스 |
-| `BREAKING_KW_HALFLIFE` | 30 | 10-120 | 속보 키워드 부스트 반감기 (분) |
-| `BREAKING_KW_MAX_BOOST` | 3.0 | 1.5-5.0 | 속보 키워드 최대 부스트 |
-
-설정 정의: `scoringConfigDefaults.ts`, 로딩: `scoringConfig.ts`
-
-### 5-2. 모멘텀 기반 동적 TTL 및 급상승 배지
-
-- `momentum_score` 컬럼이 `issue_rankings`에 저장됨
-- `momentum_score ≥ 1.5`: 프론트엔드 "급상승" 배지 표시
-- `momentum_score ≤ 0.7`: TTL 2시간으로 단축 (비활성 이슈 빠른 퇴출)
-- 기본 TTL: 6시간, 야간(KST 01-06): 07:00 KST까지 연장
-
----
-
-## 6. DB 스키마
-
-### `issue_rankings`
-
-```sql
-CREATE TABLE issue_rankings (
-  id SERIAL PRIMARY KEY,
-  title TEXT NOT NULL,
-  summary TEXT,
-  category_label TEXT,
-  issue_score FLOAT NOT NULL DEFAULT 0,
-  news_score FLOAT NOT NULL DEFAULT 0,
-  community_score FLOAT NOT NULL DEFAULT 0,
-  trend_signal_score FLOAT NOT NULL DEFAULT 0,
-  video_score FLOAT NOT NULL DEFAULT 0,
-  news_post_count INT DEFAULT 0,
-  community_post_count INT DEFAULT 0,
-  video_post_count INT DEFAULT 0,
-  representative_thumbnail TEXT,
-  cluster_ids INT[] NOT NULL DEFAULT '{}',
-  standalone_post_ids INT[] NOT NULL DEFAULT '{}',
-  matched_trend_keywords TEXT[] DEFAULT '{}',
-  rank_change INT,
-  stable_id TEXT,
-  calculated_at TIMESTAMPTZ NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ
-);
-
-CREATE INDEX idx_issue_rankings_score ON issue_rankings(issue_score DESC);
-```
-
-### 관련 테이블
-
-| 테이블 | 역할 |
-|--------|------|
-| `post_scores` | 개별 포스트 trend_score (5분 주기 갱신) |
-| `post_clusters` | 중복 포스트 클러스터 정의 |
-| `post_cluster_members` | 클러스터-포스트 매핑 |
-| `trend_keywords` | 외부 트렌드 키워드 (15분 주기 갱신, 12h TTL) |
-| `issue_rankings_history` | 시간별 순위 스냅샷 (순위 변동 계산용) |
-
----
-
-## 7. 파일 인덱스
+## 8. 파일 인덱스
 
 | 역할 | 경로 |
 |------|------|
-| 이슈 집계 메인 | `backend/src/services/issueAggregator.ts` |
-| 포스트 스코어링 배치 | `backend/src/services/scoring.ts` |
-| 스코어링 공식 | `backend/src/services/scoring-helpers.ts` |
-| 가중치 상수 | `backend/src/services/scoring-weights.ts` |
-| DB 설정 기본값 | `backend/src/services/scoringConfigDefaults.ts` |
-| 설정 로더 | `backend/src/services/scoringConfig.ts` |
-| 트렌드 신호 | `backend/src/services/trendSignals.ts` |
-| Gemini 요약 | `backend/src/services/geminiSummarizer.ts` |
+| 파이프라인 오케스트레이션 | `backend/src/services/v8/pipeline.ts` |
+| 이슈 랭커 | `backend/src/services/v8/issueRanker.ts` |
+| 클러스터링 | `backend/src/services/v8/postClustering.ts` |
+| Cross-channel echo | `backend/src/services/v8/crossChannelEcho.ts` |
+| 통합 스코어 | `backend/src/services/v8/unifiedScoring.ts` |
+| 타입 계약 | `backend/src/services/v8/types.ts` |
 | 스케줄러 | `backend/src/scheduler/index.ts` |
 | Issues API | `backend/src/routes/issues.ts` |
-| 프론트엔드 훅 | `frontend/src/hooks/useIssueRankings.ts` |
-| 이슈 카드 목록 | `frontend/src/components/IssueRankingList.tsx` |
-| DB 마이그레이션 | `backend/src/db/migrations/037_issue_rankings.sql` |
-| DB 마이그레이션 v2 | `backend/src/db/migrations/042_issue_rankings_v2.sql` |
+| 프론트 훅 | `frontend/src/hooks/useIssueRankings.ts` |
+| DB 스키마 | `backend/src/db/migrations/037_issue_rankings.sql` |

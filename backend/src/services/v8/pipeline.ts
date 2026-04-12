@@ -31,7 +31,7 @@ interface DbPostRow {
   view_count: number;
   comment_count: number;
   like_count: number;
-  thumbnail_url: string | null;
+  thumbnail: string | null;
 }
 
 function toV8Channel(category: string | null): V8Channel | null {
@@ -48,7 +48,7 @@ function toV8Channel(category: string | null): V8Channel | null {
 async function loadPostsForV8(pool: Pool): Promise<V8Post[]> {
   const { rows } = await pool.query<DbPostRow>(
     `SELECT id, title, url, source_key, category, scraped_at, published_at,
-            view_count, comment_count, like_count, thumbnail_url
+            view_count, comment_count, like_count, thumbnail
      FROM posts
      WHERE scraped_at > NOW() - INTERVAL '${V8_TIME_WINDOW_HOURS} hours'
        AND COALESCE(category, '') IN ${SCORED_CATEGORIES_SQL}
@@ -73,7 +73,7 @@ async function loadPostsForV8(pool: Pool): Promise<V8Post[]> {
       viewCount: r.view_count ?? 0,
       commentCount: r.comment_count ?? 0,
       likeCount: r.like_count ?? 0,
-      thumbnailUrl: r.thumbnail_url,
+      thumbnailUrl: r.thumbnail,
     });
   }
   return posts;
@@ -119,13 +119,17 @@ async function persistIssueRankings(
 
       await client.query(
         `INSERT INTO issue_rankings (
-           title, category_label, issue_score,
+           title, summary, category_label, issue_score,
            news_score, community_score, trend_signal_score, video_score,
            news_post_count, community_post_count, video_post_count,
            representative_thumbnail, cluster_ids, standalone_post_ids,
            calculated_at, expires_at, stable_id, cross_validation_score, cross_validation_sources
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
         [
+          card.title,
+          // summary fallback = title: materializeIssueResponse 는 summary IS NOT NULL 필터를
+          // 쓰므로 v8 첫 tick 에 gemini 가 아직 돌지 않았어도 카드가 사용자에게 노출되도록 보장.
+          // Gemini 요약이 :05 tick 에서 이 칼럼을 덮어쓴다.
           card.title,
           toLegacyCategoryLabel(card),
           card.issueScore,

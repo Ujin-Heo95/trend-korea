@@ -6,6 +6,7 @@ import { cleanOldPosts, cleanOldScraperRuns, cleanOldEngagementSnapshots, cleanN
 import { calculateScores } from '../services/scoring.js';
 import { cleanExpiredTrendKeywords } from '../services/trendSignals.js';
 import { aggregateIssues, snapshotRankings, cleanExpiredIssueRankings, materializeIssueResponse } from '../services/issueAggregator.js';
+import { runV8Pipeline } from '../services/v8/pipeline.js';
 import { summarizeAndUpdateIssues } from '../services/geminiSummarizer.js';
 import { crossValidateIssues } from '../services/crossValidator.js';
 import { checkDbSize } from '../services/dbMonitor.js';
@@ -205,18 +206,26 @@ function startCronJobs(): void {
       logPoolStats('pipeline-start');
       try {
         const flags = await loadFeatureFlags();
-        await runPipeline('issue-pipeline', [
-          // 비 critical 전환: 일시적 Supabase 커넥션 드롭 시에도 후속 단계(aggregateIssues)는
-          // 직전 tick 의 post_scores 로 진행 → issue_rankings 신규 카드 생성이 멈추지 않음.
-          { name: 'calculateScores', run: () => calculateScores(batchPool), critical: false },
-          ...(flags.embeddings_enabled
-            ? [{ name: 'generateEmbeddings', run: () => generateEmbeddingsForRecentPosts(batchPool) }]
-            : []),
-          { name: 'aggregateIssues', run: () => aggregateIssues(batchPool), critical: true },
-          { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
-          { name: 'keywordIdfBatch', run: () => runKeywordIdfBatch(batchPool) },
-          { name: 'qualityMetricsBatch', run: () => runQualityMetricsBatch(batchPool) },
-        ]);
+        if (flags.scoring_v8_enabled) {
+          // v8 통합 파이프라인: loadPosts → embed → cluster → echo → score → rank → persist
+          // 기존 calculateScores/aggregateIssues/keywordIdfBatch 체인을 단일 runV8Pipeline 으로 대체.
+          await runPipeline('issue-pipeline-v8', [
+            { name: 'runV8Pipeline', run: () => runV8Pipeline(batchPool), critical: true },
+            { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
+            { name: 'qualityMetricsBatch', run: () => runQualityMetricsBatch(batchPool) },
+          ]);
+        } else {
+          await runPipeline('issue-pipeline', [
+            { name: 'calculateScores', run: () => calculateScores(batchPool), critical: false },
+            ...(flags.embeddings_enabled
+              ? [{ name: 'generateEmbeddings', run: () => generateEmbeddingsForRecentPosts(batchPool) }]
+              : []),
+            { name: 'aggregateIssues', run: () => aggregateIssues(batchPool), critical: true },
+            { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
+            { name: 'keywordIdfBatch', run: () => runKeywordIdfBatch(batchPool) },
+            { name: 'qualityMetricsBatch', run: () => runQualityMetricsBatch(batchPool) },
+          ]);
+        }
         await monitorIdfCoverage();
         await monitorQualityMetrics();
         await checkPipelineHealth(batchPool).catch(captureError);
