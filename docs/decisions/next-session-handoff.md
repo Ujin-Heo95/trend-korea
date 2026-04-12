@@ -1,6 +1,37 @@
-# 다음 세션 핸드오프 — 2026-04-12 (저녁 업데이트)
+# 다음 세션 핸드오프 — 2026-04-12 (저녁 2차 업데이트)
 
-> **2026-04-12 14:00~14:50 세션 결과**: PR #4 머지 + scoring CHUNK 분해 + 057/058 적용 + Gemini 핫픽스 시도 1차
+> **2026-04-12 15:00~15:45 세션 결과**: Gemini structured output 100% fallback 해소 — `gemini-2.5-flash-lite`로 모델 전환 후 fallback=0/45, avg 1.5s 정상화
+
+## 0. Gemini 파싱 사고 처치 (이번 세션 핵심)
+
+**증상**: TD-006 Phase 1 머지 직후 production에서 fallback=45/45 (100%). raw 250자 로그가 `{` 1글자만 보여 원인 진단 불가.
+
+**진행 경로**:
+1. `f61e89f` — raw 한 줄 로깅 + maxOutputTokens 1200→2000 + 큰따옴표 금지 prompt → **악화** (calls=0, timeouts=10, perCall 8s 초과)
+2. `188b802` — perCall 8s→15s + token 2000→1500 → calls=9 회복했으나 raw가 78~312자에서 잘림. position == raw 길이로 mid-stream halt 확인 (gemini-2.5-flash + 한국어 + responseSchema 조합 SAFETY/RECITATION 추정)
+3. `2546817` — `gemini-2.5-flash` → `gemini-2.0-flash` + finishReason 로깅 → **404** (`gemini-2.0-flash is no longer available to new users`)
+4. `2402499` — `gemini-2.0-flash` → `gemini-2.5-flash-lite` → ✅ **정상** (calls=19, fallback=0, avg=1512ms, timeouts=0)
+
+**최종 상태** (v110, 06:42 UTC tick):
+```
+[geminiSummarizer] updated 45/45 (targets=45, calls=19, timeouts=0, cache=26, fallback=0, avg=1512ms)
+```
+
+**교훈**:
+- gemini-2.5-flash는 한국어 long-form + responseSchema에서 mid-stream halt가 잦음 (80자 미만에서도 halt)
+- gemini-2.5-flash-lite는 thinking 비활성 + 응답 빠름(1.5s) + schema 준수도 더 높음 → structured output 용도엔 lite가 정답
+- gemini-2.0-flash는 신규 API 키에 더 이상 제공되지 않음 (404)
+
+## 1. 미해결 / 다음 세션
+
+### 1-1. geminiLimit(3) 무력화 — 별도 PR 필요 (Critical)
+`geminiSummarizer.ts:594-608`의 `for...of + await processOne()` 패턴이 `pLimit(3)`을 무력화. 외부 루프가 순차 await이라 실질 동시성 1. 지금은 fallback=0이라 증상 없지만 issue 수 늘면 phase abort 빈발. `Promise.all` 또는 worker pool 패턴으로 리팩토링 필요.
+
+### 1-2. (이전 항목 보존 — 하단 참고)
+
+---
+
+> **이전 세션 결과**: PR #4 머지 + scoring CHUNK 분해 + 057/058 적용 + Gemini 핫픽스 시도 1차
 
 ---
 
