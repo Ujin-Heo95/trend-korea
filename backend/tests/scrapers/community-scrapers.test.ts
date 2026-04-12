@@ -381,7 +381,8 @@ describe('NatepannScraper', () => {
   </tbody></table></body></html>`;
 
   beforeEach(() => {
-    vi.mocked(axios.get).mockResolvedValue({ data: html });
+    // 2026-04-12: NatepannScraper 가 axios 직접 호출 → fetchHtml 로 전환. 목 대상도 변경.
+    vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(html));
   });
 
   it('parses posts with comment counts and author', async () => {

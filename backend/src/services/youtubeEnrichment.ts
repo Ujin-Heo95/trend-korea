@@ -43,12 +43,14 @@ export async function enrichYoutubeEngagement(pool: Pool): Promise<number> {
     return 0;
   }
 
-  // 최근 48시간 내 video 포스트 조회.
-  // 48h 윈도우 의도적 유지: 그 이후 영상은 마지막 enrichment 값으로 고정 (quota 절약).
+  // 2026-04-12: YouTube Data API 일일 할당량 10,000 unit 초과 사고 → 이용량 축소.
+  //   변경 전: 48h window × 30분 주기 (= 48회/일). 특정 tick 에 500개 영상 → 10 call/tick.
+  //   변경 후: 24h window × cron 은 스케줄러에서 30분 → 3시간(8회/일) 로 축소.
+  //   window 24h 이면 스크래퍼가 중복 수집한 영상을 한 번만 enrichment. 호출 수 약 85% 감소.
   const { rows: posts } = await pool.query<VideoRow>(
     `SELECT id, url, source_key FROM posts
      WHERE category = 'video'
-       AND scraped_at > NOW() - INTERVAL '48 hours'
+       AND scraped_at > NOW() - INTERVAL '24 hours'
      ORDER BY scraped_at DESC`
   );
 

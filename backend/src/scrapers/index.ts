@@ -104,39 +104,6 @@ export async function runScrapersByPriority(priority: SourcePriority): Promise<v
   }
 }
 
-export async function runApifyScrapers(): Promise<void> {
-  if (runningLocks.get('apify')) {
-    console.warn(`[scheduler] apify scrapers already running — skipping`);
-    return;
-  }
-
-  runningLocks.set('apify', true);
-  try {
-    const all = await buildScrapers(batchPool);
-    const apifyEntries = all.filter(s => s.sourceKey.startsWith('apify_'));
-    if (apifyEntries.length === 0) return;
-
-    console.log(`[scheduler] running ${apifyEntries.length} apify scrapers`);
-    const limit = pLimit(1);
-    const results = await Promise.allSettled(apifyEntries.map(e => limit(() => runScraper(e))));
-    const errors: ScraperError[] = [];
-    results.forEach((r, i) => {
-      if (r.status === 'rejected') {
-        const msg = String(r.reason);
-        console.error(`[scraper:${apifyEntries[i].sourceKey}] unhandled rejection:`, msg);
-        errors.push({ sourceKey: apifyEntries[i].sourceKey, error: msg });
-      } else if (r.value) {
-        errors.push(r.value);
-      }
-    });
-    if (errors.length > 0) {
-      await notifyScraperErrors('apify', errors).catch(err => console.warn('[discord] notification failed:', err));
-    }
-  } finally {
-    runningLocks.set('apify', false);
-  }
-}
-
 export async function runAllScrapers(): Promise<void> {
   if (runningLocks.get('all')) {
     console.warn(`[scheduler] all-scrapers already running — skipping`);

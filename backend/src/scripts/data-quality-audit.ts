@@ -25,7 +25,7 @@ interface SourceDef {
   key: string;
   name: string;
   category: string;
-  type: 'rss' | 'html' | 'api' | 'apify';
+  type: 'rss' | 'html' | 'api';
   priority: string;
   enabled: boolean;
 }

@@ -1,22 +1,20 @@
-import axios from 'axios';
-import * as cheerio from 'cheerio';
 import type { Pool } from 'pg';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { parseKoreanDate } from './http-utils.js';
+import { fetchHtml, parseKoreanDate } from './http-utils.js';
 
-const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' };
 const SOURCE_KEY = 'natepann';
 const SOURCE_NAME = '네이트판';
+// 2026-04-12: axios + hard-coded UA → fetchHtml(UA rotation + delay + Accept-Language).
+// 이전: timed out after 30000ms 반복 실패 → fetch 2개 병렬 + Pann 의 해외 IP 차단 대응 미흡이 주원인.
 
 export class NatepannScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
 
   async fetch(): Promise<ScrapedPost[]> {
-    const [talkPosts, rankingPosts] = await Promise.all([
-      this.fetchTalk(),
-      this.fetchRanking(),
-    ]);
+    // 병렬 Promise.all 대신 순차 — 한쪽이 느려도 다른 쪽까지 timeout 폭주 안 시키기 위함.
+    const rankingPosts = await this.fetchRanking().catch(() => [] as ScrapedPost[]);
+    const talkPosts = await this.fetchTalk().catch(() => [] as ScrapedPost[]);
 
     // 랭킹 글 우선 (viewCount/likeCount 보유), 일반글로 보충 — URL 기준 중복 제거
     const seen = new Set<string>();
@@ -32,11 +30,7 @@ export class NatepannScraper extends BaseScraper {
 
   /** 톡/커뮤니티 최신글 (c20001) */
   private async fetchTalk(): Promise<ScrapedPost[]> {
-    const { data } = await axios.get('https://pann.nate.com/talk/c20001', {
-      headers: UA,
-      timeout: 15000,
-    });
-    const $ = cheerio.load(data);
+    const $ = await fetchHtml('https://pann.nate.com/talk/c20001', { timeout: 12_000 });
     const posts: ScrapedPost[] = [];
 
     $('tbody tr').each((_, el) => {
@@ -67,11 +61,7 @@ export class NatepannScraper extends BaseScraper {
 
   /** 명예의 전당 — 일간 인기 랭킹 (viewCount/likeCount 포함) */
   private async fetchRanking(): Promise<ScrapedPost[]> {
-    const { data } = await axios.get('https://pann.nate.com/talk/ranking', {
-      headers: UA,
-      timeout: 15000,
-    });
-    const $ = cheerio.load(data);
+    const $ = await fetchHtml('https://pann.nate.com/talk/ranking', { timeout: 12_000 });
     const posts: ScrapedPost[] = [];
     const seen = new Set<string>();
 

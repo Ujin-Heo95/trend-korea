@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import * as Sentry from '@sentry/node';
-import { runScrapersByPriority, runApifyScrapers } from '../scrapers/index.js';
+import { runScrapersByPriority } from '../scrapers/index.js';
 import { loadCircuitStates } from '../scrapers/base.js';
 import { cleanOldPosts, cleanOldScraperRuns, cleanOldEngagementSnapshots, cleanNumericTitlePosts } from '../db/cleanup.js';
 import { calculateScores } from '../services/scoring.js';
@@ -328,17 +328,13 @@ function startCronJobs(): void {
     resetDailyCounters();
   });
 
-  // YouTube 영상 통계 보강: 30분 주기 (offset +5)
-  cron.schedule('5,35 * * * *', async () => {
+  // YouTube 영상 통계 보강: 3시간 주기 (offset +5)
+  //   2026-04-12: 30분 주기 → 3시간. Data API 일일 할당 10,000 단위 초과 사고 대응.
+  //   48회/일 → 8회/일. 최신성 손실은 video 카테고리 engagement snapshot 한정 (소폭).
+  cron.schedule('5 */3 * * *', async () => {
     await enrichYoutubeEngagement(batchPool).catch(captureError);
   });
-  console.log('[scheduler] youtube enrichment: every 30 min (offset +5)');
-
-  // Apify SNS 수집: 09:00, 18:00 KST (= 00:00, 09:00 UTC)
-  cron.schedule('0 0,9 * * *', () => {
-    runApifyScrapers().catch(captureError);
-  });
-  console.log('[scheduler] apify SNS: 00:00, 09:00 UTC (09:00, 18:00 KST)');
+  console.log('[scheduler] youtube enrichment: every 3 hours (offset +5)');
 
   // 일일 DB 백업: 17:00 UTC = 02:00 KST (저트래픽 시간)
   cron.schedule('0 17 * * *', async () => {

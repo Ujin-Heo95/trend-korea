@@ -12,7 +12,7 @@ export interface SourceEntry {
   name: string;
   category: string;
   subcategory?: string;
-  type: 'rss' | 'html' | 'api' | 'apify';
+  type: 'rss' | 'html' | 'api';
   priority: SourcePriority;
   enabled: boolean;
   feedUrl?: string;
@@ -78,11 +78,6 @@ export async function buildScrapers(pool: Pool): Promise<readonly ResolvedScrape
       missingKeys.push(`${source.name} (${source.key}): ${req.label} 미설정`);
     }
 
-    // Apify scrapers need APIFY_API_TOKEN
-    if (source.type === 'apify' && !config.apifyApiToken) {
-      missingKeys.push(`${source.name} (${source.key}): APIFY_API_TOKEN 미설정`);
-    }
-
     const scraper = await buildOneScraper(source, pool);
     if (scraper) {
       scraper.category = source.category;
@@ -122,7 +117,7 @@ export async function buildOneScraper(source: SourceEntry, pool: Pool): Promise<
   }
 
   if (!source.module || !source.className) {
-    logger.warn({ sourceKey: source.key }, '[registry] html/api/apify type requires module+className, skipping');
+    logger.warn({ sourceKey: source.key }, '[registry] html/api type requires module+className, skipping');
     return null;
   }
 

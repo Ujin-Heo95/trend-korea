@@ -640,36 +640,6 @@
       "enabled": true
     },
     {
-      "key": "apify_instagram_trending",
-      "name": "Instagram 트렌딩",
-      "category": "sns",
-      "type": "apify",
-      "module": "./apify-instagram.js",
-      "className": "ApifyInstagramScraper",
-      "priority": "medium",
-      "enabled": false
-    },
-    {
-      "key": "apify_x_trending",
-      "name": "X 트렌딩",
-      "category": "sns",
-      "type": "apify",
-      "module": "./apify-x.js",
-      "className": "ApifyXScraper",
-      "priority": "medium",
-      "enabled": false
-    },
-    {
-      "key": "apify_tiktok_trending",
-      "name": "TikTok 트렌딩",
-      "category": "sns",
-      "type": "apify",
-      "module": "./apify-tiktok.js",
-      "className": "ApifyTiktokScraper",
-      "priority": "medium",
-      "enabled": false
-    },
-    {
       "key": "bigkinds_issues",
       "name": "빅카인즈 오늘의 이슈",
       "category": "portal",
@@ -707,7 +677,7 @@
       "module": "./kcisa-performance.js",
       "className": "KcisaPerformanceScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "traveltimes",
@@ -726,7 +696,7 @@
       "module": "./kcisa-travel.js",
       "className": "KcisaTravelScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kcisa_festival",
@@ -736,7 +706,7 @@
       "module": "./kcisa-festival.js",
       "className": "KcisaFestivalScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kcisa_event",
@@ -746,7 +716,7 @@
       "module": "./kcisa-event.js",
       "className": "KcisaEventScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kcisa_cca_performance",
@@ -756,7 +726,7 @@
       "module": "./kcisa-cca-performance.js",
       "className": "KcisaCcaPerformanceScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kcisa_cca_exhibition",
@@ -766,7 +736,7 @@
       "module": "./kcisa-cca-exhibition.js",
       "className": "KcisaCcaExhibitionScraper",
       "priority": "low",
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "ohmynews",

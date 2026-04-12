@@ -137,10 +137,8 @@ function applySafetyNet(payload: unknown): unknown {
   return { ...p, issues: filtered.map(fillRuleBasedIfEmpty) };
 }
 
-// SNS trend source keys
-const SNS_SOURCES = new Set([
-  'apify_x_trending', 'apify_instagram', 'apify_tiktok',
-]);
+// SNS trend source keys (Apify 제거 후 현재 활성 소스 없음 — 호환성 유지용 빈 Set)
+const SNS_SOURCES = new Set<string>();
 
 export async function issueRoutes(app: FastifyInstance): Promise<void> {
   // 경량 버전 체크 — 프론트엔드가 30초마다 폴링하여 갱신 감지

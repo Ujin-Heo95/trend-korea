@@ -103,11 +103,11 @@ export class KopisBoxofficeScraper extends BaseScraper {
     const eddate = fmt(today);
     const date = fmt(today);
 
-    const allPosts: ScrapedPost[] = [];
-    const detailLimit = pLimit(1);
-
-    for (const genre of GENRES) {
-      try {
+    // 2026-04-12: 직렬 5 genre × 순차 상세 fetch → 30s timeout 반복.
+    //   병렬화: genre 5개를 Promise.all 로 동시 + 상세는 최상위 5개만 (10→5).
+    //   예산: 5 병렬 fetch ~5s + detail 5 병렬 ~3s ≈ 10s (이전 20+s).
+    const genreResults = await Promise.allSettled(
+      GENRES.map(async (genre) => {
         const { data: xml } = await axios.get(
           'http://www.kopis.or.kr/openApi/restful/boxoffice',
           {
@@ -118,35 +118,29 @@ export class KopisBoxofficeScraper extends BaseScraper {
               catecode: genre.code,
               date,
             },
-            timeout: 15000,
+            timeout: 12_000,
             responseType: 'text',
           }
         );
-
         const parsed = await parseStringPromise(xml, { explicitArray: false });
         const items: BoxofficeItem | BoxofficeItem[] | undefined = parsed?.boxofs?.boxof;
-        if (!items) continue;
-
+        if (!items) return [] as ScrapedPost[];
         const list = Array.isArray(items) ? items : [items];
-        const sliced = list.slice(0, 10);
-
-        // 상위 10개 전체 상세 API 조회
+        const sliced = list.slice(0, 5);
+        // 상세 5개 병렬 (delay 150ms 로 호출 간격 유지)
+        const detailLimit = pLimit(3);
         const details = await Promise.all(
           sliced.map(item =>
             detailLimit(async () => {
-              await delay(300);
+              await delay(150);
               return fetchDetail(item.mt20id);
             })
           )
         );
-
-        for (let i = 0; i < sliced.length; i++) {
-          const item = sliced[i];
+        return sliced.map((item, i) => {
           const detail = details[i];
-
           const posterUrl = detail?.poster || item.poster || undefined;
-
-          allPosts.push({
+          return {
             sourceKey: 'kopis_boxoffice',
             sourceName: 'KOPIS 예매순위',
             title: `[${item.cate}] ${item.prfnm} — ${item.prfplcnm}`,
@@ -174,13 +168,18 @@ export class KopisBoxofficeScraper extends BaseScraper {
               dataWeekStart: stdate,
               dataWeekEnd: eddate,
             },
-          });
-        }
-      } catch (err) {
-        console.warn(`[kopis] genre ${genre.code} (${genre.name}) failed: ${err}`);
+          } satisfies ScrapedPost;
+        });
+      })
+    );
+    const allPosts: ScrapedPost[] = [];
+    genreResults.forEach((r, idx) => {
+      if (r.status === 'fulfilled') {
+        allPosts.push(...r.value);
+      } else {
+        console.warn(`[kopis] genre ${GENRES[idx].code} (${GENRES[idx].name}) failed: ${r.reason}`);
       }
-    }
-
-    return allPosts.slice(0, 50);
+    });
+    return allPosts.slice(0, 25);
   }
 }

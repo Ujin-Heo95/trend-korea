@@ -22,9 +22,7 @@ const PORTAL_SOURCES = new Set([
   'google_trends', 'wikipedia_ko',
 ]);
 
-const SNS_SOURCES = new Set([
-  'apify_x_trending', 'apify_instagram', 'apify_tiktok',
-]);
+const SNS_SOURCES = new Set<string>();
 
 export async function issueRankingDetailRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { issueId: string } }>('/api/issues/:issueId', async (req, reply) => {

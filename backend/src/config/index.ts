@@ -19,8 +19,6 @@ interface Config {
   dbPoolMax: number;
   dbIdleTimeoutMs: number;
   dbConnectionTimeoutMs: number;
-  apifyApiToken: string;
-  apifyMonthlyBudgetCents: number;
   bigkindsApiKey: string;
   geminiApiKey: string;
   dataGoKrApiKey: string;
@@ -77,12 +75,6 @@ if (scraperRunsTtlDays !== rawScraperRunsTtl) {
   console.warn(`[config] WARNING: SCRAPER_RUNS_TTL_DAYS="${process.env.SCRAPER_RUNS_TTL_DAYS}" invalid — defaulting to 30`);
 }
 
-const rawApifyBudget = Number(process.env.APIFY_MONTHLY_BUDGET_CENTS ?? 2000);
-const apifyMonthlyBudgetCents = Number.isInteger(rawApifyBudget) && rawApifyBudget >= 0 ? rawApifyBudget : 2000;
-if (apifyMonthlyBudgetCents !== rawApifyBudget) {
-  console.warn(`[config] WARNING: APIFY_MONTHLY_BUDGET_CENTS="${process.env.APIFY_MONTHLY_BUDGET_CENTS}" invalid — defaulting to 2000`);
-}
-
 // Supabase Pro pooler(:6543) 는 ~100 pooled connection 허용.
 // 30 으로 상향(2026-04-12 단일 프로세스 통합 후): apiPool ~12 + batchPool ~18.
 // burst(Promise.all 8+) 와 HTTP 동거 환경에서 waiter queue 미발생 + 1코어 vCPU 여유.
@@ -109,8 +101,6 @@ export const config: Config = {
   dbPoolMax,
   dbIdleTimeoutMs,
   dbConnectionTimeoutMs,
-  apifyApiToken: process.env.APIFY_API_TOKEN ?? '',
-  apifyMonthlyBudgetCents,
   bigkindsApiKey: process.env.BIGKINDS_API_KEY ?? '',
   geminiApiKey: process.env.GEMINI_API_KEY ?? '',
   dataGoKrApiKey: process.env.DATA_GO_KR_API_KEY ?? '',

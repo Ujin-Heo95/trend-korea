@@ -30,12 +30,21 @@ interface RssScraperConfig {
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
+// 2026-04-12: Sec-Fetch-* / Referer 추가 — Cloudflare 기반 사이트(hankyung 등) 의 403 대응.
+// Fly nrt IP 가 datacenter 로 감지돼 브라우저 지문 일치 안 하면 차단. 헤더를 Chrome 실제 브라우저에
+// 가깝게 맞춰 JA3/TLS fingerprint 는 어쩔 수 없지만 header-level 검사는 통과하도록 한다.
 const defaultParser = new Parser({
   timeout: 20_000,
   headers: {
     'User-Agent': UA,
     Accept: 'application/rss+xml, application/xml, text/xml, */*;q=0.1',
     'Accept-Language': 'ko-KR,ko;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1',
   },
 });
 

@@ -11,7 +11,6 @@ export interface FeatureFlags {
   readonly embeddings_enabled: boolean;
   readonly gemini_summary_enabled: boolean;
   readonly cross_validation_enabled: boolean;
-  readonly apify_scrapers_enabled: boolean;
   readonly scoring_track_b_enabled: boolean;
 }
 
@@ -19,7 +18,6 @@ const DEFAULTS: FeatureFlags = {
   embeddings_enabled: true,
   gemini_summary_enabled: true,
   cross_validation_enabled: true,
-  apify_scrapers_enabled: true,
   scoring_track_b_enabled: false,
 };
 
@@ -39,7 +37,6 @@ export async function loadFeatureFlags(): Promise<FeatureFlags> {
       embeddings_enabled: config.embeddings_enabled !== false,
       gemini_summary_enabled: config.gemini_summary_enabled !== false,
       cross_validation_enabled: config.cross_validation_enabled !== false,
-      apify_scrapers_enabled: config.apify_scrapers_enabled !== false,
       scoring_track_b_enabled: config.scoring_track_b_enabled === true,
     };
     lastLoadedAt = now;
