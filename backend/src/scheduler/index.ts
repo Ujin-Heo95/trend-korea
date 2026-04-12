@@ -18,6 +18,7 @@ import { runPipeline } from './pipeline.js';
 import { loadFeatureFlags } from '../services/featureFlags.js';
 import { enrichYoutubeEngagement } from '../services/youtubeEnrichment.js';
 import { checkPipelineHealth } from '../services/pipelineHealth.js';
+import { runTrackBDecay } from '../services/decayUpdater.js';
 
 function captureError(err: unknown): void {
   console.error(err);
@@ -89,6 +90,20 @@ function startCronJobs(): void {
       logPoolStats('pipeline-end');
     }
   });
+
+  // Track B decay-only updater: 10분 주기 (offset +7 — legacy pipeline :00 과 분리)
+  // feature flag OFF 기본. staging A/B 검증 후 ON.
+  cron.schedule('7,17,27,37,47,57 * * * *', async () => {
+    if (isQuietHours()) return;
+    try {
+      const flags = await loadFeatureFlags();
+      if (!flags.scoring_track_b_enabled) return;
+      await runTrackBDecay(batchPool);
+    } catch (err) {
+      captureError(err);
+    }
+  });
+  console.log('[scheduler] track B decay: every 10 min (offset +7, flag-gated)');
 
   // 교차검증: 15분 주기 (quiet hours 제외)
   cron.schedule('3,18,33,48 * * * *', async () => {

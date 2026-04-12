@@ -51,7 +51,11 @@ const SCHEMA_SQL = `
     velocity_bonus  FLOAT DEFAULT 1.0,
     cluster_bonus   FLOAT DEFAULT 1.0,
     trend_signal_bonus FLOAT DEFAULT 1.0,
-    calculated_at   TIMESTAMPTZ DEFAULT NOW()
+    calculated_at   TIMESTAMPTZ DEFAULT NOW(),
+    trend_score_base FLOAT,
+    half_life_min   INTEGER,
+    post_origin     TIMESTAMPTZ,
+    decayed_at      TIMESTAMPTZ
   );
 
   CREATE INDEX idx_post_scores_score ON post_scores(trend_score DESC);
@@ -143,6 +147,14 @@ export function createTestDb(): TestDb {
 
   // Register NOW() to return deterministic-ish value
   // pg-mem supports NOW() natively, no override needed
+
+  // pg-mem 은 exp/ln 같은 수학 함수를 기본 제공하지 않음 — Track B decay SQL 테스트용 등록
+  db.public.registerFunction({
+    name: 'exp',
+    args: ['float'] as any,
+    returns: 'float' as any,
+    implementation: (x: number) => Math.exp(x),
+  });
 
   // Apply schema
   db.public.none(SCHEMA_SQL);
