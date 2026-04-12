@@ -190,7 +190,9 @@ async function _calculateScores(pool: Pool): Promise<number> {
         ? 1.0                               // 커뮤니티는 categoryWeight 불필요
         : getCategoryWeightFrom(weights, row.category);
 
-    // 뉴스 채널: 4항 가산 혼합 signalScore (v6)
+    // 뉴스 채널: 4항 가산 혼합 signalScore + freshness 흡수 (v7)
+    // v6에서 freshnessBonus는 trend_score 외곽 곱셈이었음 → v7에서 signalScore로 흡수.
+    // computeScore가 모든 factor를 곱하므로 magnitude는 동일, formula만 step→smooth.
     const newsSignalScore = isNews
       ? Math.max(
           (portalRankMap.get(row.id) ?? 0) * newsPortalW
@@ -198,7 +200,7 @@ async function _calculateScores(pool: Pool): Promise<number> {
           + normalizeTrendSignal(trendSignalMap.get(row.id) ?? 1.0) * newsTrendW
           + (newsEngagementMap.get(row.id) ?? 0) * newsEngagementW,
           1.0,
-        )
+        ) * freshnessBonus(ageMinutes)
       : undefined;
 
     const factors: ScoreFactors = {
@@ -219,7 +221,8 @@ async function _calculateScores(pool: Pool): Promise<number> {
       trendSignalBonus: isNews || isCommunity ? 1.0 : (trendSignalMap.get(row.id) ?? 1.0),
       subcategoryNorm: 1.0,    // 이미 catW에 반영됨 (뉴스용)
       breakingBoost: isNews ? (breakingNewsMap.get(row.id) ?? 1.0) : 1.0,
-      freshnessBonus: isNews ? freshnessBonus(ageMinutes) : 1.0,
+      // v7: freshnessBonus는 newsSignalScore에 흡수됨 — 외곽 곱셈은 1.0 고정.
+      freshnessBonus: 1.0,
     };
 
     const score = computeScore(factors);

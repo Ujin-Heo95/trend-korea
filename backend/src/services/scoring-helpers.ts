@@ -706,10 +706,16 @@ export async function calculateNewsEngagementMap(pool: Pool): Promise<Map<number
 
 // ─── News: Freshness Bonus (신선도 보너스) ───
 
-/** 발행 후 경과 시간에 따른 freshness bonus (뉴스 전용) [1.0, 1.3] */
+const FRESHNESS_HALF_LIFE_MIN = 30;
+const FRESHNESS_MAX_BOOST = 0.3;
+
+/** v7: 발행 후 경과 시간에 따른 smooth freshness bonus (뉴스 전용).
+ *  Formula: 1 + 0.3 × exp(-ln2 × age / 30) — 30분 반감기, 점진 감쇠.
+ *  Age=0→1.30, age=30→1.15, age=60→1.075, age=∞→1.0.
+ *  v6의 step 함수 (1.3/1.15/1.05/1.0) 경계 절벽을 제거. */
 export function freshnessBonus(ageMinutes: number): number {
-  if (ageMinutes <= 30) return 1.3;
-  if (ageMinutes <= 60) return 1.15;
-  if (ageMinutes <= 120) return 1.05;
-  return 1.0;
+  if (!Number.isFinite(ageMinutes) || ageMinutes <= 0) {
+    return 1.0 + FRESHNESS_MAX_BOOST;
+  }
+  return 1.0 + FRESHNESS_MAX_BOOST * Math.exp(-LN2 * ageMinutes / FRESHNESS_HALF_LIFE_MIN);
 }

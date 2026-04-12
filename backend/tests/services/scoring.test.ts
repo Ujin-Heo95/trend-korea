@@ -445,32 +445,47 @@ describe('news signalScore (4-signal additive blend v6)', () => {
   });
 });
 
-describe('freshnessBonus (news-only)', () => {
-  it('returns 1.3 for posts under 30 minutes', () => {
-    expect(freshnessBonus(0)).toBe(1.3);
-    expect(freshnessBonus(15)).toBe(1.3);
-    expect(freshnessBonus(30)).toBe(1.3);
+describe('freshnessBonus (news-only, v7 smooth)', () => {
+  it('returns 1.3 max boost at age 0', () => {
+    expect(freshnessBonus(0)).toBeCloseTo(1.3, 5);
   });
 
-  it('returns 1.15 for posts 30-60 minutes', () => {
-    expect(freshnessBonus(31)).toBe(1.15);
-    expect(freshnessBonus(60)).toBe(1.15);
+  it('returns ~1.15 at one half-life (30 min)', () => {
+    // 1 + 0.3 × 0.5 = 1.15
+    expect(freshnessBonus(30)).toBeCloseTo(1.15, 5);
   });
 
-  it('returns 1.05 for posts 60-120 minutes', () => {
-    expect(freshnessBonus(61)).toBe(1.05);
-    expect(freshnessBonus(120)).toBe(1.05);
+  it('returns ~1.075 at two half-lives (60 min)', () => {
+    // 1 + 0.3 × 0.25 = 1.075
+    expect(freshnessBonus(60)).toBeCloseTo(1.075, 5);
   });
 
-  it('returns 1.0 for posts older than 120 minutes', () => {
-    expect(freshnessBonus(121)).toBe(1.0);
-    expect(freshnessBonus(1000)).toBe(1.0);
+  it('returns ~1.01875 at four half-lives (120 min)', () => {
+    // 1 + 0.3 × 0.0625 = 1.01875
+    expect(freshnessBonus(120)).toBeCloseTo(1.01875, 5);
   });
 
-  it('freshnessBonus multiplies into final score', () => {
+  it('asymptotes to 1.0 for very old posts', () => {
+    expect(freshnessBonus(10000)).toBeCloseTo(1.0, 4);
+    expect(freshnessBonus(1000)).toBeGreaterThan(1.0);
+  });
+
+  it('is monotonically decreasing', () => {
+    const samples = [0, 10, 20, 30, 60, 120, 240];
+    for (let i = 1; i < samples.length; i++) {
+      expect(freshnessBonus(samples[i])).toBeLessThan(freshnessBonus(samples[i - 1]));
+    }
+  });
+
+  it('handles negative / non-finite age gracefully', () => {
+    expect(freshnessBonus(-5)).toBeCloseTo(1.3, 5);
+    expect(freshnessBonus(NaN)).toBeCloseTo(1.3, 5);
+  });
+
+  it('still multiplies cleanly into computeScore when applied as a factor', () => {
     const base = computeScore(makeFactors());
-    const fresh = computeScore(makeFactors({ freshnessBonus: 1.3 }));
-    expect(fresh).toBeCloseTo(base * 1.3, 5);
+    const boosted = computeScore(makeFactors({ freshnessBonus: 1.3 }));
+    expect(boosted).toBeCloseTo(base * 1.3, 5);
   });
 });
 
