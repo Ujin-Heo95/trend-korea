@@ -24,6 +24,22 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: trend_korea
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/trend_korea
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +52,10 @@ jobs:
 
       - name: TypeScript typecheck
         run: npx tsc --noEmit
+        working-directory: backend
+
+      - name: Run migrations
+        run: npm run migrate
         working-directory: backend
 
       - name: Unit tests
