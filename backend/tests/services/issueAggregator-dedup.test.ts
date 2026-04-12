@@ -84,6 +84,37 @@ describe('deduplicateIssuesByEmbedding', () => {
     expect(deduplicateIssuesByEmbedding(groups)).toHaveLength(1);
   });
 
+  it('merges two video-only groups with identical normalized titles (2026-04-12 YTN dup fix)', () => {
+    // 실전 사고: 완전 동일 YTN 영상 제목 두 개가 video-only 라 guard A(no anchor) 에 걸려 중복 카드로 남음.
+    // Guard 0 (title-hash) 가 모든 guard 를 우회하고 병합해야 함.
+    const identical = "손잡은 수도권 3인방...강원도 간 정청래 '파란 바람 분다' / YTN";
+    const gA: IssueGroup = {
+      clusterIds: new Set(),
+      standalonePostIds: new Set([101]),
+      newsPosts: [],
+      communityPosts: [],
+      videoPosts: [{ ...makeNewsPost(101, identical), sourceKey: 'youtube_ytn', category: 'video' }],
+      matchedKeywords: [],
+      trendSignalScore: 0,
+    };
+    const gB: IssueGroup = { ...gA, standalonePostIds: new Set([102]),
+      videoPosts: [{ ...makeNewsPost(102, identical), sourceKey: 'youtube_ytn', category: 'video' }] };
+    const out = deduplicateIssuesByEmbedding([gA, gB]);
+    expect(out).toHaveLength(1);
+    expect(out[0].videoPosts.length).toBe(2);
+  });
+
+  it('does NOT merge on short normalized titles (<8 chars)', () => {
+    const gA = makeGroup([201], { keywords: [] });
+    const gB = makeGroup([202], { keywords: [] });
+    // 제목이 너무 짧으면 title-hash 병합 위험 → 건너뜀
+    const shortA: IssueGroup = { ...gA, newsPosts: [makeNewsPost(201, '속보')] };
+    const shortB: IssueGroup = { ...gB, newsPosts: [makeNewsPost(202, '속보')] };
+    // 임베딩도 없고 키워드도 없어 cos 단계에서도 거부됨
+    const out = deduplicateIssuesByEmbedding([shortA, shortB]);
+    expect(out).toHaveLength(2);
+  });
+
   it('merges two groups with cosine ≥ threshold and shared keywords', () => {
     simMap.set(pairKey(1, 2), 0.9);
     const groups = [

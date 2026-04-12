@@ -819,9 +819,36 @@ function deduplicateIssuesByEmbedding(groups: readonly IssueGroup[]): IssueGroup
   }
 
   let mergedPairs = 0;
+  let mergedByTitleHash = 0;
   let skippedNoAnchor = 0;
   let skippedKeywordGuard = 0;
   let skippedEntity = 0;
+
+  // Guard 0 — normalized-title exact match 는 모든 guard 우회하여 병합.
+  //   2026-04-12: 완전 동일 제목의 두 video-only 클러스터가 guard A(no anchor) 에 걸려
+  //   중복 카드로 남던 사고(#7/#8 정청래 YTN 영상) 근본 차단.
+  //   title-hash 는 대소문자/공백/구두점 제거 후 비교.
+  const normalizeTitle = (t: string): string =>
+    t.toLowerCase()
+      .replace(/\[[^\]]*\]/g, '')
+      .replace(/[\s\p{P}\p{S}]+/gu, '')
+      .trim();
+  const normalizedTitles = repPosts.map(p => (p ? normalizeTitle(p.title) : ''));
+  const titleToIdx = new Map<string, number[]>();
+  for (let i = 0; i < normalizedTitles.length; i++) {
+    const nt = normalizedTitles[i];
+    if (nt.length < 8) continue; // 너무 짧은 제목은 위험 — 건너뜀
+    const arr = titleToIdx.get(nt) ?? [];
+    arr.push(i);
+    titleToIdx.set(nt, arr);
+  }
+  for (const indices of titleToIdx.values()) {
+    if (indices.length < 2) continue;
+    const anchor = indices[0];
+    for (let k = 1; k < indices.length; k++) {
+      if (union(anchor, indices[k])) mergedByTitleHash++;
+    }
+  }
 
   for (let i = 0; i < groups.length; i++) {
     const repA = repPosts[i];
@@ -869,9 +896,9 @@ function deduplicateIssuesByEmbedding(groups: readonly IssueGroup[]): IssueGroup
     }
   }
 
-  if (mergedPairs > 0 || skippedNoAnchor > 0 || skippedKeywordGuard > 0 || skippedEntity > 0) {
+  if (mergedPairs > 0 || mergedByTitleHash > 0 || skippedNoAnchor > 0 || skippedKeywordGuard > 0 || skippedEntity > 0) {
     logger.info(
-      { mergedPairs, skippedNoAnchor, skippedKeywordGuard, skippedEntity, inputGroups: groups.length },
+      { mergedPairs, mergedByTitleHash, skippedNoAnchor, skippedKeywordGuard, skippedEntity, inputGroups: groups.length },
       '[dedup] embedding-based merge',
     );
   }
