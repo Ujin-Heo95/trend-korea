@@ -65,10 +65,25 @@ interface UseInstallPromptResult {
   dismiss: () => void;
 }
 
+// 마운트 시점에 1회 평가되는 초기 가시성 — iOS Safari 는 beforeinstallprompt 이벤트가 없어서
+// 첫 render 부터 ios variant 표시 가능. lazy initializer 로 effect 내부 setState 회피.
+function computeInitialIosVisible(): { variant: InstallVariant; visible: boolean } {
+  if (typeof window === 'undefined') return { variant: null, visible: false };
+  if (isStandalone()) return { variant: null, visible: false };
+  if (!isMobileViewport()) return { variant: null, visible: false };
+  if (isDismissedRecently()) return { variant: null, visible: false };
+  // visit count 는 effect 에서 bump — 여기서는 read only
+  const currentVisits = readNumber(VISIT_KEY) + 1; // effect 가 곧 bump 할 값 예측
+  if (currentVisits < MIN_VISITS) return { variant: null, visible: false };
+  if (!isIOS()) return { variant: null, visible: false };
+  return { variant: 'ios', visible: true };
+}
+
 export function useInstallPrompt(): UseInstallPromptResult {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
-  const [variant, setVariant] = useState<InstallVariant>(null);
-  const [visible, setVisible] = useState(false);
+  const initialIos = useState(computeInitialIosVisible)[0];
+  const [variant, setVariant] = useState<InstallVariant>(initialIos.variant);
+  const [visible, setVisible] = useState(initialIos.visible);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -103,11 +118,7 @@ export function useInstallPrompt(): UseInstallPromptResult {
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
     window.addEventListener('appinstalled', onAppInstalled);
 
-    // iOS Safari has no beforeinstallprompt — show iOS variant directly.
-    if (isIOS()) {
-      setVariant('ios');
-      setVisible(true);
-    }
+    // iOS variant 는 lazy initializer (computeInitialIosVisible) 에서 처리됨 — effect 내부 setState 금지.
 
     return () => {
       window.removeEventListener('beforeinstallprompt', onBeforeInstall);

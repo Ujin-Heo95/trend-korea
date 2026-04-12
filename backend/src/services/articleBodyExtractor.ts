@@ -85,7 +85,7 @@ export async function extractArticleBody(url: string): Promise<string | null> {
   const cached = cache.get(url);
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) return cached.body;
 
-  let body: string | null = null;
+  let body: string | null;
   try {
     const $ = await fetchHtml(url, { timeout: FETCH_TIMEOUT_MS, delay: [0, 50] });
     body = extractWithRule($, rule);

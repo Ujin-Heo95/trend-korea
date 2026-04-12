@@ -1,21 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchIssueRankings, fetchIssueVersion } from '../api/client';
 import { consumePrefetch } from '../lib/prefetch';
 import type { IssueRankingResponse } from '../types';
 
 const VERSION_POLL_MS = 30_000; // 30초마다 버전 체크
-// 백엔드가 freshness.is_stale=true 를 N회 연속 반환하면 사용자에게 배너 노출.
-// 1회는 일시적 race condition 일 수 있으므로 2회로.
-const STALE_BANNER_THRESHOLD = 2;
 
 export type TimeWindow = '6h' | '12h' | '24h';
 
 export const useIssueRankings = (window: TimeWindow = '12h') => {
   const queryClient = useQueryClient();
   const lastVersionRef = useRef<string | null>(null);
-  const staleHitsRef = useRef(0);
-  const [showStaleBanner, setShowStaleBanner] = useState(false);
+  const lastStaleAtRef = useRef<number>(0);
 
   // 경량 버전 폴링 — calculated_at 타임스탬프만 반환 (~50 bytes)
   const { data: versionData } = useQuery({
@@ -49,24 +45,18 @@ export const useIssueRankings = (window: TimeWindow = '12h') => {
     staleTime: 0,
   });
 
-  // 백엔드 freshness 메타 기반 자동 stale 처리
+  // freshness.is_stale 시 1회 invalidate 시도 (CDN/캐시 우회). 30초 cooldown 으로 폭주 방지.
+  // setState 없이 imperative side effect 만 — render-time derived 'showStaleBanner' 가 UI 담당.
   useEffect(() => {
-    const f = query.data?.freshness;
-    if (!f) return;
-    if (f.is_stale) {
-      staleHitsRef.current += 1;
-      // 첫 stale 감지 시 1회 강제 refetch 시도 — 캐시/CDN 우회
-      if (staleHitsRef.current === 1) {
-        queryClient.invalidateQueries({ queryKey: ['issue-rankings', window] });
-      }
-      if (staleHitsRef.current >= STALE_BANNER_THRESHOLD) {
-        setShowStaleBanner(true);
-      }
-    } else {
-      staleHitsRef.current = 0;
-      if (showStaleBanner) setShowStaleBanner(false);
-    }
-  }, [query.data?.freshness, queryClient, window, showStaleBanner]);
+    if (query.data?.freshness?.is_stale !== true) return;
+    const now = Date.now();
+    if (now - lastStaleAtRef.current < 30_000) return;
+    lastStaleAtRef.current = now;
+    queryClient.invalidateQueries({ queryKey: ['issue-rankings', window] });
+  }, [query.data?.freshness?.is_stale, queryClient, window]);
+
+  // render-time derived: 백엔드가 stale 이라고 응답하면 즉시 배너. state 불필요.
+  const showStaleBanner = query.data?.freshness?.is_stale === true;
 
   return { ...query, showStaleBanner };
 };
