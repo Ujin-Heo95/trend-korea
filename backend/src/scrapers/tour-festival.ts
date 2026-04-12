@@ -57,7 +57,7 @@ export class TourFestivalScraper extends BaseScraper {
     const today = formatDate(new Date());
 
     const { data } = await axios.get<KorServiceResponse>(
-      'https://apis.data.go.kr/B551011/KorService2/searchFestival',
+      'https://apis.data.go.kr/B551011/KorService2/searchFestival2',
       {
         params: {
           serviceKey: config.dataGoKrApiKey,

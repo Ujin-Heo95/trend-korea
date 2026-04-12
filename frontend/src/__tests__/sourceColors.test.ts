@@ -60,7 +60,6 @@ describe('getSourceColor', () => {
       { key: 'todayhumor', expected: 'bg-lime-100' },
       { key: 'clien', expected: 'bg-teal-100' },
       { key: 'google_trends', expected: 'bg-blue-100' },
-      { key: 'naver_datalab', expected: 'bg-green-100' },
     ];
 
     for (const { key, expected } of sources) {

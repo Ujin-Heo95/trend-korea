@@ -78,7 +78,7 @@ describe('TourFestivalScraper', () => {
     await scraper.fetch();
 
     const call = vi.mocked(axios.get).mock.calls[0];
-    expect(call[0]).toContain('KorService2/searchFestival');
+    expect(call[0]).toContain('KorService2/searchFestival2');
     expect(call[1]?.params?.serviceKey).toBe('test-key');
     expect(call[1]?.params?.MobileApp).toBe('WeekLit');
     expect(call[1]?.params?._type).toBe('json');

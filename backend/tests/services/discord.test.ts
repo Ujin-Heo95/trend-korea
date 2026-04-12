@@ -37,7 +37,7 @@ describe('notifyScraperErrors', () => {
     const { notifyScraperErrors } = await import('../../src/services/discord.js');
     await notifyScraperErrors('medium', [
       { sourceKey: 'dcinside', error: 'timeout' },
-      { sourceKey: 'fmkorea', error: '403 forbidden' },
+      { sourceKey: 'mlbpark', error: '403 forbidden' },
     ]);
 
     expect(mockFetch).toHaveBeenCalledOnce();
@@ -46,7 +46,7 @@ describe('notifyScraperErrors', () => {
     const body = JSON.parse(opts.body);
     expect(body.embeds[0].title).toContain('medium');
     expect(body.embeds[0].description).toContain('dcinside');
-    expect(body.embeds[0].description).toContain('fmkorea');
+    expect(body.embeds[0].description).toContain('mlbpark');
   });
 
   it('handles fetch failure gracefully', async () => {

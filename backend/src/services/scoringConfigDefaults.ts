@@ -88,12 +88,11 @@ export const CONFIG_GROUPS: readonly ConfigGroup[] = [
           youtube: 2.5,
           // 전문매체
           yozm: 1.0,
-          naver_d2: 1.1, kakao_tech: 1.1, toss_tech: 1.1,
           // 커뮤니티
           dcinside: 1.0, bobaedream: 1.0, ruliweb: 1.0, theqoo: 1.0,
           instiz: 1.0, natepann: 1.0,
           // 기타
-          ppomppu: 1.0, kopis_boxoffice: 1.2, sports_donga: 1.2,
+          ppomppu: 1.0, kopis_boxoffice: 1.2,
           ruliweb_hot: 0.9, clien_jirum: 0.9, quasarzone_deal: 0.9, dcinside_hotdeal: 0.9,
           DEFAULT: 0.8,
         },
@@ -139,7 +138,7 @@ export const CONFIG_GROUPS: readonly ConfigGroup[] = [
           // Tier A
           theqoo: 1.4, instiz: 1.35, natepann: 1.3,
           // Tier B
-          clien: 1.2, dcinside: 1.15, fmkorea: 1.15, todayhumor: 1.1,
+          clien: 1.2, dcinside: 1.15, todayhumor: 1.1,
           // Tier C
           ppomppu: 1.0, bobaedream: 1.0, mlbpark: 1.0, cook82: 1.0, dogdrip: 1.0,
           // Tier D
@@ -162,7 +161,7 @@ export const CONFIG_GROUPS: readonly ConfigGroup[] = [
       {
         key: 'values',
         defaultValue: {
-          dcinside: 120, fmkorea: 120, dogdrip: 120,
+          dcinside: 120, dogdrip: 120,
           theqoo: 150, instiz: 150, natepann: 150, todayhumor: 150, cook82: 150,
           clien: 200, bobaedream: 200,
           ppomppu: 180, mlbpark: 180, inven: 180,

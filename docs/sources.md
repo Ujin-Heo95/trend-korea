@@ -65,21 +65,20 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 |----------|------|----------|----------|------|
 | community | dcinside, bobaedream, theqoo, instiz, natepann, todayhumor | HTML | high | 안정 |
 | community | clien, mlbpark, cook82, inven, humoruniv, ygosu, slrclub, etoland | HTML | high/medium | 안정 |
-| community | fmkorea | HTML | medium | **disabled** (WASM 안티봇 완전 차단) |
 | community | ruliweb, dogdrip | HTML | high/medium | 안정 |
 | community | arcalive | HTML | medium | 안정 |
 | community | ppomppu | RSS | high | **disabled** (핫딜 통합 → ppomppu_best/ppomppu_hot) |
-| news | ddanzi, chosun, jtbc | RSS | high | 안정 |
+| news | ddanzi, chosun | RSS | high | 안정 |
+| news | joins, kbs, mbc, ytn, daum_news | HTML | high | 부활 — RSS 종료 → 홈/섹션 cheerio 파싱 (2026-04-12) |
 | news | yna, hani, sbs, donga, khan, hankyung, mk, kmib | RSS | medium | 안정 |
 | news | ohmynews, nocutnews, asiae, segye, bbc_korean, mbn | RSS | medium | 안정 |
 | news | naver_news_ranking | HTML | medium | 안정 |
 | news | google_news_kr, newsis, etnews | RSS | medium/high | 안정 |
-| news | joins, kbs, mbc, ytn, daum_news, seoul 외 6개 | — | — | **disabled** (RSS 종료/영문) |
+| news | jtbc, seoul 외 4개 | — | — | **disabled** — jtbc/seoul SPA(JS 미실행 시 0건), 2026-04-12 드랍 |
 | portal | bigkinds_issues | API→trend_keywords | low | 안정 |
 | portal | nate_news, zum_news | HTML→posts | medium | 안정 |
 | tech | yozm, boannews, zdnet_kr, itworld_kr | RSS | medium | 안정 |
 | tech | geeknews | HTML | medium | 안정 |
-| techblog | naver_d2 외 5개 | RSS | low | **disabled** |
 | video | youtube_sbs/ytn/mbc/kbs/jtbc_news | RSS | low | 안정 |
 | video | youtube, youtube_search | API | low | **disabled** (할당량 초과) |
 | finance | investing_kr, sedaily, moneytoday, edaily, bizwatch | RSS | medium | 안정 |
@@ -88,7 +87,6 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | ott | flixpatrol | HTML | low | 안정 |
 | trend | google_trends | RSS→trend_keywords | medium | 안정 |
 | trend | wikipedia_ko | API→trend_keywords | low | 안정 |
-| trend | naver_datalab | API | medium | **disabled** |
 | webtoon | naver_webtoon | API | low | 안정 (starScore 기준 랭킹, 요일별 전체 수집) |
 | government | korea_press, korea_policy, korea_briefing | RSS | low | 안정 |
 | government | korea_kr_press, korea_kr_policy | RSS | low | 안정 (정책브리핑) |
@@ -108,6 +106,28 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 
 ---
 
+## 2-0. API 키 발급 가이드 (정부/오픈API 11개)
+
+> 모두 무료. 발급 후 `backend/.env` 또는 `fly secrets set` 으로 등록. 키 미설정 시 해당 스크래퍼는 빈 배열 반환(서킷 트립 안 함).
+
+| 환경변수 | 사용 소스 | 발급처 | 비고 |
+|---|---|---|---|
+| `DATA_GO_KR_API_KEY` | tour_festival, tour_visitor, kcisa_performance, airkorea | https://www.data.go.kr → 마이페이지 → 인증키 | 통합키. 서비스별 활용신청 별도 (보통 즉시 승인) |
+| `KCISA_TRAVEL_API_KEY` | kcisa_travel (API_CNV_061) | https://www.kcisa.kr 회원가입 → 오픈API 활용신청 | API별 별도 신청 |
+| `KCISA_FESTIVAL_API_KEY` | kcisa_festival (meta4/getKCPG0504) | 동상 | |
+| `KCISA_EVENT_API_KEY` | kcisa_event (meta/ARKeven) | 동상 | |
+| `KCISA_PERFORMANCE_API_KEY` | kcisa_cca_performance (API_CCA_144) | 동상 | |
+| `KCISA_EXHIBITION_API_KEY` | kcisa_cca_exhibition (API_CCA_145) | 동상 | |
+| `SEOUL_OPEN_API_KEY` | seoul_citydata, seoul_cultural_event | https://data.seoul.go.kr/together/guide/useGuide.do → 인증키 신청 | 통합키 1개로 모든 서울 OpenAPI 사용 |
+
+**엔드포인트 주의사항:**
+- `tour_festival` → `B551011/KorService2/searchFestival2` (operation 명에 `2` suffix 필요. `searchFestival` 은 2025년경 deprecated → 404)
+- `kcisa_performance` → `B553457/openapi/rest/publicperformancedisplays/period` (예전 `nopenapi` 경로는 deprecated)
+- `tour_visitor` 는 1,000건/월 제한 → 6시간 쿨다운 내장
+- `seoul_citydata` 는 10개 핫스팟 순회 → IP 차단 방지를 위해 200ms 딜레이
+
+---
+
 ## 2-1. 소스별 수집 필드 현황
 
 > ✓=수집중, ✗=미수집, —=해당없음, *=의미변환(변화율 등)
@@ -123,7 +143,6 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | natepann | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ |
 | todayhumor | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ |
 | clien | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | ✗ |
-| fmkorea | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
 | ruliweb | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
 | mlbpark | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
 | cook82 | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ |

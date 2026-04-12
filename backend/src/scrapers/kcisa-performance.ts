@@ -85,7 +85,7 @@ export class KcisaPerformanceScraper extends BaseScraper {
     const to = formatDate(toDate);
 
     const { data } = await axios.get(
-      'https://apis.data.go.kr/B553457/nopenapi/rest/publicperformancedisplays/period',
+      'https://apis.data.go.kr/B553457/openapi/rest/publicperformancedisplays/period',
       {
         params: {
           serviceKey: config.dataGoKrApiKey,

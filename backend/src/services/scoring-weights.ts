@@ -54,14 +54,12 @@ const SOURCE_WEIGHTS: Record<string, number> = {
   youtube: 2.5,
   // 전문매체
   yozm: 1.0,
-  naver_d2: 1.1, kakao_tech: 1.1, toss_tech: 1.1,
   // 커뮤니티
   dcinside: 1.0, bobaedream: 1.0, ruliweb: 1.0, theqoo: 1.0,
   instiz: 1.0, natepann: 1.0,
   // 핫딜
   ppomppu_best: 0.9, ppomppu_hot: 0.9,
   kopis_boxoffice: 1.2,
-  sports_donga: 1.2,
   ruliweb_hot: 0.9, clien_jirum: 0.9,
   quasarzone_deal: 0.9, dcinside_hotdeal: 0.9,
 };

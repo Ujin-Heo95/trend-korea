@@ -5,7 +5,7 @@ import axios from 'axios';
 // Mock axios for scrapers that use it directly (bobaedream, instiz, natepann, ruliweb, theqoo, todayhumor)
 vi.mock('axios');
 
-// Mock fetchHtml for scrapers that use it (clien, cook82, etoland, fmkorea, humoruniv, inven, mlbpark, slrclub, ygosu)
+// Mock fetchHtml for scrapers that use it (clien, cook82, etoland, humoruniv, inven, mlbpark, slrclub, ygosu)
 vi.mock('../../src/scrapers/http-utils.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/scrapers/http-utils.js')>();
   return {
@@ -21,7 +21,6 @@ import { BobaedreamScraper } from '../../src/scrapers/bobaedream.js';
 import { ClienScraper } from '../../src/scrapers/clien.js';
 import { Cook82Scraper } from '../../src/scrapers/cook82.js';
 import { EtolandScraper } from '../../src/scrapers/etoland.js';
-import { FmkoreaScraper } from '../../src/scrapers/fmkorea.js';
 import { HumorunivScraper } from '../../src/scrapers/humoruniv.js';
 import { InstizScraper } from '../../src/scrapers/instiz.js';
 import { InvenScraper } from '../../src/scrapers/inven.js';
@@ -208,36 +207,6 @@ describe('EtolandScraper', () => {
       url: 'https://www.etoland.co.kr/bbs/board.php?bo_table=etohumor01&wr_id=456',
       author: '작성자B',
       viewCount: 789,
-    });
-  });
-});
-
-// ─── FmKorea ─────────────────────────────────────────────────
-describe('FmkoreaScraper', () => {
-  const html = `<html><body>
-    <li class="li"><h3 class="title"><a href="/index.php?document_srl=111">에펨 인기글 [42]</a></h3><span class="ed"><span class="vr">15</span></span></li>
-    <li class="li"><h3 class="title"><a href="https://www.fmkorea.com/222">댓글 없는 글</a></h3></li>
-  </body></html>`;
-
-  beforeEach(() => {
-    vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(html));
-  });
-
-  it('parses posts and extracts comment count from title', async () => {
-    const scraper = new FmkoreaScraper(pool);
-    const posts = await scraper.fetch();
-    expect(posts).toHaveLength(2);
-    expect(posts[0]).toMatchObject({
-      sourceKey: 'fmkorea',
-      sourceName: '에펨코리아',
-      title: '에펨 인기글',
-      url: 'https://www.fmkorea.com/index.php?document_srl=111',
-      commentCount: 42,
-    });
-    expect(posts[1]).toMatchObject({
-      title: '댓글 없는 글',
-      url: 'https://www.fmkorea.com/222',
-      commentCount: undefined,
     });
   });
 });
@@ -679,7 +648,6 @@ describe('Empty HTML handling', () => {
       new ClienScraper(pool),
       new Cook82Scraper(pool),
       new EtolandScraper(pool),
-      new FmkoreaScraper(pool),
       new HumorunivScraper(pool),
       new InvenScraper(pool),
       new MlbparkScraper(pool),

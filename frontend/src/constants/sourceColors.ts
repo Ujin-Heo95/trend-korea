@@ -34,7 +34,6 @@ const SOURCE_BRAND_HEX: Record<string, string> = {
   ppomppu: '#C8102E',
   ruliweb: '#D45500',
   clien: '#0085C2',
-  fmkorea: '#2C5BAB',
   bobaedream: '#009A4E',
   mlbpark: '#1A3A8A',
   inven: '#5E2E91',
@@ -86,12 +85,6 @@ const SOURCE_BRAND_HEX: Record<string, string> = {
   // ── Tech ──
   zdnet_kr: '#444444',
   itworld_kr: '#003DA5',
-  naver_d2: '#03C75A',
-  kakao_tech: '#B58900',
-  toss_tech: '#1B64DA',
-  daangn_tech: '#FF6F0F',
-  line_tech: '#06C755',
-  banksalad_tech: '#1B64DA',
 
   // ── Video (broadcaster YouTube) ──
   youtube: '#FF0000',
@@ -119,7 +112,6 @@ const SOURCE_BRAND_HEX: Record<string, string> = {
 
   // ── Trend ──
   google_trends: '#4285F4',
-  naver_datalab: '#03C75A',
   wikipedia_ko: '#555555',
 
   // ── Books ──

@@ -47,7 +47,6 @@ export function getSourcesByPriority(priority: SourcePriority): readonly SourceE
 const API_KEY_REQUIREMENTS: Record<string, { key: keyof typeof config; label: string }> = {
   youtube:        { key: 'youtubeApiKey',    label: 'YOUTUBE_API_KEY' },
   youtube_search: { key: 'youtubeApiKey',    label: 'YOUTUBE_API_KEY' },
-  naver_datalab:  { key: 'naverClientId',    label: 'NAVER_CLIENT_ID' },
   kobis_boxoffice:{ key: 'kobisApiKey',      label: 'KOBIS_API_KEY' },
   kopis_boxoffice:{ key: 'kopisApiKey',      label: 'KOPIS_API_KEY' },
   tour_festival:  { key: 'dataGoKrApiKey',   label: 'DATA_GO_KR_API_KEY' },

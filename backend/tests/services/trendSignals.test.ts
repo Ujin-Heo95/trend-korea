@@ -20,7 +20,7 @@ describe('matchPostToKeywords', () => {
   });
 
   it('matches compound keyword with whitespace variation', () => {
-    const index = [makeEntry('부동산 시장', 'naver_datalab')];
+    const index = [makeEntry('부동산 시장', 'wikipedia_ko')];
     const result = matchPostToKeywords('부동산시장이 흔들린다', index);
     expect(result.matchedSources.size).toBe(1);
   });
@@ -35,7 +35,7 @@ describe('matchPostToKeywords', () => {
     const index = [
       makeEntry('기준금리', 'google_trends'),
       makeEntry('기준금리', 'bigkinds_issues'),
-      makeEntry('부동산', 'naver_datalab'),
+      makeEntry('부동산', 'wikipedia_ko'),
     ];
     const result = matchPostToKeywords('기준금리 동결에 부동산 시장 반응', index);
     expect(result.matchedSources.size).toBe(3);
@@ -49,11 +49,11 @@ describe('matchPostToKeywords', () => {
 
   it('only counts each source once', () => {
     const index = [
-      makeEntry('AI', 'naver_datalab', 0.5),
-      makeEntry('인공지능', 'naver_datalab', 0.8),
+      makeEntry('AI', 'wikipedia_ko', 0.5),
+      makeEntry('인공지능', 'wikipedia_ko', 0.8),
     ];
     const result = matchPostToKeywords('AI 인공지능 시대', index);
-    // naver_datalab should appear only once
+    // wikipedia_ko should appear only once
     expect(result.matchedSources.size).toBe(1);
   });
 
@@ -138,7 +138,7 @@ describe('computeTrendSignalBonus', () => {
 
   it('returns highest bonus for three sources', () => {
     const bonus = computeTrendSignalBonus({
-      matchedSources: new Set(['google_trends', 'bigkinds_issues', 'naver_datalab']),
+      matchedSources: new Set(['google_trends', 'bigkinds_issues', 'wikipedia_ko']),
       bestStrength: 1.0,
       avgTemporalDecay: 1.0,
     });
