@@ -117,7 +117,7 @@ async function _crossValidate(pool: Pool): Promise<number> {
 function extractKeyword(title: string): string | null {
   // Remove common prefixes/suffixes and take meaningful chunk
   const cleaned = title
-    .replace(/[[\]()""''「」…·\-]/g, ' ')
+    .replace(/[[\]()""''「」…·-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   const words = cleaned.split(' ').filter(w => w.length >= 2);

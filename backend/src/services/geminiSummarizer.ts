@@ -238,7 +238,7 @@ function validateAndBuild(parsed: RawParsed): IssueSummary | null {
     : withEmoji;
 
   // ~다체 drift detection for monitoring
-  if (/[^요죠네래][다니][.\s"}\,]/.test(parsed.summary)) {
+  if (/[^요죠네래][다니][.\s"},]/.test(parsed.summary)) {
     console.warn(`[geminiSummarizer] ~다체 drift detected in summary`);
   }
 

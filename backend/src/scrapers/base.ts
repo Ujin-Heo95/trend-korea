@@ -82,6 +82,7 @@ export function getCircuitStates(): ReadonlyMap<string, Readonly<CircuitState>> 
 }
 
 export function stripHtml(s: string): string {
+  // eslint-disable-next-line no-control-regex
   return s.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
 }
 
