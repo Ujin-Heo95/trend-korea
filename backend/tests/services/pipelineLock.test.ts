@@ -1,72 +1,55 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { withPipelineLock, PIPELINE_LOCK_KEYS, getLockSkippedCount, resetLockSkippedCount } from '../../src/services/pipelineLock.js';
 
-interface FakeClient {
-  query: ReturnType<typeof vi.fn>;
-  release: ReturnType<typeof vi.fn>;
-}
+const fakePool = {} as any;
 
-function makePool(acquireSequence: boolean[]): { pool: any; clients: FakeClient[] } {
-  const clients: FakeClient[] = [];
-  let i = 0;
-  const pool = {
-    connect: vi.fn(async () => {
-      const locked = acquireSequence[i++] ?? false;
-      const client: FakeClient = {
-        query: vi.fn(async (sql: string) => {
-          if (sql.includes('pg_try_advisory_lock')) return { rows: [{ locked }] };
-          if (sql.includes('pg_advisory_unlock')) return { rows: [{ ok: true }] };
-          return { rows: [] };
-        }),
-        release: vi.fn(),
-      };
-      clients.push(client);
-      return client;
-    }),
-  };
-  return { pool, clients };
-}
-
-describe('withPipelineLock', () => {
+describe('withPipelineLock (in-memory mutex)', () => {
   beforeEach(() => {
     resetLockSkippedCount();
     delete process.env.PIPELINE_LOCK_ENABLED;
   });
 
-  it('runs fn when lock is acquired', async () => {
-    const { pool, clients } = makePool([true]);
+  it('runs fn when lock is free', async () => {
     const fn = vi.fn(async () => 'ok');
-    const result = await withPipelineLock(pool, PIPELINE_LOCK_KEYS.issuePipeline, 'test', fn);
+    const result = await withPipelineLock(fakePool, PIPELINE_LOCK_KEYS.issuePipeline, 'test', fn);
     expect(result).toBe('ok');
     expect(fn).toHaveBeenCalledOnce();
-    expect(clients[0].release).toHaveBeenCalled();
   });
 
-  it('returns null and increments skipped counter when lock is held', async () => {
-    const { pool, clients } = makePool([false]);
+  it('returns null and skips when same key is in flight', async () => {
+    let releaseFirst!: () => void;
+    const firstDone = new Promise<void>(r => { releaseFirst = r; });
+    const first = withPipelineLock(fakePool, PIPELINE_LOCK_KEYS.summarizer, 'first', async () => {
+      await firstDone;
+      return 1;
+    });
+    // Yield to let `first` enter the critical section.
+    await new Promise(r => setTimeout(r, 0));
     const fn = vi.fn(async () => 'should not run');
-    const result = await withPipelineLock(pool, PIPELINE_LOCK_KEYS.issuePipeline, 'test', fn);
-    expect(result).toBeNull();
+    const second = await withPipelineLock(fakePool, PIPELINE_LOCK_KEYS.summarizer, 'second', fn);
+    expect(second).toBeNull();
     expect(fn).not.toHaveBeenCalled();
     expect(getLockSkippedCount()).toBe(1);
-    expect(clients[0].release).toHaveBeenCalled();
+    releaseFirst();
+    await first;
   });
 
-  it('releases client even when fn throws', async () => {
-    const { pool, clients } = makePool([true]);
-    const fn = vi.fn(async () => { throw new Error('boom'); });
+  it('releases lock even when fn throws so next tick can acquire', async () => {
     await expect(
-      withPipelineLock(pool, PIPELINE_LOCK_KEYS.issuePipeline, 'test', fn),
+      withPipelineLock(fakePool, PIPELINE_LOCK_KEYS.trackBDecay, 'test', async () => {
+        throw new Error('boom');
+      }),
     ).rejects.toThrow('boom');
-    expect(clients[0].release).toHaveBeenCalled();
+    // Now next tick should acquire normally.
+    const result = await withPipelineLock(fakePool, PIPELINE_LOCK_KEYS.trackBDecay, 'test', async () => 'ok');
+    expect(result).toBe('ok');
   });
 
   it('bypasses lock when PIPELINE_LOCK_ENABLED=false', async () => {
     process.env.PIPELINE_LOCK_ENABLED = 'false';
-    const { pool } = makePool([]);
     const fn = vi.fn(async () => 'ok');
-    const result = await withPipelineLock(pool, PIPELINE_LOCK_KEYS.issuePipeline, 'test', fn);
+    const result = await withPipelineLock(fakePool, PIPELINE_LOCK_KEYS.issuePipeline, 'test', fn);
     expect(result).toBe('ok');
-    expect(pool.connect).not.toHaveBeenCalled();
+    expect(fn).toHaveBeenCalledOnce();
   });
 });

@@ -1,15 +1,23 @@
 /**
- * pipelineLock — Postgres advisory lock 기반 cron tick 직렬화.
+ * pipelineLock — 프로세스 내 in-memory mutex 기반 cron tick 직렬화.
  *
  * 목적:
- *   - `:04` 이슈 파이프라인이 5분을 초과해 다음 `:09/:14` tick과 겹치는
- *     상황을 원천 차단. 다음 tick은 `skipped` 로그만 남기고 즉시 종료.
- *   - Fly.io 수평 확장 시에도 안전 (advisory lock은 DB 레벨 전역).
+ *   파이프라인 tick 이 길어져 다음 tick 과 겹치는 상황을 원천 차단.
+ *   다음 tick 은 `skipped` 로그만 남기고 즉시 종료.
  *
- * 사용:
- *   await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.issuePipeline, async () => {
- *     await runPipeline(...)
- *   });
+ * 변경 이력(2026-04-12):
+ *   pg_try_advisory_lock(session-level) 사용 → in-memory Map 으로 전환.
+ *   배경: Supabase Supavisor(transaction-mode pooler, :6543) 와 session-level
+ *         advisory lock 은 근본적으로 호환 불가. Supavisor 가 underlying
+ *         Postgres backend 를 풀에서 재사용하면서 lock 보유 session 이
+ *         worker 외부에 stuck 됨 → unlock_all 로도 풀 수 없음 → 무한 skip.
+ *         실제 11:00, 11:10 두 번 연속 skipped=2 로 확인.
+ *   현 운영: worker 프로세스 1대 (fly.toml worker process group, count=1)
+ *         이므로 DB-레벨 분산 락이 불필요. process-local Map 으로 충분.
+ *   확장 시: worker 를 다대로 늘릴 일이 생기면 leases 테이블(timestamp +
+ *         expiry) 패턴으로 다시 전환. advisory lock 으로는 절대 회귀하지 말 것.
+ *
+ * pool 파라미터는 호환성을 위해 유지하지만 사용하지 않는다.
  */
 import type { Pool } from 'pg';
 import { logger } from '../utils/logger.js';
@@ -32,25 +40,10 @@ export function resetLockSkippedCount(): void {
   lockSkippedCount = 0;
 }
 
-/**
- * advisory lock을 시도 획득하고 콜백을 실행한다.
- * 이미 다른 프로세스/이전 tick이 보유 중이면 즉시 null 반환.
- *
- * 구현 노트(2026-04-12 핫픽스):
- *   체크아웃 시 pg_advisory_unlock_all() 로 *이 connection 에 남아있는 모든
- *   stale 락* 을 선제 정리한 뒤 새 락을 시도 획득.
- *   배경: session-level advisory lock 은 connection 단위로 유지되므로,
- *         worker 크래시/이전 fn 예외로 unlock 이 실패한 채 release 되면
- *         그 connection 이 평생 락을 쥔 채 풀에 남는다 (특히 min:2 프리웜).
- *         이후 모든 tick 이 같은 connection 을 받으면 무한 "skipping".
- *         unlock_all 은 같은 session 의 모든 advisory lock 만 해제하므로
- *         다른 connection/프로세스 의 락엔 영향 없어 안전.
- *   tx-bound 락(pg_try_advisory_xact_lock) 도 고려했으나 fn 실행 시간 동안
- *         connection 이 idle-in-transaction 상태가 되어 Supabase
- *         idle_in_transaction_session_timeout 위험.
- */
+const inFlight = new Set<PipelineLockKey>();
+
 export async function withPipelineLock<T>(
-  pool: Pool,
+  _pool: Pool,
   lockKey: PipelineLockKey,
   label: string,
   fn: () => Promise<T>,
@@ -58,37 +51,18 @@ export async function withPipelineLock<T>(
   if (process.env.PIPELINE_LOCK_ENABLED === 'false') {
     return await fn();
   }
-  const client = await pool.connect();
-  let acquired = false;
-  try {
-    // 선제 정리: 이 connection 에 잔존할 수 있는 모든 stale 락 해제.
-    await client.query('SELECT pg_advisory_unlock_all()').catch((err) => {
-      logger.warn({ err, label }, '[pipelineLock] preemptive unlock_all failed');
-    });
-
-    const { rows } = await client.query<{ locked: boolean }>(
-      'SELECT pg_try_advisory_lock($1) AS locked',
-      [lockKey],
+  if (inFlight.has(lockKey)) {
+    lockSkippedCount++;
+    logger.warn(
+      { lockKey: `0x${lockKey.toString(16)}`, label, skipped: lockSkippedCount },
+      '[pipelineLock] previous tick still running — skipping',
     );
-    acquired = rows[0]?.locked === true;
-    if (!acquired) {
-      lockSkippedCount++;
-      logger.warn(
-        { lockKey: `0x${lockKey.toString(16)}`, label, skipped: lockSkippedCount },
-        '[pipelineLock] previous tick still running — skipping',
-      );
-      return null;
-    }
-
+    return null;
+  }
+  inFlight.add(lockKey);
+  try {
     return await fn();
   } finally {
-    if (acquired) {
-      try {
-        await client.query('SELECT pg_advisory_unlock($1)', [lockKey]);
-      } catch (err) {
-        logger.warn({ err, label }, '[pipelineLock] unlock failed');
-      }
-    }
-    client.release();
+    inFlight.delete(lockKey);
   }
 }
