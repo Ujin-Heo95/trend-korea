@@ -84,8 +84,9 @@ if (apifyMonthlyBudgetCents !== rawApifyBudget) {
 }
 
 // Supabase Pro pooler(:6543) 는 ~100 pooled connection 허용.
-// 25 로 상향해 burst(Promise.all 8+) 시에도 waiter queue 발생 최소화.
-const dbPoolMax = Math.min(Math.max(Number(process.env.DB_POOL_MAX ?? 25) || 25, 1), 50);
+// 30 으로 상향(2026-04-12 단일 프로세스 통합 후): apiPool ~12 + batchPool ~18.
+// burst(Promise.all 8+) 와 HTTP 동거 환경에서 waiter queue 미발생 + 1코어 vCPU 여유.
+const dbPoolMax = Math.min(Math.max(Number(process.env.DB_POOL_MAX ?? 30) || 30, 1), 50);
 const dbIdleTimeoutMs = Number(process.env.DB_IDLE_TIMEOUT_MS ?? 20000) || 20000;
 const dbConnectionTimeoutMs = Number(process.env.DB_CONNECTION_TIMEOUT_MS ?? 10000) || 10000;
 

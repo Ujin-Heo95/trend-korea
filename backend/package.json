@@ -6,8 +6,8 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc && cp -r src/db/migrations dist/db/migrations",
     "start": "node dist/db/migrate.js && node dist/server.js",
-    "start:worker": "node dist/db/migrate.js && node dist/worker.js",
     "test": "vitest run",
+    "deploy": "bash ../scripts/deploy.sh",
     "migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {

@@ -6,17 +6,17 @@ primary_region = "nrt"
   [build.args]
     BUILD_FRONTEND = "false"
 
+# 단일 프로세스 모델 (2026-04-12). worker 프로세스 그룹 폐기 — fly deploy 가
+# non-http process group 의 auto-start 를 보장하지 않는 구조적 결함 때문에
+# 매번 stopped 로 방치되던 사고의 영속 해결. scheduler 는 server.ts 안에서
+# startScheduler() 로 항상 기동되며, in-process pipelineLock 으로 watchdog 과 직교.
 [processes]
-  web = "./start.sh"
-  worker = "node backend/dist/worker.js"
+  app = "./start.sh"
 
 [env]
   NODE_ENV = "production"
   SERVE_FRONTEND = "false"
   PORT = "8080"
-  # web 은 HTTP 전용. 스케줄러는 worker 프로세스(worker.ts)가 전담.
-  # worker 머신이 죽었을 때 임시로 web 에서 돌리려면 이 값을 "true" 로.
-  RUN_SCHEDULER = "false"
 
 [http_service]
   internal_port = 8080
@@ -24,7 +24,7 @@ primary_region = "nrt"
   auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
-  processes = ["web"]
+  processes = ["app"]
 
 [[http_service.checks]]
   path = "/health"
@@ -34,12 +34,16 @@ primary_region = "nrt"
   # 이전 30s 는 T+45s high-priority burst 와 충돌해 머신 재시작 루프 유발.
   grace_period = "60s"
 
+# performance-1x 2gb (2026-04-12 업그레이드).
+# 근거: shared-cpu-1x 1024MB 에서 78 TLS burst + scoring p-limit(4) 동시 실행 시
+#   이벤트루프가 freeze 되어 /health timeout → fly 가 머신 죽이는 루프 재발.
+#   전용 vCPU 1코어 + 2GB heap 으로 burst 견딤. (`lessons_pool_isolation` §3)
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "1024mb"
+  size = "performance-1x"
+  memory = "2gb"
 
-# 머신 종료 시 자동 재기동 — 특히 worker 프로세스(http 없음)가
-# unhandled rejection 등으로 죽었을 때 stopped 상태로 방치되지 않도록.
+# 머신 종료 시 자동 재기동 — 단일 프로세스가 unhandled rejection 등으로 죽었을 때
+# stopped 상태로 방치되지 않도록.
 [[restart]]
   policy = "always"
   retries = 10

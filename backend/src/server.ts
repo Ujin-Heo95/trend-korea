@@ -224,23 +224,21 @@ if (isMain) {
   await app.listen({ port: config.port, host: '0.0.0.0' });
 
   // DB validation in background (non-blocking).
-  // Scheduler 는 RUN_SCHEDULER=true 일 때만 web 프로세스에서 가동.
-  // 기본값(false)은 worker 프로세스 그룹(worker.ts)이 전담 — 컴퓨트 도메인 분리.
-  // 단일 머신 운영 시(전환 전 호환성)는 RUN_SCHEDULER=true 로 명시.
-  const runScheduler = process.env.RUN_SCHEDULER === 'true';
+  // 2026-04-12 단일 프로세스 모델로 통합: worker 프로세스 그룹 제거.
+  //   - fly deploy 후 worker 머신이 stopped 로 방치되는 구조적 결함 제거
+  //   - pipelineLock(in-memory) 가 진짜 동일 프로세스 안에서 공유돼 직교 보호 성립
+  //   - VM 은 performance-1x 2gb 로 업그레이드(이벤트루프 freeze 방지)
+  // RUN_SCHEDULER 환경변수 분기는 더 이상 없음. scheduler + watchdog 모두 항상 기동.
   validateConnection()
     .then(() => {
-      if (runScheduler) startScheduler();
-      else console.log('[server] RUN_SCHEDULER!=true — scheduler disabled in web process (worker handles it)');
-      // Watchdog 은 scheduler 와 독립적으로 항상 기동.
-      // 근거: worker 프로세스가 fly deploy 중 stopped 로 남아 파이프라인 전체가 freeze 되던
-      //   사고(2026-04-12 22:21) 의 재발 방지. web 은 min_machines_running=1 로 보장됨.
-      //   pipelineLock 공유 → worker 가 살아있으면 중복 실행되지 않음.
+      startScheduler();
+      // Watchdog: 같은 프로세스 안의 in-process 직교 lock 공유 1차 방어선.
+      //   pipelineLock 키 일치 → scheduler tick 과 watchdog tick 이 충돌해도 한쪽만 통과.
       startWebWatchdog();
     })
     .catch((err) => {
       console.error('[server] DB validation failed:', err);
-      if (runScheduler) startScheduler();
+      startScheduler();
       startWebWatchdog();
     });
 
