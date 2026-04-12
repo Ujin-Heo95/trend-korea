@@ -148,6 +148,8 @@ async function _calculateScores(pool: Pool): Promise<number> {
   const rawScoreEntries: {
     postId: number; score: number; srcW: number; catW: number; sourceKey: string;
     velBonus: number; clusterBonus: number; trendBonus: number;
+    // Track B 증분 decay 를 위한 메타 (057 스키마 / PR #2)
+    decayFactor: number; postOrigin: Date; halfLifeMin: number;
   }[] = [];
 
   for (const row of rows) {
@@ -230,6 +232,9 @@ async function _calculateScores(pool: Pool): Promise<number> {
       postId: row.id, score, srcW, catW, sourceKey: row.source_key,
       velBonus: factors.velocityBonus, clusterBonus: factors.clusterBonus,
       trendBonus: factors.trendSignalBonus,
+      decayFactor: factors.decay,
+      postOrigin: new Date(postOrigin),
+      halfLifeMin: halfLife,
     });
   }
 
@@ -246,7 +251,8 @@ async function _calculateScores(pool: Pool): Promise<number> {
   }
 
   // Step 3: Batch UPSERT in chunks of 500 (raw score 직접 사용)
-  const COLS_PER_ROW = 7;
+  // 057 스키마: trend_score_base (=score / decayFactor), post_origin, half_life_min 도 함께 기록 →
+  //           Track B decay-updater(PR #2)가 이 행들을 주기적으로 재감쇠할 수 있도록 한다.
   const CHUNK = 500;
   let updated = 0;
   for (let start = 0; start < rawScoreEntries.length; start += CHUNK) {
@@ -255,12 +261,24 @@ async function _calculateScores(pool: Pool): Promise<number> {
     const chunkValues: string[] = [];
     for (let j = start; j < end; j++) {
       const entry = rawScoreEntries[j];
+      // decayFactor ≈ 0 이면 base 발산 방지 — 24h 이상 노후행은 어차피 Track B 윈도 밖.
+      const base = entry.decayFactor > 1e-6 ? entry.score / entry.decayFactor : entry.score;
       const i = chunkParams.length;
-      chunkParams.push(entry.postId, entry.score, entry.srcW, entry.catW, entry.velBonus, entry.clusterBonus, entry.trendBonus);
-      chunkValues.push(`($${i+1},$${i+2},$${i+3},$${i+4},NOW(),$${i+5},$${i+6},$${i+7})`);
+      chunkParams.push(
+        entry.postId, entry.score, entry.srcW, entry.catW,
+        entry.velBonus, entry.clusterBonus, entry.trendBonus,
+        base, entry.postOrigin, entry.halfLifeMin,
+      );
+      chunkValues.push(
+        `($${i+1},$${i+2},$${i+3},$${i+4},NOW(),$${i+5},$${i+6},$${i+7},$${i+8},$${i+9},$${i+10},NOW())`
+      );
     }
     const result = await pool.query(
-      `INSERT INTO post_scores (post_id, trend_score, source_weight, category_weight, calculated_at, velocity_bonus, cluster_bonus, trend_signal_bonus)
+      `INSERT INTO post_scores (
+         post_id, trend_score, source_weight, category_weight, calculated_at,
+         velocity_bonus, cluster_bonus, trend_signal_bonus,
+         trend_score_base, post_origin, half_life_min, decayed_at
+       )
        VALUES ${chunkValues.join(',')}
        ON CONFLICT (post_id) DO UPDATE SET
          trend_score = EXCLUDED.trend_score,
@@ -269,7 +287,11 @@ async function _calculateScores(pool: Pool): Promise<number> {
          calculated_at = EXCLUDED.calculated_at,
          velocity_bonus = EXCLUDED.velocity_bonus,
          cluster_bonus = EXCLUDED.cluster_bonus,
-         trend_signal_bonus = EXCLUDED.trend_signal_bonus`,
+         trend_signal_bonus = EXCLUDED.trend_signal_bonus,
+         trend_score_base = EXCLUDED.trend_score_base,
+         post_origin = EXCLUDED.post_origin,
+         half_life_min = EXCLUDED.half_life_min,
+         decayed_at = EXCLUDED.decayed_at`,
       chunkParams
     );
     updated += result.rowCount ?? 0;
