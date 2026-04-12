@@ -1,7 +1,7 @@
 # 소스 가이드 & 카탈로그
 
 > 2026-04-11 현행화. 스크래퍼 추가 방법 + 현재 소스 현황 + 확장 후보
-> 소스 정상화 업데이트 (arcalive, ppomppu 등 re-enable + eomisae/naver_webtoon/namuwiki 신규)
+> 소스 정상화 업데이트 (arcalive, ppomppu 등 re-enable + eomisae/naver_webtoon 신규)
 
 ---
 
@@ -69,7 +69,6 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | community | ruliweb, dogdrip | HTML | high/medium | 안정 |
 | community | arcalive | HTML | medium | 안정 |
 | community | ppomppu | RSS | high | **disabled** (핫딜 통합 → ppomppu_best/ppomppu_hot) |
-| trend | namuwiki | API | medium | TrendSignalScraper 전환 (trend_keywords 기록, UI 미노출) |
 | news | ddanzi, chosun, jtbc | RSS | high | 안정 |
 | news | yna, hani, sbs, donga, khan, hankyung, mk, kmib | RSS | medium | 안정 |
 | news | ohmynews, nocutnews, asiae, segye, bbc_korean, mbn | RSS | medium | 안정 |
@@ -162,7 +161,6 @@ HTML과 동일하나 `type: "api"` 사용. 외부 API 키가 필요하면 `confi
 | tour_festival | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ |
 | tour_visitor | ✓ | ✓ | ✗ | ✗ | ✓* | ✓* | ✗ | ✓ | ✓ |
 | naver_webtoon | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓* | ✗ | ✓ |
-| namuwiki | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
 | seoul_citydata | ✓ | ✓ | ✗ | ✗ | ✓* | ✗ | ✗ | ✗ | ✓ |
 | bigkinds | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ |
 | airkorea | ✓ | ✓ | ✗ | ✗ | ✓* | ✗ | ✗ | ✗ | ✓ |

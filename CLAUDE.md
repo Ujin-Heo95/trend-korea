@@ -54,7 +54,7 @@ npm workspaces 모노레포 (`backend/` + `frontend/`), Fly.io 도쿄 + Cloudfla
 v0.13.0 — 품질·SEO·확장성 대규모 개선 완료.
 소스 111개 등록 (78개 활성, 트렌드 3개 → trend_keywords 직접 기록) + 438 tests (백엔드 356 + 프론트 79 + 통합 25) + Supabase Pro 8GB 서울.
 채널별 분기 스코어링 — 커뮤니티(소스차등+적응감쇠+트렌드신호) / 뉴스(4항 가산혼합 signalScore+소스별 decay+속보감지+freshnessBonus). 비스코어링 탭은 최신순만.
-포털 소스(nate_news/zum_news)는 인기기사를 posts에 수집하며 portalRank 신호에도 통합, 트렌드 소스(google_trends/wikipedia_ko/bigkinds_issues/namuwiki)는 trend_keywords에 직접 UPSERT.
+포털 소스(nate_news/zum_news)는 인기기사를 posts에 수집하며 portalRank 신호에도 통합, 트렌드 소스(google_trends/wikipedia_ko/bigkinds_issues)는 trend_keywords에 직접 UPSERT.
 
 **아키텍처 변경 (2026-04-11)**:
 - API/Batch DB 풀 분리 (apiPool 40% + batchPool 60%)

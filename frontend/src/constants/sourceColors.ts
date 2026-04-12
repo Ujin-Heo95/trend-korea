@@ -120,7 +120,6 @@ const SOURCE_BRAND_HEX: Record<string, string> = {
   // ── Trend ──
   google_trends: '#4285F4',
   naver_datalab: '#03C75A',
-  namuwiki: '#008275',
   wikipedia_ko: '#555555',
 
   // ── Books ──

@@ -165,16 +165,6 @@
       "enabled": true
     },
     {
-      "key": "namuwiki",
-      "name": "나무위키",
-      "category": "trend",
-      "type": "api",
-      "module": "./namuwiki.js",
-      "className": "NamuwikiScraper",
-      "priority": "medium",
-      "enabled": true
-    },
-    {
       "key": "yna",
       "name": "연합뉴스",
       "category": "news",
