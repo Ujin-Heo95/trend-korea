@@ -1,65 +1,104 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import type { Pool } from 'pg';
-import pLimit from 'p-limit';
 import { BaseScraper } from './base.js';
 import type { ScrapedPost } from './types.js';
-import { fetchHtml, parseKoreanDate } from './http-utils.js';
+import { parseKoreanDate } from './http-utils.js';
 
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' };
-const DETAIL_LIMIT = pLimit(3);
+
+// 상세 페이지는 추천 수를 정적 HTML에 노출하지 않음(AJAX). 대신:
+//  - 기본 리스트(/pt): 시간순 + `조회 N` 포함
+//  - 추천순 리스트(/pt?srt=2): `조회 N l 추천 N` 포함
+// 두 리스트를 합쳐 url -> (view, like) 맵을 만든다.
+const VIEW_RE = /조회\s+([\d,]+)/;
+const LIKE_RE = /추천\s+([\d,]+)/;
+const TIME_RE = /(\d{2}:\d{2}|\d{2}\.\d{2})/;
+
+function normalizeUrl(href: string): string {
+  const q = href.indexOf('?');
+  return q === -1 ? href : href.slice(0, q);
+}
+
+function toInt(s: string | undefined): number | undefined {
+  if (!s) return undefined;
+  const n = parseInt(s.replace(/,/g, ''), 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+interface ListRow {
+  url: string;
+  title: string;
+  commentCount?: number;
+  viewCount?: number;
+  likeCount?: number;
+  publishedAt?: Date;
+}
+
+function parseListPage(html: string): ListRow[] {
+  const $ = cheerio.load(html);
+  const rows: ListRow[] = [];
+
+  $('a[href^="https://www.instiz.net/pt/"]').each((_, el) => {
+    const sbj = $(el).find('.sbj');
+    if (!sbj.length) return;
+
+    const href = $(el).attr('href') ?? '';
+    const url = normalizeUrl(href);
+    const title = sbj.text().trim();
+    if (!title || !url) return;
+
+    const listnoText = $(el).find('.listno').text();
+    const cmtTitle = $(el).find('.cmt3').attr('title') ?? '';
+    const cmtMatch = cmtTitle.match(/([\d,]+)/);
+
+    const timeMatch = listnoText.match(TIME_RE);
+    const viewMatch = listnoText.match(VIEW_RE);
+    const likeMatch = listnoText.match(LIKE_RE);
+
+    rows.push({
+      url,
+      title,
+      commentCount: toInt(cmtMatch?.[1]),
+      viewCount: toInt(viewMatch?.[1]),
+      likeCount: toInt(likeMatch?.[1]),
+      publishedAt: timeMatch ? parseKoreanDate(timeMatch[1]) : undefined,
+    });
+  });
+
+  return rows;
+}
 
 export class InstizScraper extends BaseScraper {
   constructor(pool: Pool) { super(pool); }
+
   async fetch(): Promise<ScrapedPost[]> {
-    const { data } = await axios.get('https://www.instiz.net/pt', { headers: UA, timeout: 15000 });
-    const $ = cheerio.load(data);
-    const posts: ScrapedPost[] = [];
+    const [timeRes, likeRes] = await Promise.allSettled([
+      axios.get('https://www.instiz.net/pt', { headers: UA, timeout: 15_000 }),
+      axios.get('https://www.instiz.net/pt?srt=2', { headers: UA, timeout: 15_000 }),
+    ]);
 
-    $('a[href^="https://www.instiz.net/pt/"]').each((_, el) => {
-      const sbj = $(el).find('.sbj');
-      if (!sbj.length) return;
+    if (timeRes.status !== 'fulfilled') throw timeRes.reason;
 
-      const url = $(el).attr('href') ?? '';
-      const title = sbj.text().trim();
-      const listnoText = $(el).find('.listno').text();
-      const cmtEl = $(el).find('.cmt3');
-      const cmtTitle = cmtEl.attr('title') ?? '';
-      const cmtMatch = cmtTitle.match(/([\d,]+)/);
-      const commentCount = cmtMatch ? parseInt(cmtMatch[1].replace(/,/g, '')) || undefined : undefined;
+    const timeRows = parseListPage(timeRes.value.data);
+    const likeRows = likeRes.status === 'fulfilled' ? parseListPage(likeRes.value.data) : [];
 
-      const dateMatch = listnoText.match(/(\d{2}:\d{2}|\d{2}\.\d{2})/);
-      const publishedAt = dateMatch ? parseKoreanDate(dateMatch[1]) : undefined;
-      if (title && url) {
-        posts.push({ sourceKey: 'instiz', sourceName: '인스티즈', title, url, commentCount, publishedAt });
-      }
-    });
+    // url -> likeCount (추천순 리스트가 유일하게 추천 수를 노출)
+    const likeByUrl = new Map<string, number>();
+    for (const row of likeRows) {
+      if (row.likeCount !== undefined) likeByUrl.set(row.url, row.likeCount);
+    }
 
-    const sliced = posts.slice(0, 30);
-
-    // 2단계: 개별 글 페이지에서 조회수/추천수 보강
-    const enriched = await Promise.all(
-      sliced.map(post => DETAIL_LIMIT(async () => {
-        try {
-          const detail$ = await fetchHtml(post.url, {
-            timeout: 10_000,
-            headers: { Referer: 'https://www.instiz.net/pt' },
-            delay: [300, 800],
-          });
-          const bodyText = detail$.text();
-          const viewMatch = bodyText.match(/조회\s+([\d,]+)/);
-          const likeMatch = bodyText.match(/추천\s+([\d,]+)/);
-          return {
-            ...post,
-            viewCount: viewMatch ? parseInt(viewMatch[1].replace(/,/g, '')) : undefined,
-            likeCount: likeMatch ? parseInt(likeMatch[1].replace(/,/g, '')) : undefined,
-          };
-        } catch {
-          return post;
-        }
-      })),
-    );
-
-    return enriched;
+    const sliced = timeRows.slice(0, 30);
+    return sliced.map(row => ({
+      sourceKey: 'instiz',
+      sourceName: '인스티즈',
+      title: row.title,
+      url: row.url,
+      commentCount: row.commentCount,
+      viewCount: row.viewCount,
+      likeCount: likeByUrl.get(row.url),
+      publishedAt: row.publishedAt,
+    }));
   }
 }

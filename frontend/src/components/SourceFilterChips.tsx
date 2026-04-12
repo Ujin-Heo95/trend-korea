@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useSources } from '../hooks/usePosts';
-import { getSourceColor, getSourceLabel, getSourceBrandStyle } from '../constants/sourceColors';
+import { getSourceLabel, getSourceBrandStyle } from '../constants/sourceColors';
 import { HorizontalScrollRow } from './shared/HorizontalScrollRow';
 
 interface Props {
@@ -9,6 +9,15 @@ interface Props {
   selected: readonly string[];
   onChange: (sources: string[]) => void;
 }
+
+// 단일 선택(정확히 1개, 또는 '전체' = 0개)일 때만 내부를 브랜드 색으로 채운다.
+// 다중 선택 또는 비활성 상태에서는 투명 배경 + 검정(다크: 흰색) 테두리/글씨.
+const BASE_CLS =
+  'px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ' +
+  'text-slate-900 dark:text-slate-100 border-slate-900 dark:border-slate-100';
+
+const INACTIVE_CLS = 'bg-transparent hover:bg-slate-900/5 dark:hover:bg-slate-100/10';
+const MULTI_SELECTED_CLS = 'bg-transparent font-semibold ring-2 ring-slate-900 dark:ring-slate-100';
 
 export const SourceFilterChips: React.FC<Props> = ({ category, selected, onChange }) => {
   const { data: allSources = [] } = useSources();
@@ -21,8 +30,6 @@ export const SourceFilterChips: React.FC<Props> = ({ category, selected, onChang
       .sort((a, b) => b.post_count - a.post_count);
   }, [allSources, category]);
 
-  const isAll = selected.length === 0;
-
   const toggle = (key: string) => {
     const next = selected.includes(key)
       ? selected.filter(s => s !== key)
@@ -32,39 +39,44 @@ export const SourceFilterChips: React.FC<Props> = ({ category, selected, onChang
 
   if (sources.length === 0) return null;
 
+  const isAllActive = selected.length === 0;
+  const soleSelection = selected.length === 1 ? selected[0] : null;
+
   return (
     <HorizontalScrollRow className="gap-2 pb-2">
       <button
         onClick={() => onChange([])}
-        className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ${
-          isAll
-            ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700'
-            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-blue-200 dark:hover:border-blue-500'
+        className={`${BASE_CLS} ${
+          isAllActive ? 'bg-slate-900/10 dark:bg-slate-100/20 font-semibold' : INACTIVE_CLS
         }`}
       >
         전체
       </button>
-      {sources.map(({ key, name, category: cat }) => {
-        const active = selected.includes(key);
-        const color = getSourceColor(key, cat);
+      {sources.map(({ key, name }) => {
+        const isSelected = selected.includes(key);
+        const isSole = soleSelection === key;
         const brandStyle = getSourceBrandStyle(key);
         const label = getSourceLabel(key, name);
-        const style: React.CSSProperties | undefined = brandStyle
-          ? {
-              ...brandStyle,
-              borderColor: active
-                ? brandStyle.color as string
-                : `color-mix(in srgb, ${brandStyle.color} 45%, transparent)`,
-            }
+
+        // 내부 채움은 '단일 선택' 상태에서만. 글씨/테두리는 항상 검정(다크: 흰색).
+        const style: React.CSSProperties | undefined = isSole && brandStyle
+          ? { backgroundColor: brandStyle.backgroundColor }
           : undefined;
+
+        const stateCls = isSole
+          ? brandStyle
+            ? 'font-semibold'
+            : 'bg-slate-900/10 dark:bg-slate-100/20 font-semibold'
+          : isSelected
+            ? MULTI_SELECTED_CLS
+            : INACTIVE_CLS;
+
         return (
           <button
             key={key}
             onClick={() => toggle(key)}
             style={style}
-            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all border ${
-              brandStyle ? '' : `${color} ${active ? 'border-current/40' : 'border-current/25'}`
-            } ${active ? 'shadow-sm font-semibold' : 'hover:brightness-110'}`}
+            className={`${BASE_CLS} ${stateCls}`}
           >
             {label}
           </button>

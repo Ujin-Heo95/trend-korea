@@ -302,9 +302,10 @@ describe('InstizScraper', () => {
       title: '인스티즈 인기글',
       url: 'https://www.instiz.net/pt/12345',
       commentCount: 56,
+      viewCount: 1234,
     });
-    // 목록 페이지에 조회수/추천수 미노출 — viewCount/likeCount undefined
-    expect(posts[0].viewCount).toBeUndefined();
+    // mock은 두 리스트 호출에 동일 HTML 반환 — 추천 수가 노출되지 않는 리스트라 likeCount undefined
+    expect(posts[0].likeCount).toBeUndefined();
     expect(posts[1]).toMatchObject({
       title: '두번째 글',
     });
