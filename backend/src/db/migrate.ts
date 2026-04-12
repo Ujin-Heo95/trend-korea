@@ -69,6 +69,7 @@ const migrations = [
   '060_quality_metrics.sql',
   '061_issue_quality_judgments.sql',
   '062_pending_merge_decisions.sql',
+  '063_drop_scoring_v8_flag.sql',
 ];
 
 try {
