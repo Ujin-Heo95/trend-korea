@@ -19,10 +19,36 @@ import { loadFeatureFlags } from '../services/featureFlags.js';
 import { enrichYoutubeEngagement } from '../services/youtubeEnrichment.js';
 import { checkPipelineHealth } from '../services/pipelineHealth.js';
 import { runTrackBDecay } from '../services/decayUpdater.js';
+import { runKeywordIdfBatch, getKeywordIdfCoverage, cleanStaleKeywordIdf } from '../services/keywordIdfBatch.js';
+import { notifyPipelineWarning } from '../services/discord.js';
 
 function captureError(err: unknown): void {
   console.error(err);
   Sentry.captureException(err);
+}
+
+// IDF coverage 저알람 추적 — 30분(3 tick) 연속 50% 미만일 때만 Discord 알림.
+let lowIdfCoverageStreak = 0;
+let lastIdfCoverageAlertAt = 0;
+async function monitorIdfCoverage(): Promise<void> {
+  try {
+    const coverage = await getKeywordIdfCoverage(batchPool);
+    if (coverage < 0.5) {
+      lowIdfCoverageStreak++;
+    } else {
+      lowIdfCoverageStreak = 0;
+    }
+    if (lowIdfCoverageStreak >= 3 && Date.now() - lastIdfCoverageAlertAt > 60 * 60 * 1000) {
+      lastIdfCoverageAlertAt = Date.now();
+      const pct = (coverage * 100).toFixed(1);
+      await notifyPipelineWarning(
+        'keyword_idf',
+        `IDF 캐시 커버리지 ${pct}% (3 tick 연속 < 50%) — 배치 실패 가능`,
+      );
+    }
+  } catch (err) {
+    captureError(err);
+  }
 }
 
 /** KST 02:00-06:00 = UTC 17:00-21:00 */
@@ -81,7 +107,9 @@ function startCronJobs(): void {
           : []),
         { name: 'aggregateIssues', run: () => aggregateIssues(batchPool), critical: true },
         { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
+        { name: 'keywordIdfBatch', run: () => runKeywordIdfBatch(batchPool) },
       ]);
+      await monitorIdfCoverage();
       await checkPipelineHealth(batchPool).catch(captureError);
     } finally {
       clearIssuesCache();
@@ -170,6 +198,7 @@ function startCronJobs(): void {
       await cleanOldEngagementSnapshots();
       await cleanExpiredTrendKeywords(batchPool);
       await cleanExpiredIssueRankings(batchPool);
+      await cleanStaleKeywordIdf(batchPool);
       await checkDbSize(batchPool);
     } catch (err) {
       captureError(err);

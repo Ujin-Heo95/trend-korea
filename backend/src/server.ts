@@ -26,6 +26,7 @@ import { adminScraperRoutes } from './routes/adminScrapers.js';
 import { communityRankingRoutes } from './routes/communityRanking.js';
 import { entertainmentUnifiedRoutes } from './routes/entertainmentUnified.js';
 import { prerenderRoutes } from './routes/prerender.js';
+import { debugIssueMergeRoutes } from './routes/debugIssueMerge.js';
 import { startScheduler } from './scheduler/index.js';
 import { awaitRunningScrapers } from './scrapers/index.js';
 import { registerPrerender } from './middleware/prerender.js';
@@ -152,6 +153,7 @@ export async function buildApp() {
   await app.register(communityRankingRoutes);
   await app.register(entertainmentUnifiedRoutes);
   await app.register(prerenderRoutes);
+  await app.register(debugIssueMergeRoutes);
 
   // 봇 프리렌더: API 이외의 봇 요청에 동적 meta 태그 HTML 반환
   registerPrerender(app, pool);

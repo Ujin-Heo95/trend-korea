@@ -79,6 +79,16 @@ const DEFAULT_CROSS_SOURCE_3 = 0.2;
 const DEFAULT_BREAKING_KW_HALFLIFE = 30;
 const DEFAULT_BREAKING_KW_MAX_BOOST = 3.0;
 
+// Phase 2/3 — IDF 기반 병합 판정 + 임베딩 cosine 게이트
+// 키워드 공유 카운트 대신, 공유 키워드의 IDF 합이 임계값을 넘어야 union 허용.
+// 광범위 명사("정부","경제","한국")는 keyword_idf 테이블에서 낮은 idf를 받아 자동으로 제외됨.
+const DEFAULT_MERGE_IDF_THRESHOLD = 3.5;
+// 임베딩 cosine 게이트: IDF 통과 후 양쪽 임베딩이 모두 있을 때 의미 유사도 검증.
+// 한쪽이라도 임베딩이 없으면 IDF만으로 결정 (콜드 스타트 friendly).
+const DEFAULT_MERGE_COS_THRESHOLD = 0.78;
+// IDF 캐시 미스 시 폴백값 — 신규/희귀 키워드는 의미 있는 신호로 간주.
+const IDF_FALLBACK = 2.5;
+
 const NEWS_VIDEO_SOURCES = new Set([
   'youtube_sbs_news', 'youtube_ytn', 'youtube_mbc_news',
   'youtube_kbs_news', 'youtube_jtbc_news',
@@ -103,6 +113,8 @@ interface IssueConfig {
   readonly crossSource3: number;
   readonly breakingKwHalflife: number;
   readonly breakingKwMaxBoost: number;
+  readonly mergeIdfThreshold: number;
+  readonly mergeCosThreshold: number;
 }
 
 async function loadIssueConfig(): Promise<IssueConfig> {
@@ -127,6 +139,8 @@ async function loadIssueConfig(): Promise<IssueConfig> {
     crossSource3: (group['CROSS_SOURCE_3'] as number) ?? DEFAULT_CROSS_SOURCE_3,
     breakingKwHalflife: (group['BREAKING_KW_HALFLIFE'] as number) ?? DEFAULT_BREAKING_KW_HALFLIFE,
     breakingKwMaxBoost: (group['BREAKING_KW_MAX_BOOST'] as number) ?? DEFAULT_BREAKING_KW_MAX_BOOST,
+    mergeIdfThreshold: (group['MERGE_IDF_THRESHOLD'] as number) ?? DEFAULT_MERGE_IDF_THRESHOLD,
+    mergeCosThreshold: (group['MERGE_COS_THRESHOLD'] as number) ?? DEFAULT_MERGE_COS_THRESHOLD,
   };
 }
 
@@ -221,6 +235,8 @@ async function _aggregateIssues(pool: Pool, windowHours: IssueWindow = 12): Prom
     crossSource3: DEFAULT_CROSS_SOURCE_3,
     breakingKwHalflife: DEFAULT_BREAKING_KW_HALFLIFE,
     breakingKwMaxBoost: DEFAULT_BREAKING_KW_MAX_BOOST,
+    mergeIdfThreshold: DEFAULT_MERGE_IDF_THRESHOLD,
+    mergeCosThreshold: DEFAULT_MERGE_COS_THRESHOLD,
   }));
 
   // Step 0.5: Adaptive window — 12h 윈도우만 적응형, 6h/24h는 고정
@@ -247,7 +263,7 @@ async function _aggregateIssues(pool: Pool, windowHours: IssueWindow = 12): Prom
   const clusterGroups = buildClusterGroups(posts);
 
   // Step 3: Merge related clusters via trend keywords
-  const mergedGroups = await mergeViaTrendKeywords(pool, clusterGroups);
+  const mergedGroups = await mergeViaTrendKeywords(pool, clusterGroups, cfg);
 
   // Step 3.5: 임베딩 기반 이슈 중복제거 (v4 — bigram/IDF/containment/Gemini borderline 일체 제거)
   const finalGroups = deduplicateIssuesByEmbedding(mergedGroups);
@@ -342,11 +358,66 @@ function buildClusterGroups(posts: readonly ScoredPost[]): ClusterGroup[] {
 
 // ─── Step 3: Merge Via Trend Keywords ───
 
+/**
+ * keyword_idf 테이블에서 IDF 캐시를 로드한다.
+ * Phase 1 keywordIdfBatch가 5분 주기로 채움. 24h 이내 stale 제외.
+ * 미스 시 IDF_FALLBACK 으로 폴백 (호출 측에서 처리).
+ */
+async function loadIdfMap(pool: Pool): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  try {
+    const { rows } = await pool.query<{ keyword_normalized: string; idf: number }>(
+      `SELECT keyword_normalized, idf FROM keyword_idf
+       WHERE computed_at > NOW() - INTERVAL '24 hours'`,
+    );
+    for (const r of rows) map.set(r.keyword_normalized, Number(r.idf));
+  } catch (err) {
+    logger.warn({ err }, '[issueAggregator] keyword_idf load failed — using fallback');
+  }
+  return map;
+}
+
+function idfOf(map: ReadonlyMap<string, number>, kw: string): number {
+  const v = map.get(kw);
+  return v == null ? IDF_FALLBACK : v;
+}
+
+/**
+ * Phase 2/3 병합 판정 — 순수 함수로 추출(단위 테스트 + __internal__ 노출).
+ *   1) ACTION_ONLY_STOPWORDS 제거 후 informative 키워드만 평가
+ *   2) IDF 합 < idfThreshold → 거부
+ *   3) 양쪽 임베딩 가용 시 cos < cosThreshold → 거부 (한쪽 부재면 IDF만으로 결정)
+ */
+export type MergeDecisionReason = 'merge' | 'no_informative_kw' | 'low_idf' | 'low_cos';
+export function decideMergeByIdfAndCos(opts: {
+  sharedKeywords: readonly string[];
+  idfMap: ReadonlyMap<string, number>;
+  idfThreshold: number;
+  cosThreshold: number;
+  cos: number | null;
+  stopwords: ReadonlySet<string>;
+}): { merge: boolean; reason: MergeDecisionReason; idfSum: number } {
+  const informative = opts.sharedKeywords.filter(kw => !opts.stopwords.has(kw));
+  if (informative.length === 0) {
+    return { merge: false, reason: 'no_informative_kw', idfSum: 0 };
+  }
+  const idfSum = informative.reduce((s, kw) => s + idfOf(opts.idfMap, kw), 0);
+  if (idfSum < opts.idfThreshold) {
+    return { merge: false, reason: 'low_idf', idfSum };
+  }
+  if (opts.cos != null && opts.cos < opts.cosThreshold) {
+    return { merge: false, reason: 'low_cos', idfSum };
+  }
+  return { merge: true, reason: 'merge', idfSum };
+}
+
 async function mergeViaTrendKeywords(
   pool: Pool,
   groups: ClusterGroup[],
+  cfg: IssueConfig,
 ): Promise<IssueGroup[]> {
   const keywordIndex = await buildKeywordIndex(pool);
+  const idfMap = await loadIdfMap(pool);
 
   type GroupWithKeywords = { group: ClusterGroup; keywords: Set<string> };
   const groupsWithKw: GroupWithKeywords[] = groups.map(g => {
@@ -380,14 +451,15 @@ async function mergeViaTrendKeywords(
     return x;
   }
 
-  function union(a: number, b: number): void {
+  function union(a: number, b: number): boolean {
     const ra = find(a);
     const rb = find(b);
-    if (ra === rb) return;
+    if (ra === rb) return false;
     // Refuse merge if combined size would exceed limit
-    if (groupSize[ra] + groupSize[rb] > MAX_POSTS_PER_ISSUE) return;
+    if (groupSize[ra] + groupSize[rb] > MAX_POSTS_PER_ISSUE) return false;
     parent[ra] = rb;
     groupSize[rb] += groupSize[ra];
+    return true;
   }
 
   const MIN_MERGE_KW_LEN = 3; // 2글자 키워드("이란","미국" 등) 병합 제외
@@ -413,11 +485,8 @@ async function mergeViaTrendKeywords(
     }
   }
 
-  // 키워드 공유 → 병합 (기본 원칙 유지)
-  // 단, 공유 키워드가 ACTION_ONLY_STOPWORDS에만 해당하면 병합 스킵
-  // 2개 이상 키워드 공유 시에는 무조건 병합 (복수 키워드 = 강한 신호)
+  // 공유 키워드 후보 수집
   const pairSharedKws = new Map<string, Set<string>>();
-
   for (const [kw, indices] of kwToGroups) {
     for (let a = 0; a < indices.length; a++) {
       for (let b = a + 1; b < indices.length; b++) {
@@ -433,23 +502,54 @@ async function mergeViaTrendKeywords(
     }
   }
 
+  // 그룹별 대표 포스트 ID (임베딩 게이트용 — 최고 점수 뉴스 > 영상 > 커뮤니티)
+  function repPostId(idx: number): number | null {
+    const g = groupsWithKw[idx].group;
+    if (g.posts.length === 0) return null;
+    const sorted = [...g.posts].sort((a, b) => b.trendScore - a.trendScore);
+    return sorted[0]?.id ?? null;
+  }
+
+  // Phase 2/3 병합 판정:
+  //   1) 공유 키워드에서 ACTION_ONLY_STOPWORDS 제거
+  //   2) 남은 키워드들의 IDF 합 ≥ MERGE_IDF_THRESHOLD
+  //   3) 양쪽 임베딩 가용 시 cosine ≥ MERGE_COS_THRESHOLD (한쪽 부재 시 IDF만으로 결정)
+  let mergedByIdf = 0;
+  let rejectedByIdf = 0;
+  let rejectedByCos = 0;
+
   for (const [pairKey, sharedKws] of pairSharedKws) {
     const [aStr, bStr] = pairKey.split(':');
     const a = Number(aStr);
     const b = Number(bStr);
     if (find(a) === find(b)) continue;
 
-    // 2개 이상 키워드 공유 → 무조건 병합
-    if (sharedKws.size >= 2) {
-      union(a, b);
+    const idA = repPostId(a);
+    const idB = repPostId(b);
+    const cos = (idA != null && idB != null) ? embeddingCosine(idA, idB) : null;
+
+    const decision = decideMergeByIdfAndCos({
+      sharedKeywords: [...sharedKws],
+      idfMap,
+      idfThreshold: cfg.mergeIdfThreshold,
+      cosThreshold: cfg.mergeCosThreshold,
+      cos,
+      stopwords: ACTION_ONLY_STOPWORDS,
+    });
+    if (!decision.merge) {
+      if (decision.reason === 'low_idf') rejectedByIdf++;
+      else if (decision.reason === 'low_cos') rejectedByCos++;
       continue;
     }
 
-    // 단일 키워드: 접속어/동작어만이면 스킵
-    const theKw = [...sharedKws][0];
-    if (ACTION_ONLY_STOPWORDS.has(theKw)) continue;
+    if (union(a, b)) mergedByIdf++;
+  }
 
-    union(a, b);
+  if (mergedByIdf > 0 || rejectedByIdf > 0 || rejectedByCos > 0) {
+    logger.info(
+      { mergedByIdf, rejectedByIdf, rejectedByCos, candidatePairs: pairSharedKws.size },
+      '[issueAggregator] Step 3 IDF+cos merge decisions',
+    );
   }
 
   // Collect merged groups — split posts into news/community/video
@@ -535,10 +635,14 @@ function keywordJaccard(a: readonly string[], b: readonly string[]): number {
 export const __internal__ = {
   deduplicateIssuesByEmbedding: (groups: readonly IssueGroup[]) => deduplicateIssuesByEmbedding(groups),
   keywordJaccard,
+  decideMergeByIdfAndCos,
   EMBED_MERGE_THRESHOLD,
   EMBED_STRICT_THRESHOLD,
   KEYWORD_JACCARD_MIN,
   MAX_POSTS_PER_DEDUP_GROUP,
+  DEFAULT_MERGE_IDF_THRESHOLD,
+  DEFAULT_MERGE_COS_THRESHOLD,
+  IDF_FALLBACK,
 };
 
 function deduplicateIssuesByEmbedding(groups: readonly IssueGroup[]): IssueGroup[] {
