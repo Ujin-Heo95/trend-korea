@@ -50,6 +50,12 @@ const SOURCE_OVERRIDES: Record<string, string> = {
   zum_news: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400',
   google_news_kr: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400',
   nate_news: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400',
+  // Deal — distinct hues per community
+  clien_jirum: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400',
+  quasarzone_deal: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-400',
+  eomisae: 'bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-400',
+  ruliweb_hot: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
+  ppomppu_hot: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
 };
 
 /** Display label overrides — strip noisy suffixes / shorten portal names. */
@@ -64,6 +70,11 @@ const SOURCE_LABEL_OVERRIDES: Record<string, string> = {
   zum_news: 'ZUM',
   google_news_kr: 'Google',
   nate_news: '네이트',
+  clien_jirum: '클리앙',
+  quasarzone_deal: '뭬이사존',
+  eomisae: '어미새',
+  ruliweb_hot: '루리웹',
+  ppomppu_hot: '뽐뿌',
 };
 
 export function getSourceLabel(sourceKey: string, fallback: string): string {
