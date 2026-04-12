@@ -18,7 +18,7 @@ import { computeUnifiedScores } from './unifiedScoring.js';
 import { rankIssues } from './issueRanker.js';
 
 const V8_TIME_WINDOW_HOURS = 12;
-const V8_MAX_POSTS = 4000;
+const V8_MAX_POSTS = 2500;
 
 interface DbPostRow {
   id: number;

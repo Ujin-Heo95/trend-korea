@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Pool } from 'pg';
 
-// discord/pipelineLock/aggregator 를 무력화
+// discord/pipelineLock/v8 pipeline 을 무력화
 vi.mock('../../src/services/discord.js', () => ({
   notifyPipelineWarning: vi.fn().mockResolvedValue(undefined),
 }));
@@ -12,15 +12,15 @@ vi.mock('../../src/services/pipelineLock.js', () => ({
   withPipelineLock: vi.fn(async (_pool, _key, _name, fn: () => Promise<unknown>) => fn()),
   PIPELINE_LOCK_KEYS: { issuePipeline: 1 },
 }));
-const aggregateMock = vi.fn().mockResolvedValue(undefined);
+const v8PipelineMock = vi.fn().mockResolvedValue({
+  postsLoaded: 0, embeddingsGenerated: 0, clustersFormed: 0, issuesPersisted: 0, durationMs: 0,
+});
 const materializeMock = vi.fn().mockResolvedValue(undefined);
-const calculateScoresMock = vi.fn().mockResolvedValue(undefined);
-vi.mock('../../src/services/issueAggregator.js', () => ({
-  aggregateIssues: aggregateMock,
-  materializeIssueResponse: materializeMock,
+vi.mock('../../src/services/v8/pipeline.js', () => ({
+  runV8Pipeline: v8PipelineMock,
 }));
-vi.mock('../../src/services/scoring.js', () => ({
-  calculateScores: calculateScoresMock,
+vi.mock('../../src/services/issueMaterializer.js', () => ({
+  materializeIssueResponse: materializeMock,
 }));
 const clearCacheMock = vi.fn();
 vi.mock('../../src/routes/issues.js', () => ({
@@ -35,26 +35,23 @@ function makePool(queryImpl: (sql: string, params?: unknown[]) => Promise<{ rows
 
 describe('runIssueWatchdog (L1)', () => {
   beforeEach(() => {
-    aggregateMock.mockClear();
+    v8PipelineMock.mockClear();
     materializeMock.mockClear();
     clearCacheMock.mockClear();
-    calculateScoresMock.mockClear();
   });
 
   it('returns ok when MAX(calculated_at) age < 15 min', async () => {
     const pool = makePool(async () => ({ rows: [{ age_sec: 120 }] }));
     const result = await runIssueWatchdog(pool);
     expect(result).toBe('ok');
-    expect(aggregateMock).not.toHaveBeenCalled();
-    expect(calculateScoresMock).not.toHaveBeenCalled();
+    expect(v8PipelineMock).not.toHaveBeenCalled();
   });
 
-  it('forces full critical path recovery when stale > 15 min (includes calculateScores)', async () => {
+  it('forces v8 pipeline recovery when stale > 15 min', async () => {
     const pool = makePool(async () => ({ rows: [{ age_sec: 18 * 60 }] }));
     const result = await runIssueWatchdog(pool);
     expect(result).toBe('recovered');
-    expect(calculateScoresMock).toHaveBeenCalledOnce();
-    expect(aggregateMock).toHaveBeenCalledOnce();
+    expect(v8PipelineMock).toHaveBeenCalledOnce();
     expect(materializeMock).toHaveBeenCalledOnce();
     expect(clearCacheMock).toHaveBeenCalledOnce();
   });
@@ -65,8 +62,8 @@ describe('runIssueWatchdog (L1)', () => {
     expect(result).toBe('recovered');
   });
 
-  it('returns failed when aggregate throws', async () => {
-    aggregateMock.mockRejectedValueOnce(new Error('DB blew up'));
+  it('returns failed when v8 pipeline throws', async () => {
+    v8PipelineMock.mockRejectedValueOnce(new Error('DB blew up'));
     const pool = makePool(async () => ({ rows: [{ age_sec: 18 * 60 }] }));
     const result = await runIssueWatchdog(pool);
     expect(result).toBe('failed');
@@ -75,7 +72,7 @@ describe('runIssueWatchdog (L1)', () => {
 
 describe('runIssueProbe (L2)', () => {
   beforeEach(() => {
-    aggregateMock.mockClear();
+    v8PipelineMock.mockClear();
     materializeMock.mockClear();
   });
 

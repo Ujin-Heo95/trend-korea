@@ -15,18 +15,16 @@
 import { describe, it, expect } from 'vitest';
 
 describe('pipeline imports smoke', () => {
-  it('issueAggregator module loads and exports the expected functions', async () => {
-    const mod = await import('../../src/services/issueAggregator.js');
-    expect(typeof mod.aggregateIssues).toBe('function');
-    expect(typeof mod.aggregateAllWindows).toBe('function');
+  it('issueMaterializer module loads and exports the expected functions', async () => {
+    const mod = await import('../../src/services/issueMaterializer.js');
     expect(typeof mod.materializeIssueResponse).toBe('function');
     expect(typeof mod.snapshotRankings).toBe('function');
     expect(typeof mod.cleanExpiredIssueRankings).toBe('function');
   });
 
-  it('scoring module loads and exports calculateScores', async () => {
-    const mod = await import('../../src/services/scoring.js');
-    expect(typeof mod.calculateScores).toBe('function');
+  it('v8 pipeline module loads and exports runV8Pipeline', async () => {
+    const mod = await import('../../src/services/v8/pipeline.js');
+    expect(typeof mod.runV8Pipeline).toBe('function');
   });
 
   it('scheduler module loads and exports startScheduler', async () => {

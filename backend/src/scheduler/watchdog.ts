@@ -27,8 +27,8 @@
 import type { Pool } from 'pg';
 import { logger } from '../utils/logger.js';
 import { notifyPipelineWarning } from '../services/discord.js';
-import { aggregateIssues, materializeIssueResponse } from '../services/issueAggregator.js';
-import { calculateScores } from '../services/scoring.js';
+import { materializeIssueResponse } from '../services/issueMaterializer.js';
+import { runV8Pipeline } from '../services/v8/pipeline.js';
 import { clearIssuesCache } from '../routes/issues.js';
 import { withPipelineLock, PIPELINE_LOCK_KEYS } from '../services/pipelineLock.js';
 
@@ -106,13 +106,11 @@ export async function runIssueWatchdog(pool: Pool): Promise<'ok' | 'stale' | 're
 async function forceRecovery(pool: Pool, reason: string): Promise<'recovered' | 'failed'> {
   const result = await withPipelineLock(pool, PIPELINE_LOCK_KEYS.issuePipeline, 'watchdog-recovery', async () => {
     try {
-      // 2026-04-12 22:51 사고: watchdog 이 aggregateIssues 만 돌려서 복구를 시도했으나
-      //   post_scores 가 stale (worker 가 stopped 라 calculateScores 가 안 돌았음) → aggregator 가
-      //   old post reference 로 issue_rankings 를 채웠고 route 의 posts join 에서 전부 드롭.
-      //   반드시 calculateScores → aggregateIssues → materialize 순서로 critical path 전체 실행.
-      logger.warn({ reason }, '[watchdog] forcing calculateScores + aggregateIssues + materialize');
-      await calculateScores(pool);
-      await aggregateIssues(pool);
+      // v8 cutover (2026-04-13): legacy calculateScores+aggregateIssues 경로 제거.
+      // runV8Pipeline 이 loadPosts → embed → cluster → echo → score → rank → persist 를
+      // 단일 호출로 수행. materializeIssueResponse 는 그대로 이어서 실행.
+      logger.warn({ reason }, '[watchdog] forcing runV8Pipeline + materialize');
+      await runV8Pipeline(pool);
       await materializeIssueResponse(pool);
       clearIssuesCache(`watchdog-recovery:${reason}`);
       status.last_recovery_at = new Date().toISOString();

@@ -12,7 +12,6 @@
 
 import type { Pool } from 'pg';
 import { logger } from '../utils/logger.js';
-import { getKeywordIdfCoverage } from './keywordIdfBatch.js';
 import { labelTopics } from './topicLabeler.js';
 
 const WINDOW_HOURS = 24;
@@ -236,35 +235,6 @@ export async function computeIssueMetrics(
   ];
 }
 
-// ─── Keyword IDF metrics ───
-
-export async function computeKeywordIdfMetrics(pool: Pool): Promise<QualityMetric[]> {
-  const { rows } = await pool.query<{ df: number; idf: number }>(
-    `SELECT df, idf FROM keyword_idf WHERE computed_at > NOW() - INTERVAL '24 hours'`,
-  );
-  if (rows.length === 0) {
-    return [
-      { name: 'keyword_idf.total', value: 0 },
-      { name: 'keyword_idf.coverage_pct', value: 0 },
-    ];
-  }
-  const total = rows.length;
-  const df0 = rows.filter(r => Number(r.df) === 0).length;
-  const idfs = rows.map(r => Number(r.idf));
-
-  const coverage = await getKeywordIdfCoverage(pool);
-
-  return [
-    { name: 'keyword_idf.total', value: total },
-    { name: 'keyword_idf.coverage_pct', value: coverage },
-    { name: 'keyword_idf.df0_ratio', value: df0 / total },
-    { name: 'keyword_idf.idf_min', value: Math.min(...idfs) },
-    { name: 'keyword_idf.idf_max', value: Math.max(...idfs) },
-    { name: 'keyword_idf.idf_avg', value: average(idfs) },
-    { name: 'keyword_idf.idf_std', value: stddev(idfs) },
-  ];
-}
-
 // ─── Persistence ───
 
 async function persistMetrics(pool: Pool, metrics: readonly QualityMetric[]): Promise<void> {
@@ -298,9 +268,8 @@ export async function runQualityMetricsBatch(pool: Pool): Promise<QualityBatchRe
 
     const clusterMetrics = computeClusterMetrics(members);
     const issueMetrics = await computeIssueMetrics(pool, issues);
-    const idfMetrics = await computeKeywordIdfMetrics(pool);
 
-    const all = [...clusterMetrics, ...issueMetrics, ...idfMetrics];
+    const all = [...clusterMetrics, ...issueMetrics];
     await persistMetrics(pool, all);
 
     const elapsedMs = Date.now() - start;

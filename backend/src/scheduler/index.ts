@@ -3,26 +3,21 @@ import * as Sentry from '@sentry/node';
 import { runScrapersByPriority } from '../scrapers/index.js';
 import { loadCircuitStates } from '../scrapers/base.js';
 import { cleanOldPosts, cleanOldScraperRuns, cleanOldEngagementSnapshots, cleanNumericTitlePosts } from '../db/cleanup.js';
-import { calculateScores } from '../services/scoring.js';
 import { cleanExpiredTrendKeywords } from '../services/trendSignals.js';
-import { aggregateIssues, snapshotRankings, cleanExpiredIssueRankings, materializeIssueResponse } from '../services/issueAggregator.js';
+import { snapshotRankings, cleanExpiredIssueRankings, materializeIssueResponse } from '../services/issueMaterializer.js';
 import { runV8Pipeline } from '../services/v8/pipeline.js';
 import { summarizeAndUpdateIssues } from '../services/geminiSummarizer.js';
-import { crossValidateIssues } from '../services/crossValidator.js';
 import { checkDbSize } from '../services/dbMonitor.js';
 import { clearIssuesCache } from '../routes/issues.js';
 import { performDatabaseBackup } from '../services/backup.js';
 import { notifyBackupResult } from '../services/discord.js';
-import { generateEmbeddingsForRecentPosts, loadEmbeddingsFromDb } from '../services/embedding.js';
+import { loadEmbeddingsFromDb } from '../services/embedding.js';
 import { batchPool, logPoolStats } from '../db/client.js';
 import { runPipeline } from './pipeline.js';
 import { loadFeatureFlags } from '../services/featureFlags.js';
 import { enrichYoutubeEngagement } from '../services/youtubeEnrichment.js';
 import { checkPipelineHealth } from '../services/pipelineHealth.js';
-import { runTrackBDecay } from '../services/decayUpdater.js';
-import { runKeywordIdfBatch, getKeywordIdfCoverage, cleanStaleKeywordIdf } from '../services/keywordIdfBatch.js';
 import { runQualityMetricsBatch, cleanStaleQualityMetrics, getLatestMetric } from '../services/qualityMetricsBatch.js';
-import { runMergeArbiterWorker } from '../services/mergeArbiterWorker.js';
 import { withPipelineLock, PIPELINE_LOCK_KEYS } from '../services/pipelineLock.js';
 import { runIssueWatchdog, runIssueProbe, resetDailyCounters } from './watchdog.js';
 import {
@@ -38,30 +33,6 @@ function captureError(err: unknown): void {
   Sentry.captureException(err);
 }
 
-// IDF coverage 저알람 추적 — 30분(3 tick) 연속 50% 미만일 때만 Discord 알림.
-let lowIdfCoverageStreak = 0;
-let lastIdfCoverageAlertAt = 0;
-async function monitorIdfCoverage(): Promise<void> {
-  try {
-    const coverage = await getKeywordIdfCoverage(batchPool);
-    if (coverage < 0.5) {
-      lowIdfCoverageStreak++;
-    } else {
-      lowIdfCoverageStreak = 0;
-    }
-    if (lowIdfCoverageStreak >= 3 && Date.now() - lastIdfCoverageAlertAt > 60 * 60 * 1000) {
-      lastIdfCoverageAlertAt = Date.now();
-      const pct = (coverage * 100).toFixed(1);
-      await notifyPipelineWarning(
-        'keyword_idf',
-        `IDF 캐시 커버리지 ${pct}% (3 tick 연속 < 50%) — 배치 실패 가능`,
-      );
-    }
-  } catch (err) {
-    captureError(err);
-  }
-}
-
 // 품질 메트릭 알림 — Stage 1 폐쇄 루프
 //  - cluster.size_over_50_count > 0 → 즉시 (1h cooldown) — 과병합 폭주
 //  - issue.score_nan_count > 0 → 즉시 — production NaN 누출
@@ -70,17 +41,14 @@ async function monitorIdfCoverage(): Promise<void> {
 const qualityAlertState = {
   clusterOver50LastAt: 0,
   scoreNanLastAt: 0,
-  df0HighStreak: 0,
-  df0LastAt: 0,
 };
 const ALERT_COOLDOWN_MS = 60 * 60 * 1000;
 
 async function monitorQualityMetrics(): Promise<void> {
   try {
-    const [over50, nanCount, df0Ratio] = await Promise.all([
+    const [over50, nanCount] = await Promise.all([
       getLatestMetric(batchPool, 'cluster.size_over_50_count'),
       getLatestMetric(batchPool, 'issue.score_nan_count'),
-      getLatestMetric(batchPool, 'keyword_idf.df0_ratio'),
     ]);
     const now = Date.now();
 
@@ -92,19 +60,6 @@ async function monitorQualityMetrics(): Promise<void> {
     if ((nanCount ?? 0) > 0 && now - qualityAlertState.scoreNanLastAt > ALERT_COOLDOWN_MS) {
       qualityAlertState.scoreNanLastAt = now;
       await notifyPipelineWarning('quality.score_nan', `issue.score_nan_count = ${nanCount} — production NaN 누출 (즉시 조사)`);
-    }
-
-    if ((df0Ratio ?? 0) > 0.7) {
-      qualityAlertState.df0HighStreak++;
-    } else {
-      qualityAlertState.df0HighStreak = 0;
-    }
-    if (qualityAlertState.df0HighStreak >= 5 && now - qualityAlertState.df0LastAt > ALERT_COOLDOWN_MS) {
-      qualityAlertState.df0LastAt = now;
-      await notifyPipelineWarning(
-        'quality.idf_df0',
-        `keyword_idf.df0_ratio = ${(df0Ratio! * 100).toFixed(1)}% (5 tick 연속 >70%) — wiki phantom 오염 감지`,
-      );
     }
   } catch (err) {
     captureError(err);
@@ -205,28 +160,13 @@ function startCronJobs(): void {
     await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.issuePipeline, 'issue-pipeline', async () => {
       logPoolStats('pipeline-start');
       try {
-        const flags = await loadFeatureFlags();
-        if (flags.scoring_v8_enabled) {
-          // v8 통합 파이프라인: loadPosts → embed → cluster → echo → score → rank → persist
-          // 기존 calculateScores/aggregateIssues/keywordIdfBatch 체인을 단일 runV8Pipeline 으로 대체.
-          await runPipeline('issue-pipeline-v8', [
-            { name: 'runV8Pipeline', run: () => runV8Pipeline(batchPool), critical: true },
-            { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
-            { name: 'qualityMetricsBatch', run: () => runQualityMetricsBatch(batchPool) },
-          ]);
-        } else {
-          await runPipeline('issue-pipeline', [
-            { name: 'calculateScores', run: () => calculateScores(batchPool), critical: false },
-            ...(flags.embeddings_enabled
-              ? [{ name: 'generateEmbeddings', run: () => generateEmbeddingsForRecentPosts(batchPool) }]
-              : []),
-            { name: 'aggregateIssues', run: () => aggregateIssues(batchPool), critical: true },
-            { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
-            { name: 'keywordIdfBatch', run: () => runKeywordIdfBatch(batchPool) },
-            { name: 'qualityMetricsBatch', run: () => runQualityMetricsBatch(batchPool) },
-          ]);
-        }
-        await monitorIdfCoverage();
+        // v8 통합 파이프라인: loadPosts → embed → cluster → echo → score → rank → persist
+        // 2026-04-13 cutover: legacy calculateScores/aggregateIssues/keywordIdfBatch 체인 완전 제거.
+        await runPipeline('issue-pipeline-v8', [
+          { name: 'runV8Pipeline', run: () => runV8Pipeline(batchPool), critical: true },
+          { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
+          { name: 'qualityMetricsBatch', run: () => runQualityMetricsBatch(batchPool) },
+        ]);
         await monitorQualityMetrics();
         await checkPipelineHealth(batchPool).catch(captureError);
       } finally {
@@ -235,23 +175,6 @@ function startCronJobs(): void {
       }
     }).catch(captureError);
   });
-
-  // mergeArbiterWorker — 비동기 Gemini 중재자.
-  // issue-pipeline(:00,:10,...) 과 2분 offset(:02,:12,...) 으로 pending_merge_decisions 큐 소비.
-  // critical path에서 Gemini를 완전 제거한 뒤, 다음 파이프라인 tick이 결정을 재사용.
-  cron.schedule('2,12,22,32,42,52 * * * *', async () => {
-    if (isQuietHours()) return;
-    await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.mergeArbiter, 'merge-arbiter', async () => {
-      try {
-        const flags = await loadFeatureFlags();
-        if (!flags.gemini_summary_enabled) return; // gemini 자체가 꺼져있으면 skip
-        await runMergeArbiterWorker(batchPool);
-      } catch (err) {
-        captureError(err);
-      }
-    }).catch(captureError);
-  });
-  console.log('[scheduler] merge arbiter worker: every 10 min (offset +2)');
 
   // TD-006: Gemini 요약 — 독립 tick
   // 파이프라인(:00,:10,...) 완료 후 5분 여유 두고 실행 (:05,:15,...) — issue_rankings 최신 상태 보장.
@@ -279,33 +202,6 @@ function startCronJobs(): void {
     }).catch(captureError);
   });
   console.log('[scheduler] gemini summary: every 10 min (offset +5, flag-gated)');
-
-  // Track B decay-only updater: 10분 주기 (offset +3 — pipeline :00 후 3분, arbiter :02 후 1분)
-  // feature flag OFF 기본. staging A/B 검증 후 ON.
-  cron.schedule('3,13,23,33,43,53 * * * *', async () => {
-    if (isQuietHours()) return;
-    await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.trackBDecay, 'trackB-decay', async () => {
-      try {
-        const flags = await loadFeatureFlags();
-        if (!flags.scoring_track_b_enabled) return;
-        await runTrackBDecay(batchPool);
-      } catch (err) {
-        captureError(err);
-      }
-    }).catch(captureError);
-  });
-  console.log('[scheduler] track B decay: every 10 min (offset +3, flag-gated)');
-
-  // 교차검증: 15분 주기 (quiet hours 제외)
-  cron.schedule('3,18,33,48 * * * *', async () => {
-    if (isQuietHours()) return;
-    await withPipelineLock(batchPool, PIPELINE_LOCK_KEYS.crossValidation, 'cross-validation', async () => {
-      const flags = await loadFeatureFlags();
-      if (!flags.cross_validation_enabled) return;
-      await crossValidateIssues(batchPool).catch(captureError);
-    }).catch(captureError);
-  });
-  console.log('[scheduler] cross-validation: every 15 min (offset +3)');
 
   // 순위 스냅샷: 1시간 주기 (정시, quiet hours 제외)
   cron.schedule('0 * * * *', async () => {
@@ -402,7 +298,6 @@ function startCronJobs(): void {
       await cleanOldEngagementSnapshots();
       await cleanExpiredTrendKeywords(batchPool);
       await cleanExpiredIssueRankings(batchPool);
-      await cleanStaleKeywordIdf(batchPool);
       await cleanStaleQualityMetrics(batchPool);
       await checkDbSize(batchPool);
     } catch (err) {
