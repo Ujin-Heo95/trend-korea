@@ -52,9 +52,19 @@ fi
 
 # ── Step 2: legacy worker scale-down (idempotent) ─────────────
 # 단일 프로세스 통합 이전 worker 머신이 잔재로 남아있으면 정리.
-if fly status -a "$APP" 2>/dev/null | grep -q '^worker'; then
+if fly status -a "$APP" 2>/dev/null | grep -q '^ worker '; then
   log "legacy worker process group detected — scaling to 0"
   fly scale count worker=0 -a "$APP" --yes 2>/dev/null || warn "worker scale=0 failed (non-fatal)"
+fi
+
+# Step 2b: app 프로세스 그룹 count=1 강제.
+# 이유: in-memory pipelineLock 은 단일 머신 안에서만 직교 보장. count>=2 면
+#   두 머신의 scheduler tick 이 동시에 scoring 을 발사해 DB 부하 2배 + race.
+#   fly deploy 가 worker→app 마이그레이션 시 count=2 로 늘려놓는 부작용이 있었음.
+app_count=$(fly status -a "$APP" 2>/dev/null | grep -c '^ app ' || echo 0)
+if [[ "$app_count" -gt 1 ]]; then
+  log "app process count=$app_count > 1 — scaling to 1 (in-memory lock requires single machine)"
+  fly scale count app=1 -a "$APP" --yes 2>/dev/null || warn "app scale=1 failed (non-fatal)"
 fi
 
 # ── Step 3: boot wait ─────────────────────────────────────────
