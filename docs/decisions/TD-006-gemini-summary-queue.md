@@ -1,6 +1,6 @@
 # TD-006: Gemini 요약 큐 재설계 (Round 5)
 
-- 상태: 승인 대기
+- 상태: Phase 1 구현 완료 (2026-04-12) — Phase 2(본문 fetch) 보류
 - 일자: 2026-04-12
 - 부서: 개발
 - 선행: TD-005 뉴스 signalScore v7 (순서 무관, 병행 가능)
@@ -131,6 +131,27 @@ Discord 즉시 알림 조건:
 - (−) 셀렉터 fallback chain 유지보수 부담 (장기적으로 `@mozilla/readability` 도입 검토)
 - (−) 비용 관측 수동 (예산 회계 테이블/라우터는 본 Round 범위 외)
 - 롤백: feature flag `summary.v2_pipeline` OFF → 기존 경로 복귀. 056 테이블은 read-only로 유지.
+
+## Phase 1 구현 결과 (2026-04-12)
+
+브랜치: `feat/td-006-summary-queue` (master에서 분기)
+
+**구현 완료**:
+- (A) tick 분리 — `scheduler/index.ts`에 `2,12,22,…` cron 추가, `summarizeIssues` 메인 파이프라인에서 제거. 요약 phase 90s AbortController + 개별 Gemini 호출 8s `AbortController`.
+- (B) `summaryQueue.ts` 신규 — priority = score × freshness(6h 반감) × unsummarizedPenalty × novelty. 12개 단위 테스트 통과. config 그룹 `summary_queue` 추가 (8개 필드).
+- (C) `responseSchema` 강제 — `SchemaType` 기반 strict OpenAPI 스키마. 본문 fetch는 Phase 2로 분리.
+- (D) fingerprint 캐시 — 기존 `issueSummaryCache.ts` 그대로 유지 (이미 wired).
+- (E) `pipelineHealth.ts` — `getSummaryMetrics()` 노출(calls/timeouts/cacheHits/fallbacks/avgLatency/hitRate/fallbackRate). 임계값 알림 3종 추가.
+- 안전망: `routes/issues.ts`에서 `summary IS NOT NULL` 필터 제거 + `fillRuleBasedIfEmpty` 적용 (live + materialized 양쪽). rule-based fallback = `"{title} — {top post 첫 80자}"`.
+
+**Phase 2 보류** (사용자 결정):
+- `summaryExtraction.ts` 본문 fetch
+- 1차는 원 URL(통신사·일간지)만 대상, 셀렉터 fallback chain
+- `gemini-2.5-flash` 유지 (flash-lite 비교는 shadow 단계)
+
+**검증**:
+- TypeScript 컴파일 0 에러
+- 백엔드 테스트 409/409 통과 (`summaryQueue.test.ts` 12개 추가)
 
 ## 열린 질문
 

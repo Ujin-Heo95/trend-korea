@@ -9,15 +9,27 @@
 '전체' 탭은 개별 포스트가 아닌 **이슈(Issue)** 단위로 랭킹을 표시한다.
 이슈는 유사한 포스트들의 그룹이며, `issue_rankings` 테이블에 저장된다.
 
-**파이프라인 실행 주기**: 10분 (`scheduler/index.ts:66-91`, KST 02:00-06:00 quiet hours 제외)
+**파이프라인 실행 주기**: 10분 (`scheduler/index.ts`, KST 02:00-06:00 quiet hours 제외)
 
 ```
-calculateScores()       ← 개별 포스트 trend_score 계산 (scoring.ts)
-    ↓
-aggregateIssues()       ← 이슈 그룹핑 + 이슈 점수 산출 (issueAggregator.ts)
-    ↓
-summarizeAndUpdateIssues()  ← Gemini 제목/요약/카테고리 생성 (geminiSummarizer.ts)
+:00, :10, :20, …  메인 파이프라인 (사용자 응답 경로)
+  calculateScores()       ← 개별 포스트 trend_score 계산 (scoring.ts)
+      ↓
+  aggregateIssues()       ← 이슈 그룹핑 + 이슈 점수 산출 (issueAggregator.ts)
+      ↓
+  materializeIssueResponse()  ← /api/issues 응답 사전 계산
+
+:02, :12, :22, …  요약 tick (TD-006로 분리, 사용자 응답과 격리)
+  summarizeAndUpdateIssues()  ← summaryQueue 우선순위 + Gemini 호출 (geminiSummarizer.ts)
+      ↓
+  materializeIssueResponse()  ← 요약 반영 후 재생성
 ```
+
+**Tick 분리 (TD-006)**: 요약 작업이 사용자 응답 경로(materialize)에 전파되지 않도록
+별도 tick으로 분리. 요약 phase는 90s AbortController로 하드 캡, 개별 Gemini 호출은
+8s. 예산 소진 시 남은 stale 이슈는 rule-based fallback_template로 즉시 채워지고
+phase 종료. routes/issues.ts는 응답 직전 빈 summary를 rule-based로 채우는 안전망을
+가지고 있어 사용자는 절대 빈 summary를 보지 않음.
 
 스케줄러: `scheduler/index.ts:48-56`
 

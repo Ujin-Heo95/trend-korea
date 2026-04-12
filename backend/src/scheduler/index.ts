@@ -64,7 +64,8 @@ function startCronJobs(): void {
     });
   }
 
-  // 트렌드 스코어 갱신 + 이슈 집계 + Gemini 요약: 정시 10분 주기 (:00, :10, :20, …)
+  // 트렌드 스코어 갱신 + 이슈 집계: 정시 10분 주기 (:00, :10, :20, …)
+  // TD-006: Gemini 요약은 이 파이프라인에서 분리 — 별도 +2 tick.
   cron.schedule('*/10 * * * *', async () => {
     if (isQuietHours()) {
       console.log('[scheduler] quiet hours (02-06 KST) — skipping issue pipeline');
@@ -79,9 +80,6 @@ function startCronJobs(): void {
           ? [{ name: 'generateEmbeddings', run: () => generateEmbeddingsForRecentPosts(batchPool) }]
           : []),
         { name: 'aggregateIssues', run: () => aggregateIssues(batchPool), critical: true },
-        ...(flags.gemini_summary_enabled
-          ? [{ name: 'summarizeIssues', run: () => summarizeAndUpdateIssues(batchPool) }]
-          : []),
         { name: 'materializeResponse', run: () => materializeIssueResponse(batchPool) },
       ]);
       await checkPipelineHealth(batchPool).catch(captureError);
@@ -90,6 +88,25 @@ function startCronJobs(): void {
       logPoolStats('pipeline-end');
     }
   });
+
+  // TD-006: Gemini 요약 — 독립 tick (offset +2분)
+  // aggregateIssues 실패/지연이 사용자 응답 경로(materialize)에 전파되지 않도록 분리.
+  // summarizeAndUpdateIssues 내부에 phase 90s AbortController + fallback이 있어
+  // 절대 전체 응답을 막지 않음.
+  cron.schedule('2,12,22,32,42,52 * * * *', async () => {
+    if (isQuietHours()) return;
+    try {
+      const flags = await loadFeatureFlags();
+      if (!flags.gemini_summary_enabled) return;
+      await summarizeAndUpdateIssues(batchPool);
+      // 요약 결과 반영: materialized 재생성 + 응답 캐시 무효화
+      await materializeIssueResponse(batchPool).catch(captureError);
+      clearIssuesCache();
+    } catch (err) {
+      captureError(err);
+    }
+  });
+  console.log('[scheduler] gemini summary: every 10 min (offset +2, flag-gated)');
 
   // Track B decay-only updater: 10분 주기 (offset +7 — legacy pipeline :00 과 분리)
   // feature flag OFF 기본. staging A/B 검증 후 ON.

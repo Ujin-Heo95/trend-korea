@@ -30,6 +30,47 @@ const PORTAL_SOURCES = new Set([
   'google_trends', 'wikipedia_ko',
 ]);
 
+// TD-006 안전망: Gemini 요약이 아직 생성되지 않은 새 이슈에 rule-based summary를 채움.
+// Tick 분리로 aggregateIssues(:00) → summarizeAndUpdateIssues(+2m) 사이 ~2분 갭 동안
+// 사용자가 빈 summary를 보지 않도록 보장. summarizeAndUpdateIssues가 돌면 덮어쓰기됨.
+function isEmptySummary(s: string | null | undefined): boolean {
+  if (!s) return true;
+  return s.startsWith('[fallback]');
+}
+
+function ruleBasedSummary(title: string, topPosts: readonly { title: string }[]): string {
+  const lead = topPosts[0]?.title?.trim();
+  if (!lead || lead === title) {
+    return `${title.slice(0, 80)} — 관련 보도 ${topPosts.length}건`;
+  }
+  const clipped = lead.length > 80 ? `${lead.slice(0, 80)}…` : lead;
+  return `${title} — ${clipped}`;
+}
+
+interface ResponseIssueLike {
+  title: string;
+  summary: string | null;
+  news_posts: readonly { title: string }[];
+  community_posts: readonly { title: string }[];
+}
+
+function fillRuleBasedIfEmpty<T extends ResponseIssueLike>(issue: T): T {
+  if (!isEmptySummary(issue.summary)) return issue;
+  const sources = issue.news_posts.length > 0 ? issue.news_posts : issue.community_posts;
+  return { ...issue, summary: ruleBasedSummary(issue.title, sources) };
+}
+
+interface MaterializedResponse {
+  issues?: ResponseIssueLike[];
+}
+
+function applySafetyNet(payload: unknown): unknown {
+  if (!payload || typeof payload !== 'object') return payload;
+  const p = payload as MaterializedResponse;
+  if (!Array.isArray(p.issues)) return payload;
+  return { ...p, issues: p.issues.map(fillRuleBasedIfEmpty) };
+}
+
 // SNS trend source keys
 const SNS_SOURCES = new Set([
   'apify_x_trending', 'apify_instagram', 'apify_tiktok',
@@ -92,7 +133,7 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
           [page, 20, windowHours],
         );
         if (matRows.length > 0 && matRows[0].response_json) {
-          const result = matRows[0].response_json;
+          const result = applySafetyNet(matRows[0].response_json);
           issuesCache.set(cacheKey, result);
           return result;
         }
@@ -100,12 +141,14 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
 
       // Fallback: compute from issue_rankings (non-standard page sizes or empty materialized)
       // Cursor-based pagination when cursor_score + cursor_id provided
+      // TD-006: summary IS NOT NULL 필터 제거. tick 분리 후 새 이슈는 잠시 NULL일 수 있고
+      // 응답 빌드 시 rule-based 안전망(fillRuleBasedIfEmpty)으로 채워짐.
       const useCursor = cursorScore != null && cursorId != null;
       const [issueResult, countResult] = await Promise.all([
         useCursor
           ? app.pg.query<IssueRankingRow>(
               `SELECT * FROM issue_rankings
-               WHERE expires_at > NOW() AND summary IS NOT NULL AND window_hours = $4
+               WHERE expires_at > NOW() AND window_hours = $4
                  AND (issue_score, id) < ($2, $3)
                ORDER BY issue_score DESC, id DESC
                LIMIT $1`,
@@ -113,13 +156,13 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
             )
           : app.pg.query<IssueRankingRow>(
               `SELECT * FROM issue_rankings
-               WHERE expires_at > NOW() AND summary IS NOT NULL AND window_hours = $3
+               WHERE expires_at > NOW() AND window_hours = $3
                ORDER BY issue_score DESC
                LIMIT $1 OFFSET $2`,
               [limit, offset, windowHours],
             ),
         app.pg.query<{ total: number }>(
-          `SELECT COUNT(*)::int AS total FROM issue_rankings WHERE expires_at > NOW() AND summary IS NOT NULL AND window_hours = $1`,
+          `SELECT COUNT(*)::int AS total FROM issue_rankings WHERE expires_at > NOW() AND window_hours = $1`,
           [windowHours],
         ),
       ]);
@@ -257,7 +300,7 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
           // Channel tags
           channel_tags: channelTags,
         };
-      });
+      }).map(fillRuleBasedIfEmpty);
 
       // next_cursor for keyset pagination
       const lastIssue = issues[issues.length - 1];

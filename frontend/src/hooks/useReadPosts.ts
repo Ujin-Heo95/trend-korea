@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 const STORAGE_KEY = 'weeklit:read-posts';
 const OLD_STORAGE_KEY = 'trend-korea:read-posts';
@@ -43,7 +43,7 @@ function loadStore(): Record<string, ReadEntry> {
 export function useReadPosts() {
   const [store, setStore] = useState(loadStore);
   const storeRef = useRef(store);
-  storeRef.current = store;
+  useEffect(() => { storeRef.current = store; }, [store]);
 
   const isRead = useCallback(
     (url: string) => url in storeRef.current,

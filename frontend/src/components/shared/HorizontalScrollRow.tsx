@@ -31,9 +31,12 @@ export const HorizontalScrollRow: React.FC<Props> = ({ children, role, ariaLabel
   }, []);
 
   useEffect(() => {
-    updateFade();
+    const raf = requestAnimationFrame(updateFade);
     window.addEventListener('resize', updateFade);
-    return () => window.removeEventListener('resize', updateFade);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', updateFade);
+    };
   }, [updateFade]);
 
   return (

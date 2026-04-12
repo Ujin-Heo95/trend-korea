@@ -252,7 +252,9 @@ async function _calculateScores(pool: Pool): Promise<number> {
   // Step 3: Batch UPSERT in chunks of 500 (raw score 직접 사용)
   // 057 스키마: trend_score_base (=score / decayFactor), post_origin, half_life_min 도 함께 기록 →
   //           Track B decay-updater(PR #2)가 이 행들을 주기적으로 재감쇠할 수 있도록 한다.
-  const CHUNK = 500;
+  // CHUNK 100 + 50ms yield: post_scores 락 보유 시간을 평균 ≤2초로 줄여 ALTER TABLE
+  // (마이그레이션 057/058 등 ACCESS EXCLUSIVE 락)이 lock_timeout 안에 끼어들 수 있게 한다.
+  const CHUNK = 100;
   let updated = 0;
   for (let start = 0; start < rawScoreEntries.length; start += CHUNK) {
     const end = Math.min(start + CHUNK, rawScoreEntries.length);
@@ -294,6 +296,9 @@ async function _calculateScores(pool: Pool): Promise<number> {
       chunkParams
     );
     updated += result.rowCount ?? 0;
+    if (end < rawScoreEntries.length) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
   }
 
   // 스코어 분포 로깅 (raw score)

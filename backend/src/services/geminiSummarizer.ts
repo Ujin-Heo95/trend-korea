@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType, type ResponseSchema } from '@google/generative-ai';
 import pLimit from 'p-limit';
 import { config } from '../config/index.js';
 import { checkQuota, incrementQuota } from './apiQuota.js';
@@ -9,6 +9,14 @@ import {
   getCachedSummary,
   setCachedSummary,
 } from './issueSummaryCache.js';
+import {
+  buildQueue,
+  loadQueueConfig,
+  recordSnapshot,
+  DEFAULT_QUEUE_CONFIG,
+  type QueueConfig,
+  type QueueBuildRow,
+} from './summaryQueue.js';
 
 const GEMINI_DAILY_QUOTA = parseInt(process.env.GEMINI_DAILY_QUOTA ?? '1500', 10);
 
@@ -48,6 +56,56 @@ function evictOldestIfFull(): void {
 
 function makeCacheKey(clusterIds: readonly number[], standalonePostIds: readonly number[]): string {
   return [...clusterIds].sort().join(',') + '|' + [...standalonePostIds].sort().join(',');
+}
+
+// ─── Response Schema (TD-006 C) ───
+// Strict structured output — Gemini rejects fields outside this schema.
+const RESPONSE_SCHEMA: ResponseSchema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    title:         { type: SchemaType.STRING },
+    category:      { type: SchemaType.STRING },
+    summary:       { type: SchemaType.STRING },
+    quality_score: { type: SchemaType.INTEGER },
+    keywords: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+    },
+    sentiment: { type: SchemaType.STRING },
+  },
+  required: ['title', 'category', 'summary', 'quality_score', 'keywords', 'sentiment'],
+};
+
+// ─── Metrics (TD-006 E) ───
+// Reset at the start of every summarizeAndUpdateIssues call.
+interface SummaryMetrics {
+  calls: number;
+  timeouts: number;
+  cacheHits: number;   // mem + DB fingerprint cache + in-batch dedup
+  fallbacks: number;
+  totalLatencyMs: number;
+}
+
+const metrics: SummaryMetrics = {
+  calls: 0, timeouts: 0, cacheHits: 0, fallbacks: 0, totalLatencyMs: 0,
+};
+
+export function getSummaryMetrics(): Readonly<SummaryMetrics> & { avgLatencyMs: number; hitRate: number; fallbackRate: number } {
+  const processed = metrics.calls + metrics.cacheHits + metrics.fallbacks;
+  return {
+    ...metrics,
+    avgLatencyMs: metrics.calls > 0 ? metrics.totalLatencyMs / metrics.calls : 0,
+    hitRate: processed > 0 ? metrics.cacheHits / processed : 0,
+    fallbackRate: processed > 0 ? metrics.fallbacks / processed : 0,
+  };
+}
+
+function resetMetrics(): void {
+  metrics.calls = 0;
+  metrics.timeouts = 0;
+  metrics.cacheHits = 0;
+  metrics.fallbacks = 0;
+  metrics.totalLatencyMs = 0;
 }
 
 // ─── Gemini Client ───
@@ -180,7 +238,7 @@ function validateAndBuild(parsed: RawParsed): IssueSummary | null {
     : withEmoji;
 
   // ~다체 drift detection for monitoring
-  if (/[^요죠네래][다니][.\s"}\,]/.test(parsed.summary)) {
+  if (/[^요죠네래][다니][.\s"},]/.test(parsed.summary)) {
     console.warn(`[geminiSummarizer] ~다체 drift detected in summary`);
   }
 
@@ -198,6 +256,7 @@ function validateAndBuild(parsed: RawParsed): IssueSummary | null {
 
 async function summarizeSingleIssue(
   posts: readonly PostForSummary[],
+  opts: { signal?: AbortSignal; singleCallTimeoutMs: number } = { singleCallTimeoutMs: 8_000 },
 ): Promise<IssueSummary | null> {
   const client = getClient();
   if (!client) return null;
@@ -211,16 +270,33 @@ async function summarizeSingleIssue(
   const model = client.getGenerativeModel({ model: 'gemini-2.5-flash' });
   const postsText = formatPostsForPrompt(posts);
 
+  // Phase signal propagates → abort the whole call chain when 90s budget expires.
+  // Single-call timer caps each request so one slow call can't monopolize.
   for (let attempt = 0; attempt < 2; attempt++) {
+    if (opts.signal?.aborted) return null;
+
+    const perCall = new AbortController();
+    const onPhaseAbort = (): void => perCall.abort();
+    opts.signal?.addEventListener('abort', onPhaseAbort, { once: true });
+    const timer = setTimeout(() => perCall.abort(), opts.singleCallTimeoutMs);
+    const startedAt = Date.now();
+
     try {
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: `${SYSTEM_PROMPT}\n\n게시글:\n${postsText}` }] }],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 1200,
-          responseMimeType: 'application/json',
+      const result = await model.generateContent(
+        {
+          contents: [{ role: 'user', parts: [{ text: `${SYSTEM_PROMPT}\n\n게시글:\n${postsText}` }] }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 1200,
+            responseMimeType: 'application/json',
+            responseSchema: RESPONSE_SCHEMA,
+          },
         },
-      });
+        { signal: perCall.signal },
+      );
+
+      metrics.calls++;
+      metrics.totalLatencyMs += Date.now() - startedAt;
 
       const text = result.response.text();
       const raw = JSON.parse(text);
@@ -231,11 +307,16 @@ async function summarizeSingleIssue(
         console.warn(`[geminiSummarizer] validation failed — raw keys: ${parsed ? Object.keys(parsed).join(',') : 'null'}`);
         return null;
       }
-
       return summary;
     } catch (err) {
-      console.warn(`[geminiSummarizer] attempt ${attempt + 1} failed:`, (err as Error).message);
+      const aborted = perCall.signal.aborted;
+      if (aborted) metrics.timeouts++;
+      console.warn(`[geminiSummarizer] attempt ${attempt + 1} failed${aborted ? ' (aborted)' : ''}:`, (err as Error).message);
+      if (opts.signal?.aborted) return null;
       if (attempt === 0) await new Promise(r => setTimeout(r, 2000));
+    } finally {
+      clearTimeout(timer);
+      opts.signal?.removeEventListener('abort', onPhaseAbort);
     }
   }
   return null;
@@ -333,132 +414,194 @@ function makeFallbackSummary(posts: readonly PostForSummary[], rowId: number): I
 
 // ─── Pipeline ───
 
+interface PriorityRow extends IssueRow {
+  readonly issue_score: number;
+  readonly calculated_at: Date;
+}
+
+function toBuildRow(row: PriorityRow, topPostIds: readonly number[]): QueueBuildRow {
+  return {
+    rowId: row.id,
+    stableId: row.stable_id,
+    issueScore: row.issue_score,
+    calculatedAt: row.calculated_at,
+    summary: row.summary,
+    topPostIds,
+  };
+}
+
 /** Summarize top issues individually and update DB.
- *  윈도우별로 공평하게 slot 할당하여 6h/24h가 starvation 되지 않도록 함. */
+ *  윈도우별로 공평하게 slot 할당하여 6h/24h가 starvation 되지 않도록 함.
+ *
+ *  TD-006 Round 5:
+ *  - summaryQueue 우선순위로 정렬 (priority = score × freshness × unsummarized × novelty)
+ *  - 90s phase budget + 8s per-call AbortController
+ *  - budget 소진 시 남은 stale 이슈는 fallback_template로 즉시 채우고 종료
+ */
 export async function summarizeAndUpdateIssues(
   pool: import('pg').Pool,
-  maxIssuesPerWindow = 15,
+  maxIssuesPerWindow?: number,
 ): Promise<number> {
+  resetMetrics();
   pruneCache();
 
-  // PARTITION BY window_hours로 윈도우당 top-N만 선택 — 3-윈도우 합 최대 45개
-  const { rows } = await pool.query<IssueRow>(
-    `SELECT id, cluster_ids, standalone_post_ids, summary, stable_id FROM (
-       SELECT id, cluster_ids, standalone_post_ids, summary, stable_id,
+  const cfg: QueueConfig = await loadQueueConfig(pool).catch(() => DEFAULT_QUEUE_CONFIG);
+  const perWindow = maxIssuesPerWindow ?? cfg.maxIssuesPerWindow;
+
+  // Pull all top-N per window regardless of summary state — queue priority decides
+  // who actually gets re-summarized. Fresh non-stale rows fall through.
+  const { rows } = await pool.query<PriorityRow>(
+    `SELECT id, cluster_ids, standalone_post_ids, summary, stable_id, issue_score, calculated_at FROM (
+       SELECT id, cluster_ids, standalone_post_ids, summary, stable_id, issue_score, calculated_at,
               ROW_NUMBER() OVER (PARTITION BY window_hours ORDER BY issue_score DESC) AS rn
          FROM issue_rankings
         WHERE expires_at > NOW()
-          AND (summary IS NULL OR summary LIKE '[fallback]%')
      ) t
      WHERE t.rn <= $1`,
-    [maxIssuesPerWindow],
+    [perWindow],
   );
 
   if (rows.length === 0) return 0;
 
-  const metrics = { memHit: 0, dbHit: 0, batchDedup: 0, geminiCalls: 0, fallback: 0 };
+  // Phase budget — 90s hard cap. On expiry, remaining stale rows fallback-fill.
+  const phase = new AbortController();
+  const phaseTimer = setTimeout(() => phase.abort(), cfg.phaseTimeoutMs);
+
   let updated = 0;
-
-  // ── Phase 1: in-memory cache hits (hot path, no DB roundtrip) ──
-  const uncachedRows: IssueRow[] = [];
-  for (const row of rows) {
-    const { stableKey, legacyKey, primaryKey } = cacheKeysForRow(row);
-    const prev = summaryCache.get(primaryKey)
-      ?? (stableKey ? summaryCache.get(legacyKey) : undefined);
-    if (prev && Date.now() - prev.cachedAt < CACHE_TTL_MS) {
-      await updateIssueInDb(pool, row.id, prev.summary);
-      metrics.memHit++;
-      updated++;
-    } else {
-      uncachedRows.push(row);
-    }
-  }
-
-  if (uncachedRows.length === 0) {
-    console.log(`[geminiSummarizer] updated ${updated} (mem=${metrics.memHit}, all cached)`);
-    return updated;
-  }
-
-  // ── Phase 2: fetch posts for memory-miss rows (parallel, pLimit(4)) ──
-  const fetchLimit = pLimit(4);
-  const rowsWithPosts = await Promise.all(
-    uncachedRows.map(row => fetchLimit(async () => ({
-      row,
-      ...(await fetchPostsForRow(pool, row)),
-    }))),
-  );
-
-  const validItems = rowsWithPosts.filter(item => item.posts.length > 0);
-  if (validItems.length === 0) {
-    console.log(`[geminiSummarizer] updated ${updated} (mem=${metrics.memHit})`);
-    return updated;
-  }
-
-  // ── Phase 2.5: DB cache lookup + in-batch dedup ──
-  // In-batch dedup: two issue rows that resolve to the same fingerprint
-  // (e.g. overlapping clusters with identical top-5 post ids) share one
-  // Gemini call instead of triggering two parallel calls.
   const inflightByFingerprint = new Map<string, Promise<IssueSummary>>();
   const geminiLimit = pLimit(3);
+  const fetchLimit = pLimit(4);
 
-  await Promise.all(validItems.map(({ row, posts, allPostIds }) => (async () => {
-    const fingerprint = computeFingerprint(allPostIds);
-    const topIds = topPostIdsFor(allPostIds);
+  try {
+    // Step 1: fetch posts (needed for fingerprint + priority signals)
+    const withPosts = await Promise.all(
+      rows.map(row => fetchLimit(async () => ({
+        row,
+        ...(await fetchPostsForRow(pool, row)),
+      }))),
+    );
+    const validItems = withPosts.filter(it => it.posts.length > 0);
+    if (validItems.length === 0) return 0;
 
-    // 2.5a — DB cache hit?
-    const dbHit = await getCachedSummary(pool, fingerprint, topIds);
-    if (dbHit) {
-      await updateIssueInDb(pool, row.id, dbHit.summary);
-      cacheSummary(row, dbHit.summary);
-      metrics.dbHit++;
-      updated++;
-      return;
-    }
+    // Step 2: priority queue build (stale + novelty-boosted first)
+    const buildRows: QueueBuildRow[] = validItems.map(it =>
+      toBuildRow(it.row, topPostIdsFor(it.allPostIds)),
+    );
+    const queue = buildQueue(buildRows, cfg);
+    const itemByRowId = new Map(validItems.map(it => [it.row.id, it]));
 
-    // 2.5b — already in flight in this batch?
-    const inflight = inflightByFingerprint.get(fingerprint);
-    if (inflight) {
-      const summary = await inflight;
+    const processOne = async (rowId: number): Promise<void> => {
+      const item = itemByRowId.get(rowId);
+      if (!item) return;
+      const { row, posts, allPostIds } = item;
+      const top = topPostIdsFor(allPostIds);
+
+      if (phase.signal.aborted) {
+        if (!row.summary || row.summary.startsWith('[fallback]')) {
+          const fb = makeFallbackSummary(posts, row.id);
+          await updateIssueInDb(pool, row.id, fb);
+          metrics.fallbacks++;
+          updated++;
+        }
+        return;
+      }
+
+      const fingerprint = computeFingerprint(allPostIds);
+
+      // In-memory cache hit
+      const { stableKey, legacyKey, primaryKey } = cacheKeysForRow(row);
+      const prev = summaryCache.get(primaryKey) ?? (stableKey ? summaryCache.get(legacyKey) : undefined);
+      if (prev && Date.now() - prev.cachedAt < CACHE_TTL_MS) {
+        await updateIssueInDb(pool, row.id, prev.summary);
+        metrics.cacheHits++;
+        updated++;
+        return;
+      }
+
+      // DB fingerprint cache hit
+      const dbHit = await getCachedSummary(pool, fingerprint, top);
+      if (dbHit) {
+        await updateIssueInDb(pool, row.id, dbHit.summary);
+        cacheSummary(row, dbHit.summary);
+        metrics.cacheHits++;
+        updated++;
+        return;
+      }
+
+      // In-batch dedup
+      const inflight = inflightByFingerprint.get(fingerprint);
+      if (inflight) {
+        const summary = await inflight;
+        await updateIssueInDb(pool, row.id, summary);
+        cacheSummary(row, summary);
+        metrics.cacheHits++;
+        updated++;
+        return;
+      }
+
+      const promise = geminiLimit(async () => {
+        const result = await summarizeSingleIssue(posts, {
+          signal: phase.signal,
+          singleCallTimeoutMs: cfg.singleCallTimeoutMs,
+        });
+        if (result) return result;
+        metrics.fallbacks++;
+        return makeFallbackSummary(posts, row.id);
+      });
+      inflightByFingerprint.set(fingerprint, promise);
+
+      const summary = await promise;
       await updateIssueInDb(pool, row.id, summary);
       cacheSummary(row, summary);
-      metrics.batchDedup++;
+
+      if (!summary.summary.startsWith('[fallback]')) {
+        try {
+          await setCachedSummary(pool, fingerprint, summary, top);
+        } catch (err) {
+          console.warn('[geminiSummarizer] DB cache write failed:', (err as Error).message);
+        }
+      }
       updated++;
-      return;
+    };
+
+    // Always update snapshots for novelty detection on next tick (every row)
+    for (const it of validItems) {
+      recordSnapshot(it.row.stable_id, topPostIdsFor(it.allPostIds));
     }
 
-    // 2.5c — true miss: dispatch Gemini call (rate-limited, pLimit(3))
-    const promise = geminiLimit(async () => {
-      const result = await summarizeSingleIssue(posts);
-      if (result) {
-        metrics.geminiCalls++;
-        return result;
-      }
-      metrics.fallback++;
-      return makeFallbackSummary(posts, row.id);
-    });
-    inflightByFingerprint.set(fingerprint, promise);
+    // Targets: stale OR novelty-boosted. Skip rest (already up-to-date in DB).
+    const targetIds = new Set(
+      queue
+        .filter(q => q.summaryIsStale || q.memberChangeRate >= cfg.noveltyThreshold)
+        .map(q => q.rowId),
+    );
 
-    const summary = await promise;
-    await updateIssueInDb(pool, row.id, summary);
-    cacheSummary(row, summary);
-
-    // Persist to DB cache (skip fallbacks — they're degraded)
-    if (summary.summary !== `[fallback] 관련 기사 ${posts.length}건`) {
-      try {
-        await setCachedSummary(pool, fingerprint, summary, topIds);
-      } catch (err) {
-        console.warn('[geminiSummarizer] DB cache write failed:', (err as Error).message);
+    // Process in priority order; geminiLimit caps real parallelism.
+    for (const q of queue) {
+      if (!targetIds.has(q.rowId)) continue;
+      if (phase.signal.aborted) {
+        const item = itemByRowId.get(q.rowId);
+        if (item && q.summaryIsStale) {
+          const fb = makeFallbackSummary(item.posts, item.row.id);
+          await updateIssueInDb(pool, item.row.id, fb);
+          metrics.fallbacks++;
+          updated++;
+        }
+        continue;
       }
+      await processOne(q.rowId);
     }
-    updated++;
-  })()));
 
-  console.log(
-    `[geminiSummarizer] updated ${updated} ` +
-    `(mem=${metrics.memHit}, db=${metrics.dbHit}, batch=${metrics.batchDedup}, ` +
-    `gemini=${metrics.geminiCalls}, fallback=${metrics.fallback})`,
-  );
-  return updated;
+    const m = getSummaryMetrics();
+    console.log(
+      `[geminiSummarizer] updated ${updated}/${queue.length} ` +
+      `(targets=${targetIds.size}, calls=${m.calls}, timeouts=${m.timeouts}, ` +
+      `cache=${m.cacheHits}, fallback=${m.fallbacks}, avg=${m.avgLatencyMs.toFixed(0)}ms)`,
+    );
+    return updated;
+  } finally {
+    clearTimeout(phaseTimer);
+  }
 }
 
 /** Prune expired cache entries */

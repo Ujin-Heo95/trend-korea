@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 interface Props {
   value: string;
@@ -30,6 +30,13 @@ export const MobileSearchToggle: React.FC<Props> = ({ value, onChange }) => {
     return () => clearTimeout(timer);
   }, [input, value, onChange, open]);
 
+  const handleClose = useCallback(() => {
+    setOpen(false);
+    if (input) {
+      onChange(input);
+    }
+  }, [input, onChange]);
+
   // Close on Escape key
   useEffect(() => {
     if (!open) return;
@@ -38,14 +45,7 @@ export const MobileSearchToggle: React.FC<Props> = ({ value, onChange }) => {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open]);
-
-  const handleClose = () => {
-    setOpen(false);
-    if (input) {
-      onChange(input);
-    }
-  };
+  }, [open, handleClose]);
 
   const handleClear = () => {
     setInput('');

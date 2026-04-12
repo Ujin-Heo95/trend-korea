@@ -48,7 +48,8 @@ export const SudokuGrid: React.FC<GridProps> = ({
       const num = parseInt(e.key);
       if (num >= 1 && num <= 9) {
         e.preventDefault();
-        noteMode ? onNote(num) : onInput(num);
+        if (noteMode) onNote(num);
+        else onInput(num);
       }
       if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
