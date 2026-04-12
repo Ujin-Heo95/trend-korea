@@ -19,6 +19,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ynaHtml = readFileSync(join(__dirname, '../fixtures/yna_article.html'), 'utf-8');
 const daumHtml = readFileSync(join(__dirname, '../fixtures/daum_article.html'), 'utf-8');
 const nateHtml = readFileSync(join(__dirname, '../fixtures/nate_article.html'), 'utf-8');
+const joinsHtml = readFileSync(join(__dirname, '../fixtures/joongang_article.html'), 'utf-8');
+const kbsHtml = readFileSync(join(__dirname, '../fixtures/kbs_article.html'), 'utf-8');
+const ytnHtml = readFileSync(join(__dirname, '../fixtures/ytn_article.html'), 'utf-8');
+const mbcHtml = readFileSync(join(__dirname, '../fixtures/mbc_article.html'), 'utf-8');
 
 describe('articleBodyExtractor', () => {
   beforeEach(() => {
@@ -45,6 +49,13 @@ describe('articleBodyExtractor', () => {
 
     it('returns true for nate news URLs (suffix match)', () => {
       expect(isExtractorSupported('https://news.nate.com/view/20260412n15179')).toBe(true);
+    });
+
+    it('returns true for major news HTML-scraper domains', () => {
+      expect(isExtractorSupported('https://www.joongang.co.kr/article/25419504')).toBe(true);
+      expect(isExtractorSupported('https://news.kbs.co.kr/news/pc/view/view.do?ncd=8533684')).toBe(true);
+      expect(isExtractorSupported('https://www.ytn.co.kr/_ln/0103_202604122247188024')).toBe(true);
+      expect(isExtractorSupported('https://imnews.imbc.com/replay/2026/nwdesk/article/6814612_37004.html')).toBe(true);
     });
 
     it('returns false for unsupported domains', () => {
@@ -134,6 +145,70 @@ describe('articleBodyExtractor', () => {
         'https://news.nate.com/view/20260412n15179',
         expect.objectContaining({ eucKr: true }),
       );
+    });
+  });
+
+  describe('extractArticleBody — joongang', () => {
+    beforeEach(() => {
+      vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(joinsHtml));
+    });
+
+    it('extracts paragraphs from #article_body p and strips figure', async () => {
+      const body = await extractArticleBody('https://www.joongang.co.kr/article/25419504');
+      expect(body).not.toBeNull();
+      expect(body!.length).toBeGreaterThan(400);
+      expect(body).toContain('호르무즈 해협');
+      expect(body).toContain('트루스소셜');
+      expect(body).not.toContain('사진=로이터');
+      expect(body).not.toContain('dataLayer');
+    });
+  });
+
+  describe('extractArticleBody — kbs', () => {
+    beforeEach(() => {
+      vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(kbsHtml));
+    });
+
+    it('extracts element text from .detail-body and strips reporter/script', async () => {
+      const body = await extractArticleBody('https://news.kbs.co.kr/news/pc/view/view.do?ncd=8533684');
+      expect(body).not.toBeNull();
+      expect(body!.length).toBeGreaterThan(200);
+      expect(body).toContain('호르무즈 해협');
+      expect(body).not.toContain('reporter@kbs.co.kr');
+      expect(body).not.toContain('관련기사 바로가기');
+      expect(body).not.toContain('var ga');
+    });
+  });
+
+  describe('extractArticleBody — ytn', () => {
+    beforeEach(() => {
+      vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(ytnHtml));
+    });
+
+    it('extracts element text from #CmAdContent', async () => {
+      const body = await extractArticleBody('https://www.ytn.co.kr/_ln/0103_202604122247188024');
+      expect(body).not.toBeNull();
+      expect(body!.length).toBeGreaterThan(200);
+      expect(body).toContain('러브썸 페스티벌');
+      expect(body).not.toContain('cskim@ytn.co.kr');
+      expect(body).not.toContain('관련기사');
+    });
+  });
+
+  describe('extractArticleBody — mbc', () => {
+    beforeEach(() => {
+      vi.mocked(fetchHtml).mockResolvedValue(cheerio.load(mbcHtml));
+    });
+
+    it('extracts element text from .news_txt and keeps anchor markers', async () => {
+      const body = await extractArticleBody('https://imnews.imbc.com/replay/2026/nwdesk/article/6814612_37004.html');
+      expect(body).not.toBeNull();
+      expect(body!.length).toBeGreaterThan(200);
+      expect(body).toContain('종전 협상');
+      // ◀ 앵커 ▶ / ◀ 리포트 ▶ 마커는 요약 품질에 도움되므로 유지
+      expect(body).toContain('앵커');
+      expect(body).not.toContain('광고 슬롯');
+      expect(body).not.toContain('mbcTracker');
     });
   });
 

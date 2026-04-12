@@ -37,6 +37,35 @@ const DOMAIN_RULES: readonly DomainRule[] = [
     removeWithin: ['script', 'style', 'iframe', '.articleSubecjt', '.articleControl'],
     eucKr: true,
   },
+  {
+    // 중앙일보 — www.joongang.co.kr/article/{id}. `#article_body` 안 <p> 단락.
+    // 검증: /article/25419504 → 6 paragraphs, 596 chars.
+    host: 'joongang.co.kr',
+    selectors: ['#article_body p', '#article_body', '.article_body p'],
+    removeWithin: ['script', 'style', 'iframe', 'figure', 'figcaption', '.ab_photo', '.image'],
+  },
+  {
+    // KBS 뉴스 — news.kbs.co.kr/news/pc/view/view.do?ncd={id}. `.detail-body` 단일
+    // element text (본문이 <p> 없이 텍스트 + <br> 로 구성). 검증: ncd=8533684 → 554 chars.
+    host: 'kbs.co.kr',
+    selectors: ['.detail-body', '#cont_newstext'],
+    removeWithin: ['script', 'style', 'iframe', 'figure', 'figcaption', '.reporter', '.related'],
+  },
+  {
+    // YTN — www.ytn.co.kr/_ln/{id}. `#CmAdContent` element text 추출.
+    // 검증: /_ln/0103_202604122247188024 → 578 chars.
+    host: 'ytn.co.kr',
+    selectors: ['#CmAdContent', '.article_txt'],
+    removeWithin: ['script', 'style', 'iframe', 'figure', 'figcaption', '.reporter_area', '.link_news'],
+  },
+  {
+    // MBC 뉴스 — imnews.imbc.com/replay/{yr}/nwdesk/article/{id}.html. `.news_txt` element text.
+    // 앵커/기자 마커(◀ 앵커 ▶ / ◀ 리포트 ▶) 는 의도적으로 유지 (Gemini 가 구조 힌트로 활용).
+    // 검증: 6814612_37004.html → 1192 chars.
+    host: 'imbc.com',
+    selectors: ['.news_txt', '.content_body'],
+    removeWithin: ['script', 'style', 'iframe', 'figure', 'figcaption', '.img_set', '.ad'],
+  },
 ];
 
 const MAX_BODY_LEN = 4000;
