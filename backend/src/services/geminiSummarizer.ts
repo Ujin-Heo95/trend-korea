@@ -156,6 +156,8 @@ const SYSTEM_PROMPT = `당신은 한국 뉴스/커뮤니티/영상 트렌드를 
 
 JSON만 출력: {"title": "...", "category": "...", "summary": "...", "quality_score": 7, "keywords": ["키워드1", "키워드2"], "sentiment": "neutral"}
 
+⚠️ JSON 문자열 값(title/summary/keywords) 안에는 절대 큰따옴표(")를 포함하지 마세요. 인용·강조가 필요하면 작은따옴표(') 또는 한국어 인용부호(「」, 『』)를 사용하세요. 큰따옴표가 들어가면 JSON 파싱이 깨져 응답이 실패합니다.
+
 ⚠️ 최종 확인: summary의 모든 문장이 ~어요/~이에요/~예요 어미로만 끝나야 합니다. ~네요/~죠/~거든요/~인데요/~잖아요/~다/~니다/~라고해요/~다고해요 중 하나라도 있으면 실패입니다.`;
 
 // ─── Emoji Fallback ───
@@ -287,7 +289,7 @@ async function summarizeSingleIssue(
           contents: [{ role: 'user', parts: [{ text: `${SYSTEM_PROMPT}\n\n게시글:\n${postsText}` }] }],
           generationConfig: {
             temperature: 0.3,
-            maxOutputTokens: 1200,
+            maxOutputTokens: 2000,
             responseMimeType: 'application/json',
             responseSchema: RESPONSE_SCHEMA,
           },
@@ -310,8 +312,9 @@ async function summarizeSingleIssue(
       try {
         raw = JSON.parse(cleaned);
       } catch (parseErr) {
+        // JSON.stringify로 newline·따옴표를 escape해서 한 줄로 출력 (pino가 newline에서 자르는 문제 회피)
         console.warn(
-          `[geminiSummarizer] JSON.parse failed: ${(parseErr as Error).message} | first 250 chars: ${cleaned.slice(0, 250)}`
+          `[geminiSummarizer] JSON.parse failed: ${(parseErr as Error).message} | raw(${cleaned.length}): ${JSON.stringify(cleaned).slice(0, 500)}`
         );
         throw parseErr;
       }
